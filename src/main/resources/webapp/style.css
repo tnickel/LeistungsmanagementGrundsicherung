@@ -1,0 +1,207 @@
+/* SDN.sozial — Leistungsmanagement Grundsicherung
+   Widget-basiertes Dashboard-Design, bewusst ohne CSS-Framework. */
+
+:root {
+  --farbe-rand: #d8dee9;
+  --farbe-rand-stark: #b9c2d0;
+  --farbe-flaeche: #f2f4f8;
+  --farbe-karte: #ffffff;
+  --farbe-text: #1f2937;
+  --farbe-text-leise: #6b7280;
+  --farbe-akzent: #0f766e;
+  --farbe-akzent-dunkel: #115e59;
+  --farbe-gefahren: #b91c1c;
+  --farbe-sidebar: #17253b;
+  --farbe-sidebar-text: #cbd5e1;
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  color: var(--farbe-text);
+  background: var(--farbe-flaeche);
+}
+
+.hidden { display: none !important; }
+
+.layout { display: flex; min-height: 100vh; }
+
+/* ---------- Sidebar ---------- */
+.sidebar {
+  width: 250px;
+  flex-shrink: 0;
+  background: var(--farbe-sidebar);
+  color: var(--farbe-sidebar-text);
+  display: flex;
+  flex-direction: column;
+  padding: 18px 14px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.logo { display: flex; gap: 10px; align-items: center; margin-bottom: 26px; }
+.logo-mark {
+  width: 40px; height: 40px; border-radius: 8px;
+  background: var(--farbe-akzent); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 16px;
+}
+.logo-name { font-weight: 700; color: #fff; font-size: 15px; }
+.logo-sub { font-size: 11px; color: var(--farbe-sidebar-text); max-width: 160px; }
+
+.nav { display: flex; flex-direction: column; gap: 4px; }
+.nav-item {
+  text-align: left; padding: 10px 12px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--farbe-sidebar-text);
+  font-size: 14px; cursor: pointer;
+}
+.nav-item:hover { background: rgba(255, 255, 255, 0.08); }
+.nav-item.active { background: var(--farbe-akzent); color: #fff; }
+
+.sidebar-footer { margin-top: auto; font-size: 12px; }
+.sidebar-user { color: #fff; margin-bottom: 4px; }
+
+/* ---------- Kopfleiste und Inhalt ---------- */
+.inhalt { flex: 1; padding: 22px 26px 40px; min-width: 0; }
+
+.kopfleiste {
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 18px;
+}
+.kopfleiste h1 { font-size: 20px; margin: 0; }
+
+.suchfeld {
+  margin-left: auto;
+  width: 320px; max-width: 40vw;
+  padding: 9px 12px; border: 1px solid var(--farbe-rand-stark);
+  border-radius: 8px; font-size: 14px; background: #fff;
+}
+
+.zurueck {
+  border: 1px solid var(--farbe-rand-stark); background: #fff;
+  border-radius: 8px; padding: 7px 12px; cursor: pointer;
+}
+.zurueck:hover { background: var(--farbe-flaeche); }
+
+/* ---------- Widgets ---------- */
+.widgets {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px; margin-bottom: 18px;
+}
+.widget {
+  background: var(--farbe-karte); border: 1px solid var(--farbe-rand);
+  border-radius: var(--radius); padding: 14px 16px;
+}
+.widget-titel { font-size: 12px; color: var(--farbe-text-leise); text-transform: uppercase; letter-spacing: 0.04em; }
+.widget-wert { font-size: 24px; font-weight: 700; margin-top: 6px; }
+
+/* ---------- Karten, Tabellen, Masken ---------- */
+.karte {
+  background: var(--farbe-karte); border: 1px solid var(--farbe-rand);
+  border-radius: var(--radius); padding: 16px 18px; margin-bottom: 16px;
+}
+.karte h2 { font-size: 15px; margin: 0 0 12px; }
+
+.tabelle { width: 100%; border-collapse: collapse; }
+.tabelle th {
+  text-align: left; font-size: 12px; color: var(--farbe-text-leise);
+  border-bottom: 2px solid var(--farbe-rand); padding: 8px 8px;
+}
+.tabelle td { border-bottom: 1px solid var(--farbe-rand); padding: 8px; vertical-align: top; }
+.tabelle tr:last-child td { border-bottom: 0; }
+.tabelle .zahl { text-align: right; font-variant-numeric: tabular-nums; }
+.tabelle tbody tr.klickbar { cursor: pointer; }
+.tabelle tbody tr.klickbar:hover { background: #eef6f5; }
+tr.historisch td { color: var(--farbe-text-leise); }
+
+.chip {
+  display: inline-block; padding: 3px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; border: 1px solid transparent;
+}
+.chip.aktiv { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+.chip.historisch { background: #f3f4f6; color: #6b7280; border-color: #d1d5db; }
+.chip.bereit { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+.chip.uebergeben { background: #fefce8; color: #a16207; border-color: #fde68a; }
+.chip.storniert { background: #fef2f2; color: var(--farbe-gefahren); border-color: #fecaca; }
+
+.ergebnisstreifen {
+  display: flex; flex-wrap: wrap; gap: 18px;
+  margin-top: 12px; padding: 10px 12px;
+  background: var(--farbe-flaeche); border-radius: 8px;
+  font-size: 13px;
+}
+.ergebnis-betrag { margin-left: auto; font-size: 15px; color: var(--farbe-akzent-dunkel); }
+
+.maske-gitter {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px; margin-bottom: 10px;
+}
+.maske-gitter label, .fall-maske label {
+  display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--farbe-text-leise);
+}
+input, select {
+  padding: 8px 10px; border: 1px solid var(--farbe-rand-stark);
+  border-radius: 7px; font-size: 14px; background: #fff; color: var(--farbe-text);
+}
+input:disabled { background: var(--farbe-flaeche); color: var(--farbe-text-leise); }
+input:focus, select:focus { outline: 2px solid var(--farbe-akzent); outline-offset: 1px; }
+
+.hinweis { color: var(--farbe-text-leise); font-size: 12px; }
+
+button.primaer, button.sekundaer, button.linkartig {
+  border: 0; border-radius: 8px; padding: 9px 16px;
+  font-size: 14px; cursor: pointer;
+}
+button.primaer { background: var(--farbe-akzent); color: #fff; }
+button.primaer:hover { background: var(--farbe-akzent-dunkel); }
+button.primaer:disabled { background: #94a3b8; cursor: wait; }
+button.sekundaer { background: #fff; border: 1px solid var(--farbe-rand-stark); }
+button.sekundaer:hover { background: var(--farbe-flaeche); }
+button.linkartig { background: transparent; color: var(--farbe-akzent-dunkel); text-decoration: underline; }
+button.large { padding: 12px 22px; font-size: 15px; }
+
+/* ---------- Fallmasken ---------- */
+.fall-maske {
+  border: 1px solid var(--farbe-rand); border-radius: 8px;
+  padding: 14px; margin-bottom: 12px; background: #fcfdfe;
+}
+.fall-maske h3 { margin: 0 0 10px; font-size: 14px; display: flex; align-items: center; gap: 10px; }
+.fall-maske .maske-gitter { margin-bottom: 12px; }
+.fall-version { font-size: 11px; color: var(--farbe-text-leise); font-weight: 400; }
+.checkbox-zeile { display: flex; align-items: center; gap: 8px; }
+.checkbox-zeile input { width: 16px; height: 16px; }
+.checkbox-zeile span { font-size: 13px; color: var(--farbe-text); }
+
+.kopfdaten { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; font-size: 13px; }
+
+code {
+  background: var(--farbe-flaeche); border: 1px solid var(--farbe-rand);
+  border-radius: 4px; padding: 1px 5px; font-size: 12px;
+}
+
+.journal-liste { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.journal-liste li { padding: 8px 0; border-bottom: 1px solid var(--farbe-rand); }
+.journal-liste li:last-child { border-bottom: 0; }
+.journal-zeit { color: var(--farbe-text-leise); font-size: 11px; }
+
+.spalten { display: flex; gap: 16px; align-items: flex-start; }
+.spalte-weit { flex: 1; min-width: 0; }
+.spalte-schmal { width: 320px; flex-shrink: 0; }
+
+/* ---------- Dialog ---------- */
+.dialog-rahmen {
+  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45);
+  display: flex; align-items: center; justify-content: center; z-index: 50;
+}
+.dialog {
+  background: #fff; border-radius: 12px; padding: 22px 24px;
+  width: 440px; max-width: 90vw; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+}
+.dialog h3 { margin: 0 0 10px; }
+.dialog p { margin: 0 0 18px; line-height: 1.5; }
+.dialog.fehler h3 { color: var(--farbe-gefahren); }

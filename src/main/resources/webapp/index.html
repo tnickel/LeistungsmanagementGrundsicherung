@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SDN.sozial — Leistungsmanagement Grundsicherung</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="logo">
+        <div class="logo-mark">SD</div>
+        <div>
+          <div class="logo-name">SDN.sozial</div>
+          <div class="logo-sub">Leistungsmanagement Grundsicherung</div>
+        </div>
+      </div>
+      <nav class="nav">
+        <button class="nav-item active" data-view="uebersicht">Fallübersicht</button>
+        <button class="nav-item" data-view="journal">Buchungsjournal</button>
+        <button class="nav-item" data-view="admin">Adminbereich</button>
+        <button class="nav-item" data-view="funktionen">Funktionsübersicht</button>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user">Sachbearbeitung</div>
+        <div class="sidebar-version">SDN.sozial LMG · Version 0.2.0</div>
+      </div>
+    </aside>
+
+    <main class="inhalt">
+      <!-- ============ Fallübersicht ============ -->
+      <section id="view-uebersicht" class="view">
+        <header class="kopfleiste">
+          <h1>Fallübersicht</h1>
+          <input id="suchfeld" class="suchfeld" type="search"
+                 placeholder="Aktenzeichen oder Name suchen …" autocomplete="off">
+        </header>
+
+        <div class="widgets">
+          <div class="widget">
+            <div class="widget-titel">Aktive Vorgänge</div>
+            <div class="widget-wert" id="widget-aktive">–</div>
+          </div>
+          <div class="widget">
+            <div class="widget-titel">Zahlbetrag-Vorschau (Summe)</div>
+            <div class="widget-wert" id="widget-vorschau">–</div>
+          </div>
+          <div class="widget">
+            <div class="widget-titel">Zahlungen bereit (30 Tage)</div>
+            <div class="widget-wert" id="widget-zahlungen">–</div>
+          </div>
+          <div class="widget">
+            <div class="widget-titel">Fristen / Wiedervorlage</div>
+            <div class="widget-wert" id="widget-fristen">–</div>
+          </div>
+        </div>
+
+        <div class="karte">
+          <h2>Bedarfsgemeinschaften</h2>
+          <table class="tabelle" id="tabelle-bgs">
+            <thead>
+              <tr>
+                <th>Aktenzeichen</th><th>Hauptperson</th><th>Status</th>
+                <th class="zahl">Restbudget</th><th class="zahl">Zahlbetrag-Vorschau</th>
+                <th>Wiedervorlage</th><th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ============ Vorgangsmaske ============ -->
+      <section id="view-vorgang" class="view hidden">
+        <header class="kopfleiste">
+          <button class="zurueck" id="btn-zurueck">← Zurück</button>
+          <h1 id="vorgang-titel">Vorgang</h1>
+          <span class="chip" id="vorgang-status"></span>
+        </header>
+
+        <div class="spalten">
+          <div class="spalte-weit">
+            <div class="karte">
+              <h2>Bedarfsermittlung (SGB XII)</h2>
+              <p class="hinweis" id="berechnung-hinweis"></p>
+              <table class="tabelle" id="tabelle-bedarf">
+                <thead>
+                  <tr><th>SozialFall</th><th class="zahl">Regelbedarf</th><th class="zahl">Mehrbedarf</th>
+                      <th class="zahl">KdU</th><th class="zahl">Gesamt</th><th class="zahl">Freibetrag</th>
+                      <th class="zahl">Anrechenbar</th><th class="zahl">Zahlbetrag</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+              <div class="ergebnisstreifen">
+                <span>Gesamtbedarf: <strong id="gesamtbedarf">–</strong></span>
+                <span>Anrechenbares Einkommen: <strong id="anrechenbar">–</strong></span>
+                <span class="ergebnis-betrag">Auszahlungsbetrag: <strong id="zahlbetrag">–</strong></span>
+              </div>
+            </div>
+
+            <div class="karte">
+              <h2>SozialFälle bearbeiten</h2>
+              <div id="fall-masken"></div>
+            </div>
+
+            <div class="karte">
+              <h2>Zahlbarmachung</h2>
+              <div class="maske-gitter">
+                <label>IBAN
+                  <input id="iban" type="text" placeholder="DE00 0000 0000 0000 0000 00" disabled>
+                </label>
+                <label>BIC
+                  <input id="bic" type="text" placeholder="XXXXXXXXXXX" disabled>
+                </label>
+                <label>Zahlungsmonat
+                  <input id="zahlungsmonat" type="month" required>
+                </label>
+                <label>Sachbearbeiter-Kürzel
+                  <input id="sachbearbeiter" type="text" maxlength="50" placeholder="z. B. sb-01" required>
+                </label>
+              </div>
+              <p class="hinweis">Bankverbindung wird im Demo-Datenmodell nicht geführt (Blueprint-Spec v0.2.0)
+                — Felder sind deaktiviert.</p>
+              <button id="btn-auszahlung" class="primaer large">Auszahlung anordnen</button>
+            </div>
+
+            <div class="karte">
+              <h2>Zahlungshistorie</h2>
+              <table class="tabelle" id="tabelle-zahlungen">
+                <thead>
+                  <tr><th>Monat</th><th class="zahl">Betrag</th><th>Status</th>
+                      <th>Vorgangs-Nr.</th><th>Angelegt</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="spalte-schmal">
+            <div class="karte">
+              <h2>Vorgangskopf</h2>
+              <div class="kopfdaten">
+                <div>Aktenzeichen: <strong id="kopf-aktenzeichen"></strong></div>
+                <div>Hauptperson: <strong id="kopf-name"></strong></div>
+                <div>Restbudget: <strong id="kopf-budget"></strong></div>
+                <div>Version: <strong id="kopf-version"></strong></div>
+              </div>
+              <div class="maske-gitter">
+                <label>Status
+                  <select id="kopf-status">
+                    <option value="1">aktiv</option>
+                    <option value="0">historisiert</option>
+                  </select>
+                </label>
+                <label>Wiedervorlage
+                  <input id="kopf-wiedervorlage" type="date">
+                </label>
+              </div>
+              <button id="btn-kopf" class="sekundaer">Kopfdaten speichern</button>
+            </div>
+
+            <div class="karte">
+              <h2>Journal (Vorgang)</h2>
+              <ul class="journal-liste" id="liste-journal-vorgang"></ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ Journal ============ -->
+      <section id="view-journal" class="view hidden">
+        <header class="kopfleiste"><h1>Buchungsjournal</h1></header>
+        <div class="karte">
+          <table class="tabelle" id="tabelle-journal">
+            <thead>
+              <tr><th>Zeitpunkt</th><th>Vorgang</th><th>Aktion</th><th>Sachbearbeiter</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ============ Adminbereich ============ -->
+      <section id="view-admin" class="view hidden">
+        <header class="kopfleiste">
+          <h1>Adminbereich</h1>
+          <button id="btn-status" class="sekundaer">Status prüfen</button>
+        </header>
+
+        <div class="spalten">
+          <div class="spalte-weit">
+            <div class="karte">
+              <h2>Systemstatus</h2>
+              <p class="hinweis">Prüft, ob die Datenbank erreichbar ist und alle Komponenten gestartet sind —
+                „alles OK" ist erfüllt, wenn alle Prüfungen grün sind.</p>
+              <table class="tabelle" id="tabelle-status">
+                <thead>
+                  <tr><th>Komponente</th><th>Prüfung</th><th>Details</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="spalte-schmal">
+            <div class="karte">
+              <h2>Laufzeitumgebung</h2>
+              <div class="kopfdaten" id="admin-laufzeit">
+                <div class="hinweis">Noch keine Prüfung — bitte „Status prüfen" ausführen.</div>
+              </div>
+            </div>
+
+            <div class="karte">
+              <h2>Aktionen</h2>
+              <p class="hinweis">Wiederanlauf beendet halbfertige Vorgänge der Demo-Antragsverarbeitung
+                nach einem Absturz (Saga-Kompensation, idempotent — mehrfaches Ausführen ist unschädlich).</p>
+              <button id="btn-wiederanlauf" class="primaer">Wiederanlauf ausführen</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ Funktionsübersicht ============ -->
+      <section id="view-funktionen" class="view hidden">
+        <header class="kopfleiste"><h1>Funktionsübersicht</h1></header>
+
+        <div class="karte">
+          <h2>Fachfunktionen (Leistungsmanagement Grundsicherung, SGB XII)</h2>
+          <table class="tabelle">
+            <thead>
+              <tr><th>Bereich</th><th>Funktion</th><th>Beschreibung</th><th>Technik</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Fallübersicht</td><td>Vorgänge suchen und öffnen</td>
+                  <td>inkrementelle Suche nach Aktenzeichen/Name; Widgets für aktive Vorgänge, Zahlbetrag-Vorschau, Zahlungen bereit und Fristen</td>
+                  <td><code>GET /api/bedarfsgemeinschaften</code></td></tr>
+              <tr><td>Vorgangsmaske</td><td>Bedarfsermittlung</td>
+                  <td>Regelbedarf je Regelbedarfsstufe, Mehrbedarf Merkzeichen G (17 %), Kosten der Unterkunft (Miete + Heizung)</td>
+                  <td>berechnet je SozialFall, read-only</td></tr>
+              <tr><td>Vorgangsmaske</td><td>Einkommensbereinigung</td>
+                  <td>Renteneinkünfte voll anrechenbar; Erwerbsfreibetrag min(30 %, 281,50 EUR) nach § 82 Abs. 3 SGB XII</td>
+                  <td>berechnet je SozialFall, read-only</td></tr>
+              <tr><td>Vorgangsmaske</td><td>Zahlbarmachung</td>
+                  <td>Auszahlung anordnen: Idempotenz über Vorgangsnummer, Anspruchsprüfung (Zahlbetrag &gt; 0), Budget-Prüfung, Restbudget-Minderung</td>
+                  <td><code>POST /api/auszahlung</code> — eine kurze Transaktion</td></tr>
+              <tr><td>Masken</td><td>Speichern mit Sperrschutz</td>
+                  <td>optimistisches Locking über VERSION-Spalte + Trigger; gleichzeitige Bearbeitung meldet KONKURRENZ statt Lost Update</td>
+                  <td><code>PUT /api/sozialfaelle/{id}</code></td></tr>
+              <tr><td>Journal</td><td>Buchungsjournal</td>
+                  <td>revisionssichere Einträge je Vorgang mit Sachbearbeiter-Kürzel (Vier-Augen-Prinzip), überlebt Historisierung</td>
+                  <td><code>GET /api/journal</code></td></tr>
+            </tbody>
+          </table>
+
+          <h2 style="margin-top:18px">Transaktionssteuerung (Kern)</h2>
+          <table class="tabelle">
+            <thead>
+              <tr><th>Funktion</th><th>Baustein</th><th>Beschreibung</th><th>Technik</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Atomare Arbeitseinheiten</td><td>TxManager</td>
+                  <td>Begin/Commit/Rollback je Transaktion (SYNCPOINT-Ersatz); fachliche Fehler brechen sofort ab</td>
+                  <td>Oracle ACID</td></tr>
+              <tr><td>Sperren-Retry</td><td>RetryPolicy</td>
+                  <td>ORA-00054/00060/08177 → Wiederholversuch mit exponentiellem Backoff, maximal 3 Versuche</td>
+                  <td>automatisch je Transaktion</td></tr>
+              <tr><td>Task-Steuerung</td><td>TaskController</td>
+                  <td>begrenzte Parallelität, Warteschlange, Zeitlimit-Wachhund (Interrupt → Rollback), Statistik</td>
+                  <td>jede API-Anfrage ist ein Task</td></tr>
+              <tr><td>Lange Vorgänge</td><td>SagaEngine</td>
+                  <td>Geschäftsvorgänge in Schritten mit Journal (TX_SAGA/TX_SAGA_STEP); bei Fehlern rückwärts kompensieren</td>
+                  <td>je Schritt eine kurze Transaktion</td></tr>
+              <tr><td>Wiederanlauf</td><td>SagaEngine.recover</td>
+                  <td>beendet halbfertige Vorgänge nach Absturz/Neustart; Kompensationen sind idempotent</td>
+                  <td>Button im Adminbereich, <code>POST /api/system/wiederanlauf</code></td></tr>
+              <tr><td>Systemdiagnose</td><td>Systemdiagnose</td>
+                  <td>DB-Check (Erreichbarkeit, Version, Antwortzeit, Bestandszahlen) und Komponentenstatus „alles gestartet"</td>
+                  <td><code>GET /api/system/status</code></td></tr>
+              <tr><td>Monitoring</td><td>TaskController.stats()</td>
+                  <td>aktive, erfolgreiche, fehlgeschlagene, abgebrochene und abgelehnte Tasks samt mittlerer Dauer</td>
+                  <td>im Adminbereich angezeigt</td></tr>
+            </tbody>
+          </table>
+
+          <p class="hinweis" style="margin-top:12px">Hinweis: Anmeldung und Berechtigungsprüfung sind noch nicht
+            umgesetzt (siehe Roadmap, Etappe 3) — im Demo-Umfang ist der Adminbereich für alle erreichbar.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Meldungs-Dialog für fachliche Hinweise und Sperrkonflikte -->
+  <div id="dialog-rahmen" class="dialog-rahmen hidden">
+    <div class="dialog">
+      <h3 id="dialog-titel">Hinweis</h3>
+      <p id="dialog-text"></p>
+      <button id="dialog-ok" class="primaer">OK</button>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
