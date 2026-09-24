@@ -56,7 +56,7 @@ Redo-Logging, Recovery) — wir programmieren nur die Steuerungsschicht darüber
 5. Der Task-Wachhund unterbricht Tasks nach `TxOptions.timeout`; der Interrupt
    lässt den JDBC-Aufruf fehlschlagen, wodurch die DB zurückrollt.
 
-## Stand (Stand: 2026-09-24, Version 0.2.0)
+## Stand (Stand: 2026-09-24, Version 0.3.0)
 
 Kernbibliothek fertig und getestet: TxManager/TxContext/TxOptions/RetryPolicy,
 TaskController (begrenzte Parallelität, Timeout-Wachhund, Statistik), Saga-Engine
@@ -64,12 +64,16 @@ mit Journal-Tabellen (`TX_SAGA`, `TX_SAGA_STEP`), Demo. Fachschicht **Leistungs-
 management Grundsicherung (SDN.sozial LMG)**: SGB-XII-Berechnung, Zahlungs-Workflow
 (Idempotenz über Vorgangsnummer, `SELECT … FOR UPDATE`, Budget-Prüfung, Journal),
 optimistisches Locking über VERSION-Spalten + Trigger, JSON-API und Widget-
-Oberfläche mit Adminbereich (Systemdiagnose: DB-Check, „alles gestartet"-Prüfung,
-Saga-Wiederanlauf) und Funktionsübersicht. **Verifiziert gegen echte Oracle (23ai
-Free in Docker, Etappe 1 weitgehend abgehakt)**; 35 Tests grün (davon 5 echten-DB-
-Tests, die nur mit gesetztem `TX_URL` laufen). Dabei gefundene und behobene Fehler:
-Permit-Leak in `SimpleConnectionPool`, Fachfehler-Wicklung in `TaskHandle.result()`
-(FachlicheException erbt jetzt von TxException, damit Typ/Code die
-Transaktionsgrenze überleben), offenes Datei-Handle in der Statischauslieferung.
-Nächste Schritte: siehe `doc/roadmap.md` (Deadlock-Retry real, Pool-Tausch auf UCP,
-Monitoring, Berechtigungsprüfung).
+Oberfläche mit Adminbereich (Systemdiagnose, „alles gestartet"-Prüfung),
+Funktionsübersicht, **Anmeldung mit Rollen** (admin/sachbearbeiter, Token je
+Sitzung, Journal-Identität aus der Anmeldung, Konten über `LMG_BENUTZER`),
+**Neuanlage** von Vorgängen/SozialFällen, **Kassenlauf** (BEREIT → ÜBERGEBEN)
+und **Storno** mit Restbudget-Rückbuchung; Wiederanlauf beim Serverstart;
+Konfiguration über `LMG_*`-Umgebungsvariablen. Projekt liegt im **Git**
+(Baseline v0.2.0 + Betriebsfunktionen v0.3.0). Verifiziert gegen echte Oracle
+(23ai Free in Docker); 44 Tests grün (davon 7 echten-DB-Tests, die nur mit
+gesetztem `TX_URL` laufen). Gefundene/behobene Fehler bisher: Permit-Leak im
+`SimpleConnectionPool`, Fachfehler-Wicklung in `TaskHandle.result()`, offenes
+Datei-Handle in der Statischauslieferung, Test-Cleanup per Aktenzeichen-Muster.
+Nächste Schritte: siehe `doc/roadmap.md` (Deadlock-Retry real, Pool-Tausch auf
+UCP, Monitoring nach außen, HTTPS/LDAP für Produktion).

@@ -10,6 +10,7 @@ import de.allgemein.lmg.model.VorgangslisteEintrag;
 import de.allgemein.lmg.model.Zahlung;
 import de.allgemein.lmg.service.Auszahlungsauftrag;
 import de.allgemein.lmg.service.FachlicheException;
+import de.allgemein.lmg.service.Kassenlaeufergebnis;
 import de.allgemein.lmg.service.LeistungsService;
 import de.allgemein.lmg.service.Systemdiagnose;
 import de.allgemein.lmg.service.Systemstatus;
@@ -46,12 +47,14 @@ public final class LmgServer implements AutoCloseable {
     private final TaskController tasks;
     private final LeistungsService service;
     private final Systemdiagnose diagnose;
+    private final Benutzerverwaltung benutzerverwaltung;
 
-    public LmgServer(TaskController tasks, LeistungsService service, Systemdiagnose diagnose, int port)
-            throws IOException {
+    public LmgServer(TaskController tasks, LeistungsService service, Systemdiagnose diagnose,
+                     Benutzerverwaltung benutzerverwaltung, int port) throws IOException {
         this.tasks = tasks;
         this.service = service;
         this.diagnose = diagnose;
+        this.benutzerverwaltung = benutzerverwaltung;
         this.server = HttpServer.create(new InetSocketAddress(port), 0);
         this.server.createContext("/", this::verarbeite);
         this.server.setExecutor(Executors.newFixedThreadPool(16, this::neuerHttpThread));
@@ -94,11 +97,29 @@ public final class LmgServer implements AutoCloseable {
 
     private void api(HttpExchange exchange, String methode, String pfad) throws IOException {
         try {
+            // Anmeldung: alles außer /api/anmeldung braucht ein gültiges Sitzungs-Token
+            Benutzer benutzer = null;
+            if (!pfad.equals("/api/anmeldung")) {
+                Benutzer gefunden = angemeldeterBenutzer(exchange);
+                if (gefunden == null) {
+                    antworte(exchange, 401, Map.of("code", "ANMELDUNG",
+                            "message", "Nicht angemeldet — bitte Kennung und Passwort eingeben"));
+                    return;
+                }
+                if (brauchtAdmin(pfad) && !gefunden.istAdmin()) {
+                    antworte(exchange, 403, Map.of("code", "BERECHTIGUNG",
+                            "message", "Diese Funktion erfordert die Admin-Rolle"));
+                    return;
+                }
+                benutzer = gefunden;
+            }
+            final Benutzer angemeldet = benutzer;
             // Jede Anfrage ist ein Task der Transaktionssteuerung: begrenzte
             // Parallelität + Zeitlimit-Wachhund decken die Last von Tausenden
             // gleichzeitiger Sachbearbeiter ab.
             TaskHandle<Map<String, Object>> handle = tasks.submit(
-                    methode + " " + pfad, TxOptions.DEFAULT, ctx -> bearbeiteApi(exchange, methode, pfad));
+                    methode + " " + pfad, TxOptions.DEFAULT,
+                    ctx -> bearbeiteApi(exchange, methode, pfad, angemeldet));
             antworte(exchange, 200, handle.result());
         } catch (FachlicheException e) {
             int status = FachlicheException.NICHT_GEFUNDEN.equals(e.code()) ? 404 : 400;
@@ -111,11 +132,57 @@ public final class LmgServer implements AutoCloseable {
         }
     }
 
-    private Map<String, Object> bearbeiteApi(HttpExchange exchange, String methode, String pfad) throws Exception {
+    private Benutzer angemeldeterBenutzer(HttpExchange exchange) {
+        String header = exchange.getRequestHeaders().getFirst("Authorization");
+        return benutzerverwaltung.zuToken(tokenAus(header)).orElse(null);
+    }
+
+    private static String tokenAus(String header) {
+        if (header == null || !header.startsWith("Bearer ")) {
+            return null;
+        }
+        return header.substring("Bearer ".length()).trim();
+    }
+
+    /** Adminpflicht: Systemdiagnose/Aktionen, Kassenlauf und Storno. */
+    private static boolean brauchtAdmin(String pfad) {
+        return pfad.startsWith("/api/system/")
+                || pfad.equals("/api/kassenlauf")
+                || pfad.matches("/api/zahlungen/\\d+/storno");
+    }
+
+    private Map<String, Object> bearbeiteApi(HttpExchange exchange, String methode, String pfad,
+                                             Benutzer angemeldet) throws Exception {
         String[] teile = pfad.split("/");
-        // /api/bedarfsgemeinschaften[/{id}] | /api/sozialfaelle/{id} | /api/auszahlung | /api/zahlungen | /api/journal
+        // /api/bedarfsgemeinschaften[/{id}][/sozialfaelle] | /api/sozialfaelle/{id} | /api/auszahlung
+        // | /api/zahlungen[/{id}/storno] | /api/kassenlauf | /api/system/* | /api/anmeldung | /api/werbin
+        if (pfad.equals("/api/anmeldung") && "POST".equals(methode)) {
+            Map<String, Object> body = leseKoerper(exchange);
+            String token = benutzerverwaltung.anmelden(
+                    textWert(body.get("kennung"), "Kennung"),
+                    textWert(body.get("passwort"), "Passwort"));
+            Benutzer b = benutzerverwaltung.zuToken(token).orElseThrow();
+            return Map.of("token", token, "kennung", b.kennung(), "rolle", b.rolle());
+        }
+        if (pfad.equals("/api/abmeldung") && "POST".equals(methode)) {
+            benutzerverwaltung.abmelden(tokenAus(exchange.getRequestHeaders().getFirst("Authorization")));
+            return Map.of("ok", true);
+        }
+        if (pfad.equals("/api/werbin") && "GET".equals(methode)) {
+            return Map.of("kennung", angemeldet.kennung(), "rolle", angemeldet.rolle());
+        }
         if (pfad.equals("/api/bedarfsgemeinschaften") && "GET".equals(methode)) {
             return Map.of("eintraege", listeMap(service.listeBedarfsgemeinschaften()));
+        }
+        if (pfad.equals("/api/bedarfsgemeinschaften") && "POST".equals(methode)) {
+            Map<String, Object> body = leseKoerper(exchange);
+            Bedarfsgemeinschaft bg = service.legeBedarfsgemeinschaftAn(
+                    textWert(body.get("aktenzeichen"), "Aktenzeichen"),
+                    textWert(body.get("hauptpersonName"), "Hauptperson"),
+                    betragWert(body.get("startBudget")),
+                    datumWert(body.get("wiedervorlageAm")),
+                    angemeldet.kennung());
+            return Map.of("bedarfsgemeinschaft", bgMap(bg));
         }
         if (teile.length == 4 && teile[2].equals("bedarfsgemeinschaften") && "GET".equals(methode)) {
             return detailMap(service.ladeDetail(Long.parseLong(teile[3])));
@@ -128,6 +195,21 @@ public final class LmgServer implements AutoCloseable {
                     datumWert(body.get("wiedervorlageAm")),
                     zahlWert(body.get("version"), "version"));
             return Map.of("bedarfsgemeinschaft", bgMap(bg));
+        }
+        if (teile.length == 5 && teile[2].equals("bedarfsgemeinschaften")
+                && teile[4].equals("sozialfaelle") && "POST".equals(methode)) {
+            Map<String, Object> body = leseKoerper(exchange);
+            long bgId = Long.parseLong(teile[3]);
+            SozialFall entwurf = new SozialFall(0, bgId,
+                    (int) zahlWert(body.get("regelbedarfsstufe"), "regelbedarfsstufe"),
+                    boolWert(body.get("merkzeichenG"), "merkzeichenG"),
+                    betragWert(body.get("kduMiete")),
+                    betragWert(body.get("kduHeizung")),
+                    betragWert(body.get("einkommenRente")),
+                    betragWert(body.get("einkommenErwerb")),
+                    1);
+            SozialFall gespeichert = service.legeSozialFallAn(bgId, entwurf, angemeldet.kennung());
+            return Map.of("sozialfall", fallMap(gespeichert, null));
         }
         if (teile.length == 4 && teile[2].equals("sozialfaelle") && "PUT".equals(methode)) {
             Map<String, Object> body = leseKoerper(exchange);
@@ -146,16 +228,30 @@ public final class LmgServer implements AutoCloseable {
         }
         if (pfad.equals("/api/auszahlung") && "POST".equals(methode)) {
             Map<String, Object> body = leseKoerper(exchange);
+            // Sachbearbeiter kommt aus der Anmeldung, niemals aus dem Anfragekörper
             var ergebnis = service.ordneAuszahlungAn(new Auszahlungsauftrag(
                     zahlWert(body.get("bgId"), "bgId"),
                     textWert(body.get("vorgangsNr"), "Vorgangsnummer"),
                     textWert(body.get("zahlungsmonat"), "Zahlungsmonat"),
-                    textWert(body.get("sachbearbeiterId"), "Sachbearbeiter-Kürzel")));
+                    angemeldet.kennung()));
             return Map.of(
                     "zahlung", zahlungMap(ergebnis.zahlung()),
                     "bedarfsgemeinschaft", ergebnis.bedarfsgemeinschaft() == null
                             ? null : bgMap(ergebnis.bedarfsgemeinschaft()),
                     "bereitsGebucht", ergebnis.bereitsGebucht());
+        }
+        if (pfad.equals("/api/kassenlauf") && "POST".equals(methode)) {
+            Kassenlaeufergebnis ergebnis = service.uebergebeBereiteZahlungen(angemeldet.kennung());
+            return Map.of("anzahl", ergebnis.anzahl(), "summe", ergebnis.summe(),
+                    "hinweis", ergebnis.anzahl() == 0
+                            ? "Keine bereitgestellten Zahlungen vorhanden."
+                            : ergebnis.anzahl() + " Zahlungen auf ÜBERGEBEN gesetzt.");
+        }
+        if (teile.length == 5 && teile[2].equals("zahlungen") && teile[4].equals("storno")
+                && "POST".equals(methode)) {
+            Zahlung storniert = service.storniereZahlung(Long.parseLong(teile[3]), angemeldet.kennung());
+            return Map.of("zahlung", zahlungMap(storniert),
+                    "hinweis", "Zahlung storniert, Restbudget erhöht.");
         }
         if (pfad.equals("/api/zahlungen") && "GET".equals(methode)) {
             return Map.of("zahlungen", service.letzteZahlungen(limit(exchange, 20))

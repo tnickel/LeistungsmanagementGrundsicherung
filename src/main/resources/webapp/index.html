@@ -23,19 +23,59 @@
         <button class="nav-item" data-view="funktionen">Funktionsübersicht</button>
       </nav>
       <div class="sidebar-footer">
-        <div class="sidebar-user">Sachbearbeitung</div>
-        <div class="sidebar-version">SDN.sozial LMG · Version 0.2.0</div>
+        <div class="sidebar-user" id="sidebar-benutzer">nicht angemeldet</div>
+        <button id="btn-abmelden" class="linkartig abmelden hidden">Abmelden</button>
+        <div class="sidebar-version">SDN.sozial LMG · Version 0.3.0</div>
       </div>
     </aside>
 
     <main class="inhalt">
+      <!-- ============ Anmeldung ============ -->
+      <section id="view-login" class="view hidden">
+        <div class="login-box karte">
+          <h2>Anmeldung</h2>
+          <p class="hinweis">Bitte mit der Behörden-Kennung anmelden. Demo-Standardkonten:
+            admin-01/admin (Admin), sb-01/sb-01 und sb-02/sb-02 (Sachbearbeiter).</p>
+          <div class="maske-gitter">
+            <label>Kennung
+              <input id="login-kennung" type="text" autocomplete="username">
+            </label>
+            <label>Passwort
+              <input id="login-passwort" type="password" autocomplete="current-password">
+            </label>
+          </div>
+          <button id="btn-login" class="primaer">Anmelden</button>
+          <p class="hinweis" id="login-fehler"></p>
+        </div>
+      </section>
+
       <!-- ============ Fallübersicht ============ -->
-      <section id="view-uebersicht" class="view">
+      <section id="view-uebersicht" class="view hidden">
         <header class="kopfleiste">
           <h1>Fallübersicht</h1>
+          <button id="btn-neu-vorgang" class="sekundaer">+ Neuer Vorgang</button>
           <input id="suchfeld" class="suchfeld" type="search"
                  placeholder="Aktenzeichen oder Name suchen …" autocomplete="off">
         </header>
+
+        <div class="karte hidden" id="karte-neu-vorgang">
+          <h2>Neuen Vorgang anlegen</h2>
+          <div class="maske-gitter">
+            <label>Aktenzeichen (eindeutig)
+              <input id="neu-aktenzeichen" type="text" maxlength="50" placeholder="z. B. BG-2026-0100">
+            </label>
+            <label>Hauptperson
+              <input id="neu-name" type="text" maxlength="100" placeholder="Name, Vorname">
+            </label>
+            <label>Startbudget (EUR)
+              <input id="neu-budget" type="number" step="0.01" min="0" value="0">
+            </label>
+            <label>Wiedervorlage
+              <input id="neu-wiedervorlage" type="date">
+            </label>
+          </div>
+          <button id="btn-vorgang-speichern" class="primaer">Vorgang anlegen</button>
+        </div>
 
         <div class="widgets">
           <div class="widget">
@@ -101,6 +141,41 @@
 
             <div class="karte">
               <h2>SozialFälle bearbeiten</h2>
+              <button id="btn-neu-fall" class="sekundaer" style="margin-bottom:12px">+ Weiteren SozialFall anlegen</button>
+              <div id="fall-neu" class="fall-maske hidden">
+                <h3>Neuer SozialFall</h3>
+                <div class="maske-gitter">
+                  <label>Regelbedarfsstufe
+                    <select id="neu-fall-rbs">
+                      <option value="1">Stufe 1</option>
+                      <option value="2">Stufe 2</option>
+                      <option value="3">Stufe 3</option>
+                      <option value="4">Stufe 4</option>
+                      <option value="5">Stufe 5</option>
+                      <option value="6">Stufe 6</option>
+                    </select>
+                  </label>
+                  <label>Kaltmiete (EUR)
+                    <input id="neu-fall-miete" type="number" step="0.01" min="0" value="0">
+                  </label>
+                  <label>Heizkosten (EUR)
+                    <input id="neu-fall-heizung" type="number" step="0.01" min="0" value="0">
+                  </label>
+                  <label>Renteneinkünfte (EUR)
+                    <input id="neu-fall-rente" type="number" step="0.01" min="0" value="0">
+                  </label>
+                  <label>Brutto-Erwerbseinkommen (EUR)
+                    <input id="neu-fall-erwerb" type="number" step="0.01" min="0" value="0">
+                  </label>
+                </div>
+                <label class="checkbox-zeile">
+                  <input id="neu-fall-g" type="checkbox">
+                  <span>Merkzeichen G — Mehrbedarf 17&nbsp;% (§ 30 SGB XII)</span>
+                </label>
+                <div style="margin-top:12px">
+                  <button id="btn-fall-speichern" class="primaer">SozialFall anlegen</button>
+                </div>
+              </div>
               <div id="fall-masken"></div>
             </div>
 
@@ -116,12 +191,10 @@
                 <label>Zahlungsmonat
                   <input id="zahlungsmonat" type="month" required>
                 </label>
-                <label>Sachbearbeiter-Kürzel
-                  <input id="sachbearbeiter" type="text" maxlength="50" placeholder="z. B. sb-01" required>
-                </label>
               </div>
-              <p class="hinweis">Bankverbindung wird im Demo-Datenmodell nicht geführt (Blueprint-Spec v0.2.0)
-                — Felder sind deaktiviert.</p>
+              <p class="hinweis">Die Anordnung erfolgt unter Ihrer angemeldeten Kennung (Vier-Augen-Prinzip)
+                und wird revisionssicher im Journal protokolliert. Bankverbindung wird im
+                Demo-Datenmodell nicht geführt — Felder sind deaktiviert.</p>
               <button id="btn-auszahlung" class="primaer large">Auszahlung anordnen</button>
             </div>
 
@@ -130,7 +203,7 @@
               <table class="tabelle" id="tabelle-zahlungen">
                 <thead>
                   <tr><th>Monat</th><th class="zahl">Betrag</th><th>Status</th>
-                      <th>Vorgangs-Nr.</th><th>Angelegt</th></tr>
+                      <th>Vorgangs-Nr.</th><th>Angelegt</th><th></th></tr>
                 </thead>
                 <tbody></tbody>
               </table>
@@ -216,6 +289,9 @@
               <p class="hinweis">Wiederanlauf beendet halbfertige Vorgänge der Demo-Antragsverarbeitung
                 nach einem Absturz (Saga-Kompensation, idempotent — mehrfaches Ausführen ist unschädlich).</p>
               <button id="btn-wiederanlauf" class="primaer">Wiederanlauf ausführen</button>
+              <p class="hinweis" style="margin-top:14px">Kassenlauf setzt alle bereitgestellten Zahlungen
+                (Status BEREIT) auf ÜBERGEBEN — die fachliche Übergabe an Kasse/Zahlungsdienst.</p>
+              <button id="btn-kassenlauf" class="primaer">Kassenlauf ausführen</button>
             </div>
           </div>
         </div>

@@ -129,6 +129,11 @@ tr.historisch td { color: var(--farbe-text-leise); }
 .chip.uebergeben { background: #fefce8; color: #a16207; border-color: #fde68a; }
 .chip.storniert { background: #fef2f2; color: var(--farbe-gefahren); border-color: #fecaca; }
 
+button.abmelden { padding: 2px 0; font-size: 12px; color: var(--farbe-sidebar-text); text-align: left; }
+
+.login-box { max-width: 460px; margin: 8vh auto 0; }
+.login-box .maske-gitter { grid-template-columns: 1fr; }
+
 .ergebnisstreifen {
   display: flex; flex-wrap: wrap; gap: 18px;
   margin-top: 12px; padding: 10px 12px;

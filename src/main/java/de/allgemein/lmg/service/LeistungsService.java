@@ -6,6 +6,7 @@ import de.allgemein.lmg.model.SozialFall;
 import de.allgemein.lmg.model.VorgangslisteEintrag;
 import de.allgemein.lmg.model.Zahlung;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -37,4 +38,21 @@ public interface LeistungsService {
 
     /** Letzte Journaleinträge über alle Vorgänge. */
     List<Journaleintrag> letztesJournal(int limit);
+
+    // ----------------------------------------------------------------
+    // Betriebsfunktionen: Neuanlage, Kassenlauf, Storno
+    // ----------------------------------------------------------------
+
+    /** Legt einen Vorgang an; das Aktenzeichen muss eindeutig sein. */
+    Bedarfsgemeinschaft legeBedarfsgemeinschaftAn(String aktenzeichen, String hauptpersonName,
+            BigDecimal startBudget, LocalDate wiedervorlageAm, String sachbearbeiterId);
+
+    /** Legt einen weiteren SozialFall zu einem aktiven Vorgang an. */
+    SozialFall legeSozialFallAn(long bgId, SozialFall entwurf, String sachbearbeiterId);
+
+    /** Kassenlauf: alle BEREIT-Zahlungen auf UEBERGEBEN setzen (eine Transaktion). */
+    Kassenlaeufergebnis uebergebeBereiteZahlungen(String sachbearbeiterId);
+
+    /** Storniert eine BEREIT-Zahlung und bucht das Restbudget zurück. */
+    Zahlung storniereZahlung(long zahlungId, String sachbearbeiterId);
 }

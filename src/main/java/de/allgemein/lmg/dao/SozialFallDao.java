@@ -38,6 +38,26 @@ public final class SozialFallDao {
         }
     }
 
+    /** Legt den SozialFall an (ID über SEQ_FALL); Version startet bei 1. */
+    public SozialFall einfuegen(TxContext ctx, long id, SozialFall neu) throws SQLException {
+        try (PreparedStatement stmt = ctx.connection().prepareStatement(
+                "INSERT INTO SOZIAL_FALL (ID, BG_ID, REGELBEDARFSSTUFE, FLAG_MERKZEICHEN_G, "
+                        + "KDU_MIETE, KDU_HEIZUNG, EINKOMMEN_RENTE, EINKOMMEN_ERWERB) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)")) {
+            stmt.setLong(1, id);
+            stmt.setLong(2, neu.bgId());
+            stmt.setInt(3, neu.regelbedarfsstufe());
+            stmt.setInt(4, neu.merkzeichenG() ? 1 : 0);
+            stmt.setBigDecimal(5, neu.kduMiete());
+            stmt.setBigDecimal(6, neu.kduHeizung());
+            stmt.setBigDecimal(7, neu.einkommenRente());
+            stmt.setBigDecimal(8, neu.einkommenErwerb());
+            stmt.executeUpdate();
+        }
+        return new SozialFall(id, neu.bgId(), neu.regelbedarfsstufe(), neu.merkzeichenG(),
+                neu.kduMiete(), neu.kduHeizung(), neu.einkommenRente(), neu.einkommenErwerb(), 1L);
+    }
+
     /**
      * Optimistisches Locking: UPDATE ... WHERE ID = ? AND VERSION = ?. Liefert 0
      * betroffene Zeilen, wenn ein anderer Sachbearbeiter zwischenzeitlich gespeichert

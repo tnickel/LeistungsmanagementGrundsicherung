@@ -4,6 +4,7 @@ import de.allgemein.lmg.service.Auszahlungsauftrag;
 import de.allgemein.lmg.service.FachlicheException;
 import de.allgemein.lmg.service.SozialLeistungsService;
 import de.allgemein.lmg.service.Systemdiagnose;
+import de.allgemein.lmg.model.SozialFall;
 import de.allgemein.tx.SimpleConnectionPool;
 import de.allgemein.tx.TaskController;
 import de.allgemein.tx.TxManager;
@@ -63,14 +64,23 @@ class EchteDbVerifikationTest {
 
     @AfterAll
     static void aufraeumen() throws Exception {
+        // Aufräumen nach Aktenzeichen-Muster: die angelegten Vorgänge bekommen ihre
+        // IDs aus SEQ_BG (1000+), daher ist ein fester ID-Bereich nicht ausreichend
         try (Connection c = DriverManager.getConnection(
                 System.getenv("TX_URL"), System.getenv("TX_USER"), System.getenv("TX_PASS"))) {
             c.setAutoCommit(false);
             Statement st = c.createStatement();
+            st.executeUpdate("DELETE FROM JOURNAL WHERE BG_ID IN "
+                    + "(SELECT ID FROM BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN LIKE 'BG-TEST-%')");
+            st.executeUpdate("DELETE FROM ZAHLUNG WHERE BG_ID IN "
+                    + "(SELECT ID FROM BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN LIKE 'BG-TEST-%')");
+            st.executeUpdate("DELETE FROM SOZIAL_FALL WHERE BG_ID IN "
+                    + "(SELECT ID FROM BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN LIKE 'BG-TEST-%')");
             st.executeUpdate("DELETE FROM JOURNAL WHERE BG_ID BETWEEN 9901 AND 9911");
             st.executeUpdate("DELETE FROM ZAHLUNG WHERE BG_ID BETWEEN 9901 AND 9911");
             st.executeUpdate("DELETE FROM SOZIAL_FALL WHERE BG_ID BETWEEN 9901 AND 9911");
-            st.executeUpdate("DELETE FROM BEDARFSGEMEINSCHAFT WHERE ID BETWEEN 9901 AND 9911");
+            st.executeUpdate("DELETE FROM BEDARFSGEMEINSCHAFT WHERE ID BETWEEN 9901 AND 9911 "
+                    + "OR AKTENZEICHEN LIKE 'BG-TEST-%'");
             c.commit();
             st.close();
         }
@@ -153,5 +163,49 @@ class EchteDbVerifikationTest {
             assertTrue(status.dbAntwortMillis() >= 0);
             assertTrue(status.dbZeitpunkt() != null && status.dbZeitpunkt().length() == 19);
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Betriebsfunktionen: Neuanlage, Storno, Kassenlauf
+    // ------------------------------------------------------------------
+
+    private static final BigDecimal ZAHLBETRAG_RBS1 = new BigDecimal("563.00");
+
+    @Test
+    void vorgangUndSozialFallAnlegenAuszahlenStornieren() {
+        var bg = service.legeBedarfsgemeinschaftAn("BG-TEST-9905-" + System.nanoTime() % 100000,
+                "Ablauf, Testfall", new BigDecimal("700.00"), null, "sb-test");
+        var fall = service.legeSozialFallAn(bg.id(), neuerFallEntwurf(bg.id()), "sb-test");
+
+        var zahlung = service.ordneAuszahlungAn(new Auszahlungsauftrag(bg.id(),
+                UUID.randomUUID().toString(), "2026-10", "sb-test")).zahlung();
+        assertEquals(ZAHLBETRAG_RBS1, zahlung.auszahlungsbetrag());
+
+        var storniert = service.storniereZahlung(zahlung.id(), "sb-test");
+        assertEquals("STORNIERT", storniert.status());
+        var detail = service.ladeDetail(bg.id());
+        assertEquals(0, new BigDecimal("700.00").compareTo(detail.bedarfsgemeinschaft().budgetRest()));
+    }
+
+    @Test
+    void kassenlaufSetztBereiteZahlungenAufUebergeben() {
+        var bg = service.legeBedarfsgemeinschaftAn("BG-TEST-9906-" + System.nanoTime() % 100000,
+                "Kassenlauf, Testfall", new BigDecimal("700.00"), null, "sb-test");
+        service.legeSozialFallAn(bg.id(), neuerFallEntwurf(bg.id()), "sb-test");
+        var zahlung = service.ordneAuszahlungAn(new Auszahlungsauftrag(bg.id(),
+                UUID.randomUUID().toString(), "2026-10", "sb-test")).zahlung();
+        assertEquals("BEREIT", zahlung.status());
+
+        var ergebnis = service.uebergebeBereiteZahlungen("admin-01");
+        assertTrue(ergebnis.anzahl() >= 1, "mindestens die eigene Zahlung sollte übergeben werden");
+        var pruefung = service.letzteZahlungen(50).stream()
+                .filter(z -> z.id() == zahlung.id()).findFirst().orElseThrow();
+        assertEquals("UEBERGEBEN", pruefung.status());
+    }
+
+    private SozialFall neuerFallEntwurf(long bgId) {
+        // RBS 1 ohne Mehrbedarf, ohne KdU, ohne Einkommen -> Zahlbetrag exakt 563,00
+        return new SozialFall(0, bgId, 1, false, BigDecimal.ZERO, BigDecimal.ZERO,
+                BigDecimal.ZERO, BigDecimal.ZERO, 1);
     }
 }

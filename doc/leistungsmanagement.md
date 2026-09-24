@@ -1,6 +1,6 @@
 # Leistungsmanagement Grundsicherung (SDN.sozial LMG)
 
-*Stand: 2026-09-24, Version 0.2.0 (Adminbereich/Funktionsübersicht)*
+*Stand: 2026-09-24, Version 0.3.0 (Betriebsfunktionen)*
 
 Fachschicht auf der eigenen Transaktionssteuerung: Bearbeitung von Grundsicherungs-
 Leistungen im Alter und bei Erwerbsminderung nach **SGB XII** — von der Bedarfs-
@@ -93,8 +93,40 @@ lädt neu (`FachlicheException` mit Code `KONKURRENZ`). Kein Lost Update.
 | `PUT /api/sozialfaelle/{id}` | SozialFall speichern (VERSION-Prüfung) |
 | `POST /api/auszahlung` | Auszahlung anordnen (Idempotenz über `vorgangsNr`) |
 | `GET /api/zahlungen` · `GET /api/journal` | Widgets/Listen über alle Vorgänge |
-| `GET /api/system/status` | Systemdiagnose: DB-Check, Bestandszahlen, Task-Statistik, Laufzeitumgebung |
-| `POST /api/system/wiederanlauf` | Saga-Wiederanlauf der Demo-Antragsverarbeitung anstoßen (idempotent) |
+| `GET /api/system/status` | Systemdiagnose: DB-Check, Bestandszahlen, Task-Statistik, Laufzeitumgebung *(nur Admin)* |
+| `POST /api/system/wiederanlauf` | Saga-Wiederanlauf der Demo-Antragsverarbeitung anstoßen (idempotent) *(nur Admin)* |
+| `POST /api/bedarfsgemeinschaften` | Neuen Vorgang anlegen (Aktenzeichen eindeutig, Startbudget) |
+| `POST /api/bedarfsgemeinschaften/{id}/sozialfaelle` | SozialFall zu einem aktiven Vorgang anlegen |
+| `POST /api/kassenlauf` | Alle BEREIT-Zahlungen auf ÜBERGEBEN setzen *(nur Admin)* |
+| `POST /api/zahlungen/{id}/storno` | BEREIT-Zahlung stornieren, Restbudget zurückbuchen *(nur Admin)* |
+| `POST /api/anmeldung` · `POST /api/abmeldung` · `GET /api/werbin` | Anmeldung (Token) und angemeldete Kennung/Rolle |
+
+## Anmeldung, Rollen und Betriebsfunktionen (v0.3.0)
+
+- **Anmeldung**: die Oberfläche zeigt eine Login-Maske; die API prüft je Anfrage ein
+  Bearer-Token aus der Anmeldung (Sitzungen im Speicher, nach Neustart neu anmelden).
+  Konten kommen aus `LMG_BENUTZER` (Format `kennung:passwort:rolle;…`, Rollen
+  `admin`/`sachbearbeiter`); ohne Variable gelten Demo-Standardkonten
+  (`admin-01/admin`, `sb-01/sb-01`, `sb-02/sb-02`) mit Warnung auf der Konsole.
+- **Rollen**: Admin sieht Adminbereich, Kassenlauf und Storno; Sachbearbeiter
+  bearbeiten Vorgänge und ordnen Auszahlungen an (403 für die Admin-Funktionen,
+  serverseitig erzwungen).
+- **Identität**: die Sachbearbeiter-Kennung im Journal kommt ausschließlich aus der
+  Anmeldung — Client-Angaben im Anfragekörper werden ignoriert (kein
+  „Ehrensache-Kürzel" mehr).
+- **Neuanlage**: Vorgang (Aktenzeichen eindeutig — Doppelprüfung läuft über
+  ORA-00001 → fachlicher Hinweis) und beliebig viele SozialFälle je Vorgang; beides
+  mit Journaleintrag und ohne Datenbank-Neustart direkt in der Berechnung.
+- **Kassenlauf** (eine Transaktion): sperrt alle BEREIT-Zahlungen (`FOR UPDATE`),
+  setzt sie auf ÜBERGEBEN und schreibt einen Sammel-Journaleintrag mit Anzahl und
+  Summe. Das ist die fachliche Übergabe an Kasse/Zahlungsdienst — ein echter
+  Zahlungsstrom (SEPA) bleibt außen vor.
+- **Storno** (nur Status BEREIT): sperrt Zahlung und Vorgang, setzt STORNIERT,
+  bucht das Restbudget zurück und journalisiert — alles atomar.
+- **Wiederanlauf beim Start**: `LmgServerMain` führt `SagaEngine.recover()` beim
+  Hochfahren aus (zusätzlich zum Button im Adminbereich).
+- **Konfiguration**: `LMG_PORT`, `LMG_POOL_GROESSE`, `LMG_TASKS`,
+  `LMG_WARTESCHLANGE` und `LMG_BENUTZER` sind Umgebungsvariablen.
 
 ## Adminbereich und Funktionsübersicht
 

@@ -74,10 +74,41 @@ public final class BedarfsgemeinschaftDao {
         }
     }
 
+    /** Legt den Vorgang an (ID über SEQ_BG); Aktenzeichen-Eindeutigkeit prüft die DB. */
+    public Bedarfsgemeinschaft einfuegen(TxContext ctx, long id, String aktenzeichen, String hauptpersonName,
+                                         BigDecimal startBudget, LocalDate wiedervorlageAm) throws SQLException {
+        try (PreparedStatement stmt = ctx.connection().prepareStatement(
+                "INSERT INTO BEDARFSGEMEINSCHAFT (ID, AKTENZEICHEN, HAUPTPERSON_NAME, STATUS_AKTIV, "
+                        + "BUDGET_REST, WIEDERVORLAGE_AM) VALUES (?, ?, ?, 1, ?, ?)")) {
+            stmt.setLong(1, id);
+            stmt.setString(2, aktenzeichen);
+            stmt.setString(3, hauptpersonName);
+            stmt.setBigDecimal(4, startBudget);
+            if (wiedervorlageAm != null) {
+                stmt.setDate(5, Date.valueOf(wiedervorlageAm));
+            } else {
+                stmt.setNull(5, java.sql.Types.DATE);
+            }
+            stmt.executeUpdate();
+        }
+        return new Bedarfsgemeinschaft(id, aktenzeichen, hauptpersonName, true, startBudget,
+                wiedervorlageAm, 1L);
+    }
+
     /** Mindert das Restbudget; wird nur innerhalb der BG-Sperre (lockForUpdate) aufgerufen. */
     public void mindereBudget(TxContext ctx, long id, BigDecimal betrag) throws SQLException {
         try (PreparedStatement stmt = ctx.connection().prepareStatement(
                 "UPDATE BEDARFSGEMEINSCHAFT SET BUDGET_REST = BUDGET_REST - ? WHERE ID = ?")) {
+            stmt.setBigDecimal(1, betrag);
+            stmt.setLong(2, id);
+            stmt.executeUpdate();
+        }
+    }
+
+    /** Erhöht das Restbudget (Storno); wird nur innerhalb der BG-Sperre aufgerufen. */
+    public void erhoehenBudget(TxContext ctx, long id, BigDecimal betrag) throws SQLException {
+        try (PreparedStatement stmt = ctx.connection().prepareStatement(
+                "UPDATE BEDARFSGEMEINSCHAFT SET BUDGET_REST = BUDGET_REST + ? WHERE ID = ?")) {
             stmt.setBigDecimal(1, betrag);
             stmt.setLong(2, id);
             stmt.executeUpdate();

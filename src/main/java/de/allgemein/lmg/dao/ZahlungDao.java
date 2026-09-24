@@ -41,6 +41,41 @@ public final class ZahlungDao {
         }
     }
 
+    public Optional<Zahlung> finde(TxContext ctx, long id) throws SQLException {
+        try (PreparedStatement stmt = ctx.connection().prepareStatement(
+                "SELECT " + COLUMNS + " FROM ZAHLUNG WHERE ID = ?")) {
+            stmt.setLong(1, id);
+            return leseEinzeln(stmt.executeQuery());
+        }
+    }
+
+    /** Alle bereitgestellten Zahlungen mit Zeilensperre — der Kassenlauf übergibt sie gesammelt. */
+    public List<Zahlung> bereiteZahlungenGesperrt(TxContext ctx) throws SQLException {
+        try (PreparedStatement stmt = ctx.connection().prepareStatement(
+                "SELECT " + COLUMNS + " FROM ZAHLUNG WHERE ZAHLUNGSSTATUS = 'BEREIT' FOR UPDATE "
+                        + "ORDER BY ID")) {
+            return leseListe(stmt.executeQuery());
+        }
+    }
+
+    /** Setzt alle BEREIT-Zahlungen auf UEBERGEBEN; liefert die Anzahl betroffener Zeilen. */
+    public int uebergebeBereite(TxContext ctx) throws SQLException {
+        try (PreparedStatement stmt = ctx.connection().prepareStatement(
+                "UPDATE ZAHLUNG SET ZAHLUNGSSTATUS = 'UEBERGEBEN' WHERE ZAHLUNGSSTATUS = 'BEREIT'")) {
+            return stmt.executeUpdate();
+        }
+    }
+
+    /** Setzt den Status einer einzelnen Zahlung (Storno); Aufruf nur unter Zahlungs-/BG-Sperre. */
+    public void aktualisiereStatus(TxContext ctx, long id, String neuerStatus) throws SQLException {
+        try (PreparedStatement stmt = ctx.connection().prepareStatement(
+                "UPDATE ZAHLUNG SET ZAHLUNGSSTATUS = ? WHERE ID = ?")) {
+            stmt.setString(1, neuerStatus);
+            stmt.setLong(2, id);
+            stmt.executeUpdate();
+        }
+    }
+
     /** Fügt die Zahlung mit Status BEREIT ein; id im Aufruf vorher über die Sequence gezogen. */
     public Zahlung einfuegen(TxContext ctx, long id, long bgId, Long fallId, String vorgangsNr,
                              String zahlungsmonat, BigDecimal betrag) throws SQLException {

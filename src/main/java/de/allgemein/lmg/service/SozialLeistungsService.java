@@ -11,6 +11,7 @@ import de.allgemein.lmg.model.SozialFall;
 import de.allgemein.lmg.model.VorgangslisteEintrag;
 import de.allgemein.lmg.model.Zahlung;
 import de.allgemein.tx.TxContext;
+import de.allgemein.tx.TxException;
 import de.allgemein.tx.TxManager;
 import de.allgemein.tx.TxOptions;
 
@@ -187,6 +188,97 @@ public final class SozialLeistungsService implements LeistungsService {
 
             Bedarfsgemeinschaft aktualisiert = bgDao.finde(ctx, bg.id()).orElse(bg);
             return new Auszahlungsergebnis(zahlung, aktualisiert, false);
+        });
+    }
+
+    // ------------------------------------------------------------------
+    // Betriebsfunktionen: Neuanlage, Kassenlauf, Storno
+    // ------------------------------------------------------------------
+
+    @Override
+    public Bedarfsgemeinschaft legeBedarfsgemeinschaftAn(String aktenzeichen, String hauptpersonName,
+            BigDecimal startBudget, LocalDate wiedervorlageAm, String sachbearbeiterId) {
+        pruefeText(aktenzeichen, "Aktenzeichen", 50);
+        pruefeText(hauptpersonName, "Hauptperson", 100);
+        BigDecimal budget = normiereBetrag(startBudget, "Startbudget");
+        try {
+            return txManager.execute(TxOptions.DEFAULT, ctx -> {
+                long id = bgDao.naechsteId(ctx);
+                Bedarfsgemeinschaft bg = bgDao.einfuegen(ctx, id, aktenzeichen.trim(),
+                        hauptpersonName.trim(), budget, wiedervorlageAm);
+                journalDao.einfuegen(ctx, id, "Vorgang " + aktenzeichen.trim() + " angelegt", sachbearbeiterId);
+                return bg;
+            });
+        } catch (TxException e) {
+            if (e.oracleErrorCode() == 1) { // ORA-00001: Aktenzeichen bereits vorhanden
+                throw new FachlicheException(FachlicheException.VALIDATION,
+                        "Das Aktenzeichen '" + aktenzeichen.trim() + "' ist bereits vorhanden");
+            }
+            throw e;
+        }
+    }
+
+    @Override
+    public SozialFall legeSozialFallAn(long bgId, SozialFall entwurf, String sachbearbeiterId) {
+        SozialFall normalisiert = pruefeUndNormalisiereFall(entwurf);
+        return txManager.execute(TxOptions.DEFAULT, ctx -> {
+            Bedarfsgemeinschaft bg = bgDao.finde(ctx, bgId)
+                    .orElseThrow(() -> new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
+                            "Bedarfsgemeinschaft " + bgId + " ist nicht vorhanden"));
+            if (!bg.statusAktiv()) {
+                throw new FachlicheException(FachlicheException.VALIDATION,
+                        "Der Vorgang ist historisiert; SozialFälle können nicht mehr angelegt werden");
+            }
+            long id = fallDao.naechsteId(ctx);
+            SozialFall fall = new SozialFall(id, bgId, normalisiert.regelbedarfsstufe(),
+                    normalisiert.merkzeichenG(), normalisiert.kduMiete(), normalisiert.kduHeizung(),
+                    normalisiert.einkommenRente(), normalisiert.einkommenErwerb(), 1L);
+            fallDao.einfuegen(ctx, id, fall);
+            journalDao.einfuegen(ctx, bgId, "SozialFall " + id + " angelegt", sachbearbeiterId);
+            return fall;
+        });
+    }
+
+    @Override
+    public Kassenlaeufergebnis uebergebeBereiteZahlungen(String sachbearbeiterId) {
+        return txManager.execute(TxOptions.DEFAULT, ctx -> {
+            List<Zahlung> bereite = zahlungDao.bereiteZahlungenGesperrt(ctx);
+            if (bereite.isEmpty()) {
+                return new Kassenlaeufergebnis(0, BigDecimal.ZERO.setScale(2));
+            }
+            BigDecimal summe = bereite.stream()
+                    .map(Zahlung::auszahlungsbetrag)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            int anzahl = zahlungDao.uebergebeBereite(ctx);
+            journalDao.einfuegen(ctx, null, String.format(Locale.GERMAN,
+                    "Kassenlauf: %d Zahlungen über %,.2f EUR übergeben", anzahl, summe), sachbearbeiterId);
+            return new Kassenlaeufergebnis(anzahl, summe);
+        });
+    }
+
+    @Override
+    public Zahlung storniereZahlung(long zahlungId, String sachbearbeiterId) {
+        return txManager.execute(TxOptions.DEFAULT, ctx -> {
+            Zahlung zahlung = zahlungDao.finde(ctx, zahlungId)
+                    .orElseThrow(() -> new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
+                            "Zahlung " + zahlungId + " ist nicht vorhanden"));
+            if (!"BEREIT".equals(zahlung.status())) {
+                throw new FachlicheException(FachlicheException.VALIDATION,
+                        "Nur bereitgestellte Zahlungen können storniert werden (Status: "
+                                + zahlung.status() + ")");
+            }
+            // Zeilensperre auf den Vorgang: kein Mischbetrieb mit einer laufenden Buchung
+            bgDao.lockForUpdate(ctx, zahlung.bgId())
+                    .orElseThrow(() -> new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
+                            "Bedarfsgemeinschaft " + zahlung.bgId() + " ist nicht vorhanden"));
+            zahlungDao.aktualisiereStatus(ctx, zahlungId, "STORNIERT");
+            bgDao.erhoehenBudget(ctx, zahlung.bgId(), zahlung.auszahlungsbetrag());
+            journalDao.einfuegen(ctx, zahlung.bgId(), String.format(Locale.GERMAN,
+                    "Auszahlung über %,.2f EUR (%s, Vorgang %s) storniert, Restbudget erhöht",
+                    zahlung.auszahlungsbetrag(), zahlung.zahlungsmonat(), zahlung.vorgangsNr()),
+                    sachbearbeiterId);
+            return new Zahlung(zahlung.id(), zahlung.bgId(), zahlung.fallId(), zahlung.vorgangsNr(),
+                    zahlung.zahlungsmonat(), zahlung.auszahlungsbetrag(), "STORNIERT", zahlung.erstelltAm());
         });
     }
 

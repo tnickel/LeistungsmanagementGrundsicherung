@@ -50,16 +50,20 @@
       Einkommensbereinigung, Zahlbarmachung (siehe [leistungsmanagement.md](leistungsmanagement.md))
 - [x] Sperrverwaltung: pessimistisch (`SELECT … FOR UPDATE`) im Buchungsweg,
       optimistisch (VERSION-Spalte + Trigger) in den Masken
-- [ ] Berechtigungsprüfung je Transaktion (wer darf welchen Vorgang führen) —
-      aktuell nur Sachbearbeiter-Kürzel im Journal
+- [x] Berechtigungsprüfung (Demo-Grade): Anmeldung mit Token, Rollen admin/
+      sachbearbeiter, Admin-Funktionen serverseitig geschützt, Journal-Identität
+      aus der Anmeldung; für Produktion: LDAP/AD hinter HTTPS anbinden
+- [x] Neuanlage von Vorgängen und SozialFällen, Kassenlauf (BEREIT → ÜBERGEBEN),
+      Storno mit Restbudget-Rückbuchung (v0.3.0)
 - [ ] Regelbedarfsstufen 3–6 mit Beträgen des Bescheids hinterlegen
 - [ ] Saga für mehrtägige Vorgänge nutzen (z. B. Antrag → Bescheid → Zahlung
-      mit Trennung der Schritte), Zahlstatus UEBERGEBEN durch einen Batch/Job setzen
+      mit Trennung der Schritte)
 
 ## Etappe 4 — später, bei Bedarf
 
 - [ ] XA / Two-Phase-Commit, falls mehrere Datenbanken in eine logische Einheit müssen
-- [ ] Wiederanlauf-Daemon: `SagaEngine.recover()` periodisch/automatisch beim Start
+- [x] Wiederanlauf beim Serverstart (recover wird beim Hochfahren ausgeführt);
+      periodischer Daemon bei Bedarf
 - [ ] Archivierung alter Journal-Einträge
 - [ ] Konzept zur Migration bestehender Fachverfahren
 

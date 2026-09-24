@@ -93,6 +93,10 @@ mvn compile exec:java -Dexec.mainClass=de.allgemein.lmg.web.LmgServerMain
 # → http://localhost:8080  (Port optional über LMG_PORT)
 ```
 
+Anmeldung in der Oberfläche: Demo-Standardkonten `admin-01/admin` (Admin: Kassenlauf,
+Storno, Systemdiagnose) sowie `sb-01/sb-01`, `sb-02/sb-02` (Sachbearbeiter). Eigene
+Konten über `LMG_BENUTZER="kennung:passwort:rolle;…"` (Rollen: admin, sachbearbeiter).
+
 ### Entwickler-DB ohne Lizenzaufwand: Oracle 23ai Free in Docker
 
 ```bash

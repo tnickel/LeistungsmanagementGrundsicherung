@@ -11,19 +11,58 @@ const euro = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR"
 let eintraege = [];
 let detail = null;
 let suchbegriff = "";
+let token = localStorage.getItem("lmgToken") || null;
+let angemeldet = null;
 
 // ---------------------------------------------------------------- Hilfsfunktionen
 
 async function api(pfad, optionen) {
-  const antwort = await fetch(pfad, optionen);
+  const kopf = optionen?.headers ? { ...optionen.headers } : {};
+  if (token) kopf["Authorization"] = "Bearer " + token;
+  const antwort = await fetch(pfad, { ...optionen, headers: kopf });
   let koerper = {};
   try { koerper = await antwort.json(); } catch (e) { /* leerer Körper zulassen */ }
+  if (antwort.status === 401) {
+    token = null;
+    localStorage.removeItem("lmgToken");
+    angemeldet = null;
+    aktualisiereSidebar();
+    zeigeView("login");
+    const fehler = new Error("Nicht angemeldet");
+    fehler.code = "ANMELDUNG";
+    throw fehler;
+  }
   if (!antwort.ok) {
     const fehler = new Error(koerper.message || antwort.statusText);
     fehler.code = koerper.code;
     throw fehler;
   }
   return koerper;
+}
+
+function istAdmin() {
+  return angemeldet !== null && angemeldet.rolle === "admin";
+}
+
+function aktualisiereSidebar() {
+  const zeile = $("sidebar-benutzer");
+  const abmelden = $("btn-abmelden");
+  if (angemeldet) {
+    const rollenName = angemeldet.rolle === "admin" ? "Admin" : "Sachbearbeiter";
+    zeile.textContent = `Angemeldet: ${angemeldet.kennung} (${rollenName})`;
+    abmelden.classList.remove("hidden");
+  } else {
+    zeile.textContent = "nicht angemeldet";
+    abmelden.classList.add("hidden");
+  }
+  document.querySelector("[data-view='admin']").classList.toggle("hidden", !istAdmin());
+}
+
+function zeigeAnmeldung() {
+  $("login-kennung").value = "";
+  $("login-passwort").value = "";
+  $("login-fehler").textContent = "";
+  zeigeView("login");
 }
 
 function zeigeDialog(titel, text, istFehler) {
@@ -69,6 +108,41 @@ function zeigeView(name) {
   }
 }
 
+// ---------------------------------------------------------------- Anmeldung
+
+$("btn-login").addEventListener("click", async () => {
+  const kennung = $("login-kennung").value.trim();
+  const passwort = $("login-passwort").value;
+  if (!kennung || !passwort) {
+    $("login-fehler").textContent = "Bitte Kennung und Passwort eingeben.";
+    return;
+  }
+  try {
+    const ergebnis = await api("/api/anmeldung", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kennung, passwort }),
+    });
+    token = ergebnis.token;
+    localStorage.setItem("lmgToken", token);
+    angemeldet = { kennung: ergebnis.kennung, rolle: ergebnis.rolle };
+    aktualisiereSidebar();
+    $("login-fehler").textContent = "";
+    ladeUebersicht();
+  } catch (fehler) {
+    $("login-fehler").textContent = fehler.message;
+  }
+});
+
+$("btn-abmelden").addEventListener("click", async () => {
+  try { await api("/api/abmeldung", { method: "POST" }); } catch (e) { /* Sitzung ist eh weg */ }
+  token = null;
+  localStorage.removeItem("lmgToken");
+  angemeldet = null;
+  aktualisiereSidebar();
+  zeigeAnmeldung();
+});
+
 document.querySelectorAll(".nav-item").forEach((knopf) =>
   knopf.addEventListener("click", () => {
     if (knopf.dataset.view === "uebersicht") { ladeUebersicht(); }
@@ -80,6 +154,58 @@ document.querySelectorAll(".nav-item").forEach((knopf) =>
 $("btn-zurueck").addEventListener("click", ladeUebersicht);
 $("dialog-ok").addEventListener("click", schliesseDialog);
 $("suchfeld").addEventListener("input", (e) => { suchbegriff = e.target.value.trim().toLowerCase(); rendereBgTabelle(); });
+
+// ---------------------------------------------------------------- Neuanlage
+
+$("btn-neu-vorgang").addEventListener("click", () => {
+  $("karte-neu-vorgang").classList.toggle("hidden");
+});
+
+$("btn-vorgang-speichern").addEventListener("click", async () => {
+  try {
+    const ergebnis = await api("/api/bedarfsgemeinschaften", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        aktenzeichen: $("neu-aktenzeichen").value.trim(),
+        hauptpersonName: $("neu-name").value.trim(),
+        startBudget: Number($("neu-budget").value || 0),
+        wiedervorlageAm: $("neu-wiedervorlage").value || null,
+      }),
+    });
+    $("karte-neu-vorgang").classList.add("hidden");
+    await ladeUebersicht();
+    await oeffneVorgang(ergebnis.bedarfsgemeinschaft.id);
+  } catch (fehler) {
+    zeigeDialog("Vorgang konnte nicht angelegt werden", fehler.message, true);
+  }
+});
+
+$("btn-neu-fall").addEventListener("click", () => {
+  $("fall-neu").classList.toggle("hidden");
+});
+
+$("btn-fall-speichern").addEventListener("click", async () => {
+  try {
+    const ergebnis = await api("/api/bedarfsgemeinschaften/" + detail.bedarfsgemeinschaft.id + "/sozialfaelle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        regelbedarfsstufe: Number($("neu-fall-rbs").value),
+        merkzeichenG: $("neu-fall-g").checked,
+        kduMiete: Number($("neu-fall-miete").value || 0),
+        kduHeizung: Number($("neu-fall-heizung").value || 0),
+        einkommenRente: Number($("neu-fall-rente").value || 0),
+        einkommenErwerb: Number($("neu-fall-erwerb").value || 0),
+      }),
+    });
+    await oeffneVorgang(ergebnis.sozialfall.bgId);
+    zeigeDialog("SozialFall angelegt",
+      "SozialFall #" + ergebnis.sozialfall.id + " wurde angelegt und in die Berechnung aufgenommen.");
+  } catch (fehler) {
+    zeigeDialog("SozialFall konnte nicht angelegt werden", fehler.message, true);
+  }
+});
 
 // ---------------------------------------------------------------- Fallübersicht
 
@@ -311,12 +437,7 @@ $("btn-kopf").addEventListener("click", async () => {
 $("btn-auszahlung").addEventListener("click", async () => {
   const knopf = $("btn-auszahlung");
   const bg = detail.bedarfsgemeinschaft;
-  const sachbearbeiter = $("sachbearbeiter").value.trim();
   const monat = $("zahlungsmonat").value;
-  if (!sachbearbeiter) {
-    zeigeDialog("Angabe fehlt", "Bitte ein Sachbearbeiter-Kürzel erfassen (Vier-Augen-Prinzip).", true);
-    return;
-  }
   if (!monat) {
     zeigeDialog("Angabe fehlt", "Bitte den Zahlungsmonat wählen.", true);
     return;
@@ -332,7 +453,6 @@ $("btn-auszahlung").addEventListener("click", async () => {
         bgId: bg.id,
         vorgangsNr: crypto.randomUUID(),
         zahlungsmonat: monat,
-        sachbearbeiterId: sachbearbeiter,
       }),
     });
     if (ergebnis.bereitsGebucht) {
@@ -360,18 +480,59 @@ function rendereZahlungen(zahlungen) {
   koerper.innerHTML = "";
   for (const z of zahlungen) {
     const zeile = document.createElement("tr");
+    const stornoMoeglich = istAdmin() && z.status === "BEREIT";
     zeile.innerHTML = `
       <td>${z.zahlungsmonat}</td>
       <td class="zahl">${betrag(z.auszahlungsbetrag)}</td>
       <td>${zahlungsChip(z.status)}</td>
       <td class="hinweis">${z.vorgangsNr}</td>
-      <td>${zeitpunkt(z.erstelltAm)}</td>`;
+      <td>${zeitpunkt(z.erstelltAm)}</td>
+      <td>${stornoMoeglich ? `<button class="sekundaer storno" data-id="${z.id}">Storno</button>` : ""}</td>`;
+    if (stornoMoeglich) {
+      zeile.querySelector("button.storno").addEventListener("click", () => storniere(z));
+    }
     koerper.appendChild(zeile);
   }
   if (zahlungen.length === 0) {
-    koerper.innerHTML = `<tr><td colspan="5" class="hinweis">Noch keine Auszahlungen angeordnet.</td></tr>`;
+    koerper.innerHTML = `<tr><td colspan="6" class="hinweis">Noch keine Auszahlungen angeordnet.</td></tr>`;
   }
 }
+
+async function storniere(zahlung) {
+  if (!confirm(`Auszahlung über ${betrag(zahlung.auszahlungsbetrag)} (${zahlung.zahlungsmonat}) ` +
+      "stornieren? Das Restbudget wird zurückgebucht.")) {
+    return;
+  }
+  try {
+    const ergebnis = await api("/api/zahlungen/" + zahlung.id + "/storno", { method: "POST" });
+    zeigeDialog("Storno gebucht",
+      ergebnis.hinweis + " Neue Zahlungssumme im Vorgang: "
+      + betrag(ergebnis.zahlung.auszahlungsbetrag) + " (Status " + ergebnis.zahlung.status + ").");
+    await oeffneVorgang(zahlung.bgId);
+  } catch (fehler) {
+    zeigeDialog("Storno nicht möglich", fehler.message, true);
+  }
+}
+
+$("btn-kassenlauf").addEventListener("click", async () => {
+  if (!confirm("Kassenlauf ausführen? Alle Zahlungen mit Status BEREIT werden auf ÜBERGEBEN gesetzt.")) {
+    return;
+  }
+  const knopf = $("btn-kassenlauf");
+  knopf.disabled = true;
+  try {
+    const ergebnis = await api("/api/kassenlauf", { method: "POST" });
+    zeigeDialog("Kassenlauf",
+      ergebnis.hinweis + (ergebnis.anzahl > 0
+        ? " Summe: " + betrag(ergebnis.summe) + "."
+        : ""));
+    ladeSystemstatus();
+  } catch (fehler) {
+    zeigeDialog("Kassenlauf fehlgeschlagen", fehler.message, true);
+  } finally {
+    knopf.disabled = false;
+  }
+});
 
 // ---------------------------------------------------------------- Journal
 
@@ -493,4 +654,21 @@ $("btn-wiederanlauf").addEventListener("click", async () => {
 // ---------------------------------------------------------------- Start
 
 $("zahlungsmonat").value = new Date().toISOString().slice(0, 7);
-ladeUebersicht();
+aktualisiereSidebar();
+
+(async function start() {
+  if (!token) {
+    zeigeAnmeldung();
+    return;
+  }
+  try {
+    angemeldet = await api("/api/werbin");
+    aktualisiereSidebar();
+    ladeUebersicht();
+  } catch (fehler) {
+    // 401 behandelt api() bereits (Login-Ansicht); alles andere zeigt einen Hinweis
+    if (fehler.code !== "ANMELDUNG") {
+      zeigeAnmeldung();
+    }
+  }
+})();
