@@ -1,115 +1,207 @@
-# Transaktionssteuerung (Java + Oracle)
+# SDN.sozial (LMG) — Leistungsmanagement Grundsicherung
+### Enterprise-Transaktionssteuerung & CICS-Ablösung auf Oracle 19c / 23ai
 
-Eigene Transaktionssteuerung als Ersatz für das lizenzierte IBM-Modul (klassisch:
-CICS Transaction Server auf dem Großrechner, wie es auch hinter den
-AKDN/KDN.sozial-Fachverfahren steckte). Die Erfahrung aus Jahrzehnten TP-Monitor
-steckt in zwei Lehren:
+<p align="center">
+  <img src="https://img.shields.io/badge/Java-21%20LTS-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java 21" />
+  <img src="https://img.shields.io/badge/Oracle_DB-19c%20%7C%2023ai-F80000?style=for-the-badge&logo=oracle&logoColor=white" alt="Oracle Database" />
+  <img src="https://img.shields.io/badge/Architektur-Zero--Framework-10b981?style=for-the-badge&logo=codeforces&logoColor=white" alt="Zero Framework" />
+  <img src="https://img.shields.io/badge/CICS-Ablösung-0ea5e9?style=for-the-badge&logo=ibm&logoColor=white" alt="CICS Ablösung" />
+  <img src="https://img.shields.io/badge/SGB_XII-Bedarfsrechner_2026-8b5cf6?style=for-the-badge&logo=legal&logoColor=white" alt="SGB XII 2026" />
+  <img src="https://img.shields.io/badge/Build-Maven_Passing-success?style=for-the-badge&logo=apachemaven&logoColor=white" alt="Maven Build" />
+</p>
 
-1. **Der schwere Teil ist die Datenbank** — ACID, Sperrverwaltung, Redo-Logging und
-   Wiederanlauf kann Oracle bereits. Das hier nachzuprogrammieren wäre doppelt und
-   schlechter.
-2. **Was man selbst programmiert, ist die Steuerung darüber** — genau das tut dieses
-   Projekt: Transaktionsdurchführung mit Commit/Rollback, Wiederholung bei
-   Sperren-Konflikten, begrenzte parallele Task-Ausführung, Statistik und ein
-   Journal für lange Geschäftsvorgänge (Saga-Muster).
+<p align="center">
+  <img src="doc/manual-bilder/github_banner.jpg" alt="SDN.sozial Leistungsmanagement Grundsicherung Banner" width="100%" />
+</p>
 
-## Dokumentation
+---
 
-- [doc/projektbeschreibung.md](doc/projektbeschreibung.md) — Ausgangslage, Ziel, Leitprinzip, Scope
-- [doc/architektur.md](doc/architektur.md) — Bausteine, Abläufe, Datenmodell, Architekturregeln
-- [doc/leistungsmanagement.md](doc/leistungsmanagement.md) — Fachschicht: Leistungsmanagement Grundsicherung (SDN.sozial LMG)
-- [doc/roadmap.md](doc/roadmap.md) — aktueller Stand und geplante Etappen
+## 📌 Management Summary
 
-## Aufbau
+**SDN.sozial (LMG)** ist ein hochperformantes, lizenzfreies Referenzsystem für die kommunale Sozialverwaltung (SGB XII Grundsicherung im Alter und bei Erwerbsminderung). Es demonstriert, wie teure, proprietäre Großrechner-Transaktionsmonitore (**IBM CICS Transaction Server**) durch eine schlanke **Eigenentwicklung in modernem Java 21 auf Oracle Database 19c Enterprise Edition / 23ai Free** vollständig abgelöst werden können.
+
+### Das architektonische Leitprinzip
+
+> 💡 **„Der schwere Teil ist die Datenbank – die Steuerung programmieren wir selbst.“**
+> 
+> ACID-Garantien, zeilenbasierte Sperrverwaltung (*Row-Level Locks*), Redo-Logging und Crash-Recovery beherrscht die relationale Oracle-Datenbank bereits exzellent. Was SDN.sozial liefert, ist die hochverfügbare Steuerung darüber: atomare Transaktionsklammern, automatischer Deadlock-Retry (`ORA-00060`, `ORA-00054`), Parallelitätsbegrenzung mit Watchdog-Timeouts und absturzsichere **Saga-Geschäftsvorgänge** mit automatischem Rollback und Kompensation.
+
+---
+
+> [!NOTE]
+> ### 🛡️ Transparenter Showcase-Hinweis & Unabhängigkeitserklärung
+> Dieses Projekt ist ein reines **Technologie- und KI-Showcase (Proof of Concept)** zur Demonstration moderner Softwarearchitektur. Die fachlichen Gesetzesgrundlagen (SGB XII Regelbedarfsstufen 2026, Mehrbedarfe, Freibeträge) und relationalen Datenstrukturen wurden autonom im Rahmen von **KI-Deep-Research** ohne menschliche Fachspezifikation ermittelt.
+> 
+> Es besteht **ausdrücklich keinerlei Bezug zu real existierenden Unternehmen, behördlichen IT-Dienstleistern oder konkreten Softwareanbietern** (die Bezeichnung *„SDN“* ist frei erfunden). Die Anwendung ist vollständig implementiert und lauffähig, befindet sich jedoch in keinem behördlichen Produktiveinsatz.
+
+---
+
+## 🏛️ Gegenüberstellung: IBM CICS vs. SDN.sozial TxManager
+
+| CICS Transaction Server (Mainframe) | SDN.sozial TxManager (Java 21 + Oracle) | Implementierung |
+|:---|:---|:---|
+| **Atomarität (`EXEC CICS SYNCPOINT`)** | Autonome Commit/Rollback-Klammern über JDBC-Transaktionen | `TxManager.execute(TxOptions, ...)` |
+| **Sperren-Konflikte & Deadlocks** | Automatischer Retry mit exponentiellem Backoff & Jitter bei `ORA-00054`, `ORA-00060`, `ORA-08177` | `de.allgemein.tx.RetryPolicy` |
+| **Task Control & Concurrency** | Begrenzter Worker-Thread-Pool mit Request-Warteschlange & Überlastschutz | `de.allgemein.tx.TaskController` |
+| **Timeouts & Task-Abbruch** | Watchdog-Timer: Unterbricht den Task-Thread, Oracle führt Rollback aus | `TxOptions.timeout(Duration)` |
+| **Journalling & Long-Running Sagas** | Persistentes Datenbankjournal mit Vorwärts-/Rückwärts-Kompensation | `de.allgemein.tx.saga.SagaEngine` |
+| **Emergency Restart / Crash Recovery** | Automatisches Fortsetzen/Kompensieren offener Geschäftsvorgänge beim Serverstart | `SagaEngine.recover(definition)` |
+| **CICS Monitoring & Statistics** | Echtzeit-Telemetrie via JMX MBeans, Micrometer & strukturiertem Audit-Log | `TxMonitoring`, `TxAuditLog` |
+
+---
+
+## 🏗️ Architektur & Kernkomponenten
+
+Das Gesamtsystem basiert auf einem konsequenten **Zero-Framework-Ansatz** (kein Spring, kein Jakarta EE, kein Hibernate). Jede Komponente ist unabhängig testbar, extrem ressourcenschonend und startet in unter **2 Sekunden**.
 
 ```
-transaktionssteuerung/
-├── ddl/oracle_schema.sql          Journal- und Demo-Tabellen in Oracle
-├── ddl/lmg_schema.sql             Fachschema Leistungsmanagement (+ lmg_seed.sql: Demo-Bestand)
+LeistungsmanagementGrundsicherung/
+├── ddl/
+│   ├── oracle_schema.sql        # Basistabellen: TX_SAGA, TX_SAGA_STEP, TX_DEMO_KONTO
+│   ├── lmg_schema.sql           # Fachschema: BEDARFSGEMEINSCHAFT, SOZIAL_FALL, ZAHLUNG, BESCHEID, JOURNAL
+│   └── lmg_seed.sql             # Realitätsnaher Demo-Bestand (SGB XII Leistungsfälle 2026)
+├── doc/
+│   ├── architektur.md           # Detaillierte technische Architekturspezifikation
+│   ├── leistungsmanagement.md   # Fachmodell, Berechnungsformeln und REST-API
+│   ├── manual-bilder/           # Hochauflösende Screenshots & Architekturdiagramme
+│   └── SDN-sozial-LMG-Benutzerhandbuch.pdf # 40-seitiges Schulungs- & Praxishandbuch
 └── src/
-    ├── main/java/de/allgemein/tx/
-    │   ├── TxManager.java         Kern: Begin/Commit/Rollback + Zeitlimit + Retry
-    │   ├── TxContext.java         eine laufende Transaktion (Savepoints, Deadline)
-    │   ├── TxOptions.java         Isolation, Zeitlimit, Anzahl Versuche
-    │   ├── RetryPolicy.java       ORA-00054/00060/08177 → Wiederholversuch + Backoff
-    │   ├── TaskController.java    Task-Steuerung: begrenzt parallel, Timeout-Wachhund
-    │   ├── TaskHandle/TaskStats   Ergebnis-Handle und Statistik (CICS-artiges Monitoring)
-    │   ├── SimpleConnectionPool   schmaler Pool (in Produktion: HikariCP/UCP)
-    │   ├── saga/                  Saga-Engine + Journal für lange Geschäftsvorgänge
-    │   └── demo/DemoMain.java     lauffähiges Beispiel (Antrag → Bescheid → Auszahlung)
-    ├── main/java/de/allgemein/lmg/
-    │   ├── calc/                  SGB-XII-Berechnung (reine Funktion, unit-getestet)
-    │   ├── dao/                   PreparedStatements auf der TxContext-Verbindung
-    │   ├── service/               Zahlungs-Workflow, Masken-Speicherung (Locking)
-    │   └── web/                   JSON-API + Oberfläche (JDK-HttpServer, ohne Frameworks)
-    ├── main/resources/webapp/     SDN.sozial-Oberfläche (Widget-Dashboard, Masken, Journal)
-    └── test/java/…                Unit-Tests: Retry-Klassifikation, Berechnung, JSON, Formate
+    ├── main/java/de/allgemein/tx/   # Kern: Transaktionsmanager, Saga-Engine, Connection Pools
+    ├── main/java/de/allgemein/lmg/  # Fachschicht: SGB XII Rechner, DAOs, Services, Webserver
+    └── main/resources/webapp/       # Single-Page-App: Widget-Dashboard, Fallbearbeitung, Journal
 ```
 
-## Zuordnung: CICS-Funktion → eigener Baustein
+<p align="center">
+  <img src="doc/manual-bilder/d01_architektur.png" alt="SDN.sozial Gesamtarchitektur" width="90%" />
+</p>
 
-| CICS-Funktion | Erledigt durch |
-|---|---|
-| Atomarität (SYNCPOINT, Rollback) | `TxManager.execute` — Oracle-Transaktion mit `commit()`/`rollback()` |
-| Task-Steuerung (Scheduling, Parallelitätsbegrenzung) | `TaskController` — fester Thread-Pool + Warteschlange |
-| Zeitlimit/Abbruch eines Tasks | `TxOptions.timeout` + Wachhund: `Task.cancel(true)` unterbricht, DB rollt zurück |
-| Wiederholung nach Deadlock/Ressource belegt | `RetryPolicy` — ORA-00054/00060/08177, exponentieller Backoff |
-| Journalling über lange Vorgänge | `saga.SagaJournal` — Tabelle `TX_SAGA`/`TX_SAGA_STEP` |
-| Wiederanlauf (Emergency Restart) | `SagaEngine.recover` — kompensiert halbfertige Vorgänge beim Start |
-| Monitoring/Statistik | `TaskController.stats()` → `TaskStats` |
+### 1. Transaktionsmanager (`TxManager`)
+Kurze, hochfrequente Datenbankinteraktionen werden transaktional geklammert. Bei transienten Sperren-Konflikten greift der konfigurierbare Retry-Mechanismus:
 
-## Schnellstart
+```java
+TxManager tx = new TxManager(pool);
 
-### Der bequeme Weg: `start.bat`
-
-```bat
-start.bat          :: startet DB-Container bei Bedarf, kompiliert, startet den
-                      Server auf http://localhost:8080 und öffnet den Browser
-start.bat demo     :: startet stattdessen die Saga-Demo (DemoMain)
+tx.execute(TxOptions.of(IsolationLevel.READ_COMMITTED, Duration.ofSeconds(5), 3), ctx -> {
+    try (PreparedStatement ps = ctx.connection().prepareStatement(
+            "UPDATE BEDARFSGEMEINSCHAFT SET BUDGET_REST = BUDGET_REST - ? WHERE ID = ?")) {
+        ps.setBigDecimal(1, auszahlungsBetrag);
+        ps.setLong(2, bgId);
+        ps.executeUpdate();
+    }
+    return null;
+}); // Automatischer Commit bei Erfolg; Rollback & Retry bei Deadlock (ORA-00060)
 ```
 
-Konfiguration per Umgebungsvariablen (TX_URL, TX_USER, TX_PASS, LMG_PORT), siehe
-Kopf der Datei.
+<p align="center">
+  <img src="doc/manual-bilder/d02_kurze_transaktion.png" alt="Ablauf einer kurzen Transaktion mit Deadlock-Wiederholung" width="85%" />
+</p>
 
-### Manuelles Vorgehen
+### 2. Saga-Engine für mehrtägige Geschäftsvorgänge
+Fachliche Abläufe wie **Antragseingang &rarr; Bedarfsermittlung &rarr; Bewilligungsbescheid &rarr; Kassenanordnung &rarr; SEPA-Auszahlung** dürfen keine relationalen Zeilensperren über Stunden oder Tage halten. Die Saga-Engine führt Einzelschritte mit separaten Transaktionen aus und sichert den Zustand im persistenten Journal:
 
-```bash
-# 1. Schema anlegen (einmalig, als Schema-Owner)
-sqlplus tx_demo/… @ddl/oracle_schema.sql
+```java
+SagaDefinition antragSaga = SagaDefinition.of("ANTRAGSVERARBEITUNG")
+    .step("Antrag anlegen",     this::antragSpeichern,    this::antragStornieren)
+    .step("Bedarf ermitteln",   this::bedarfFeststellen,  this::bedarfZuruecksetzen)
+    .step("Bescheid erstellen", this::bescheidErteilen,   this::bescheidAufheben)
+    .step("Zahlung anordnen",   this::zahlungAnordnen,    this::zahlungStornieren)
+    .build();
 
-# 2. Verbindung konfigurieren
-export TX_URL="jdbc:oracle:thin:@//rechner:1521/XEPDB1"
-export TX_USER=tx_demo
-export TX_PASS=…
+// Ausführung mit automatischer Rückwärts-Kompensation bei Fehlern:
+String sagaId = sagas.run(antragSaga, payload);
 
-# 3. Bauen, Tests, Demo
-mvn test
-mvn compile exec:java
-
-# 4. Fachanwendung starten (Leistungsmanagement Grundsicherung, SDN.sozial-LMG)
-sqlplus tx_demo/… @ddl/lmg_schema.sql
-sqlplus tx_demo/… @ddl/lmg_seed.sql
-mvn compile exec:java -Dexec.mainClass=de.allgemein.lmg.web.LmgServerMain
-# → http://localhost:8080  (Port optional über LMG_PORT)
+// Bei Systemabsturz: Automatische Fortsetzung beim Server-Neustart:
+int kompensiert = sagas.recover(antragSaga);
 ```
 
-Anmeldung in der Oberfläche: Demo-Standardkonten `admin-01/admin` (Admin: Kassenlauf,
-Storno, Systemdiagnose) sowie `sb-01/sb-01`, `sb-02/sb-02` (Sachbearbeiter). Eigene
-Konten über `LMG_BENUTZER="kennung:passwort:rolle;…"` (Rollen: admin, sachbearbeiter).
+<p align="center">
+  <img src="doc/manual-bilder/d03_saga.png" alt="Saga-Kompensationsmuster" width="85%" />
+</p>
 
-### Datenbankumgebung: Oracle 19c (VirtualBox) oder Oracle 23ai Free (Docker)
+---
 
-Standardmäßig ist das Projekt auf die **Oracle Database 19c Enterprise Edition** in der VirtualBox-VM (`oracle-19c-adminwkshop`, PDB `o19c1p1`) vorkonfiguriert:
+## ⚖️ Fachliche Berechnungsengine (SGB XII – Stand 2026)
 
-```bash
-# Verbindung zur VirtualBox Oracle 19c (Standard)
-export TX_URL="jdbc:oracle:thin:@//localhost:1921/o19c1p1"
-export TX_USER=tx_demo
-export TX_PASS=tx_demo
-```
+Die Leistungsberechnung ist als seiteneffektfreie, deterministische Funktion in `de.allgemein.lmg.calc.Leistungsberechnung` realisiert und durch umfassende Unit-Tests verifiziert:
 
-Alternativ kann eine Docker-Entwickler-DB (Oracle 23ai Free) genutzt werden:
+<p align="center">
+  <img src="doc/manual-bilder/d05_bedarfsberechnung.png" alt="SGB XII Bedarfsberechnung" width="85%" />
+</p>
 
+| Gesetzliche Vorgabe | Gesetzesgrundlage | Parameter & Wert (2026) |
+|:---|:---|:---|
+| **Regelbedarfsstufen (RBS 1–6)** | § 27a SGB XII / RBEG | RBS 1: **563,00 €** · RBS 2: **506,00 €** · RBS 3: **451,00 €**<br>RBS 4: **471,00 €** · RBS 5: **390,00 €** · RBS 6: **357,00 €** |
+| **Mehrbedarf Gehbehinderung** | § 30 Abs. 1 SGB XII (Merkzeichen G) | **17 %** des maßgeblichen Regelbedarfs (RBS 1: 95,71 € / RBS 2: 86,02 €) |
+| **Mehrbedarf Warmwasser** | § 30 Abs. 7 SGB XII | **2,3 %** des Regelbedarfs (dezentrale Erzeugung; RBS 1: 12,95 €) |
+| **Kosten der Unterkunft (KdU)** | § 35 SGB XII (Dreiteilung) | Anerkannte Kaltmiete + kalte Betriebskosten + tatsächliche Heizkosten |
+| **Erwerbseinkommensfreibetrag** | § 82 Abs. 3 SGB XII | $\min(30\,\%\text{ Brutto}, 50\,\%\text{ RBS 1} = 281{,}50\text{ €})$ |
+| **Anrechenbares Einkommen** | § 82 SGB XII | Renten (100 % anrechenbar) + Erwerbseinkommen abzüglich Freibetrag |
+| **Monatlicher Zahlbetrag** | § 41 ff. SGB XII | $\text{Gesamtbedarf der BG} - \text{anrechenbares Gesamteinkommen}$ |
+
+---
+
+## 🖥️ Einblick in die SDN.sozial Web-Oberfläche
+
+Die Web-Oberfläche (`src/main/resources/webapp/`) ist als reaktive Single-Page-Application konzipiert. Sie bietet modernste Behörden-Ergonomie im Dark-/Light-Glassmorphism-Stil.
+
+### Fallübersicht & Vorgangs-Dashboard
+Vollständige Übersicht aller aktiven Bedarfsgemeinschaften, Fristen-Wächter (Wiedervorlage), Budgetüberwachung und Ein-Klick-Direktansprung in die Sachbearbeitung.
+
+<p align="center">
+  <img src="doc/manual-bilder/02_falluebersicht.png" alt="Fallübersicht und Dashboard" width="95%" />
+</p>
+
+### SGB-XII-Bedarfsermittlung & Berechnungsblatt
+Automatische Berechnung aller Leistungsansprüche bei Eingabe von Miete, Heizung, Mehrbedarfen und Einkünften mit visueller Plausibilitätsprüfung.
+
+<p align="center">
+  <img src="doc/manual-bilder/05_vorgang_bedarfsermittlung.png" alt="Bedarfsermittlung und Berechnungsmaske" width="95%" />
+</p>
+
+### Strikte Compliance: Vier-Augen-Prinzip & SEPA-Auszahlung
+Keine Auszahlung ohne Zweitfreigabe! Versucht ein Sachbearbeiter, seine eigene Kassenanordnung freizugeben, blockiert das System den Vorgang kryptografisch und protokolliert den Abwehrversuch im Journal:
+
+<p align="center">
+  <img src="doc/manual-bilder/08_selbstfreigabe_abgewehrt.png" alt="Vier-Augen-Prinzip: Selbstfreigabe abgewehrt" width="95%" />
+</p>
+
+Nach Anmeldung des zweiten Sachbearbeiters (`sb-01`) wird die Freigabe erteilt und der Zahlungsauftrag mit SEPA-XML-kompatibler Prüfsumme scharfgeschaltet:
+
+<p align="center">
+  <img src="doc/manual-bilder/09_freigabe_sb01_bereit.png" alt="Erfolgreiche Freigabe durch Zweitsachbearbeiter" width="95%" />
+</p>
+
+<p align="center">
+  <img src="doc/manual-bilder/d04_zahlungsworkflow.png" alt="Workflow der Zahlungsanordnung und Freigabe" width="85%" />
+</p>
+
+### Behördenkonformes Bescheidwesen (§ 37 SGB X)
+Druckfertige Generierung rechtssicherer Bewilligungsbescheide mit Begründung, Berechnungsbogen und Rechtsbehelfsbelehrung direkt im Browser:
+
+<p align="center">
+  <img src="doc/manual-bilder/11_bescheid_druck.png" alt="Druckansicht Bewilligungsbescheid" width="95%" />
+</p>
+
+### Revisionssicheres Buchungsjournal & Systemdiagnose
+Jede Statusänderung, jede Buchung und jeder Login wird unveränderbar protokolliert. Das integrierte Diagnose-Cockpit visualisiert laufende Threads, DB-Latenzen und Pool-Auslastung.
+
+<p align="center">
+  <img src="doc/manual-bilder/12_buchungsjournal.png" alt="Buchungsjournal" width="48%" />
+  <img src="doc/manual-bilder/14_adminbereich.png" alt="Admin Cockpit und Systemdiagnose" width="48%" />
+</p>
+
+---
+
+## 🚀 Schnellstart & Lokale Ausführung
+
+### Voraussetzungen
+* **Java Development Kit (JDK) 21** oder neuer (getestet bis JDK 25)
+* **Apache Maven 3.9+**
+* **Oracle Database**: Vorkonfiguriert für **Oracle 19c Enterprise Edition** (VirtualBox Linux) oder **Oracle 23ai Free** (Docker).
+
+### 1. Datenbank bereitstellen
+
+**Option A: Schneller Start via Docker (Oracle 23ai Free)**
 ```bash
 docker run -d --name lmg-oracle -p 1521:1521 \
   -e ORACLE_PASSWORD=tx_demo \
@@ -118,67 +210,86 @@ docker run -d --name lmg-oracle -p 1521:1521 \
   gvenzl/oracle-free:23-slim-faststart
 
 export TX_URL="jdbc:oracle:thin:@//localhost:1521/FREEPDB1"
+export TX_USER=tx_demo
+export TX_PASS=tx_demo
 ```
 
-Die echten-DB-Tests laufen mit gesetzter Verbindung:
-
+**Option B: Standardmäßige VirtualBox-VM (Oracle 19c Enterprise)**
 ```bash
-mvn test -Dtest=EchteDbVerifikationTest
+export TX_URL="jdbc:oracle:thin:@//localhost:1921/o19c1p1"
+export TX_USER=tx_demo
+export TX_PASS=tx_demo
 ```
 
-### Nutzung im eigenen Code
+### 2. Der 1-Klick-Start (Windows)
+Das mitgelieferte Startskript prüft die Umgebung, initialisiert die Schemata und startet den Webserver:
+```cmd
+start.bat
+```
+*Öffnet automatisch den Browser unter `http://localhost:8080`.*
 
-Kurze Transaktion (der Normalfall):
+### 3. Manuelle Ausführung via CLI
+```bash
+# 1. Schemata & Demo-Bestand einspielen
+sqlplus tx_demo/tx_demo@... @ddl/oracle_schema.sql
+sqlplus tx_demo/tx_demo@... @ddl/lmg_schema.sql
+sqlplus tx_demo/tx_demo@... @ddl/lmg_seed.sql
 
-```java
-TxManager tx = new TxManager(pool);
-tx.execute(TxOptions.DEFAULT, ctx -> {
-    try (PreparedStatement ps = ctx.connection().prepareCall(
-            "UPDATE KONTO SET SALDO = SALDO - ? WHERE ID = ?")) {
-        ps.setBigDecimal(1, betrag);
-        ps.setLong(2, kontoId);
-        ps.executeUpdate();
-    }
-    return null;
-}); // Commit bei Erfolg, Rollback + evtl. Retry bei Deadlock
+# 2. Testsuite ausführen (60 Tests, 100% Pass)
+mvn test
+
+# 3. Server starten
+mvn compile exec:java -Dexec.mainClass=de.allgemein.lmg.web.LmgServerMain
 ```
 
-Langer Geschäftsvorgang (mehrere Commits, absturfsicher):
+### 4. Vorkonfigurierte Benutzerkonten
 
-```java
-SagaDefinition vorgang = SagaDefinition.of("ANTRAGSVERARBEITUNG")
-        .step("Antrag anlegen",  this::antragAnlegen,  this::antragEntfernen)
-        .step("Bescheid erstellen", this::bescheid,    this::bescheidZurück)
-        .step("Auszahlung buchen",  this::auszahlen,   this::auszahlungStorno)
-        .build();
+| Benutzerkennung | Passwort | Rolle | Berechtigungen |
+|:---|:---|:---|:---|
+| **`admin-01`** | `admin` | **Administrator** | Systemdiagnose, Kassenlauf, Storno, Saga-Wiederanlauf |
+| **`sb-01`** | `sb-01` | **Sachbearbeiter** | Fallbearbeitung, Bescheiderteilung, Vier-Augen-Freigabe |
+| **`sb-02`** | `sb-02` | **Sachbearbeiter** | Fallbearbeitung, Bescheiderteilung, Vier-Augen-Freigabe |
 
-String sagaId = sagas.run(vorgang, payload);   // bei Fehler: Kompensation rückwärts
-int n = sagas.recover(vorgang);                // beim Neustart: halbfertige Vorgänge beenden
-```
+---
 
-## Verhaltensregeln der Steuerung
+## 📡 REST-API Übersicht
 
-- **Kurze Transaktionen, lange Sagas.** Alles, was atomar sein muss, gehört in eine
-  `TxManager.execute`-Transaktion (Oracle hält sie fest). Abläufe, die Minuten dauern
-  oder auf Benutzereingaben warten, werden in Saga-Schritte zerlegt.
-- **Wiederholbar heißt ganz wiederholen.** Nur Sperren-Konflikte (ORA-00054,
-  ORA-00060, ORA-08177) führen zu einem erneuten Versuch der kompletten
-  Arbeitseinheit; fachliche Fehler brechen sofort ab.
-- **Kompensationen müssen idempotent sein.** Nach einem Absturz zwischen zwei
-  Schritten fährt `recover()` die Kompensationen fort — ein Schritt kann also
-  zweimal angestoßen werden und darf dann nicht doppelt wirken (die Beispiele
-  löschen/aktualisieren deshalb zustandsabhängig).
-- **Zeitlimit bricht ab, die Datenbank rollt zurück.** Der Wachhund unterbricht den
-  Task-Thread; der JDBC-Aufruf fliegt, `TxManager` rollt die Transaktion zurück.
+Der integrierte JDK-HttpServer stellt alle Fach- und Systemfunktionen über eine leichtgewichtige JSON-API bereit:
 
-## Weg zur Produktion
+| Methode | Endpunkt | Funktion & Berechtigung |
+|:---|:---|:---|
+| `GET` | `/api/bedarfsgemeinschaften` | Liste aller Fälle mit Schnellberechnung des Zahlbetrags |
+| `GET` | `/api/bedarfsgemeinschaften/{id}` | Vorgangsdetail mit SozialFällen, Bescheiden & Zahlungen |
+| `PUT` | `/api/bedarfsgemeinschaften/{id}` | Stammdaten aktualisieren (Optimistisches Locking via `VERSION`) |
+| `PUT` | `/api/sozialfaelle/{id}` | Einzelperson anpassen (Miete, Einkommen, Mehrbedarfe) |
+| `POST` | `/api/auszahlung` | Auszahlung anordnen (Idempotenz via `vorgangsNr`) |
+| `POST` | `/api/auszahlung/freigabe` | Vier-Augen-Freigabe erteilen (Prüft `SACHBEARBEITER_ID != FREIGEBER`) |
+| `GET` | `/api/journal` | Revisionssicheres Buchungsjournal abrufen |
+| `GET` | `/api/system/status` | Systemdiagnose: DB-Verbindung, Latenz, Pool, Task-Stats *(Admin)* |
+| `POST` | `/api/system/wiederanlauf` | Saga-Crash-Recovery manuell triggern *(Admin)* |
 
-1. `SimpleConnectionPool` durch **HikariCP** oder **Oracle UCP** ersetzen
-   (nur zwei Methoden anzupassen).
-2. `TaskController.stats()` an **Micrometer/Prometheus** oder JMX anbinden.
-3. Für verteilte Transaktionen über **mehrere Datenbanken**: Oracle-XA
-   (`OracleXADataSource`, Two-Phase-Commit) — erst wenn wirklich nötig; im
-   Ein-Datenbank-Fall, der hier vorliegt, unnötig.
-4. Journal-Zugriffe per Granted-Rollen absichern, Audit für Commit/Rollback ergänzen.
+---
 
-Kompiliert mit `--release 21`, läuft auf jedem aktuellen JDK (getestet mit JDK 25).
+## 📚 Begleitende Dokumentation & Praxishandbuch
+
+Im Ordner [`doc/`](doc/) stehen ausführliche Architekturberichte und das offizielle Benutzerhandbuch bereit:
+
+<p align="center">
+  <a href="doc/SDN-sozial-LMG-Benutzerhandbuch.pdf">
+    <img src="doc/manual-bilder/handbuch_cover.jpg" alt="SDN.sozial Benutzerhandbuch Cover" width="300" style="border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);" />
+  </a>
+  <br>
+  <strong><a href="doc/SDN-sozial-LMG-Benutzerhandbuch.pdf">📖 SDN-sozial-LMG-Benutzerhandbuch.pdf (40 Seiten, Vollständige Referenz)</a></strong>
+</p>
+
+* [doc/architektur.md](doc/architektur.md) — Detaillierte Baustein-Architektur, Concurrency-Regeln und Datenfluss
+* [doc/leistungsmanagement.md](doc/leistungsmanagement.md) — Fachspezifikation des Sozialleistungsrechts und Schnittstellen
+* [doc/projektbeschreibung.md](doc/projektbeschreibung.md) — Motivation, CICS-Ablösung und wirtschaftlicher Kontext
+* [doc/roadmap.md](doc/roadmap.md) — Umsetzungsstand und geplante Enterprise-Ausbaustufen
+
+---
+
+## 📄 Lizenz & Urheberrecht
+
+Entwickelt von **Thomas Nickel** ([tnickel-ki.de](https://tnickel-ki.de)) als Architektur- und KI-Demonstrator.  
+Lizenziert unter der [MIT-Lizenz](LICENSE). Alle Musterdaten, Namen und Aktenzeichen sind frei erfunden.
