@@ -227,7 +227,7 @@ def d05():
     fig, ax = neue_fig("Berechnungsfluss Bedarfs- und Einkommensermittlung (SGB XII, Referenzjahr 2026)", 6.4)  # ylim 72
     box(ax, 4, 60, 52, 6.5, "Regelbedarf je Regelbedarfsstufe (RBS 1–6)\n563,00 · 506,00 · 451,00 · 471,00 · 390,00 · 357,00 EUR", "fach", 9.0)
     box(ax, 4, 51, 52, 6.5, "+ Mehrbedarf Merkzeichen G: 17 % des Regelbedarfs\n(§ 30 Abs. 1 SGB XII) — z. B. 95,71 EUR bei RBS 1", "fach", 9.0)
-    box(ax, 4, 42, 52, 6.5, "+ dezentrale Warmwassererzeugung: 2,3 % des\nRegelbedarfs (§ 30 Abs. 7 SGB XII)", "fach", 9.0)
+    box(ax, 4, 42, 52, 6.5, "+ dezentrale Warmwassererzeugung: stufenabhängig\n2,3 / 1,4 / 1,2 / 0,8 % je RBS (§ 30 Abs. 7)", "fach", 9.0)
     box(ax, 4, 33, 52, 6.5, "+ Kosten der Unterkunft und Heizung (KdU):\nKaltmiete + Betriebskosten + Heizung, BG-weit summiert", "fach", 9.0)
     pfeil(ax, 30, 60, 30, 57.5); pfeil(ax, 30, 51, 30, 48.5); pfeil(ax, 30, 42, 30, 39.5)
     pfeil(ax, 30, 33, 30, 26.5)

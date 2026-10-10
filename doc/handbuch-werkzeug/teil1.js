@@ -35,7 +35,7 @@ inhalt.push(punkt([{ t: "Fachbegriffe wie ", }, { t: "Bedarfsgemeinschaft", fett
 inhalt.push(punkt([{ t: "Oberflächenelemente stehen in Anführungszeichen, z. B. Schaltfläche „Auszahlung anordnen“ oder Karte „Zahlbarmachung“." }]));
 inhalt.push(punkt([{ t: "Technische Bezeichner (Tabellen, Klassen, Endpunkte) erscheinen in Nichtproportionalschrift, z. B. TX_SAGA, TxManager, POST /api/auszahlung." }]));
 inhalt.push(punkt([{ t: "Gesetzeszitate beziehen sich auf SGB XII, sofern nicht ausdrücklich SGB X genannt ist." }]));
-inhalt.push(abs([{ t: "Alle Beträge, Prozentsätze und Fristen in diesem Handbuch entsprechen dem ", }, { t: "Referenzjahr 2026", fett: true }, { t: " und dem Stand der Software-Version 0.4.0 (Oktober 2026)." }]));
+inhalt.push(abs([{ t: "Alle Beträge, Prozentsätze und Fristen in diesem Handbuch entsprechen dem ", }, { t: "Referenzjahr 2026", fett: true }, { t: " und dem Stand der Software-Version 0.5.3 (Oktober 2026)." }]));
 
 inhalt.push(h2("1.5  Demo-Zugänge"));
 inhalt.push(abs("Die Auslieferung enthält drei vorkonfigurierte Demo-Konten (Kapitel 3). Für eine Produktivnutzung werden die Konten über die Umgebungsvariable LMG_BENUTZER beziehungsweise den Konfigurationsschlüssel des Servers gesetzt (Kapitel 19)."));
@@ -74,7 +74,7 @@ inhalt.push(tabelle(
 ));
 inhalt.push(abs("Zu dem Regelbedarf treten Mehrbedarfe nach § 30 SGB XII. Die Anwendung unterstützt die beiden automatisierbaren Fallgruppen:"));
 inhalt.push(punkt([{ t: "Merkzeichen G (§ 30 Abs. 1 SGB XII): ", fett: true }, { t: "17 % des Regelbedarfs für behinderungsbedingte Mehrkosten bei gehinderter Fortbewegung — bei RBS 1 genau 95,71 EUR, bei RBS 2 genau 86,02 EUR." }]));
-inhalt.push(punkt([{ t: "Dezentrale Warmwassererzeugung (§ 30 Abs. 7 SGB XII): ", fett: true }, { t: "2,3 % des Regelbedarfs, wenn Warmwasser nicht zentral bereitgestellt wird — bei RBS 1 genau 12,95 EUR, bei RBS 2 genau 11,64 EUR." }]));
+inhalt.push(punkt([{ t: "Dezentrale Warmwassererzeugung (§ 30 Abs. 7 SGB XII): ", fett: true }, { t: "stufenabhängig 2,3 % (RBS 1/2), 1,4 % (RBS 4), 1,2 % (RBS 5) oder 0,8 % (RBS 6) des Regelbedarfs, wenn Warmwasser nicht zentral bereitgestellt wird — bei RBS 1 genau 12,95 EUR, bei RBS 6 genau 2,86 EUR; für RBS 3 sieht das Gesetz keinen Satz vor." }]));
 inhalt.push(hinweis("Fachliche Sorgfalt", "Die Anwendung berechnet Mehrbedarfe nur, wenn sie in der SozialFall-Maske ausdrücklich angekreuzt sind. Die Prüfung, ob ein Merkzeichen nachweislich vorliegt oder Warmwasser tatsächlich dezentral erzeugt wird, bleibt Aufgabe der Sachbearbeitung — das System verhindert keine Überprüfung, es rechnet korrekt."));
 
 inhalt.push(h2("2.3  Kosten der Unterkunft und Heizung"));

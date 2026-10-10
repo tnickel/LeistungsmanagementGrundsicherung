@@ -175,3 +175,16 @@ CREATE INDEX IX_ZAHLUNG_STATUS ON ZAHLUNG (ZAHLUNGSSTATUS);
 CREATE INDEX IX_JOURNAL_BG ON JOURNAL (BG_ID);
 CREATE INDEX IX_BG_WIEDERVORLAGE ON BEDARFSGEMEINSCHAFT (WIEDERVORLAGE_AM);
 CREATE INDEX IX_BESCHEID_BG ON BESCHEID (BG_ID);
+
+-- ------------------------------------------------------------------
+-- Fachregel "pro Bedarfsgemeinschaft und Monat höchstens eine wirksame
+-- Zahlung" als letzte Verteidigungslinie AUCH auf Datenbankebene: Der
+-- Service prüft die Regel unter der BG-Sperre (existiertAktiveFuerMonat);
+-- dieser function-based Unique-Index schützt zusätzlich jeden künftigen
+-- Schreibpfad. STORNIERT-Zeilen werden über die CASE-Ausdrücke zu NULL und
+-- sind damit von der Eindeutigkeit ausgenommen (stornierte Monate sind frei).
+-- ------------------------------------------------------------------
+CREATE UNIQUE INDEX UQ_ZAHLUNG_BG_MONAT_AKTIV ON ZAHLUNG (
+    CASE WHEN ZAHLUNGSSTATUS <> 'STORNIERT' THEN BG_ID END,
+    CASE WHEN ZAHLUNGSSTATUS <> 'STORNIERT' THEN ZAHLUNGSMONAT END
+);

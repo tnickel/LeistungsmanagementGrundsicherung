@@ -391,6 +391,9 @@ public final class AntragsSagaProzess {
         }
 
         if (warUebergeben) {
+            // Bei einem erneuten Wiederanlauf (erste Kompensation fehlgeschlagen) wird dieser
+            // ALARM bewusst erneut journalisiert — ohne Dedup, damit jeder Versuch sichtbar
+            // bleibt; die Fachwirkung (kein Storno, keine Gutschrift) bleibt idempotent.
             schreibeJournal(c, bgId, "ALARM: Die Zahlung (" + vorgangsNr
                     + ") der abgebrochenen Antrags-Saga wurde bereits an die Kasse uebergeben und NICHT storniert — "
                     + "manuelle Klaerung mit der Kasse erforderlich (Rueckholung bzw. Rueckforderung)",

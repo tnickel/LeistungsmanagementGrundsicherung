@@ -16,7 +16,7 @@ import java.util.Locale;
  * fallbezogene Bedarfsaufschlüsselung, Zahlungsverbindung, Begründung mit
  * Hauptgründen (§ 35 SGB X) und vollständige Rechtsbehelfsbelehrung (§ 36 SGB X).
  * BESCHEID_DATUM ist das Datum des Bescheids; die Bekanntgabe (§ 37 SGB X) ist ein eigener,
- * hier nicht erfasster Zeitpunkt (bei Postversand: dritter Tag nach Aufgabe zur Post).
+ * hier nicht erfasster Zeitpunkt (bei Postversand: vierter Tag nach Aufgabe zur Post).
  */
 public final class BescheidGenerator {
 
@@ -337,7 +337,7 @@ public final class BescheidGenerator {
     private static String belehrungText(Rechtsbehelf belehrung) {
         String gericht = belehrung.sozialgericht() != null && !belehrung.sozialgericht().isBlank()
                 ? belehrung.sozialgericht() : "das für den Sitz der Behörde zuständige Sozialgericht";
-        String bekanntgabe = " Der Bescheid gilt bei Übermittlung durch die Post im Inland am dritten Tag nach "
+        String bekanntgabe = " Der Bescheid gilt bei Übermittlung durch die Post im Inland am vierten Tag nach "
                 + "der Aufgabe zur Post als bekannt gegeben (§ 37 Abs. 2 SGB X).";
         if (Rechtsbehelf.MODUS_KLAGE.equals(belehrung.modus())) {
             return """

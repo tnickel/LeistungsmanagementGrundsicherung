@@ -1,6 +1,26 @@
 # Roadmap: Transaktionssteuerung
 
-*Stand: 2026-10-10, Version 0.5.2 (Fachrechts-Korrekturen; v0.5.1: externe Gegenprüfung eingearbeitet: Title-XSS, Betrags-Grenzwert, Jahresfenster, CSP-Vollständigkeit)*
+*Stand: 2026-10-10, Version 0.5.3 (Gegenprüfung der v0.5.2-Fachrechtskorrekturen eingearbeitet)*
+
+## Gegenprüfung v0.5.2 → Nacharbeiten (v0.5.3)
+
+Die Fachrechts-Korrekturen von v0.5.2 (§ 30 Abs. 3 auf RBS-1-Basis, Abs. 6 Deckel nur
+für Abs. 1–5, Schonvermögen 10.000/500 EUR nach BarbetragsVO, §§ 84/87/88-SGG-Belehrung)
+wurden Norm für Norm gegen die amtlichen Texte verifiziert und bestätigt. Nacharbeiten:
+
+- [x] **Bekanntgabe-Fiktion korrigiert** — § 37 Abs. 2 SGB X: schriftliche Bescheide gelten
+      bei Postübermittlung im Inland am **vierten** Tag nach Aufgabe zur Post als bekannt
+      gegeben (nicht am dritten); Bescheidtext, Javadoc korrigiert (falsche Belehrung
+      verlängerte die Klagefrist auf ein Jahr, § 66 Abs. 2 SGG)
+- [x] **Monatsregel zusätzlich auf Datenbankebene** — function-based Unique-Index
+      UQ_ZAHLUNG_BG_MONAT_AKTIV (BG+Monat eindeutig für nicht stornierte Zahlungen;
+      STORNIERT-Zeilen via CASE zu NULL ausgenommen) als letzte Verteidigungslinie für
+      künftige Schreibpfade; Service-Prüfung unter BG-Sperre bleibt die erste
+- [x] ALARM-Wiederholung bei erneuter Kompensation im Code dokumentiert
+      (bewusst ohne Dedup — Fachwirkung bleibt idempotent)
+- [x] Veraltete Warmwasser-2,3 %-Angaben korrigiert: Diagramm-Skript,
+      Handbuch-Quelltext; **Benutzerhandbuch DOCX/PDF und alle Diagramme neu
+      generiert** (Version 0.5.3, stufenabhängige Warmwasser-Sätze)
 
 ## Erreicht (v0.2.0 – v0.3.0)
 

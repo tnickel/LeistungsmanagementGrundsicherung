@@ -20,7 +20,7 @@ function kopfzeile() {
       border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: P.accent, space: 4 } },
       spacing: { after: 0 },
       children: [new TextRun({
-        text: "SDN.sozial LMG — Benutzerhandbuch · Version 0.4.0",
+        text: "SDN.sozial LMG — Benutzerhandbuch · Version 0.5.3",
         size: 16, color: P.secondary, font: FONT,
       })],
     })],
@@ -43,7 +43,7 @@ const vorwort = [
     children: [new TextRun({ text: "Über dieses Handbuch", bold: true, size: 30, color: P.primary, font: FONT_HEAD })],
   }),
   abs("Dieses Handbuch beschreibt die Fachanwendung SDN.sozial Leistungsmanagement Grundsicherung in zwei Teilen: Teil I ist die Anwenderdokumentation für die sachbearbeitende Ebene — von der Anmeldung über die Fallbearbeitung bis zu Bescheid, Vier-Augen-Freigabe und Kassenlauf. Teil II ist die technische Dokumentation: Architektur, Transaktionssteuerung, Saga-Muster, Datenmodell, Sicherheit und Konfiguration."),
-  abs("Alle Screenshots entstanden an der laufenden Anwendung gegen eine echte Oracle-Datenbank; alle Fachwerte entsprechen dem Referenzjahr 2026 und dem Softwarestand Version 0.4.0."),
+  abs("Alle Screenshots entstanden an der laufenden Anwendung gegen eine echte Oracle-Datenbank; alle Fachwerte entsprechen dem Referenzjahr 2026 und dem Softwarestand Version 0.5.3."),
   hinweis("Inhaltsverzeichnis aktualisieren", "Das Inhaltsverzeichnis ist als Word-Feld angelegt. Nach dem Öffnen bitte mit Rechtsklick auf das Verzeichnis „Felder aktualisieren“ wählen, damit die Seitennummern endgültig stimmen."),
   new Paragraph({
     alignment: AlignmentType.CENTER,
@@ -99,7 +99,7 @@ const dokument = new Document({
         subtitle: "Leistungsmanagement Grundsicherung (SGB XII) — Anwenderdokumentation und technische Dokumentation",
         englishLabel: "BENUTZERHANDBUCH",
         metaLines: [
-          "Version 0.4.0 · Stand: 10. Oktober 2026",
+          "Version 0.5.3 · Stand: 10. Oktober 2026",
           "Modul: Leistungsmanagement Grundsicherung (SDN.sozial LMG)",
           "Rechtsgrundlage: SGB XII · Bescheidverfahren nach § 37 SGB X",
           "Zielgruppen: Sachbearbeitung, Administration, Fachbetreuung",
