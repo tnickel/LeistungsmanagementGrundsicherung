@@ -6,7 +6,8 @@ import java.util.regex.Pattern;
 /** Zahlungsmonat: Abrechnungszeitraum im Format YYYY-MM (siehe Spalte ZAHLUNG.ZAHLUNGSMONAT). */
 public final class Zahlungsmonat {
 
-    private static final Pattern MUSTER = Pattern.compile("\\d{4}-(0[1-9]|1[0-2])");
+    /** Jahresfenster 1900–2099: fachlich unsinnige Extremjahre (0000, 9999) werden abgewiesen. */
+    private static final Pattern MUSTER = Pattern.compile("(19|20)\\d{2}-(0[1-9]|1[0-2])");
 
     private Zahlungsmonat() {
     }

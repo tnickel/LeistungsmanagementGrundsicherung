@@ -123,6 +123,7 @@ public final class LmgServer implements AutoCloseable {
             exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=utf-8");
             exchange.getResponseHeaders().set("Content-Security-Policy",
                     "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'");
+            exchange.getResponseHeaders().set("X-Content-Type-Options", "nosniff");
             exchange.sendResponseHeaders(401, msg.length);
             try (OutputStream out = exchange.getResponseBody()) {
                 out.write(msg);
@@ -146,6 +147,8 @@ public final class LmgServer implements AutoCloseable {
         } catch (FachlicheException e) {
             byte[] bytes = ("Fehler: " + e.getMessage()).getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=utf-8");
+            exchange.getResponseHeaders().set("Content-Security-Policy", "default-src 'none'");
+            exchange.getResponseHeaders().set("X-Content-Type-Options", "nosniff");
             exchange.sendResponseHeaders(400, bytes.length);
             try (OutputStream out = exchange.getResponseBody()) {
                 out.write(bytes);
@@ -155,6 +158,8 @@ public final class LmgServer implements AutoCloseable {
                     .log(java.util.logging.Level.SEVERE, "Fehler beim Bescheid-Druck", e);
             byte[] bytes = "Technischer Fehler — Details im Server-Log".getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=utf-8");
+            exchange.getResponseHeaders().set("Content-Security-Policy", "default-src 'none'");
+            exchange.getResponseHeaders().set("X-Content-Type-Options", "nosniff");
             exchange.sendResponseHeaders(500, bytes.length);
             try (OutputStream out = exchange.getResponseBody()) {
                 out.write(bytes);

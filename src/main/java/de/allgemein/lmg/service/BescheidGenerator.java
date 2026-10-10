@@ -230,7 +230,9 @@ public final class BescheidGenerator {
 </body>
 </html>
 """.formatted(
-                bescheid.bescheidNr(),
+                // <title> enthält die Bescheidnummer samt Aktenzeichen (Nutzereingabe)
+                // — auch hier escapen, sonst bricht "</title><script>…" aus dem Element aus.
+                escapeHtml(bescheid.bescheidNr()),
                 escapeHtml(bg.hauptpersonName()),
                 escapeHtml(bg.aktenzeichen()),
                 escapeHtml(bescheid.bescheidNr()),

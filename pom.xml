@@ -6,7 +6,7 @@
 
   <groupId>de.allgemein</groupId>
   <artifactId>transaktionssteuerung</artifactId>
-  <version>0.5.0</version>
+  <version>0.5.1</version>
   <packaging>jar</packaging>
 
   <name>Transaktionssteuerung</name>

@@ -598,7 +598,12 @@ public final class SozialLeistungsService implements LeistungsService {
                 fall.version());
     }
 
-    /** Beträge: maximal 8 Vorkomma-Stellen, auf 2 Nachkommastellen normiert (NUMBER(10,2)). */
+    /**
+     * Beträge: auf 2 Nachkommastellen normiert (NUMBER(10,2)), maximal 8 Vorkomma-
+     * Stellen. Wichtig: Erst runden, dann die Grenze prüfen — sonst schlüpft z. B.
+     * 99.999.999,999 durch die Prüfung und wird auf 100.000.000,00 aufgerundet
+     * (ORA-01438 statt Fachfehler).
+     */
     public static BigDecimal normiereBetrag(BigDecimal betrag, String feldname) {
         if (betrag == null) {
             return BigDecimal.ZERO.setScale(2);
@@ -607,11 +612,12 @@ public final class SozialLeistungsService implements LeistungsService {
             throw new FachlicheException(FachlicheException.VALIDATION,
                     feldname + " darf nicht negativ sein");
         }
-        if (betrag.precision() - betrag.scale() > 8) {
+        BigDecimal normalisiert = betrag.setScale(2, RoundingMode.HALF_UP);
+        if (normalisiert.precision() - normalisiert.scale() > 8) {
             throw new FachlicheException(FachlicheException.VALIDATION,
                     feldname + " ist zu groß (maximal 99.999.999,99 EUR)");
         }
-        return betrag.setScale(2, RoundingMode.HALF_UP);
+        return normalisiert;
     }
 
     private void pruefeText(String wert, String feldname, int maxLaenge) {

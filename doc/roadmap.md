@@ -1,6 +1,6 @@
 # Roadmap: Transaktionssteuerung
 
-*Stand: 2026-10-10, Version 0.5.0 (Codereview-Umsetzung: Fachrecht § 30/82/90 vollständig, Saga-Crash-Sicherheit, Web-Sicherheit)*
+*Stand: 2026-10-10, Version 0.5.1 (externe Gegenprüfung eingearbeitet: Title-XSS, Betrags-Grenzwert, Jahresfenster, CSP-Vollständigkeit)*
 
 ## Erreicht (v0.2.0 – v0.3.0)
 
@@ -66,7 +66,8 @@
       1. Vorgang erfassen (Bedarfsgemeinschaft + SozialFall anlegen)
       2. Bedarfsprüfung (SGB-XII-Berechnung; Abbruch bei fehlendem Anspruch)
       3. Bescheid erteilen (Bewilligungsbescheid anlegen und journalisieren)
-      4. Erstauszahlung anweisen (Zahlung Status BEREIT, Restbudget mindern)
+      4. Erstauszahlung anweisen (Zahlung Status BEREIT — seit v0.5.0: ANGELEGT, Vier-Augen
+         serverseitig erzwungen; Restbudget mindern)
       Inklusive automatischer Rückwärtskompensation bei Abbruch (Schritt 1 wird gelöscht,
       Journal-Audit protokolliert)
 - [x] **Web-UI & API-Anbindung**: Neue Endpunkte `/api/bedarfsgemeinschaften/{id}/bescheid`,
@@ -145,6 +146,29 @@
 - [x] Doku konsistent: README (Endpunkte, Beispiel, Testzahl, keine Micrometer-/
       SEPA-XML-Erfindungen), architektur.md auf v0.5.0, properties.example mit
       Semikolon-Beispiel, AGENTS.md Stand
+
+### Externe Gegenprüfung eingearbeitet (v0.5.1)
+
+Ein unabhängiger Audit einer zweiten KI wurde Fund für Fund nachgeprüft; die
+bestätigten Funde sind behoben, die widerlegten (u. a. „recover fehlt beim
+Serverstart", „CICS-Kommentare verstoßen gegen Namensregel", numerische
+app.js-Interpolationen als XSS) dokumentiert nicht umgesetzt:
+
+- [x] **Title-XSS im Bescheid geschlossen** — `bescheidNr()` (enthält das
+      Aktenzeichen) wird jetzt auch im `<title>` der Druckansicht escaped;
+      Regressionstest mit `</title><script>`-Payload (`BescheidGeneratorTest`)
+- [x] **Betrags-Grenzwert prüft nach der Rundung** — 99.999.999,999 wird jetzt
+      fachlich abgewiesen, statt auf 100.000.000,00 aufzurunden und erst mit
+      ORA-01438 in der DB zu scheitern (`SozialLeistungsServiceTest`)
+- [x] **Zahlungsmonat mit Jahresfenster 1900–2099** — Extremjahre (0000, 9999)
+      werden abgewiesen (`ZahlungsmonatTest`)
+- [x] **CSP konsequent auf allen Antwortpfaden des Druck-Endpoints**
+      (inkl. 400/500/401 mit `nosniff`)
+- [x] Doku: README-API-Tabelle vervollständigt, Handbuch-Seitenzahl (42)
+      korrigiert, Etappen-Historie mit v0.5.0-ANGELEGT-Klammer versehen
+- [ ] Aus Audit übernommene, weitere Testideen (echter Prozess-Kill statt
+      synthetischem Crash-Zustand, paralleler Wiederanlauf als Integrationstest,
+      Session-Timeout-Timing) — siehe Etappe 4
 
 ## Etappe 4 — Betrieb & Weiterentwicklung
 

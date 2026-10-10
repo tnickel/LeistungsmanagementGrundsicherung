@@ -64,7 +64,7 @@ LeistungsmanagementGrundsicherung/
 │   ├── architektur.md           # Detaillierte technische Architekturspezifikation
 │   ├── leistungsmanagement.md   # Fachmodell, Berechnungsformeln und REST-API
 │   ├── manual-bilder/           # Hochauflösende Screenshots & Architekturdiagramme
-│   └── SDN-sozial-LMG-Benutzerhandbuch.pdf # 40-seitiges Schulungs- & Praxishandbuch
+│   └── SDN-sozial-LMG-Benutzerhandbuch.pdf # 42-seitiges Schulungs- & Praxishandbuch
 └── src/
     ├── main/java/de/allgemein/tx/   # Kern: Transaktionsmanager, Saga-Engine, Connection Pools
     ├── main/java/de/allgemein/lmg/  # Fachschicht: SGB XII Rechner, DAOs, Services, Webserver
@@ -262,13 +262,18 @@ Der integrierte JDK-HttpServer stellt alle Fach- und Systemfunktionen über eine
 
 | Methode | Endpunkt | Funktion & Berechtigung |
 |:---|:---|:---|
+| `POST` | `/api/anmeldung` · `/api/abmeldung` | Anmeldung (Token) / Abmeldung |
+| `GET` | `/api/werbin` | Angemeldete Kennung und Rolle |
 | `GET` | `/api/bedarfsgemeinschaften` | Liste aller Fälle mit Schnellberechnung des Zahlbetrags |
+| `POST` | `/api/bedarfsgemeinschaften` | Neuen Vorgang anlegen (Aktenzeichen eindeutig, Startbudget, Vermögen) |
 | `GET` | `/api/bedarfsgemeinschaften/{id}` | Vorgangsdetail mit SozialFällen, Bescheiden & Zahlungen |
 | `PUT` | `/api/bedarfsgemeinschaften/{id}` | Stammdaten aktualisieren (Optimistisches Locking via `VERSION`) |
-| `PUT` | `/api/sozialfaelle/{id}` | Einzelperson anpassen (Miete, Einkommen, Mehrbedarfe) |
+| `POST` | `/api/bedarfsgemeinschaften/{id}/sozialfaelle` | Weitere Person zum Vorgang anlegen |
+| `PUT` | `/api/sozialfaelle/{id}` | Einzelperson anpassen (Miete, Einkommen, Mehrbedarfe, Absetzbeträge) |
 | `POST` | `/api/auszahlung` | Auszahlung erfassen — immer Status `ANGELEGT` (Idempotenz via `vorgangsNr`) |
 | `POST` | `/api/zahlungen/{id}/freigabe` | Vier-Augen-Freigabe (Prüft serverseitig `SACHBEARBEITER_ID != FREIGEBER`) |
 | `POST` | `/api/zahlungen/{id}/storno` | Storno mit Restbudget-Rückbuchung *(Admin)* |
+| `GET` | `/api/zahlungen` | Letzte Zahlungen über alle Vorgänge |
 | `POST` | `/api/kassenlauf` | Alle `BEREIT`-Zahlungen an die Kasse übergeben *(Admin)* |
 | `POST` | `/api/bedarfsgemeinschaften/{id}/bescheid` | Bewilligungsbescheid erteilen (§ 44 SGB XII) |
 | `GET` | `/api/bedarfsgemeinschaften/{id}/bescheid/druck` | Druckansicht des amtlichen Bescheids |
@@ -288,7 +293,7 @@ Im Ordner [`doc/`](doc/) stehen ausführliche Architekturberichte und das offizi
     <img src="doc/manual-bilder/handbuch_cover.jpg" alt="SDN.sozial Benutzerhandbuch Cover" width="300" style="border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);" />
   </a>
   <br>
-  <strong><a href="doc/SDN-sozial-LMG-Benutzerhandbuch.pdf">📖 SDN-sozial-LMG-Benutzerhandbuch.pdf (40 Seiten, Vollständige Referenz)</a></strong>
+  <strong><a href="doc/SDN-sozial-LMG-Benutzerhandbuch.pdf">📖 SDN-sozial-LMG-Benutzerhandbuch.pdf (42 Seiten, Vollständige Referenz)</a></strong>
 </p>
 
 * [doc/architektur.md](doc/architektur.md) — Detaillierte Baustein-Architektur, Concurrency-Regeln und Datenfluss

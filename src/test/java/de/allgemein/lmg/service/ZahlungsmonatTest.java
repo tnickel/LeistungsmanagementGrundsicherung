@@ -26,4 +26,19 @@ class ZahlungsmonatTest {
         assertFalse(Zahlungsmonat.isValid("26-09"));
         assertFalse(Zahlungsmonat.isValid("2026/09"));
     }
+
+    @Test
+    void extremjahreWerdenAbgewiesen() {
+        // Fachlich unsinnige Jahre außerhalb des Fensters 1900–2099
+        assertFalse(Zahlungsmonat.isValid("0000-01"));
+        assertFalse(Zahlungsmonat.isValid("1899-12"));
+        assertFalse(Zahlungsmonat.isValid("2100-01"));
+        assertFalse(Zahlungsmonat.isValid("9999-12"));
+    }
+
+    @Test
+    void jahresfensterGrenzenWerdenAkzeptiert() {
+        assertTrue(Zahlungsmonat.isValid("1900-01"));
+        assertTrue(Zahlungsmonat.isValid("2099-12"));
+    }
 }
