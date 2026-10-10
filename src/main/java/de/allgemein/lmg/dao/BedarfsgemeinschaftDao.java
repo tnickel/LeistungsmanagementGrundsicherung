@@ -22,7 +22,8 @@ import java.util.Optional;
 public final class BedarfsgemeinschaftDao {
 
     private static final String COLUMNS =
-            "ID, AKTENZEICHEN, HAUPTPERSON_NAME, STATUS_AKTIV, BUDGET_REST, WIEDERVORLAGE_AM, VERSION";
+            "ID, AKTENZEICHEN, HAUPTPERSON_NAME, STATUS_AKTIV, BUDGET_REST, WIEDERVORLAGE_AM, VERSION, "
+                    + "IBAN, BIC, KONTOINHABER";
 
     public List<Bedarfsgemeinschaft> listeAlle(TxContext ctx) throws SQLException {
         try (PreparedStatement stmt = ctx.connection().prepareStatement(
@@ -58,6 +59,28 @@ public final class BedarfsgemeinschaftDao {
      * betroffener Zeilen — 0 heißt "zwischenzeitlich geändert".
      */
     public int aktualisiere(TxContext ctx, long id, boolean statusAktiv, LocalDate wiedervorlageAm,
+                            String iban, String bic, String kontoinhaber,
+                            long erwarteteVersion) throws SQLException {
+        try (PreparedStatement stmt = ctx.connection().prepareStatement(
+                "UPDATE BEDARFSGEMEINSCHAFT SET STATUS_AKTIV = ?, WIEDERVORLAGE_AM = ?, "
+                        + "IBAN = ?, BIC = ?, KONTOINHABER = ? "
+                        + "WHERE ID = ? AND VERSION = ?")) {
+            stmt.setInt(1, statusAktiv ? 1 : 0);
+            if (wiedervorlageAm != null) {
+                stmt.setDate(2, Date.valueOf(wiedervorlageAm));
+            } else {
+                stmt.setNull(2, java.sql.Types.DATE);
+            }
+            stmt.setString(3, iban);
+            stmt.setString(4, bic);
+            stmt.setString(5, kontoinhaber);
+            stmt.setLong(6, id);
+            stmt.setLong(7, erwarteteVersion);
+            return stmt.executeUpdate();
+        }
+    }
+
+    public int aktualisiere(TxContext ctx, long id, boolean statusAktiv, LocalDate wiedervorlageAm,
                             long erwarteteVersion) throws SQLException {
         try (PreparedStatement stmt = ctx.connection().prepareStatement(
                 "UPDATE BEDARFSGEMEINSCHAFT SET STATUS_AKTIV = ?, WIEDERVORLAGE_AM = ? "
@@ -76,10 +99,11 @@ public final class BedarfsgemeinschaftDao {
 
     /** Legt den Vorgang an (ID über SEQ_BG); Aktenzeichen-Eindeutigkeit prüft die DB. */
     public Bedarfsgemeinschaft einfuegen(TxContext ctx, long id, String aktenzeichen, String hauptpersonName,
-                                         BigDecimal startBudget, LocalDate wiedervorlageAm) throws SQLException {
+                                         BigDecimal startBudget, LocalDate wiedervorlageAm,
+                                         String iban, String bic, String kontoinhaber) throws SQLException {
         try (PreparedStatement stmt = ctx.connection().prepareStatement(
                 "INSERT INTO BEDARFSGEMEINSCHAFT (ID, AKTENZEICHEN, HAUPTPERSON_NAME, STATUS_AKTIV, "
-                        + "BUDGET_REST, WIEDERVORLAGE_AM) VALUES (?, ?, ?, 1, ?, ?)")) {
+                        + "BUDGET_REST, WIEDERVORLAGE_AM, IBAN, BIC, KONTOINHABER) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)")) {
             stmt.setLong(1, id);
             stmt.setString(2, aktenzeichen);
             stmt.setString(3, hauptpersonName);
@@ -89,10 +113,18 @@ public final class BedarfsgemeinschaftDao {
             } else {
                 stmt.setNull(5, java.sql.Types.DATE);
             }
+            stmt.setString(6, iban);
+            stmt.setString(7, bic);
+            stmt.setString(8, kontoinhaber);
             stmt.executeUpdate();
         }
         return new Bedarfsgemeinschaft(id, aktenzeichen, hauptpersonName, true, startBudget,
-                wiedervorlageAm, 1L);
+                wiedervorlageAm, 1L, iban, bic, kontoinhaber);
+    }
+
+    public Bedarfsgemeinschaft einfuegen(TxContext ctx, long id, String aktenzeichen, String hauptpersonName,
+                                         BigDecimal startBudget, LocalDate wiedervorlageAm) throws SQLException {
+        return einfuegen(ctx, id, aktenzeichen, hauptpersonName, startBudget, wiedervorlageAm, null, null, null);
     }
 
     /** Mindert das Restbudget; wird nur innerhalb der BG-Sperre (lockForUpdate) aufgerufen. */
@@ -151,6 +183,9 @@ public final class BedarfsgemeinschaftDao {
                 rs.getInt(4) == 1,
                 rs.getBigDecimal(5),
                 wiedervorlage == null ? null : wiedervorlage.toLocalDate(),
-                rs.getLong(7));
+                rs.getLong(7),
+                rs.getString(8),
+                rs.getString(9),
+                rs.getString(10));
     }
 }

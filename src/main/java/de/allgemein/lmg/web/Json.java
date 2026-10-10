@@ -26,6 +26,10 @@ public final class Json {
         return out.toString();
     }
 
+    public static String stringify(Object value) {
+        return write(value);
+    }
+
     private static void writeValue(StringBuilder out, Object value) {
         if (value == null) {
             out.append("null");

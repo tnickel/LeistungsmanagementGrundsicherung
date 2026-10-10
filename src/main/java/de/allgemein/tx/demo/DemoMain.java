@@ -31,7 +31,7 @@ public final class DemoMain {
         // JDBC-Treiber explizit laden: im In-Prozess-Lauf (mvn exec:java) hat
         // DriverManager sonst keinen Zugriff auf den Treiber des Projekt-Klassenpfads.
         Class.forName("oracle.jdbc.OracleDriver");
-        String url = env("TX_URL", "jdbc:oracle:thin:@//localhost:1521/XEPDB1");
+        String url = env("TX_URL", "jdbc:oracle:thin:@//localhost:1921/o19c1p1");
         String user = env("TX_USER", "tx_demo");
         String password = env("TX_PASS", "tx_demo");
 

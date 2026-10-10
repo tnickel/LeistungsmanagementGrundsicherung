@@ -15,3 +15,14 @@ Thumbs.db
 
 # Lokale Konfiguration mit Geheimnissen (falls vorhanden)
 *.local.env
+
+# Lokale Konfiguration/Secrets: lmg.properties enthält DB-Zugangsdaten
+# (Vorlage: lmg.properties.example)
+lmg.properties
+
+# Logs
+*.log
+lmg_audit.log
+
+# Node-Abhängigkeiten des Handbuch-Werkzeugs
+node_modules/

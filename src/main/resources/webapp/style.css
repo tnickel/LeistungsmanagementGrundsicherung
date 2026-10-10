@@ -125,6 +125,7 @@ tr.historisch td { color: var(--farbe-text-leise); }
 }
 .chip.aktiv { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
 .chip.historisch { background: #f3f4f6; color: #6b7280; border-color: #d1d5db; }
+.chip.angelegt { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
 .chip.bereit { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
 .chip.uebergeben { background: #fefce8; color: #a16207; border-color: #fde68a; }
 .chip.storniert { background: #fef2f2; color: var(--farbe-gefahren); border-color: #fecaca; }

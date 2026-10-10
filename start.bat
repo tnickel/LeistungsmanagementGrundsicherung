@@ -8,13 +8,13 @@ rem  Aufruf:  start.bat          -> Fachanwendung (Standard, Port 8080)
 rem           start.bat demo     -> DemoMain (Saga-Beispiel mit Kompensation)
 rem
 rem  Konfiguration: die Umgebungsvariablen TX_URL, TX_USER, TX_PASS und
-rem  LMG_PORT uebersteuern die unten gesetzten Vorgaben (Entwickler-DB
-rem  im Docker-Container "lmg-oracle", Oracle 23ai Free).
+rem  LMG_PORT uebersteuern die unten gesetzten Vorgaben (Oracle 19c
+rem  in VirtualBox-VM "oracle-19c-adminwkshop", PDB o19c1p1 auf Port 1921).
 rem =====================================================================
 
 cd /d "%~dp0"
 
-if "%TX_URL%"==""   set "TX_URL=jdbc:oracle:thin:@//localhost:1521/FREEPDB1"
+if "%TX_URL%"==""   set "TX_URL=jdbc:oracle:thin:@//localhost:1921/o19c1p1"
 if "%TX_USER%"==""  set "TX_USER=tx_demo"
 if "%TX_PASS%"==""  set "TX_PASS=tx_demo"
 if "%LMG_PORT%"=="" set "LMG_PORT=8080"
@@ -24,6 +24,21 @@ if errorlevel 1 (
     echo [Fehler] Maven ^(mvn^) nicht gefunden - bitte PATH pruefen.
     pause
     exit /b 1
+)
+
+rem ---------------------------------------------------------------------
+rem  Oracle 19c in VirtualBox pruefen (Port 1921)
+rem ---------------------------------------------------------------------
+echo %TX_URL% | findstr /c:"localhost:1921" >nul
+if not errorlevel 1 (
+    powershell -NoProfile -Command "if (!(Test-NetConnection -ComputerName 127.0.0.1 -Port 1921 -InformationLevel Quiet)) { exit 1 }" >nul 2>nul
+    if errorlevel 1 (
+        echo [Warnung] VirtualBox Oracle-DB auf Port 1921 antwortet nicht.
+        echo Bitte VM "oracle-19c-adminwkshop" in VirtualBox starten.
+    ) else (
+        echo Oracle 19c Datenbank ^(VirtualBox, Port 1921^) ist erreichbar.
+    )
+    goto db_ok
 )
 
 rem ---------------------------------------------------------------------

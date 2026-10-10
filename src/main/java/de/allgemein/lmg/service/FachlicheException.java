@@ -20,6 +20,7 @@ public class FachlicheException extends TxException {
     public static final String VALIDATION = "VALIDATION";
     public static final String NICHT_GEFUNDEN = "NICHT_GEFUNDEN";
     public static final String RBS_NICHT_KONFIGURIERT = "RBS_NICHT_KONFIGURIERT";
+    public static final String BERECHTIGUNG = "BERECHTIGUNG";
 
     private final String code;
 

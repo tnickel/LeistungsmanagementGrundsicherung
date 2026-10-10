@@ -35,6 +35,7 @@ public final class SagaEngine {
         List<SagaStep> steps = definition.steps();
         try {
             journal.start(sagaId, definition.type(), payload, steps.size());
+            de.allgemein.tx.audit.TxAuditLog.recordSagaStart(sagaId, definition.type(), payload);
         } catch (SQLException e) {
             throw TxException.nonRetryable("Saga-Journal nicht beschreibbar: " + e.getMessage(), e);
         }
@@ -49,13 +50,17 @@ public final class SagaEngine {
                 };
                 txManager.execute(TxOptions.DEFAULT, work);
                 record(() -> journal.stepDone(sagaId, index, step.name()));
+                de.allgemein.tx.audit.TxAuditLog.recordSagaStep(sagaId, index, step.name());
                 doneCount++;
             }
             record(() -> journal.markState(sagaId, SagaState.COMPLETED));
+            de.allgemein.tx.audit.TxAuditLog.recordSagaCompleted(sagaId, definition.type());
             return sagaId;
         } catch (TxException e) {
             record(() -> journal.markState(sagaId, SagaState.FAILED));
+            de.allgemein.tx.audit.TxAuditLog.recordSagaCompensating(sagaId, e.getMessage());
             compensate(definition, payload, sagaId, doneCount);
+            de.allgemein.tx.audit.TxAuditLog.recordSagaFailed(sagaId, e.getMessage());
             throw e;
         }
     }

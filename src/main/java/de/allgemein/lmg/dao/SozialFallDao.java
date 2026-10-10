@@ -19,7 +19,8 @@ import java.util.Optional;
 public final class SozialFallDao {
 
     private static final String COLUMNS =
-            "ID, BG_ID, REGELBEDARFSSTUFE, FLAG_MERKZEICHEN_G, KDU_MIETE, KDU_HEIZUNG, "
+            "ID, BG_ID, REGELBEDARFSSTUFE, FLAG_MERKZEICHEN_G, FLAG_WARMWASSER, "
+                    + "KDU_MIETE, KDU_BETRIEBSKOSTEN, KDU_HEIZUNG, "
                     + "EINKOMMEN_RENTE, EINKOMMEN_ERWERB, VERSION";
 
     public List<SozialFall> listeFuerBg(TxContext ctx, long bgId) throws SQLException {
@@ -41,21 +42,23 @@ public final class SozialFallDao {
     /** Legt den SozialFall an (ID über SEQ_FALL); Version startet bei 1. */
     public SozialFall einfuegen(TxContext ctx, long id, SozialFall neu) throws SQLException {
         try (PreparedStatement stmt = ctx.connection().prepareStatement(
-                "INSERT INTO SOZIAL_FALL (ID, BG_ID, REGELBEDARFSSTUFE, FLAG_MERKZEICHEN_G, "
-                        + "KDU_MIETE, KDU_HEIZUNG, EINKOMMEN_RENTE, EINKOMMEN_ERWERB) "
-                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)")) {
+                "INSERT INTO SOZIAL_FALL (ID, BG_ID, REGELBEDARFSSTUFE, FLAG_MERKZEICHEN_G, FLAG_WARMWASSER, "
+                        + "KDU_MIETE, KDU_BETRIEBSKOSTEN, KDU_HEIZUNG, EINKOMMEN_RENTE, EINKOMMEN_ERWERB) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
             stmt.setLong(1, id);
             stmt.setLong(2, neu.bgId());
             stmt.setInt(3, neu.regelbedarfsstufe());
             stmt.setInt(4, neu.merkzeichenG() ? 1 : 0);
-            stmt.setBigDecimal(5, neu.kduMiete());
-            stmt.setBigDecimal(6, neu.kduHeizung());
-            stmt.setBigDecimal(7, neu.einkommenRente());
-            stmt.setBigDecimal(8, neu.einkommenErwerb());
+            stmt.setInt(5, neu.warmwasser() ? 1 : 0);
+            stmt.setBigDecimal(6, neu.kduMiete());
+            stmt.setBigDecimal(7, neu.kduBetriebskosten());
+            stmt.setBigDecimal(8, neu.kduHeizung());
+            stmt.setBigDecimal(9, neu.einkommenRente());
+            stmt.setBigDecimal(10, neu.einkommenErwerb());
             stmt.executeUpdate();
         }
-        return new SozialFall(id, neu.bgId(), neu.regelbedarfsstufe(), neu.merkzeichenG(),
-                neu.kduMiete(), neu.kduHeizung(), neu.einkommenRente(), neu.einkommenErwerb(), 1L);
+        return new SozialFall(id, neu.bgId(), neu.regelbedarfsstufe(), neu.merkzeichenG(), neu.warmwasser(),
+                neu.kduMiete(), neu.kduBetriebskosten(), neu.kduHeizung(), neu.einkommenRente(), neu.einkommenErwerb(), 1L);
     }
 
     /**
@@ -65,17 +68,20 @@ public final class SozialFallDao {
      */
     public int aktualisiere(TxContext ctx, SozialFall geaendert, long erwarteteVersion) throws SQLException {
         try (PreparedStatement stmt = ctx.connection().prepareStatement(
-                "UPDATE SOZIAL_FALL SET REGELBEDARFSSTUFE = ?, FLAG_MERKZEICHEN_G = ?, "
-                        + "KDU_MIETE = ?, KDU_HEIZUNG = ?, EINKOMMEN_RENTE = ?, EINKOMMEN_ERWERB = ? "
+                "UPDATE SOZIAL_FALL SET REGELBEDARFSSTUFE = ?, FLAG_MERKZEICHEN_G = ?, FLAG_WARMWASSER = ?, "
+                        + "KDU_MIETE = ?, KDU_BETRIEBSKOSTEN = ?, KDU_HEIZUNG = ?, "
+                        + "EINKOMMEN_RENTE = ?, EINKOMMEN_ERWERB = ? "
                         + "WHERE ID = ? AND VERSION = ?")) {
             stmt.setInt(1, geaendert.regelbedarfsstufe());
             stmt.setInt(2, geaendert.merkzeichenG() ? 1 : 0);
-            stmt.setBigDecimal(3, geaendert.kduMiete());
-            stmt.setBigDecimal(4, geaendert.kduHeizung());
-            stmt.setBigDecimal(5, geaendert.einkommenRente());
-            stmt.setBigDecimal(6, geaendert.einkommenErwerb());
-            stmt.setLong(7, geaendert.id());
-            stmt.setLong(8, erwarteteVersion);
+            stmt.setInt(3, geaendert.warmwasser() ? 1 : 0);
+            stmt.setBigDecimal(4, geaendert.kduMiete());
+            stmt.setBigDecimal(5, geaendert.kduBetriebskosten());
+            stmt.setBigDecimal(6, geaendert.kduHeizung());
+            stmt.setBigDecimal(7, geaendert.einkommenRente());
+            stmt.setBigDecimal(8, geaendert.einkommenErwerb());
+            stmt.setLong(9, geaendert.id());
+            stmt.setLong(10, erwarteteVersion);
             return stmt.executeUpdate();
         }
     }
@@ -105,11 +111,13 @@ public final class SozialFallDao {
                 rs.getLong(2),
                 rs.getInt(3),
                 rs.getInt(4) == 1,
-                nullSafeBetrag(rs.getBigDecimal(5)),
+                rs.getInt(5) == 1,
                 nullSafeBetrag(rs.getBigDecimal(6)),
                 nullSafeBetrag(rs.getBigDecimal(7)),
                 nullSafeBetrag(rs.getBigDecimal(8)),
-                rs.getLong(9));
+                nullSafeBetrag(rs.getBigDecimal(9)),
+                nullSafeBetrag(rs.getBigDecimal(10)),
+                rs.getLong(11));
     }
 
     private BigDecimal nullSafeBetrag(BigDecimal value) {

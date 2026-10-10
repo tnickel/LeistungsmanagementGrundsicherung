@@ -54,9 +54,61 @@
         <header class="kopfleiste">
           <h1>Fallübersicht</h1>
           <button id="btn-neu-vorgang" class="sekundaer">+ Neuer Vorgang</button>
+          <button id="btn-saga-antrag" class="sekundaer">⚡ Antrags-Saga (E2E)</button>
           <input id="suchfeld" class="suchfeld" type="search"
                  placeholder="Aktenzeichen oder Name suchen …" autocomplete="off">
         </header>
+
+        <div class="karte hidden" id="karte-saga-antrag">
+          <h2>End-to-End-Antrag als Saga ausführen</h2>
+          <p class="hinweis">Führt 4 unteilbare Transaktionsschritte (Vorgang erfassen → Bedarfsprüfung → Bescheid erteilen → Erstauszahlung anweisen) mit automatischer Rückwärtskompensation bei Fehlern aus.</p>
+          <div class="maske-gitter">
+            <label>Aktenzeichen
+              <input id="saga-aktenzeichen" type="text" maxlength="50" placeholder="BG-SAGA-...">
+            </label>
+            <label>Hauptperson
+              <input id="saga-name" type="text" maxlength="100" value="Mustermann, Erika">
+            </label>
+            <label>Startbudget (EUR)
+              <input id="saga-budget" type="number" step="0.01" min="0" value="5000">
+            </label>
+            <label>Zahlungsmonat
+              <input id="saga-monat" type="month">
+            </label>
+            <label>IBAN
+              <input id="saga-iban" type="text" maxlength="34" value="DE89 3704 0044 0532 0130 00">
+            </label>
+            <label>BIC
+              <input id="saga-bic" type="text" maxlength="11" value="MARKDEF1100">
+            </label>
+            <label>Regelbedarfsstufe
+              <select id="saga-rbs">
+                <option value="1">Stufe 1 (563,00 €)</option>
+                <option value="2">Stufe 2 (506,00 €)</option>
+                <option value="3">Stufe 3 (451,00 €)</option>
+                <option value="4">Stufe 4 (471,00 €)</option>
+                <option value="5">Stufe 5 (390,00 €)</option>
+                <option value="6">Stufe 6 (357,00 €)</option>
+              </select>
+            </label>
+            <label>Kaltmiete (EUR)
+              <input id="saga-miete" type="number" step="0.01" min="0" value="420">
+            </label>
+            <label>Kalte Betriebskosten (EUR)
+              <input id="saga-betrieb" type="number" step="0.01" min="0" value="95">
+            </label>
+            <label>Heizkosten (EUR)
+              <input id="saga-heizung" type="number" step="0.01" min="0" value="85">
+            </label>
+            <label>Renteneinkünfte (EUR)
+              <input id="saga-rente" type="number" step="0.01" min="0" value="0">
+            </label>
+            <label>Erwerbseinkommen (EUR)
+              <input id="saga-erwerb" type="number" step="0.01" min="0" value="0">
+            </label>
+          </div>
+          <button id="btn-saga-starten" class="primaer">⚡ Antrags-Saga starten</button>
+        </div>
 
         <div class="karte hidden" id="karte-neu-vorgang">
           <h2>Neuen Vorgang anlegen</h2>
@@ -72,6 +124,15 @@
             </label>
             <label>Wiedervorlage
               <input id="neu-wiedervorlage" type="date">
+            </label>
+            <label>IBAN (Standard-Konto)
+              <input id="neu-iban" type="text" maxlength="34" placeholder="DE89 3704 0044 0532 0130 00">
+            </label>
+            <label>BIC
+              <input id="neu-bic" type="text" maxlength="11" placeholder="MARKDEF1100">
+            </label>
+            <label>Kontoinhaber
+              <input id="neu-kontoinhaber" type="text" maxlength="100" placeholder="Mustermann, Max">
             </label>
           </div>
           <button id="btn-vorgang-speichern" class="primaer">Vorgang anlegen</button>
@@ -158,6 +219,9 @@
                   <label>Kaltmiete (EUR)
                     <input id="neu-fall-miete" type="number" step="0.01" min="0" value="0">
                   </label>
+                  <label>Kalte Betriebskosten (EUR)
+                    <input id="neu-fall-betriebskosten" type="number" step="0.01" min="0" value="0">
+                  </label>
                   <label>Heizkosten (EUR)
                     <input id="neu-fall-heizung" type="number" step="0.01" min="0" value="0">
                   </label>
@@ -170,7 +234,11 @@
                 </div>
                 <label class="checkbox-zeile">
                   <input id="neu-fall-g" type="checkbox">
-                  <span>Merkzeichen G — Mehrbedarf 17&nbsp;% (§ 30 SGB XII)</span>
+                  <span>Merkzeichen G — Mehrbedarf 17&nbsp;% (§ 30 Abs. 1 SGB XII)</span>
+                </label>
+                <label class="checkbox-zeile">
+                  <input id="neu-fall-warmwasser" type="checkbox">
+                  <span>Dezentrale Warmwassererzeugung — Mehrbedarf 2,3&nbsp;% (§ 30 Abs. 7 SGB XII)</span>
                 </label>
                 <div style="margin-top:12px">
                   <button id="btn-fall-speichern" class="primaer">SozialFall anlegen</button>
@@ -182,20 +250,44 @@
             <div class="karte">
               <h2>Zahlbarmachung</h2>
               <div class="maske-gitter">
+                <label>Empfänger / Kontoinhaber
+                  <input id="auszahlung-empfaenger" type="text" placeholder="Name des Empfängers">
+                </label>
                 <label>IBAN
-                  <input id="iban" type="text" placeholder="DE00 0000 0000 0000 0000 00" disabled>
+                  <input id="auszahlung-iban" type="text" placeholder="DE00 0000 0000 0000 0000 00">
                 </label>
                 <label>BIC
-                  <input id="bic" type="text" placeholder="XXXXXXXXXXX" disabled>
+                  <input id="auszahlung-bic" type="text" placeholder="XXXXXXXXXXX">
                 </label>
                 <label>Zahlungsmonat
                   <input id="zahlungsmonat" type="month" required>
                 </label>
               </div>
-              <p class="hinweis">Die Anordnung erfolgt unter Ihrer angemeldeten Kennung (Vier-Augen-Prinzip)
-                und wird revisionssicher im Journal protokolliert. Bankverbindung wird im
-                Demo-Datenmodell nicht geführt — Felder sind deaktiviert.</p>
+              <label class="checkbox-zeile" style="margin: 12px 0;">
+                <input id="auszahlung-vieraugen" type="checkbox" checked>
+                <span>Vier-Augen-Prüfung erforderlich (Status: ANGELEGT, Freigabe durch Zweitsachbearbeiter)</span>
+              </label>
+              <p class="hinweis">Die Anordnung erfolgt unter Ihrer angemeldeten Kennung und wird revisionssicher im Journal protokolliert. Bei aktiver Vier-Augen-Prüfung muss die Zahlung vor dem Kassenlauf durch einen zweiten Bearbeiter freigegeben werden.</p>
               <button id="btn-auszahlung" class="primaer large">Auszahlung anordnen</button>
+            </div>
+
+            <div class="karte">
+              <h2>Bewilligungsbescheid (§ 37 SGB X)</h2>
+              <div id="bescheid-box" class="hinweis" style="margin-bottom: 12px; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
+                <span id="bescheid-status-text">Kein Bescheid erteilt.</span>
+              </div>
+              <div class="maske-gitter">
+                <label>Bewilligung von
+                  <input id="bescheid-von" type="month">
+                </label>
+                <label>Bewilligung bis
+                  <input id="bescheid-bis" type="month">
+                </label>
+              </div>
+              <div style="margin-top: 12px; display: flex; gap: 8px;">
+                <button id="btn-bescheid-erteilen" class="sekundaer">Bescheid erteilen</button>
+                <button id="btn-bescheid-drucken" class="primaer hidden">🖨️ Amtlichen Bescheid drucken (PDF)</button>
+              </div>
             </div>
 
             <div class="karte">
@@ -203,7 +295,8 @@
               <table class="tabelle" id="tabelle-zahlungen">
                 <thead>
                   <tr><th>Monat</th><th class="zahl">Betrag</th><th>Status</th>
-                      <th>Vorgangs-Nr.</th><th>Angelegt</th><th></th></tr>
+                      <th>Empfänger / IBAN</th><th>Erfasst</th><th>Freigegeben</th>
+                      <th>Vorgangs-Nr.</th><th>Angelegt</th><th>Aktionen</th></tr>
                 </thead>
                 <tbody></tbody>
               </table>
@@ -229,8 +322,17 @@
                 <label>Wiedervorlage
                   <input id="kopf-wiedervorlage" type="date">
                 </label>
+                <label>Standard-IBAN
+                  <input id="kopf-iban" type="text" maxlength="34" placeholder="DE...">
+                </label>
+                <label>Standard-BIC
+                  <input id="kopf-bic" type="text" maxlength="11" placeholder="BIC...">
+                </label>
+                <label style="grid-column: 1 / -1;">Kontoinhaber
+                  <input id="kopf-kontoinhaber" type="text" maxlength="100" placeholder="Name">
+                </label>
               </div>
-              <button id="btn-kopf" class="sekundaer">Kopfdaten speichern</button>
+              <button id="btn-kopf" class="sekundaer" style="margin-top:10px;">Kopfdaten speichern</button>
             </div>
 
             <div class="karte">
@@ -359,8 +461,8 @@
             </tbody>
           </table>
 
-          <p class="hinweis" style="margin-top:12px">Hinweis: Anmeldung und Berechtigungsprüfung sind noch nicht
-            umgesetzt (siehe Roadmap, Etappe 3) — im Demo-Umfang ist der Adminbereich für alle erreichbar.</p>
+          <p class="hinweis" style="margin-top:12px">Hinweis: Anmeldung mit Rollen (admin/sachbearbeiter) ist aktiv;
+            Admin-Funktionen (Systemstatus, Kassenlauf, Storno) prüft der Server je Anfrage.</p>
         </div>
       </section>
     </main>

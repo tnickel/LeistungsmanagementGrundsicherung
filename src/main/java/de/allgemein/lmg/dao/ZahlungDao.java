@@ -20,7 +20,8 @@ import java.util.Optional;
 public final class ZahlungDao {
 
     private static final String COLUMNS =
-            "ID, BG_ID, FALL_ID, VORGANGS_NR, ZAHLUNGSMONAT, AUSZAHLUNGSBETRAG, ZAHLUNGSSTATUS, ERSTELLT_AM";
+            "ID, BG_ID, FALL_ID, VORGANGS_NR, ZAHLUNGSMONAT, AUSZAHLUNGSBETRAG, ZAHLUNGSSTATUS, ERSTELLT_AM, "
+                    + "SACHBEARBEITER_ID, FREIGEGEBEN_VON, EMPFAENGER_IBAN, EMPFAENGER_BIC, EMPFAENGER_NAME";
 
     public boolean existiertVorgangsNr(TxContext ctx, String vorgangsNr) throws SQLException {
         try (PreparedStatement stmt = ctx.connection().prepareStatement(
@@ -49,6 +50,14 @@ public final class ZahlungDao {
         }
     }
 
+    public Optional<Zahlung> lockForUpdate(TxContext ctx, long id) throws SQLException {
+        try (PreparedStatement stmt = ctx.connection().prepareStatement(
+                "SELECT " + COLUMNS + " FROM ZAHLUNG WHERE ID = ? FOR UPDATE")) {
+            stmt.setLong(1, id);
+            return leseEinzeln(stmt.executeQuery());
+        }
+    }
+
     /** Alle bereitgestellten Zahlungen mit Zeilensperre — der Kassenlauf übergibt sie gesammelt. */
     public List<Zahlung> bereiteZahlungenGesperrt(TxContext ctx) throws SQLException {
         try (PreparedStatement stmt = ctx.connection().prepareStatement(
@@ -66,6 +75,17 @@ public final class ZahlungDao {
         }
     }
 
+    /** Rechnerische Feststellung (Vier-Augen-Freigabe): Status ANGELEGT -> BEREIT. */
+    public int freigeben(TxContext ctx, long id, String freigegebenVon) throws SQLException {
+        try (PreparedStatement stmt = ctx.connection().prepareStatement(
+                "UPDATE ZAHLUNG SET ZAHLUNGSSTATUS = 'BEREIT', FREIGEGEBEN_VON = ? "
+                        + "WHERE ID = ? AND ZAHLUNGSSTATUS = 'ANGELEGT'")) {
+            stmt.setString(1, freigegebenVon);
+            stmt.setLong(2, id);
+            return stmt.executeUpdate();
+        }
+    }
+
     /** Setzt den Status einer einzelnen Zahlung (Storno); Aufruf nur unter Zahlungs-/BG-Sperre. */
     public void aktualisiereStatus(TxContext ctx, long id, String neuerStatus) throws SQLException {
         try (PreparedStatement stmt = ctx.connection().prepareStatement(
@@ -76,12 +96,15 @@ public final class ZahlungDao {
         }
     }
 
-    /** Fügt die Zahlung mit Status BEREIT ein; id im Aufruf vorher über die Sequence gezogen. */
+    /** Fügt die Zahlung ein; id im Aufruf vorher über die Sequence gezogen. */
     public Zahlung einfuegen(TxContext ctx, long id, long bgId, Long fallId, String vorgangsNr,
-                             String zahlungsmonat, BigDecimal betrag) throws SQLException {
+                             String zahlungsmonat, BigDecimal betrag, String status,
+                             String sachbearbeiterId, String freigegebenVon,
+                             String iban, String bic, String empfaengerName) throws SQLException {
         try (PreparedStatement stmt = ctx.connection().prepareStatement(
-                "INSERT INTO ZAHLUNG (ID, BG_ID, FALL_ID, VORGANGS_NR, ZAHLUNGSMONAT, AUSZAHLUNGSBETRAG, ZAHLUNGSSTATUS) "
-                        + "VALUES (?, ?, ?, ?, ?, ?, 'BEREIT')")) {
+                "INSERT INTO ZAHLUNG (ID, BG_ID, FALL_ID, VORGANGS_NR, ZAHLUNGSMONAT, AUSZAHLUNGSBETRAG, ZAHLUNGSSTATUS, "
+                        + "SACHBEARBEITER_ID, FREIGEGEBEN_VON, EMPFAENGER_IBAN, EMPFAENGER_BIC, EMPFAENGER_NAME) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
             stmt.setLong(1, id);
             stmt.setLong(2, bgId);
             if (fallId != null) {
@@ -92,9 +115,23 @@ public final class ZahlungDao {
             stmt.setString(4, vorgangsNr);
             stmt.setString(5, zahlungsmonat);
             stmt.setBigDecimal(6, betrag);
+            stmt.setString(7, status != null ? status : "BEREIT");
+            stmt.setString(8, sachbearbeiterId);
+            stmt.setString(9, freigegebenVon);
+            stmt.setString(10, iban);
+            stmt.setString(11, bic);
+            stmt.setString(12, empfaengerName);
             stmt.executeUpdate();
         }
-        return new Zahlung(id, bgId, fallId, vorgangsNr, zahlungsmonat, betrag, "BEREIT", Instant.now());
+        return new Zahlung(id, bgId, fallId, vorgangsNr, zahlungsmonat, betrag,
+                status != null ? status : "BEREIT", Instant.now(),
+                sachbearbeiterId, freigegebenVon, iban, bic, empfaengerName);
+    }
+
+    public Zahlung einfuegen(TxContext ctx, long id, long bgId, Long fallId, String vorgangsNr,
+                             String zahlungsmonat, BigDecimal betrag) throws SQLException {
+        return einfuegen(ctx, id, bgId, fallId, vorgangsNr, zahlungsmonat, betrag, "BEREIT",
+                null, null, null, null, null);
     }
 
     public List<Zahlung> letzteFuerBg(TxContext ctx, long bgId, int limit) throws SQLException {
@@ -146,6 +183,11 @@ public final class ZahlungDao {
                 rs.getString(5),
                 rs.getBigDecimal(6),
                 rs.getString(7),
-                erstellt == null ? null : erstellt.toInstant());
+                erstellt == null ? null : erstellt.toInstant(),
+                rs.getString(9),
+                rs.getString(10),
+                rs.getString(11),
+                rs.getString(12),
+                rs.getString(13));
     }
 }

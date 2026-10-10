@@ -18,5 +18,15 @@ public record Vorgangsdetail(
         List<SozialFall> faelle,
         Leistungsberechnung.Berechnungsergebnis berechnung,
         List<Zahlung> zahlungen,
-        List<Journaleintrag> journal) {
+        List<Journaleintrag> journal,
+        de.allgemein.lmg.model.Bescheid bescheid) {
+
+    public Vorgangsdetail(
+            de.allgemein.lmg.model.Bedarfsgemeinschaft bedarfsgemeinschaft,
+            List<SozialFall> faelle,
+            Leistungsberechnung.Berechnungsergebnis berechnung,
+            List<Zahlung> zahlungen,
+            List<Journaleintrag> journal) {
+        this(bedarfsgemeinschaft, faelle, berechnung, zahlungen, journal, null);
+    }
 }

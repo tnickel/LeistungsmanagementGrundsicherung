@@ -14,7 +14,7 @@ import java.util.concurrent.Semaphore;
  * HikariCP oder Oracle UCP einsetzen — die Steuerung hängt nur an dieser schmalen
  * Schnittstelle (getConnection/release) und kann den Pool daher leicht tauschen.
  */
-public final class SimpleConnectionPool implements AutoCloseable {
+public final class SimpleConnectionPool implements ConnectionPool {
 
     private final String url;
     private final String user;

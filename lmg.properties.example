@@ -1,0 +1,29 @@
+# ==============================================================================
+# SDN.sozial (LMG) — Vorlage für die Konfigurationsdatei
+# Nach lmg.properties kopieren und an die eigene Umgebung anpassen.
+# Priorität: System Properties (-D...) > Umgebungsvariablen (LMG_*) > lmg.properties
+# lmg.properties enthält Zugangsdaten und wird NICHT eingecheckt (.gitignore).
+# ==============================================================================
+
+# Datenbankverbindung (Oracle 19c / 23ai)
+tx.url=jdbc:oracle:thin:@//localhost:1921/o19c1p1
+tx.user=tx_demo
+tx.pass=tx_demo
+
+# Web-Server Port
+lmg.port=8080
+
+# Verbindungspool (ucp oder simple) und Dimensionierung
+lmg.pool.type=ucp
+lmg.pool.size=8
+
+# Task-Controller (Parallele Transaktionen & Warteschlange)
+lmg.tasks.max=8
+lmg.tasks.queue=100
+
+# Audit-Logdatei für revisionssichere Nachvollziehbarkeit (leer lassen für nur Konsolen-/Logger-Ausgabe)
+lmg.audit.file=lmg_audit.log
+
+# Benutzerkonten (Format: kennung:passwort:rolle, durch Komma getrennt)
+# Wenn nicht gesetzt, sind Standard-Demo-Konten aktiv (admin-01/admin, sb-01/sb-01, sb-02/sb-02)
+# lmg.benutzer=admin-01:geheim123:admin,sb-01:geheim456:sachbearbeiter

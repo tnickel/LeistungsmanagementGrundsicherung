@@ -7,6 +7,9 @@ import de.allgemein.lmg.service.Systemdiagnose;
 import de.allgemein.lmg.model.SozialFall;
 import de.allgemein.tx.SimpleConnectionPool;
 import de.allgemein.tx.TaskController;
+import de.allgemein.lmg.model.Bescheid;
+import de.allgemein.lmg.saga.AntragsSagaProzess;
+import de.allgemein.lmg.web.Json;
 import de.allgemein.tx.TxManager;
 import de.allgemein.tx.saga.SagaEngine;
 import de.allgemein.tx.saga.SagaJournal;
@@ -21,6 +24,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Läuft nur, wenn TX_URL gesetzt ist — der normale `mvn test` bleibt also ohne DB grün:
  *
  * <pre>
- *   TX_URL=jdbc:oracle:thin:@//localhost:1521/FREEPDB1 \
+ *   TX_URL=jdbc:oracle:thin:@//localhost:1921/o19c1p1 \
  *   TX_USER=tx_demo TX_PASS=tx_demo \
  *   mvn test -Dtest=EchteDbVerifikationTest
  * </pre>
@@ -72,11 +76,14 @@ class EchteDbVerifikationTest {
             Statement st = c.createStatement();
             st.executeUpdate("DELETE FROM JOURNAL WHERE BG_ID IN "
                     + "(SELECT ID FROM BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN LIKE 'BG-TEST-%')");
+            st.executeUpdate("DELETE FROM BESCHEID WHERE BG_ID IN "
+                    + "(SELECT ID FROM BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN LIKE 'BG-TEST-%')");
             st.executeUpdate("DELETE FROM ZAHLUNG WHERE BG_ID IN "
                     + "(SELECT ID FROM BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN LIKE 'BG-TEST-%')");
             st.executeUpdate("DELETE FROM SOZIAL_FALL WHERE BG_ID IN "
                     + "(SELECT ID FROM BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN LIKE 'BG-TEST-%')");
             st.executeUpdate("DELETE FROM JOURNAL WHERE BG_ID BETWEEN 9901 AND 9911");
+            st.executeUpdate("DELETE FROM BESCHEID WHERE BG_ID BETWEEN 9901 AND 9911");
             st.executeUpdate("DELETE FROM ZAHLUNG WHERE BG_ID BETWEEN 9901 AND 9911");
             st.executeUpdate("DELETE FROM SOZIAL_FALL WHERE BG_ID BETWEEN 9901 AND 9911");
             st.executeUpdate("DELETE FROM BEDARFSGEMEINSCHAFT WHERE ID BETWEEN 9901 AND 9911 "
@@ -201,6 +208,147 @@ class EchteDbVerifikationTest {
         var pruefung = service.letzteZahlungen(50).stream()
                 .filter(z -> z.id() == zahlung.id()).findFirst().orElseThrow();
         assertEquals("UEBERGEBEN", pruefung.status());
+    }
+
+    @Test
+    void vierAugenPrinzipVerhindertSelbstfreigabeUndErmoeglichtZweitpruefung() {
+        var bg = service.legeBedarfsgemeinschaftAn("BG-TEST-4AUGEN-" + System.nanoTime() % 100000,
+                "VierAugen, Max", new BigDecimal("1000.00"), null,
+                "DE89370400440532013000", "MARKDEF1100", "Max VierAugen", "sb-erfasser");
+        service.legeSozialFallAn(bg.id(), neuerFallEntwurf(bg.id()), "sb-erfasser");
+
+        // Zahlung mit Vier-Augen-Pflicht anordnen -> Status ANGELEGT
+        var auftrag = new Auszahlungsauftrag(bg.id(), UUID.randomUUID().toString(),
+                "2026-11", "sb-erfasser", true, null, null, null);
+        var ergebnis = service.ordneAuszahlungAn(auftrag);
+        var zahlung = ergebnis.zahlung();
+        assertEquals("ANGELEGT", zahlung.status());
+        assertEquals("sb-erfasser", zahlung.sachbearbeiterId());
+        assertEquals("DE89370400440532013000", zahlung.empfaengerIban());
+
+        // Selbstfreigabe durch denselben Sachbearbeiter wird abgewehrt
+        var ex = assertThrows(FachlicheException.class,
+                () -> service.freigebenZahlung(zahlung.id(), "sb-erfasser"));
+        assertEquals(FachlicheException.BERECHTIGUNG, ex.code());
+
+        // Zweitprüfung / Freigabe durch Kollegin sb-pruefer
+        var freigegeben = service.freigebenZahlung(zahlung.id(), "sb-pruefer");
+        assertEquals("BEREIT", freigegeben.status());
+        assertEquals("sb-pruefer", freigegeben.freigegebenVon());
+    }
+
+    @Test
+    void ungueltigeIbanWirdBeimAuszahlenAbgelehnt() {
+        var bg = service.legeBedarfsgemeinschaftAn("BG-TEST-IBAN-" + System.nanoTime() % 100000,
+                "Iban, Falsch", new BigDecimal("1000.00"), null, "sb-test");
+        service.legeSozialFallAn(bg.id(), neuerFallEntwurf(bg.id()), "sb-test");
+
+        var auftrag = new Auszahlungsauftrag(bg.id(), UUID.randomUUID().toString(),
+                "2026-11", "sb-test", false, "DE00000000000000000000", null, null);
+        var ex = assertThrows(FachlicheException.class, () -> service.ordneAuszahlungAn(auftrag));
+        assertEquals(FachlicheException.VALIDATION, ex.code());
+    }
+
+    @Test
+    void bescheidErteilenUndDruckenHtmlVerifizieren() {
+        String az = "BG-TEST-BESCH-" + System.nanoTime() % 100000;
+        var bg = service.legeBedarfsgemeinschaftAn(az, "Bescheidempfaenger, Bernd",
+                new BigDecimal("2000.00"), null,
+                "DE89370400440532013000", "MARKDEF1100", "Bescheidempfaenger, Bernd", "sb-erfasser");
+
+        // Fall mit RBS 1 (563 €) + KdU (400 Kalt + 80 Betrieb + 70 Heizung = 550) = 1.113,00 €
+        SozialFall fall = new SozialFall(0, bg.id(), 1, false, false,
+                new BigDecimal("400.00"), new BigDecimal("80.00"), new BigDecimal("70.00"),
+                BigDecimal.ZERO, BigDecimal.ZERO, 1);
+        service.legeSozialFallAn(bg.id(), fall, "sb-erfasser");
+
+        // Bescheid erteilen
+        Bescheid bescheid = service.erteileBescheid(bg.id(), "2026-01", "2026-12", "sb-pruefer");
+        assertEquals("ERTEILT", bescheid.status());
+        assertEquals(new BigDecimal("1113.00"), bescheid.zahlbetrag());
+        assertEquals("2026-01", bescheid.bewilligungVon());
+        assertEquals("2026-12", bescheid.bewilligungBis());
+        assertTrue(bescheid.bescheidNr().contains(az));
+
+        // Letzten Bescheid über Service laden
+        var geladen = service.letzterBescheid(bg.id());
+        assertTrue(geladen.isPresent());
+        assertEquals(bescheid.id(), geladen.get().id());
+
+        // HTML-Druckansicht generieren und prüfen
+        String html = service.generiereBescheidHtml(bg.id());
+        assertTrue(html.contains("Bewilligungsbescheid"), "HTML muss Bescheidtitel enthalten");
+        assertTrue(html.contains("§ 37 SGB X"), "HTML muss gesetzliche Grundlage § 37 SGB X enthalten");
+        assertTrue(html.contains("§ 35 SGB X"), "HTML muss Begründung nach § 35 SGB X enthalten");
+        assertTrue(html.contains("§ 36 SGB X"), "HTML muss Rechtsbehelfsbelehrung nach § 36 SGB X enthalten");
+        assertTrue(html.contains("1.113,00"), "HTML muss Zahlbetrag 1.113,00 enthalten");
+        assertTrue(html.contains(az), "HTML muss Aktenzeichen enthalten");
+        assertTrue(html.contains("DE89 3704 0044 0532 0130 00"), "HTML muss formatierte IBAN enthalten");
+        assertTrue(html.contains("@media print"), "HTML muss Druck-Stylesheet enthalten");
+    }
+
+    @Test
+    void antragsSagaE2EErfolgreichUndKompensation() throws Exception {
+        TxManager txManager = new TxManager(pool);
+        SagaEngine sagas = new SagaEngine(txManager, new SagaJournal(pool));
+
+        // 1. Erfolgsfall: 4 Schritte (Vorgang erfassen -> Bedarfsprüfung -> Bescheid -> Erstauszahlung)
+        String azErfolg = "BG-TEST-SAGA-OK-" + System.nanoTime() % 100000;
+        String payloadErfolg = erstelleSagaPayload(azErfolg, "Saga-Erfolg, Erwin",
+                new BigDecimal("5000.00"), "2026-10", "DE89370400440532013000", "MARKDEF1100",
+                1, new BigDecimal("450.00"), new BigDecimal("90.00"), new BigDecimal("80.00"),
+                BigDecimal.ZERO, BigDecimal.ZERO);
+
+        String sagaId = sagas.run(AntragsSagaProzess.definition(), payloadErfolg);
+        assertTrue(sagaId != null && !sagaId.isBlank(), "Saga-ID muss vergeben sein");
+
+        // Verifizieren, dass BG, Fall, Bescheid und Zahlung angelegt wurden
+        var bgErfolg = service.listeBedarfsgemeinschaften().stream()
+                .filter(b -> b.aktenzeichen().equals(azErfolg))
+                .findFirst().orElseThrow();
+        var detail = service.ladeDetail(bgErfolg.id());
+        assertEquals(1, detail.faelle().size());
+        assertTrue(detail.bescheid() != null, "Bescheid muss erteilt sein");
+        assertEquals("ERTEILT", detail.bescheid().status());
+        assertEquals(1, detail.zahlungen().size(), "Erstauszahlung muss angelegt sein");
+        assertEquals("BEREIT", detail.zahlungen().get(0).status());
+        assertEquals(0, new BigDecimal("1183.00").compareTo(detail.zahlungen().get(0).auszahlungsbetrag()));
+
+        // 2. Kompensationsfall: Hohes Einkommen (Rente 5000 €) übersteigt Gesamtbedarf
+        // Schritt 1 committet -> Schritt 2 wirft Fehler -> Schritt 1 wird rückwärts kompensiert (BG + Fall gelöscht)
+        String azFehler = "BG-TEST-SAGA-ERR-" + System.nanoTime() % 100000;
+        String payloadFehler = erstelleSagaPayload(azFehler, "Saga-Fehler, Fiona",
+                new BigDecimal("5000.00"), "2026-10", "DE89370400440532013000", "MARKDEF1100",
+                1, new BigDecimal("450.00"), new BigDecimal("90.00"), new BigDecimal("80.00"),
+                new BigDecimal("5000.00"), BigDecimal.ZERO);
+
+        assertThrows(Exception.class, () -> sagas.run(AntragsSagaProzess.definition(), payloadFehler));
+
+        // Nach Kompensation darf der Vorgang nicht mehr in der DB existieren
+        boolean bgVorhanden = service.listeBedarfsgemeinschaften().stream()
+                .anyMatch(b -> b.aktenzeichen().equals(azFehler));
+        assertTrue(!bgVorhanden, "Kompensation muss angelegten Vorgang nach Fehler sauber gelöscht haben");
+    }
+
+    private String erstelleSagaPayload(String aktenzeichen, String name, BigDecimal budget,
+                                      String monat, String iban, String bic,
+                                      int rbs, BigDecimal miete, BigDecimal betrieb,
+                                      BigDecimal heizung, BigDecimal rente, BigDecimal erwerb) {
+        Map<String, Object> map = new java.util.LinkedHashMap<>();
+        map.put("aktenzeichen", aktenzeichen);
+        map.put("hauptpersonName", name);
+        map.put("startBudget", budget);
+        map.put("zahlungsmonat", monat);
+        map.put("iban", iban);
+        map.put("bic", bic);
+        map.put("regelbedarfsstufe", rbs);
+        map.put("kduMiete", miete);
+        map.put("kduBetriebskosten", betrieb);
+        map.put("kduHeizung", heizung);
+        map.put("einkommenRente", rente);
+        map.put("einkommenErwerb", erwerb);
+        map.put("sachbearbeiterId", "saga-sb");
+        return Json.stringify(map);
     }
 
     private SozialFall neuerFallEntwurf(long bgId) {

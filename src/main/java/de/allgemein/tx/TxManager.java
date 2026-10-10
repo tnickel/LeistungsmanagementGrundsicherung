@@ -15,14 +15,14 @@ public final class TxManager {
 
     private static final Logger LOG = Logger.getLogger(TxManager.class.getName());
 
-    private final SimpleConnectionPool pool;
+    private final ConnectionPool pool;
     private final RetryPolicy retryPolicy;
 
-    public TxManager(SimpleConnectionPool pool) {
+    public TxManager(ConnectionPool pool) {
         this(pool, new RetryPolicy());
     }
 
-    public TxManager(SimpleConnectionPool pool, RetryPolicy retryPolicy) {
+    public TxManager(ConnectionPool pool, RetryPolicy retryPolicy) {
         this.pool = pool;
         this.retryPolicy = retryPolicy;
     }
@@ -34,6 +34,8 @@ public final class TxManager {
     public <T> T execute(TxOptions options, TxWork<T> work) {
         TxException lastFailure = null;
         int maxAttempts = options.maxAttempts();
+        String txId = java.util.UUID.randomUUID().toString();
+        long startNanos = System.nanoTime();
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             Connection raw = null;
             try {
@@ -44,21 +46,29 @@ public final class TxManager {
                 ctx.checkDeadline();
                 raw.commit();
                 ctx.markCommitted();
+                long durationMillis = (System.nanoTime() - startNanos) / 1_000_000;
+                de.allgemein.tx.audit.TxAuditLog.recordTxCommit(txId, attempt, durationMillis, null);
                 return result;
             } catch (TxException e) {
                 rollbackQuietly(raw);
                 lastFailure = e;
                 if (!e.isRetryable() || attempt == maxAttempts) {
+                    long durationMillis = (System.nanoTime() - startNanos) / 1_000_000;
+                    de.allgemein.tx.audit.TxAuditLog.recordTxRollback(txId, attempt, durationMillis, e.getMessage());
                     throw e;
                 }
             } catch (SQLException e) {
                 rollbackQuietly(raw);
                 lastFailure = TxException.from(e);
                 if (!lastFailure.isRetryable() || attempt == maxAttempts) {
+                    long durationMillis = (System.nanoTime() - startNanos) / 1_000_000;
+                    de.allgemein.tx.audit.TxAuditLog.recordTxRollback(txId, attempt, durationMillis, lastFailure.getMessage());
                     throw lastFailure;
                 }
             } catch (Exception e) {
                 rollbackQuietly(raw);
+                long durationMillis = (System.nanoTime() - startNanos) / 1_000_000;
+                de.allgemein.tx.audit.TxAuditLog.recordTxRollback(txId, attempt, durationMillis, e.getMessage());
                 throw TxException.nonRetryable("Transaktion abgebrochen: " + e.getMessage(), e);
             } finally {
                 if (raw != null) {
@@ -70,8 +80,12 @@ public final class TxManager {
             LOG.log(Level.WARNING,
                     () -> "Transaktionsversuch " + tried + "/" + maxAttempts
                             + " fehlgeschlagen, Wiederholung folgt: " + failure.getMessage());
+            de.allgemein.tx.audit.TxAuditLog.recordTxRetry(txId, attempt, failure.getMessage());
             retryPolicy.sleepBeforeAttempt(attempt);
         }
+        long durationMillis = (System.nanoTime() - startNanos) / 1_000_000;
+        de.allgemein.tx.audit.TxAuditLog.recordTxRollback(txId, maxAttempts, durationMillis,
+                lastFailure != null ? lastFailure.getMessage() : "unbekannt");
         throw lastFailure;
     }
 

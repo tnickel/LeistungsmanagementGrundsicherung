@@ -91,6 +91,7 @@ function statusChip(klasse, text) {
 }
 
 function zahlungsChip(status) {
+  if (status === "ANGELEGT") return statusChip("angelegt", "angelegt");
   if (status === "BEREIT") return statusChip("bereit", "bereit");
   if (status === "UEBERGEBEN") return statusChip("uebergeben", "übergeben");
   if (status === "STORNIERT") return statusChip("storniert", "storniert");
@@ -171,6 +172,9 @@ $("btn-vorgang-speichern").addEventListener("click", async () => {
         hauptpersonName: $("neu-name").value.trim(),
         startBudget: Number($("neu-budget").value || 0),
         wiedervorlageAm: $("neu-wiedervorlage").value || null,
+        iban: $("neu-iban").value.trim() || null,
+        bic: $("neu-bic").value.trim() || null,
+        kontoinhaber: $("neu-kontoinhaber").value.trim() || null,
       }),
     });
     $("karte-neu-vorgang").classList.add("hidden");
@@ -178,6 +182,52 @@ $("btn-vorgang-speichern").addEventListener("click", async () => {
     await oeffneVorgang(ergebnis.bedarfsgemeinschaft.id);
   } catch (fehler) {
     zeigeDialog("Vorgang konnte nicht angelegt werden", fehler.message, true);
+  }
+});
+
+$("btn-saga-antrag").addEventListener("click", () => {
+  const karte = $("karte-saga-antrag");
+  karte.classList.toggle("hidden");
+  if (!karte.classList.contains("hidden")) {
+    $("karte-neu-vorgang").classList.add("hidden");
+    $("saga-aktenzeichen").value = "BG-SAGA-" + Math.floor(1000 + Math.random() * 9000);
+    $("saga-monat").value = new Date().toISOString().slice(0, 7);
+  }
+});
+
+$("btn-saga-starten").addEventListener("click", async () => {
+  const knopf = $("btn-saga-starten");
+  knopf.disabled = true;
+  knopf.textContent = "Saga läuft …";
+  try {
+    const payload = {
+      aktenzeichen: $("saga-aktenzeichen").value.trim(),
+      hauptpersonName: $("saga-name").value.trim(),
+      startBudget: Number($("saga-budget").value || 0),
+      zahlungsmonat: $("saga-monat").value,
+      iban: $("saga-iban").value.trim() || null,
+      bic: $("saga-bic").value.trim() || null,
+      regelbedarfsstufe: Number($("saga-rbs").value),
+      kduMiete: Number($("saga-miete").value || 0),
+      kduBetriebskosten: Number($("saga-betrieb").value || 0),
+      kduHeizung: Number($("saga-heizung").value || 0),
+      einkommenRente: Number($("saga-rente").value || 0),
+      einkommenErwerb: Number($("saga-erwerb").value || 0)
+    };
+    const res = await api("/api/saga/antrag", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    zeigeDialog("Antrags-Saga erfolgreich", `${res.hinweis} (Saga-ID: ${res.sagaId})`);
+    $("karte-saga-antrag").classList.add("hidden");
+    await ladeUebersicht();
+  } catch (fehler) {
+    zeigeDialog("Antrags-Saga fehlgeschlagen",
+      `Fehler: ${fehler.message}. Falls Schritte bereits ausgeführt wurden, wurden sie durch die Saga-Engine automatisch rückwärts kompensiert.`, true);
+  } finally {
+    knopf.disabled = false;
+    knopf.textContent = "⚡ Antrags-Saga starten";
   }
 });
 
@@ -193,7 +243,9 @@ $("btn-fall-speichern").addEventListener("click", async () => {
       body: JSON.stringify({
         regelbedarfsstufe: Number($("neu-fall-rbs").value),
         merkzeichenG: $("neu-fall-g").checked,
+        warmwasser: $("neu-fall-warmwasser").checked,
         kduMiete: Number($("neu-fall-miete").value || 0),
+        kduBetriebskosten: Number($("neu-fall-betriebskosten").value || 0),
         kduHeizung: Number($("neu-fall-heizung").value || 0),
         einkommenRente: Number($("neu-fall-rente").value || 0),
         einkommenErwerb: Number($("neu-fall-erwerb").value || 0),
@@ -292,11 +344,39 @@ function rendereVorgang() {
   $("kopf-version").textContent = bg.version;
   $("kopf-status").value = bg.statusAktiv ? "1" : "0";
   $("kopf-wiedervorlage").value = bg.wiedervorlageAm || "";
+  $("kopf-iban").value = bg.iban || "";
+  $("kopf-bic").value = bg.bic || "";
+  $("kopf-kontoinhaber").value = bg.kontoinhaber || "";
+
+  $("auszahlung-empfaenger").value = bg.kontoinhaber || bg.hauptpersonName || "";
+  $("auszahlung-iban").value = bg.iban || "";
+  $("auszahlung-bic").value = bg.bic || "";
 
   rendereBerechnung();
   rendereFallMasken();
+  rendereBescheid(detail.bescheid);
   rendereZahlungen(detail.zahlungen);
   rendereJournalListe("liste-journal-vorgang", detail.journal);
+}
+
+function rendereBescheid(bescheid) {
+  const box = $("bescheid-status-text");
+  const druckBtn = $("btn-bescheid-drucken");
+  if (bescheid && bescheid.id) {
+    box.innerHTML = `<strong>Bescheid erteilt:</strong> ${bescheid.bescheidNr} · Datum: ${bescheid.bescheidDatum || '–'} · Zeitraum: <strong>${bescheid.bewilligungVon} bis ${bescheid.bewilligungBis}</strong> · Monatlicher Zahlbetrag: <strong>${betrag(bescheid.zahlbetrag)}</strong> (${bescheid.status}) · Bearbeiter: ${bescheid.erstelltVon}`;
+    druckBtn.classList.remove("hidden");
+    $("bescheid-von").value = bescheid.bewilligungVon || "";
+    $("bescheid-bis").value = bescheid.bewilligungBis || "";
+  } else {
+    box.textContent = "Kein Bewilligungsbescheid vorhanden. Geben Sie den Bewilligungszeitraum an und klicken Sie auf 'Bescheid erteilen'.";
+    druckBtn.classList.add("hidden");
+    const aktMonat = new Date().toISOString().slice(0, 7);
+    const d = new Date();
+    d.setFullYear(d.getFullYear() + 1);
+    const folgeJahr = d.toISOString().slice(0, 7);
+    $("bescheid-von").value = aktMonat;
+    $("bescheid-bis").value = folgeJahr;
+  }
 }
 
 function rendereBerechnung() {
@@ -307,20 +387,31 @@ function rendereBerechnung() {
   $("anrechenbar").textContent = betrag(detail.anrechenbaresEinkommen);
   $("zahlbetrag").textContent = betrag(detail.zahlbetrag);
 
-  if (!detail.berechnung) {
-    hinweis.textContent = "Berechnung nicht möglich: eine Regelbedarfsstufe dieses Vorgangs ist "
-      + "im Referenzjahr nicht konfiguriert (hinterlegt sind Stufe 1 und 2).";
-    hinweis.style.color = "var(--farbe-gefahren)";
+  // Die API liefert die Berechnung flach: Gesamtwerte auf Vorgangs- und
+  // Fallwerte je SozialFall; ein fehlender Regelbedarf zeigt eine nicht
+  // konfigurierte Regelbedarfsstufe an.
+  const berechnet = detail.faelle && detail.faelle.length > 0
+    && detail.faelle.every((fall) => typeof fall.regelbedarf === "number");
+  if (!berechnet) {
+    if (!detail.faelle || detail.faelle.length === 0) {
+      hinweis.textContent = "Dieser Vorgang enthält noch keinen SozialFall. Bitte legen Sie unten mindestens einen SozialFall an.";
+      hinweis.style.color = "var(--farbe-text-gedaempft)";
+    } else {
+      hinweis.textContent = "Berechnung nicht möglich: eine Regelbedarfsstufe dieses Vorgangs ist nicht konfiguriert (gültig sind Stufen 1 bis 6).";
+      hinweis.style.color = "var(--farbe-gefahren)";
+    }
     return;
   }
   hinweis.textContent = "";
   for (const fall of detail.faelle) {
     const zeile = document.createElement("tr");
+    const mbTitel = `Merkzeichen G: ${betrag(fall.mehrbedarfG)} | Dezentrales Warmwasser: ${betrag(fall.mehrbedarfWarmwasser)}`;
+    const kduTitel = `Kaltmiete: ${betrag(fall.kduMiete)} | Kalte Betriebskosten: ${betrag(fall.kduBetriebskosten)} | Heizung: ${betrag(fall.kduHeizung)}`;
     zeile.innerHTML = `
       <td>SozialFall #${fall.id}</td>
       <td class="zahl">${betrag(fall.regelbedarf)}</td>
-      <td class="zahl">${betrag(fall.mehrbedarf)}</td>
-      <td class="zahl">${betrag(fall.kdu)}</td>
+      <td class="zahl" title="${mbTitel}">${betrag(fall.mehrbedarf)}</td>
+      <td class="zahl" title="${kduTitel}">${betrag(fall.kdu)}</td>
       <td class="zahl">${betrag(fall.gesamtbedarfFall)}</td>
       <td class="zahl">${betrag(fall.freibetragErwerb)}</td>
       <td class="zahl">${betrag(fall.anrechenbaresEinkommenFall)}</td>
@@ -348,6 +439,9 @@ function rendereFallMasken() {
         <label>Kaltmiete (EUR)
           <input data-feld="kduMiete" type="number" step="0.01" min="0" value="${fall.kduMiete}">
         </label>
+        <label>Kalte Betriebskosten (EUR)
+          <input data-feld="kduBetriebskosten" type="number" step="0.01" min="0" value="${fall.kduBetriebskosten}">
+        </label>
         <label>Heizkosten (EUR)
           <input data-feld="kduHeizung" type="number" step="0.01" min="0" value="${fall.kduHeizung}">
         </label>
@@ -360,7 +454,11 @@ function rendereFallMasken() {
       </div>
       <label class="checkbox-zeile">
         <input data-feld="merkzeichenG" type="checkbox" ${fall.merkzeichenG ? "checked" : ""}>
-        <span>Merkzeichen G — Mehrbedarf 17&nbsp;% (§ 30 SGB XII)</span>
+        <span>Merkzeichen G — Mehrbedarf 17&nbsp;% (§ 30 Abs. 1 SGB XII)</span>
+      </label>
+      <label class="checkbox-zeile">
+        <input data-feld="warmwasser" type="checkbox" ${fall.warmwasser ? "checked" : ""}>
+        <span>Dezentrale Warmwassererzeugung — Mehrbedarf 2,3&nbsp;% (§ 30 Abs. 7 SGB XII)</span>
       </label>
       <div style="margin-top:12px">
         <button class="primaer">Speichern</button>
@@ -377,7 +475,9 @@ async function speichereFall(fall, maske) {
     bgId: fall.bgId,
     regelbedarfsstufe: Number(wert("regelbedarfsstufe").value),
     merkzeichenG: wert("merkzeichenG").checked,
+    warmwasser: wert("warmwasser").checked,
     kduMiete: Number(wert("kduMiete").value || 0),
+    kduBetriebskosten: Number(wert("kduBetriebskosten").value || 0),
     kduHeizung: Number(wert("kduHeizung").value || 0),
     einkommenRente: Number(wert("einkommenRente").value || 0),
     einkommenErwerb: Number(wert("einkommenErwerb").value || 0),
@@ -416,6 +516,9 @@ $("btn-kopf").addEventListener("click", async () => {
       body: JSON.stringify({
         statusAktiv: $("kopf-status").value === "1",
         wiedervorlageAm: $("kopf-wiedervorlage").value || null,
+        iban: $("kopf-iban").value.trim() || null,
+        bic: $("kopf-bic").value.trim() || null,
+        kontoinhaber: $("kopf-kontoinhaber").value.trim() || null,
         version: bg.version,
       }),
     });
@@ -453,6 +556,10 @@ $("btn-auszahlung").addEventListener("click", async () => {
         bgId: bg.id,
         vorgangsNr: crypto.randomUUID(),
         zahlungsmonat: monat,
+        vierAugenErforderlich: $("auszahlung-vieraugen").checked,
+        empfaengerIban: $("auszahlung-iban").value.trim() || null,
+        empfaengerBic: $("auszahlung-bic").value.trim() || null,
+        empfaengerName: $("auszahlung-empfaenger").value.trim() || null,
       }),
     });
     if (ergebnis.bereitsGebucht) {
@@ -460,19 +567,55 @@ $("btn-auszahlung").addEventListener("click", async () => {
         "Diese Vorgangsnummer war bereits vorhanden — es wurde nichts erneut gebucht (Idempotenz). "
         + "Buchung vom " + zeitpunkt(ergebnis.zahlung.erstelltAm) + ".");
     } else {
+      const statusText = ergebnis.zahlung.status === "ANGELEGT"
+        ? "wurde erfasst (Status „angelegt“, wartet auf Vier-Augen-Freigabe)"
+        : "wurde mit Status „bereit“ gebucht";
       zeigeDialog("Auszahlung angeordnet",
         "Zahlung über " + betrag(ergebnis.zahlung.auszahlungsbetrag) + " für "
-        + ergebnis.zahlung.zahlungsmonat + " wurde mit Status „bereit“ gebucht. "
+        + ergebnis.zahlung.zahlungsmonat + " " + statusText + ". "
         + "Neues Restbudget: " + betrag(ergebnis.bedarfsgemeinschaft.budgetRest) + ".");
     }
     await oeffneVorgang(bg.id);
   } catch (fehler) {
     zeigeDialog("Auszahlung nicht möglich", fehler.message, true);
+  } finally {
     knopf.disabled = false;
     knopf.textContent = "Auszahlung anordnen";
+  }
+});
+
+// ---------------------------------------------------------------- Bewilligungsbescheid
+
+$("btn-bescheid-erteilen").addEventListener("click", async () => {
+  const von = $("bescheid-von").value;
+  const bis = $("bescheid-bis").value;
+  if (!von || !bis) {
+    zeigeDialog("Angabe fehlt", "Bitte Bewilligungszeitraum (von und bis) angeben.", true);
     return;
   }
-  knopf.textContent = "Auszahlung anordnen";
+  const knopf = $("btn-bescheid-erteilen");
+  knopf.disabled = true;
+  knopf.textContent = "Wird erteilt …";
+  try {
+    const res = await api(`/api/bedarfsgemeinschaften/${detail.bedarfsgemeinschaft.id}/bescheid`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bewilligungVon: von, bewilligungBis: bis })
+    });
+    zeigeDialog("Bescheid erteilt", res.hinweis || "Bewilligungsbescheid erfolgreich erteilt.");
+    await oeffneVorgang(detail.bedarfsgemeinschaft.id);
+  } catch (fehler) {
+    zeigeDialog("Bescheiderteilung fehlgeschlagen", fehler.message, true);
+  } finally {
+    knopf.disabled = false;
+    knopf.textContent = "Bescheid erteilen";
+  }
+});
+
+$("btn-bescheid-drucken").addEventListener("click", () => {
+  if (!detail || !detail.bedarfsgemeinschaft) return;
+  const url = `/api/bedarfsgemeinschaften/${detail.bedarfsgemeinschaft.id}/bescheid/druck?token=${encodeURIComponent(token || "")}`;
+  window.open(url, "_blank");
 });
 
 function rendereZahlungen(zahlungen) {
@@ -480,21 +623,47 @@ function rendereZahlungen(zahlungen) {
   koerper.innerHTML = "";
   for (const z of zahlungen) {
     const zeile = document.createElement("tr");
-    const stornoMoeglich = istAdmin() && z.status === "BEREIT";
+    const freigabeMoeglich = z.status === "ANGELEGT";
+    const stornoMoeglich = (istAdmin() && z.status === "BEREIT") || z.status === "ANGELEGT";
+    const empfText = (z.empfaengerName || "–") + (z.empfaengerIban ? `<br><small style="color:var(--farbe-text-leise)">${z.empfaengerIban}</small>` : "");
     zeile.innerHTML = `
       <td>${z.zahlungsmonat}</td>
       <td class="zahl">${betrag(z.auszahlungsbetrag)}</td>
       <td>${zahlungsChip(z.status)}</td>
+      <td>${empfText}</td>
+      <td>${z.sachbearbeiterId || "–"}</td>
+      <td>${z.freigegebenVon || "–"}</td>
       <td class="hinweis">${z.vorgangsNr}</td>
       <td>${zeitpunkt(z.erstelltAm)}</td>
-      <td>${stornoMoeglich ? `<button class="sekundaer storno" data-id="${z.id}">Storno</button>` : ""}</td>`;
+      <td>
+        ${freigabeMoeglich ? `<button class="primaer freigeben" data-id="${z.id}" style="padding:4px 8px;font-size:12px;margin-right:4px;">Freigeben</button>` : ""}
+        ${stornoMoeglich ? `<button class="sekundaer storno" data-id="${z.id}" style="padding:4px 8px;font-size:12px;">Storno</button>` : ""}
+      </td>`;
+    if (freigabeMoeglich) {
+      zeile.querySelector("button.freigeben").addEventListener("click", () => freigeben(z));
+    }
     if (stornoMoeglich) {
       zeile.querySelector("button.storno").addEventListener("click", () => storniere(z));
     }
     koerper.appendChild(zeile);
   }
   if (zahlungen.length === 0) {
-    koerper.innerHTML = `<tr><td colspan="6" class="hinweis">Noch keine Auszahlungen angeordnet.</td></tr>`;
+    koerper.innerHTML = `<tr><td colspan="9" class="hinweis">Noch keine Auszahlungen angeordnet.</td></tr>`;
+  }
+}
+
+async function freigeben(zahlung) {
+  if (!confirm(`Zahlung über ${betrag(zahlung.auszahlungsbetrag)} (${zahlung.zahlungsmonat}) ` +
+      "freigeben (rechnerisch feststellen)? Status wechselt zu BEREIT.")) {
+    return;
+  }
+  try {
+    const ergebnis = await api("/api/zahlungen/" + zahlung.id + "/freigabe", { method: "POST" });
+    zeigeDialog("Zahlung freigegeben",
+      "Die Zahlung über " + betrag(ergebnis.zahlung.auszahlungsbetrag) + " wurde freigegeben und ist bereit für den Kassenlauf.");
+    await oeffneVorgang(zahlung.bgId);
+  } catch (fehler) {
+    zeigeDialog("Freigabe nicht möglich", fehler.message, true);
   }
 }
 

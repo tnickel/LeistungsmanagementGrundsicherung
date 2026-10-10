@@ -8,5 +8,14 @@ public record Auszahlungsauftrag(
         long bgId,
         String vorgangsNr,
         String zahlungsmonat,
-        String sachbearbeiterId) {
+        String sachbearbeiterId,
+        boolean vierAugenErforderlich,
+        String empfaengerIban,
+        String empfaengerBic,
+        String empfaengerName) {
+
+    /** Abwärtskompatibler Konstruktor ohne Vier-Augen-Pflicht und ohne abweichende Bankverbindung. */
+    public Auszahlungsauftrag(long bgId, String vorgangsNr, String zahlungsmonat, String sachbearbeiterId) {
+        this(bgId, vorgangsNr, zahlungsmonat, sachbearbeiterId, false, null, null, null);
+    }
 }

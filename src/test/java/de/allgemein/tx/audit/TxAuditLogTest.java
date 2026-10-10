@@ -1,0 +1,74 @@
+package de.allgemein.tx.audit;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class TxAuditLogTest {
+
+    @BeforeEach
+    @AfterEach
+    void cleanup() {
+        TxAuditLog.clearForTests();
+        TxAuditLog.setAuditFilePath(null);
+    }
+
+    @Test
+    void zeichnetTxEreignisseImRingpufferAuf() {
+        TxAuditLog.recordTxCommit("tx-1", 1, 45, "Test-Commit");
+        TxAuditLog.recordTxRetry("tx-2", 1, "Deadlock ORA-00060");
+        TxAuditLog.recordTxRollback("tx-2", 2, 80, "Timeout");
+
+        List<TxAuditEvent> events = TxAuditLog.getRecentEvents(10);
+        assertEquals(3, events.size());
+
+        // Neueste zuerst
+        assertEquals("ROLLBACK", events.get(0).eventType());
+        assertEquals("RETRY", events.get(1).eventType());
+        assertEquals("COMMIT", events.get(2).eventType());
+    }
+
+    @Test
+    void benachrichtigtRegistrierteListener() {
+        AtomicInteger count = new AtomicInteger();
+        TxAuditListener listener = event -> count.incrementAndGet();
+
+        TxAuditLog.addListener(listener);
+        try {
+            TxAuditLog.recordSagaStart("saga-1", "AntragsProzess", "p1");
+            TxAuditLog.recordSagaStep("saga-1", 0, "BedarfPruefen");
+            TxAuditLog.recordSagaCompleted("saga-1", "AntragsProzess");
+            assertEquals(3, count.get());
+        } finally {
+            TxAuditLog.removeListener(listener);
+        }
+    }
+
+    @Test
+    void schreibtInAuditDatei(@TempDir Path tempDir) throws IOException {
+        Path logFile = tempDir.resolve("audit.log");
+        TxAuditLog.setAuditFilePath(logFile);
+
+        TxAuditLog.recordTxCommit("tx-file-1", 1, 15, "Datei-Test");
+        TxAuditLog.recordSagaFailed("saga-file-1", "Schritt 2 fehlgeschlagen");
+
+        assertTrue(Files.exists(logFile));
+        List<String> zeilen = Files.readAllLines(logFile);
+        assertEquals(2, zeilen.size());
+        assertTrue(zeilen.get(0).contains("TX.COMMIT"));
+        assertTrue(zeilen.get(0).contains("tx-file-1"));
+        assertTrue(zeilen.get(1).contains("SAGA.FAILED"));
+        assertTrue(zeilen.get(1).contains("saga-file-1"));
+    }
+}

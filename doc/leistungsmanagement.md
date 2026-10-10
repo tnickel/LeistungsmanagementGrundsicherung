@@ -1,6 +1,6 @@
 # Leistungsmanagement Grundsicherung (SDN.sozial LMG)
 
-*Stand: 2026-09-24, Version 0.3.0 (Betriebsfunktionen)*
+*Stand: 2026-10-09, Version 0.4.0 (SEPA, Vier-Augen-Prinzip, Bescheidwesen § 37 SGB X, Antrags-Saga)*
 
 Fachschicht auf der eigenen Transaktionssteuerung: Bearbeitung von Grundsicherungs-
 Leistungen im Alter und bei Erwerbsminderung nach **SGB XII** — von der Bedarfs-
@@ -23,9 +23,10 @@ Widget-Dashboard-Stil unter der Produktbezeichnung **SDN.sozial**.
 
 | Größe | Regel |
 |---|---|
-| Regelbedarf | RBS 1 = 563,00 EUR, RBS 2 = 506,00 EUR. Stufen 3–6 sind modellseitig zugelassen, aber im Demo-Datenbestand nicht hinterlegt (Berechnung bricht mit `RBS_NICHT_KONFIGURIERT` ab). |
-| Mehrbedarf Merkzeichen G | 17 % des Regelbedarfs (§ 30 SGB XII); bei RBS 1 exakt 95,71 EUR. |
-| KdU | anerkannte Kaltmiete + Heizkosten, je SozialFall erfasst, BG-weit summiert. |
+| Regelbedarf | RBS 1 = 563,00 EUR, RBS 2 = 506,00 EUR, RBS 3 = 451,00 EUR, RBS 4 = 471,00 EUR, RBS 5 = 390,00 EUR, RBS 6 = 357,00 EUR (Stufen 1–6 für 2026 vollständig hinterlegt). |
+| Mehrbedarf Merkzeichen G | 17 % des Regelbedarfs (§ 30 Abs. 1 SGB XII); bei RBS 1 exakt 95,71 EUR, bei RBS 2 exakt 86,02 EUR. |
+| Mehrbedarf dezentrale Warmwassererzeugung | 2,3 % des Regelbedarfs (§ 30 Abs. 7 SGB XII); bei RBS 1 exakt 12,95 EUR, bei RBS 2 exakt 11,64 EUR. |
+| KdU (Dreiteilung) | anerkannte Kaltmiete + kalte Betriebskosten + Heizkosten, je SozialFall erfasst, BG-weit summiert. |
 | Erwerbsfreibetrag | min(30 % Brutto-Erwerbseinkommen, 50 % der RBS 1 = 281,50 EUR) nach § 82 Abs. 3 SGB XII. |
 | Anrechenbares Einkommen | Renteneinkünfte (voll anrechenbar) + Erwerbseinkommen − Freibetrag, mindestens 0. |
 | Gesamtbedarf / Zahlbetrag | Summe über alle SozialFälle der Bedarfsgemeinschaft; Zahlbetrag = Gesamtbedarf − anrechenbares Einkommen. Zahlbetrag ≤ 0 → fachlicher Hinweis, kein Anspruch. |
@@ -38,12 +39,13 @@ Alle Berechnungen stehen als reine Funktion in
 
 | Tabelle | Zweck |
 |---|---|
-| `BEDARFSGEMEINSCHAFT` | Vorgangskopf: Aktenzeichen (eindeutig), Hauptperson, Status aktiv/historisiert, `BUDGET_REST` (verfügbarer Restanspruch pro Monat, wird bei Auszahlung gemindert), `WIEDERVORLAGE_AM` (Fristen-Widget), `VERSION` (optimistisches Locking). |
-| `SOZIAL_FALL` | Leistungsberechtigter: Regelbedarfsstufe 1–6, Merkzeichen G, KdU (Miete/Heizung), Einkommen (Rente/Erwerb), `VERSION`. |
-| `ZAHLUNG` | angeordnete Auszahlung: eindeutige `VORGANGS_NR` (Idempotenz), Zahlungsmonat `YYYY-MM`, Betrag, Status `BEREIT`/`UEBERGEBEN`/`STORNIERT` (ASCII-stabil, wegen CHECK-Constraints unabhängig vom DB-Zeichensatz). |
+| `BEDARFSGEMEINSCHAFT` | Vorgangskopf: Aktenzeichen (eindeutig), Hauptperson, Status aktiv/historisiert, `BUDGET_REST` (verfügbarer Restanspruch pro Monat, wird bei Auszahlung gemindert), `WIEDERVORLAGE_AM` (Fristen-Widget), Bankverbindung (`IBAN`, `BIC`, `KONTOINHABER`), `VERSION` (optimistisches Locking). |
+| `SOZIAL_FALL` | Leistungsberechtigter: Regelbedarfsstufe 1–6, Merkzeichen G (`FLAG_MERKZEICHEN_G`), Warmwasser (`FLAG_WARMWASSER`), KdU (Kaltmiete `KDU_MIETE`, kalte Betriebskosten `KDU_BETRIEBSKOSTEN`, Heizung `KDU_HEIZUNG`), Einkommen (Rente/Erwerb), `VERSION`. |
+| `ZAHLUNG` | angeordnete Auszahlung: eindeutige `VORGANGS_NR` (Idempotenz), Zahlungsmonat `YYYY-MM`, Betrag, Status `ANGELEGT`/`BEREIT`/`UEBERGEBEN`/`STORNIERT` (ASCII-stabil), Empfängerbank (`EMPFAENGER_IBAN`, `EMPFAENGER_BIC`, `EMPFAENGER_NAME`), Sachbearbeiter & Freigebender (`SACHBEARBEITER_ID`, `FREIGEGEBEN_VON`). |
+| `BESCHEID` | Bewilligungsbescheid nach § 37 SGB X: Bescheidnummer (`BESCHEID_NR`), Bescheiddatum, Bewilligungszeitraum (`BEWILLIGUNG_VON`, `BEWILLIGUNG_BIS`), Zahlbetrag, Status (`ERTEILT`/`AUFGEHOBEN`), Erfasser. |
 | `JOURNAL` | revisionssicheres Buchungsjournal: Aktionstext, Sachbearbeiter, logische BG-Referenz ohne FK (Einträge überleben Historisierung). |
 
-IDs kommen aus den Sequences `SEQ_BG`, `SEQ_FALL`, `SEQ_ZAHLUNG`, `SEQ_JOURNAL`.
+IDs kommen aus den Sequences `SEQ_BG`, `SEQ_FALL`, `SEQ_ZAHLUNG`, `SEQ_BESCHEID`, `SEQ_JOURNAL`.
 Die Trigger `TRG_BG_VERSION`/`TRG_FALL_VERSION` erhöhen die VERSION bei jedem
 UPDATE automatisch, sofern der Aufrufer sie nicht selbst hochgesetzt hat.
 
@@ -98,7 +100,12 @@ lädt neu (`FachlicheException` mit Code `KONKURRENZ`). Kein Lost Update.
 | `POST /api/bedarfsgemeinschaften` | Neuen Vorgang anlegen (Aktenzeichen eindeutig, Startbudget) |
 | `POST /api/bedarfsgemeinschaften/{id}/sozialfaelle` | SozialFall zu einem aktiven Vorgang anlegen |
 | `POST /api/kassenlauf` | Alle BEREIT-Zahlungen auf ÜBERGEBEN setzen *(nur Admin)* |
+| `POST /api/zahlungen/{id}/freigabe` | Vier-Augen-Freigabe (Status ANGELEGT → BEREIT, rechnerische Feststellung) |
 | `POST /api/zahlungen/{id}/storno` | BEREIT-Zahlung stornieren, Restbudget zurückbuchen *(nur Admin)* |
+| `GET /api/bedarfsgemeinschaften/{id}/bescheid` | Letzten Bewilligungsbescheid der Bedarfsgemeinschaft abrufen |
+| `POST /api/bedarfsgemeinschaften/{id}/bescheid` | Bewilligungsbescheid nach § 37 SGB X erteilen |
+| `GET /api/bedarfsgemeinschaften/{id}/bescheid/druck` | Amtliche HTML-Druckansicht mit `@media print` generieren |
+| `POST /api/saga/antrag` | Vollständige End-to-End-Saga (Antragsverarbeitung) ausführen |
 | `POST /api/anmeldung` · `POST /api/abmeldung` · `GET /api/werbin` | Anmeldung (Token) und angemeldete Kennung/Rolle |
 
 ## Anmeldung, Rollen und Betriebsfunktionen (v0.3.0)
@@ -176,8 +183,14 @@ Fehler und Sperrkonflikte erscheinen als Dialoge.
 5. **KdU je SozialFall, Zahlbetrag je Bedarfsgemeinschaft**: bei Paaren wird der
    Zahlbetrag über die SozialFälle summiert; die Zahlung referenziert die
    Bedarfsgemeinschaft (FALL_ID nur bei genau einem SozialFall).
-6. **IBAN/BIC** sind in der Maske sichtbar, aber deaktiviert — die Blueprint-Spec
-   sieht keine Spalte dafür vor; die Felder werden nicht persistiert.
+6. **SEPA-Bankverbindung vollständig integriert (v0.4.0)**: Entgegen der ursprünglichen
+   Blueprint-Spec sind `IBAN`, `BIC` und `KONTOINHABER` in `BEDARFSGEMEINSCHAFT`
+   sowie `EMPFAENGER_IBAN`, `EMPFAENGER_BIC` und `EMPFAENGER_NAME` in `ZAHLUNG`
+   vollständig persistiert, werden mit ISO 13616 Modulo 97 validiert und können
+   in der Maske bearbeitet werden.
+7. **Bescheidwesen und Saga (v0.4.0)**: Vollständige Umsetzung des Bescheidwesens
+   nach § 37 SGB X inklusive amtlicher HTML-Druckansicht sowie 4-stufiger
+   Antrags-Saga mit automatischer Rückwärtskompensation bei fehlendem Anspruch.
 
 ## Bedienung
 

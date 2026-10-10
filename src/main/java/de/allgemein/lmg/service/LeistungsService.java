@@ -33,6 +33,11 @@ public interface LeistungsService {
     Bedarfsgemeinschaft aktualisiereBedarfsgemeinschaft(
             long id, boolean statusAktiv, LocalDate wiedervorlageAm, long erwarteteVersion);
 
+    /** Vorgangskopf inklusive Bankverbindung speichern (optimistisches Locking). */
+    Bedarfsgemeinschaft aktualisiereBedarfsgemeinschaft(
+            long id, boolean statusAktiv, LocalDate wiedervorlageAm,
+            String iban, String bic, String kontoinhaber, long erwarteteVersion);
+
     /** Letzte Zahlungen über alle Vorgänge (Widget/Journalansicht). */
     List<Zahlung> letzteZahlungen(int limit);
 
@@ -40,19 +45,36 @@ public interface LeistungsService {
     List<Journaleintrag> letztesJournal(int limit);
 
     // ----------------------------------------------------------------
-    // Betriebsfunktionen: Neuanlage, Kassenlauf, Storno
+    // Betriebsfunktionen: Neuanlage, Kassenlauf, Storno, Freigabe
     // ----------------------------------------------------------------
 
     /** Legt einen Vorgang an; das Aktenzeichen muss eindeutig sein. */
     Bedarfsgemeinschaft legeBedarfsgemeinschaftAn(String aktenzeichen, String hauptpersonName,
             BigDecimal startBudget, LocalDate wiedervorlageAm, String sachbearbeiterId);
 
+    /** Legt einen Vorgang inklusive Bankverbindung an. */
+    Bedarfsgemeinschaft legeBedarfsgemeinschaftAn(String aktenzeichen, String hauptpersonName,
+            BigDecimal startBudget, LocalDate wiedervorlageAm,
+            String iban, String bic, String kontoinhaber, String sachbearbeiterId);
+
     /** Legt einen weiteren SozialFall zu einem aktiven Vorgang an. */
     SozialFall legeSozialFallAn(long bgId, SozialFall entwurf, String sachbearbeiterId);
+
+    /** Rechnerische Feststellung / Vier-Augen-Freigabe einer Zahlung (Status ANGELEGT -> BEREIT). */
+    Zahlung freigebenZahlung(long zahlungId, String freigeberId);
 
     /** Kassenlauf: alle BEREIT-Zahlungen auf UEBERGEBEN setzen (eine Transaktion). */
     Kassenlaeufergebnis uebergebeBereiteZahlungen(String sachbearbeiterId);
 
-    /** Storniert eine BEREIT-Zahlung und bucht das Restbudget zurück. */
+    /** Storniert eine BEREIT- oder ANGELEGT-Zahlung und bucht das Restbudget zurück. */
     Zahlung storniereZahlung(long zahlungId, String sachbearbeiterId);
+
+    /** Erteilt einen Bewilligungsbescheid nach § 37 SGB X für eine Bedarfsgemeinschaft. */
+    de.allgemein.lmg.model.Bescheid erteileBescheid(long bgId, String bewilligungVon, String bewilligungBis, String sachbearbeiterId);
+
+    /** Liefert den aktuellen/letzten Bescheid der Bedarfsgemeinschaft, falls vorhanden. */
+    java.util.Optional<de.allgemein.lmg.model.Bescheid> letzterBescheid(long bgId);
+
+    /** Generiert das amtliche, druckfertige Bescheid-Dokument (HTML nach § 37 SGB X). */
+    String generiereBescheidHtml(long bgId);
 }

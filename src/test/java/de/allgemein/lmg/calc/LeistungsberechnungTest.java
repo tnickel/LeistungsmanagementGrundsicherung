@@ -92,10 +92,57 @@ class LeistungsberechnungTest {
     }
 
     @Test
+    void regelbedarfsstufen3Bis6_habenKorrekteSaetze2026() {
+        assertEquals(eur("451.00"), Leistungsberechnung.berechneFall(fall(3, false, "0", "0", "0", "0")).regelbedarf());
+        assertEquals(eur("471.00"), Leistungsberechnung.berechneFall(fall(4, false, "0", "0", "0", "0")).regelbedarf());
+        assertEquals(eur("390.00"), Leistungsberechnung.berechneFall(fall(5, false, "0", "0", "0", "0")).regelbedarf());
+        assertEquals(eur("357.00"), Leistungsberechnung.berechneFall(fall(6, false, "0", "0", "0", "0")).regelbedarf());
+    }
+
+    @Test
     void unbekannteRegelbedarfsstufeBrichtFachlichAb() {
         var ausnahme = assertThrows(FachlicheException.class,
-                () -> Leistungsberechnung.berechneFall(fall(4, false, "0", "0", "0", "0")));
+                () -> Leistungsberechnung.berechneFall(fall(7, false, "0", "0", "0", "0")));
         assertEquals(FachlicheException.RBS_NICHT_KONFIGURIERT, ausnahme.code());
+    }
+
+    @Test
+    void dezentraleWarmwassererzeugungRBS1_ergibt12Komma95() {
+        var f = new SozialFall(1L, 1L, 1, false, true, eur("0"), eur("0"), eur("0"), eur("0"), eur("0"), 1L);
+        var ergebnis = Leistungsberechnung.berechneFall(f);
+        assertEquals(eur("12.95"), ergebnis.mehrbedarfWarmwasser());
+        assertEquals(eur("0.00"), ergebnis.mehrbedarfG());
+        assertEquals(eur("12.95"), ergebnis.mehrbedarf());
+        assertEquals(eur("575.95"), ergebnis.gesamtbedarf());
+    }
+
+    @Test
+    void dezentraleWarmwassererzeugungRBS2_ergibt11Komma64() {
+        var f = new SozialFall(1L, 1L, 2, false, true, eur("0"), eur("0"), eur("0"), eur("0"), eur("0"), 1L);
+        var ergebnis = Leistungsberechnung.berechneFall(f);
+        assertEquals(eur("11.64"), ergebnis.mehrbedarfWarmwasser());
+        assertEquals(eur("517.64"), ergebnis.gesamtbedarf());
+    }
+
+    @Test
+    void kombinationMerkzeichenG_undWarmwasser_addiertBeideMehrbedarfe() {
+        var f = new SozialFall(1L, 1L, 1, true, true, eur("0"), eur("0"), eur("0"), eur("0"), eur("0"), 1L);
+        var ergebnis = Leistungsberechnung.berechneFall(f);
+        assertEquals(eur("95.71"), ergebnis.mehrbedarfG());
+        assertEquals(eur("12.95"), ergebnis.mehrbedarfWarmwasser());
+        assertEquals(eur("108.66"), ergebnis.mehrbedarf());
+        assertEquals(eur("671.66"), ergebnis.gesamtbedarf());
+    }
+
+    @Test
+    void kduDreiteilung_summiertMieteBetriebskostenHeizung() {
+        var f = new SozialFall(1L, 1L, 1, false, false, eur("450.00"), eur("70.00"), eur("90.00"), eur("0"), eur("0"), 1L);
+        var ergebnis = Leistungsberechnung.berechneFall(f);
+        assertEquals(eur("450.00"), ergebnis.kduMiete());
+        assertEquals(eur("70.00"), ergebnis.kduBetriebskosten());
+        assertEquals(eur("90.00"), ergebnis.kduHeizung());
+        assertEquals(eur("610.00"), ergebnis.kdu());
+        assertEquals(eur("1173.00"), ergebnis.gesamtbedarf());
     }
 
     @Test

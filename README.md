@@ -97,7 +97,18 @@ Anmeldung in der Oberfläche: Demo-Standardkonten `admin-01/admin` (Admin: Kasse
 Storno, Systemdiagnose) sowie `sb-01/sb-01`, `sb-02/sb-02` (Sachbearbeiter). Eigene
 Konten über `LMG_BENUTZER="kennung:passwort:rolle;…"` (Rollen: admin, sachbearbeiter).
 
-### Entwickler-DB ohne Lizenzaufwand: Oracle 23ai Free in Docker
+### Datenbankumgebung: Oracle 19c (VirtualBox) oder Oracle 23ai Free (Docker)
+
+Standardmäßig ist das Projekt auf die **Oracle Database 19c Enterprise Edition** in der VirtualBox-VM (`oracle-19c-adminwkshop`, PDB `o19c1p1`) vorkonfiguriert:
+
+```bash
+# Verbindung zur VirtualBox Oracle 19c (Standard)
+export TX_URL="jdbc:oracle:thin:@//localhost:1921/o19c1p1"
+export TX_USER=tx_demo
+export TX_PASS=tx_demo
+```
+
+Alternativ kann eine Docker-Entwickler-DB (Oracle 23ai Free) genutzt werden:
 
 ```bash
 docker run -d --name lmg-oracle -p 1521:1521 \
@@ -106,14 +117,10 @@ docker run -d --name lmg-oracle -p 1521:1521 \
   -v lmg-oracle-data:/opt/oracle/oradata \
   gvenzl/oracle-free:23-slim-faststart
 
-# Verbindung
 export TX_URL="jdbc:oracle:thin:@//localhost:1521/FREEPDB1"
-export TX_USER=tx_demo
-export TX_PASS=tx_demo
 ```
 
-Oracle Database Free ist lizenzfrei (auch für Produktion; begrenzt auf 2 CPU-Threads,
-2 GB RAM, 12 GB Nutzerdaten). Die echten-DB-Tests laufen mit gesetzter Verbindung:
+Die echten-DB-Tests laufen mit gesetzter Verbindung:
 
 ```bash
 mvn test -Dtest=EchteDbVerifikationTest

@@ -14,7 +14,10 @@ import java.util.Map;
  * (SGB XII) für das Referenzjahr 2026:
  *
  * <pre>
- *   Gesamtbedarf   = Regelbedarf (RBS) + Mehrbedarf (17 % bei Merkzeichen G) + KdU (Miete + Heizung)
+ *   Gesamtbedarf   = Regelbedarf (RBS)
+ *                  + Mehrbedarf Merkzeichen G (17 % nach § 30 Abs. 1)
+ *                  + Mehrbedarf dezentrale Warmwassererzeugung (2,3 % nach § 30 Abs. 7)
+ *                  + KdU (Kaltmiete + kalte Betriebskosten + Heizkosten)
  *   Freibetrag     = min(30 % Brutto-Erwerbseinkommen, 50 % der Regelbedarfsstufe 1)   -- § 82 Abs. 3
  *   Anrechenbar    = Renteneinkünfte (voll) + Erwerbseinkommen - Freibetrag
  *   Zahlbetrag     = Gesamtbedarf - Anrechenbares Einkommen   (je Bedarfsgemeinschaft summiert)
@@ -25,13 +28,20 @@ import java.util.Map;
  */
 public final class Leistungsberechnung {
 
-    /** Regelbedarfsstufen 2026; Stufen 3-6 sind im Demo-Umfang nicht hinterlegt. */
+    /** Regelbedarfsstufen 2026 (Stufen 1 bis 6 nach Regelbedarfsstufen-Fortschreibungsverordnung). */
     private static final Map<Integer, BigDecimal> REGELBEDARF_2026 = Map.of(
             1, new BigDecimal("563.00"),
-            2, new BigDecimal("506.00"));
+            2, new BigDecimal("506.00"),
+            3, new BigDecimal("451.00"),
+            4, new BigDecimal("471.00"),
+            5, new BigDecimal("390.00"),
+            6, new BigDecimal("357.00"));
 
     /** Mehrbedarf Merkzeichen G (§ 30 Abs. 1 SGB XII): 17 % des maßgeblichen Regelbedarfs. */
     public static final BigDecimal MEHRBEDARF_G_ANTEIL = new BigDecimal("0.17");
+
+    /** Mehrbedarf dezentrale Warmwassererzeugung (§ 30 Abs. 7 SGB XII): 2,3 % des maßgeblichen Regelbedarfs. */
+    public static final BigDecimal MEHRBEDARF_WARMWASSER_ANTEIL = new BigDecimal("0.023");
 
     /** Erwerbsfreibetrag: 30 % des Brutto-Erwerbseinkommens. */
     public static final BigDecimal ERWERBSFREIBETRAG_ANTEIL = new BigDecimal("0.30");
@@ -66,10 +76,17 @@ public final class Leistungsberechnung {
     /** Berechnung für einen einzelnen SozialFall (Details in der Maske Bedarfsermittlung). */
     public static FallBerechnung berechneFall(SozialFall fall) {
         BigDecimal regelbedarf = regelbedarf(fall.regelbedarfsstufe());
-        BigDecimal mehrbedarf = fall.merkzeichenG()
+        BigDecimal mehrbedarfG = fall.merkzeichenG()
                 ? regelbedarf.multiply(MEHRBEDARF_G_ANTEIL).setScale(SCALE, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO.setScale(SCALE);
-        BigDecimal kdu = fall.kduMiete().add(fall.kduHeizung());
+        BigDecimal mehrbedarfWarmwasser = fall.warmwasser()
+                ? regelbedarf.multiply(MEHRBEDARF_WARMWASSER_ANTEIL).setScale(SCALE, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO.setScale(SCALE);
+        BigDecimal mehrbedarf = mehrbedarfG.add(mehrbedarfWarmwasser);
+
+        BigDecimal kdu = fall.kduMiete()
+                .add(fall.kduBetriebskosten())
+                .add(fall.kduHeizung());
         BigDecimal gesamtbedarf = regelbedarf.add(mehrbedarf).add(kdu);
 
         BigDecimal freibetrag = erwerbsfreibetrag(fall.einkommenErwerb());
@@ -78,7 +95,8 @@ public final class Leistungsberechnung {
                 .subtract(freibetrag)
                 .max(BigDecimal.ZERO);
         BigDecimal zahlbetrag = gesamtbedarf.subtract(anrechenbar);
-        return new FallBerechnung(fall.id(), regelbedarf, mehrbedarf, kdu, gesamtbedarf,
+        return new FallBerechnung(fall.id(), regelbedarf, mehrbedarfG, mehrbedarfWarmwasser, mehrbedarf,
+                fall.kduMiete(), fall.kduBetriebskosten(), fall.kduHeizung(), kdu, gesamtbedarf,
                 freibetrag, anrechenbar, zahlbetrag);
     }
 
@@ -87,7 +105,7 @@ public final class Leistungsberechnung {
         if (betrag == null) {
             throw new FachlicheException(FachlicheException.RBS_NICHT_KONFIGURIERT,
                     "Regelbedarfsstufe " + rbs + " ist für das Referenzjahr 2026 nicht hinterlegt "
-                            + "(konfiguriert sind Stufe 1 und 2)");
+                            + "(konfiguriert sind die Stufen 1 bis 6)");
         }
         return betrag;
     }
@@ -104,12 +122,32 @@ public final class Leistungsberechnung {
     public record FallBerechnung(
             long fallId,
             BigDecimal regelbedarf,
+            BigDecimal mehrbedarfG,
+            BigDecimal mehrbedarfWarmwasser,
             BigDecimal mehrbedarf,
+            BigDecimal kduMiete,
+            BigDecimal kduBetriebskosten,
+            BigDecimal kduHeizung,
             BigDecimal kdu,
             BigDecimal gesamtbedarf,
             BigDecimal freibetragErwerb,
             BigDecimal anrechenbaresEinkommen,
             BigDecimal zahlbetrag) {
+
+        /** Abwärtskompatibler Konstruktor für bisherige 8-stellige Signatur. */
+        public FallBerechnung(
+                long fallId,
+                BigDecimal regelbedarf,
+                BigDecimal mehrbedarf,
+                BigDecimal kdu,
+                BigDecimal gesamtbedarf,
+                BigDecimal freibetragErwerb,
+                BigDecimal anrechenbaresEinkommen,
+                BigDecimal zahlbetrag) {
+            this(fallId, regelbedarf, mehrbedarf, BigDecimal.ZERO.setScale(SCALE), mehrbedarf,
+                    kdu, BigDecimal.ZERO.setScale(SCALE), BigDecimal.ZERO.setScale(SCALE), kdu,
+                    gesamtbedarf, freibetragErwerb, anrechenbaresEinkommen, zahlbetrag);
+        }
     }
 
     /** Ergebnis je Bedarfsgemeinschaft: Summen über alle SozialFälle plus endgültiger Zahlbetrag. */

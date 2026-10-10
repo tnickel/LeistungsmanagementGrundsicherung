@@ -4,9 +4,11 @@ import de.allgemein.lmg.service.LeistungsService;
 import de.allgemein.lmg.service.SozialLeistungsService;
 import de.allgemein.lmg.service.Systemdiagnose;
 import de.allgemein.lmg.web.Benutzerverwaltung;
+import de.allgemein.tx.ConnectionPool;
 import de.allgemein.tx.SimpleConnectionPool;
 import de.allgemein.tx.TaskController;
 import de.allgemein.tx.TxManager;
+import de.allgemein.tx.UcpConnectionPool;
 import de.allgemein.tx.saga.SagaEngine;
 import de.allgemein.tx.saga.SagaJournal;
 
@@ -28,38 +30,52 @@ public final class LmgServerMain {
         // JDBC-Treiber explizit laden: im In-Prozess-Lauf (mvn exec:java) hat
         // DriverManager sonst keinen Zugriff auf den Treiber des Projekt-Klassenpfads.
         Class.forName("oracle.jdbc.OracleDriver");
-        String url = env("TX_URL", "jdbc:oracle:thin:@//localhost:1521/FREEPDB1");
-        String user = env("TX_USER", "tx_demo");
-        String password = env("TX_PASS", "tx_demo");
-        int port = Integer.parseInt(env("LMG_PORT", "8080"));
-        int poolGroesse = Integer.parseInt(env("LMG_POOL_GROESSE", "8"));
-        int maxTasks = Integer.parseInt(env("LMG_TASKS", "8"));
-        int warteschlange = Integer.parseInt(env("LMG_WARTESCHLANGE", "100"));
 
-        try (SimpleConnectionPool pool = new SimpleConnectionPool(url, user, password, poolGroesse)) {
+        de.allgemein.lmg.config.LmgConfig config = de.allgemein.lmg.config.LmgConfig.load();
+        if (config.auditFile() != null && !config.auditFile().isBlank()) {
+            de.allgemein.tx.audit.TxAuditLog.setAuditFilePath(java.nio.file.Paths.get(config.auditFile()));
+        }
+
+        try (ConnectionPool pool = erzeugePool(config.poolType(), config.url(), config.user(), config.password(), config.poolSize())) {
+            var poolMbean = de.allgemein.tx.monitoring.TxMonitoring.registerConnectionPool(pool);
             TxManager txManager = new TxManager(pool);
-            try (TaskController tasks = new TaskController(txManager, maxTasks, warteschlange)) {
+            try (TaskController tasks = new TaskController(txManager, config.maxTasks(), config.queueCapacity())) {
+                var taskMbean = tasks.registerJmx();
                 LeistungsService service = new SozialLeistungsService(txManager);
                 SagaEngine sagas = new SagaEngine(txManager, new SagaJournal(pool));
                 Systemdiagnose diagnose = new Systemdiagnose(txManager, tasks, sagas, Instant.now());
                 Benutzerverwaltung benutzerverwaltung = Benutzerverwaltung.ausUmgebung();
-                try (LmgServer server = new LmgServer(tasks, service, diagnose, benutzerverwaltung, port)) {
+                try (LmgServer server = new LmgServer(tasks, service, diagnose, sagas, benutzerverwaltung, config.port())) {
                     server.start();
                     System.out.println("SDN.sozial — Leistungsmanagement Grundsicherung");
-                    System.out.println("Oberfläche: http://localhost:" + port + "/");
+                    System.out.println("Oberfläche: http://localhost:" + config.port() + "/");
+                    System.out.println("Verbindungspool: " + pool.getClass().getSimpleName() + " (Größe: " + config.poolSize() + ")");
+                    System.out.println("JMX-Monitoring: aktiv (" + taskMbean + ", " + poolMbean + ")");
+                    if (config.auditFile() != null && !config.auditFile().isBlank()) {
+                        System.out.println("Audit-Log: aktiv (" + config.auditFile() + ")");
+                    }
                     System.out.println("Anmeldung: " + benutzerverwaltung.anzahlKonten() + " Konto(s)"
-                            + (System.getenv("LMG_BENUTZER") == null
+                            + (System.getenv("LMG_BENUTZER") == null && config.benutzer() == null
                                     ? " — STANDARD-DEMO-KONTEN aktiv (admin-01/admin, sb-01/sb-01, "
                                       + "sb-02/sb-02)! Für echte Passwörter LMG_BENUTZER setzen."
-                                    : " (aus LMG_BENUTZER)"));
+                                    : " (aus Konfiguration)"));
                     int wiederanlauf = diagnose.wiederanlauf();
                     System.out.println("Wiederanlauf beim Start: " + wiederanlauf
                             + " halbfertige Saga(s) beendet");
                     System.out.println("Statistik der Task-Steuerung: " + tasks.stats());
                     Thread.currentThread().join();
+                } finally {
+                    de.allgemein.tx.monitoring.TxMonitoring.unregister(poolMbean);
                 }
             }
         }
+    }
+
+    private static ConnectionPool erzeugePool(String typ, String url, String user, String pass, int groesse) throws Exception {
+        if ("simple".equalsIgnoreCase(typ)) {
+            return new SimpleConnectionPool(url, user, pass, groesse);
+        }
+        return new UcpConnectionPool(url, user, pass, groesse);
     }
 
     private static String env(String key, String defaultValue) {

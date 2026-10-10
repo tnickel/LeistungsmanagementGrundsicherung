@@ -1,6 +1,6 @@
 package de.allgemein.tx.saga;
 
-import de.allgemein.tx.SimpleConnectionPool;
+import de.allgemein.tx.ConnectionPool;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -19,9 +19,9 @@ import java.util.Map;
  */
 public final class SagaJournal {
 
-    private final SimpleConnectionPool pool;
+    private final ConnectionPool pool;
 
-    public SagaJournal(SimpleConnectionPool pool) {
+    public SagaJournal(ConnectionPool pool) {
         this.pool = pool;
     }
 

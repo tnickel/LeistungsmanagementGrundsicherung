@@ -95,8 +95,33 @@ public final class TaskController implements AutoCloseable {
         return new TaskStats(running.size(), completed.sum(), failed.sum(), timedOut.sum(), rejected.sum(), avgMillis);
     }
 
+    public int poolSize() {
+        return executor.getPoolSize();
+    }
+
+    public int queueSize() {
+        return executor.getQueue().size();
+    }
+
+    public int queueRemainingCapacity() {
+        return executor.getQueue().remainingCapacity();
+    }
+
+    private volatile javax.management.ObjectName jmxObjectName;
+
+    public synchronized javax.management.ObjectName registerJmx() {
+        if (this.jmxObjectName == null) {
+            this.jmxObjectName = de.allgemein.tx.monitoring.TxMonitoring.registerTaskController(this);
+        }
+        return this.jmxObjectName;
+    }
+
     @Override
     public void close() {
+        if (jmxObjectName != null) {
+            de.allgemein.tx.monitoring.TxMonitoring.unregister(jmxObjectName);
+            jmxObjectName = null;
+        }
         executor.shutdownNow();
         watchdog.shutdownNow();
     }
