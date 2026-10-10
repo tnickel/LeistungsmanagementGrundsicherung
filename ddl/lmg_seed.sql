@@ -47,7 +47,7 @@ VALUES (6, 'BG-2025-0099', 'Brandt, Frank', 0, 0);
 INSERT INTO SOZIAL_FALL (ID, BG_ID, REGELBEDARFSSTUFE, FLAG_MERKZEICHEN_G, FLAG_WARMWASSER, KDU_MIETE, KDU_BETRIEBSKOSTEN, KDU_HEIZUNG, EINKOMMEN_RENTE, EINKOMMEN_ERWERB)
 VALUES (7, 6, 1, 0, 0, 0, 0, 0, 500.00, 0);
 
--- 7) Weiss: Showcase der neuen Rechtsregeln — schwanger ab 12. SSW (§ 30 Abs. 2, 17 %),
+-- 7) Weiss: Showcase der neuen Rechtsregeln — schwanger ab der 13. SSW (§ 30 Abs. 2, 17 %),
 --    alleinerziehend mit einem Kind unter 7 (§ 30 Abs. 3, 36 %), Vermögen 10.500 EUR
 --    über dem Schonvermögen (§ 90 Abs. 2 Nr. 9 i.V.m. BarbetragsVO: 10.000 EUR) -> 500 EUR mindern den Bedarf.
 --    Bedarf: 563,00 + 95,71 + 202,68 + 650,00 = 1.511,39 EUR

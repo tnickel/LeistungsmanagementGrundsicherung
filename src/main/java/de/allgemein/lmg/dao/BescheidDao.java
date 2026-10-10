@@ -22,15 +22,15 @@ public final class BescheidDao {
 
     private static final String COLUMNS =
             "ID, BG_ID, BESCHEID_NR, BESCHEID_DATUM, BEWILLIGUNG_VON, BEWILLIGUNG_BIS, "
-                    + "ZAHLBETRAG, STATUS, ERSTELLT_VON, ERSTELLT_AM";
+                    + "ZAHLBETRAG, STATUS, ERSTELLT_VON, ERSTELLT_AM, BERECHNUNG";
 
     public Bescheid einfuegen(TxContext ctx, long id, long bgId, String bescheidNr,
                               LocalDate bescheidDatum, String bewilligungVon, String bewilligungBis,
-                              BigDecimal zahlbetrag, String erstelltVon) throws SQLException {
+                              BigDecimal zahlbetrag, String erstelltVon, String berechnung) throws SQLException {
         try (PreparedStatement stmt = ctx.connection().prepareStatement(
                 "INSERT INTO BESCHEID (ID, BG_ID, BESCHEID_NR, BESCHEID_DATUM, BEWILLIGUNG_VON, "
-                        + "BEWILLIGUNG_BIS, ZAHLBETRAG, STATUS, ERSTELLT_VON, ERSTELLT_AM) "
-                        + "VALUES (?, ?, ?, ?, ?, ?, ?, 'ERTEILT', ?, SYSTIMESTAMP)")) {
+                        + "BEWILLIGUNG_BIS, ZAHLBETRAG, STATUS, ERSTELLT_VON, ERSTELLT_AM, BERECHNUNG) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, 'ERTEILT', ?, SYSTIMESTAMP, ?)")) {
             stmt.setLong(1, id);
             stmt.setLong(2, bgId);
             stmt.setString(3, bescheidNr);
@@ -39,11 +39,13 @@ public final class BescheidDao {
             stmt.setString(6, bewilligungBis);
             stmt.setBigDecimal(7, zahlbetrag);
             stmt.setString(8, erstelltVon);
+            stmt.setString(9, berechnung);
             stmt.executeUpdate();
         }
         return new Bescheid(id, bgId, bescheidNr,
                 bescheidDatum != null ? bescheidDatum : LocalDate.now(),
-                bewilligungVon, bewilligungBis, zahlbetrag, "ERTEILT", erstelltVon, Instant.now());
+                bewilligungVon, bewilligungBis, zahlbetrag, "ERTEILT", erstelltVon, Instant.now(),
+                berechnung);
     }
 
     public Optional<Bescheid> finde(TxContext ctx, long id) throws SQLException {
@@ -112,6 +114,7 @@ public final class BescheidDao {
                 rs.getBigDecimal(7),
                 rs.getString(8),
                 rs.getString(9),
-                erstellt == null ? null : erstellt.toInstant());
+                erstellt == null ? null : erstellt.toInstant(),
+                rs.getString(11));
     }
 }

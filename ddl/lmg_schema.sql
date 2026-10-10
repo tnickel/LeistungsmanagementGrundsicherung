@@ -42,11 +42,11 @@ CREATE TABLE SOZIAL_FALL (
     BG_ID              NUMBER(19)    NOT NULL,
     REGELBEDARFSSTUFE  NUMBER(1)     NOT NULL,           -- 1..6, steuert den Basisbetrag
     FLAG_MERKZEICHEN_G NUMBER(1)     DEFAULT 0 NOT NULL, -- 1 = Merkzeichen G, 17 % Mehrbedarf (§ 30 Abs. 1)
-    FLAG_SCHWANGER     NUMBER(1)     DEFAULT 0 NOT NULL, -- 1 = schwanger ab 12. SSW, 17 % Mehrbedarf (§ 30 Abs. 2)
+    FLAG_SCHWANGER     NUMBER(1)     DEFAULT 0 NOT NULL, -- 1 = schwanger ab der 13. SSW (nach Vollendung der 12. Woche), 17 % Mehrbedarf (§ 30 Abs. 2)
     ANZ_KINDER_U7      NUMBER(2)     DEFAULT 0 NOT NULL, -- Kinder unter 7 im Haushalt (§ 30 Abs. 3)
     ANZ_KINDER_U16     NUMBER(2)     DEFAULT 0 NOT NULL, -- Kinder unter 16 im Haushalt (§ 30 Abs. 3 Nr. 1)
     ANZ_KINDER_MINDERJ NUMBER(2)     DEFAULT 0 NOT NULL, -- minderjährige Kinder im Haushalt insgesamt (§ 30 Abs. 3 Nr. 2)
-    FLAG_WARMWASSER    NUMBER(1)     DEFAULT 0 NOT NULL, -- 1 = Warmwasser dezentral (§ 30 Abs. 7), stufenabhängig 2,3/–/1,4/1,2/0,8 %
+    FLAG_WARMWASSER    NUMBER(1)     DEFAULT 0 NOT NULL, -- 1 = Warmwasser dezentral (§ 30 Abs. 7), stufenabhängig 2,3/2,3/–/1,4/1,2/0,8 % (Stufe 3 ohne Satz)
     KDU_MIETE          NUMBER(10,2)  DEFAULT 0 NOT NULL, -- anerkannte Kaltmiete
     KDU_BETRIEBSKOSTEN NUMBER(10,2)  DEFAULT 0 NOT NULL, -- anerkannte kalte Betriebskosten
     KDU_HEIZUNG        NUMBER(10,2)  DEFAULT 0 NOT NULL, -- anerkannte Heizkosten (ohne dezentralen Warmwasseranteil)
@@ -114,6 +114,10 @@ CREATE TABLE BESCHEID (
     STATUS          VARCHAR2(20 CHAR) DEFAULT 'ERTEILT' NOT NULL,
     ERSTELLT_VON    VARCHAR2(50 CHAR) NOT NULL,
     ERSTELLT_AM     TIMESTAMP(6)      DEFAULT SYSTIMESTAMP NOT NULL,
+    -- Berechnungs-Snapshot (versioniertes JSON) aus dem Erteilungszeitpunkt: der
+    -- Nachdruck zeigt ausschließlich diesen Stand, auch wenn die Fälle später geändert
+    -- werden. Bestehende Instanzen nachrüsten: ALTER TABLE BESCHEID ADD (BERECHNUNG CLOB);
+    BERECHNUNG      CLOB,
     CONSTRAINT PK_BESCHEID PRIMARY KEY (ID),
     CONSTRAINT UQ_BESCHEID_NR UNIQUE (BESCHEID_NR),
     CONSTRAINT FK_BESCHEID_BG FOREIGN KEY (BG_ID) REFERENCES BEDARFSGEMEINSCHAFT (ID),

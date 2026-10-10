@@ -15,7 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Prüft die SGB-XII-Regeln mit den Referenzwerten 2026 (Stufe 1: 563 EUR,
  * Stufe 2: 506 EUR, Merkzeichen G: 17 %, Erwerbsfreibetrag: 30 %, gekappt
- * bei 281,50 EUR). Diese Werte stammen aus der Blueprint-Spezifikation.
+ * bei 281,50 EUR). Herkunftsnachweis der Werte: Anlage zu § 28 SGB XII
+ * (amtlich verifiziert, siehe doc/rechtsgrundlagen.md).
  */
 class LeistungsberechnungTest {
 
@@ -186,7 +187,7 @@ class LeistungsberechnungTest {
     }
 
     // ------------------------------------------------------------------
-    // § 30 Abs. 2 SGB XII: Schwangeren-Mehrbedarf (17 % ab 12. SSW)
+    // § 30 Abs. 2 SGB XII: Schwangeren-Mehrbedarf (17 % ab der 13. SSW)
     // ------------------------------------------------------------------
 
     @Test
@@ -213,6 +214,16 @@ class LeistungsberechnungTest {
         // 563,00 × (4 × 12 %) = 270,24 EUR (Konstellation 2–3 Kinder nicht erfüllt)
         var f = vollerFall(1, false, false, 0, 4, false, "0", "0", "0", "0", "0");
         assertEquals(eur("270.24"), Leistungsberechnung.berechneFall(f).mehrbedarfAlleinerziehend());
+    }
+
+    @Test
+    void alleinerziehendZweiOderDreiKinderUnter16_ergibt36Prozent() {
+        // § 30 Abs. 3 Nr. 1 zweite Alternative: zwei oder drei Kinder unter 16 →
+        // pauschal 36 % der RBS 1 (202,68), nicht 12 % je Kind
+        var zwei = vollerFall(1, false, false, 0, 2, false, "0", "0", "0", "0", "0");
+        var drei = vollerFall(1, false, false, 0, 3, false, "0", "0", "0", "0", "0");
+        assertEquals(eur("202.68"), Leistungsberechnung.berechneFall(zwei).mehrbedarfAlleinerziehend());
+        assertEquals(eur("202.68"), Leistungsberechnung.berechneFall(drei).mehrbedarfAlleinerziehend());
     }
 
     @Test
@@ -246,9 +257,9 @@ class LeistungsberechnungTest {
     @Test
     void mehrbedarfeWerdenAufRegelbedarfGekappt() {
         // G (95,71) + Schwangere (95,71) + Alleinerziehend 36 % (202,68) + Warmwasser (12,95)
-        // = 407,05 < 563 — nicht gekappt; mit 8 Kindern (337,80) = 542,47 < 563; erst
+        // = 407,05 < 563 — nicht gekappt; mit 8 Kindern (337,80) = 542,17 < 563; erst
         // extreme Konstellationen kappen. Hier prüfen wir die Kappung über den Deckel:
-        // G + Schwangere + Alleinerziehend(8 Kinder, am Deckel 337,80) + Warmwasser = 542,47.
+        // G + Schwangere + Alleinerziehend(8 Kinder, am Deckel 337,80) + Warmwasser = 542,17.
         var f = vollerFall(1, true, true, 0, 8, true, "0", "0", "0", "0", "0");
         var ergebnis = Leistungsberechnung.berechneFall(f);
         assertEquals(eur("542.17"), ergebnis.mehrbedarf());
@@ -348,7 +359,7 @@ class LeistungsberechnungTest {
     }
 
     // ------------------------------------------------------------------
-    // § 43 Abs. 3, § 90 SGB XII: Vermögensanrechnung mit Schonvermögen
+    // § 43 Abs. 1, § 90 SGB XII: Vermögensanrechnung mit Schonvermögen
     // ------------------------------------------------------------------
 
     @Test

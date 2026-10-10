@@ -40,7 +40,7 @@ Produktbezeichnung in Oberfläche und Artefakten: **SDN.sozial**; zentraler Fach
 | Mehrbedarf | Regel |
 |---|---|
 | Merkzeichen G / volle Erwerbsminderung | 17 % des eigenen Regelbedarfs (RBS 1: 95,71 EUR) |
-| Schwangerschaft ab 12. SSW | 17 % des eigenen Regelbedarfs |
+| Schwangerschaft ab der 13. SSW (nach Vollendung der 12. Woche) | 17 % des eigenen Regelbedarfs |
 | Alleinerziehende | Bezug RBS 1; 36 % bei einem Kind unter 7 oder zwei bis drei Kindern unter 16, sonst 12 % je minderjährigem Kind; höchstens 60 % (337,80 EUR); keine Kumulation |
 | Dezentrale Warmwassererzeugung | RBS 1/2 2,3 %; RBS 4 1,4 %; RBS 5 1,2 %; RBS 6 0,8 %; RBS 3 kein Satz |
 | Deckel | Summe der Mehrbedarfe nach Abs. 1–5 höchstens in Höhe des eigenen Regelbedarfs (Abs. 6); Warmwasser (Abs. 7) liegt außerhalb |
@@ -144,11 +144,12 @@ Jede Web-Anfrage läuft als Task über den `TaskController`. Bekannter Restpunkt
 ## 7. Rechtsgrundlagen und Quellen
 
 Vollständige Tabelle mit Umsetzungsstand: `doc/leistungsmanagement.md`, Abschnitt „Rechtsgrundlagen".
+Maßgebliches Verzeichnis mit Herkunftsnachweisen und Verifikationsprotokoll (Live-Prüfung 2026-10-10): `doc/rechtsgrundlagen.md`.
 
 - SGB XII §§ 28, 30, 35, 43, 44, 82, 90: <https://www.gesetze-im-internet.de/sgb_12/>
 - SGB X §§ 35, 36, 37: <https://www.gesetze-im-internet.de/sgb_10/>
 - SGG §§ 73, 84, 87, 88: <https://www.gesetze-im-internet.de/sgg/>
-- BarbetragsVO § 1/§ 2 (Beträge): <https://www.buzer.de/gesetz/2234/index.htm> — amtliche Primärfassung vor Produktivbetrieb gegenprüfen.
-- Regelbedarfsstufen 2026: Anlage zu § 28 SGB XII / Regelbedarfsstufen-Fortschreibung; Abgleich mit dem Bundesanzeiger steht aus.
+- DVO zu § 90 Abs. 2 Nr. 9 SGB XII (Schonvermögen 10.000/500 EUR): <https://www.buzer.de/gesetz/2234/index.htm> — Beträge und BGBl-Fundstelle am 2026-10-10 verifiziert.
+- Regelbedarfsstufen 2026: Anlage zu § 28 SGB XII; 2026 unverändert (Verlautbarung Bundesregierung, am 2026-10-10 abgeglichen).
 
 *Hinweis: Dies ist ein technisches Demonstrationssystem, keine Rechtsberatung und kein produktiv zugelassenes Fachverfahren.*

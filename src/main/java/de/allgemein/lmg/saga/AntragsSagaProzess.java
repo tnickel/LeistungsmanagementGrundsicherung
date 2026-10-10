@@ -1,5 +1,6 @@
 package de.allgemein.lmg.saga;
 
+import de.allgemein.lmg.calc.BerechnungsSnapshot;
 import de.allgemein.lmg.calc.Leistungsberechnung;
 import de.allgemein.lmg.model.SozialFall;
 import de.allgemein.lmg.service.FachlicheException;
@@ -215,7 +216,8 @@ public final class AntragsSagaProzess {
 
         try (PreparedStatement stmt = c.prepareStatement(
                 "INSERT INTO BESCHEID (ID, BG_ID, BESCHEID_NR, BESCHEID_DATUM, BEWILLIGUNG_VON, BEWILLIGUNG_BIS, "
-                        + "ZAHLBETRAG, STATUS, ERSTELLT_VON, ERSTELLT_AM) VALUES (?, ?, ?, SYSDATE, ?, ?, ?, 'ERTEILT', ?, SYSTIMESTAMP)")) {
+                        + "ZAHLBETRAG, STATUS, ERSTELLT_VON, ERSTELLT_AM, BERECHNUNG) "
+                        + "VALUES (?, ?, ?, SYSDATE, ?, ?, ?, 'ERTEILT', ?, SYSTIMESTAMP, ?)")) {
             stmt.setLong(1, bescheidId);
             stmt.setLong(2, bgId);
             stmt.setString(3, bescheidNr);
@@ -223,6 +225,7 @@ public final class AntragsSagaProzess {
             stmt.setString(5, monatBis);
             stmt.setBigDecimal(6, ergebnis.zahlbetrag());
             stmt.setString(7, sb);
+            stmt.setString(8, BerechnungsSnapshot.schreibe(ergebnis, List.of(fall), BigDecimal.ZERO));
             stmt.executeUpdate();
         }
         schreibeJournal(c, bgId, "Bescheid " + bescheidNr + " ueber " + ergebnis.zahlbetrag() + " EUR erteilt", sb);

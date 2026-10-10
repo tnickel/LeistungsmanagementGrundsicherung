@@ -14,6 +14,8 @@ Redo-Logging, Recovery) — wir programmieren nur die Steuerungsschicht darüber
 - `doc/projektbeschreibung.md` — Ausgangslage, Ziel, Leitprinzip, Scope
 - `doc/architektur.md` — Bausteine, Transaktions-/Saga-Abläufe, Datenmodell, Regeln
 - `doc/leistungsmanagement.md` — Fachschicht Leistungsmanagement (SDN.sozial LMG)
+- `doc/rechtsgrundlagen.md` — Rechtsquellen-Verzeichnis mit Herkunftsnachweisen und
+  Verifikationsprotokoll (maßgeblich für Fach-Reviews; Stand 2026-10-10)
 - `doc/roadmap.md` — aktueller Stand und geplante Etappen
 
 ## Namenskonventionen für die Fachschicht (wichtig)
@@ -56,11 +58,24 @@ Redo-Logging, Recovery) — wir programmieren nur die Steuerungsschicht darüber
 5. Der Task-Wachhund unterbricht Tasks nach `TxOptions.timeout`; der Interrupt
    lässt den JDBC-Aufruf fehlschlagen, wodurch die DB zurückrollt.
 
-## Stand (Stand: 2026-10-10, Version 0.5.3)
+## Stand (Stand: 2026-10-10, Version 0.5.4)
 
 Kernbibliothek und Fachschicht vollständig umgesetzt, umfassendem Codereview unterzogen
 und auf echter Oracle 19c Enterprise Edition (VirtualBox, Port 1921/o19c1p1) sowie
 23ai Free verifiziert:
+
+- **v0.5.4 — Rechtsquellen & revisionssicherer Bescheid-Druck**: neues maßgebliches
+  Rechtsquellen-Verzeichnis `doc/rechtsgrundlagen.md` (alle Normen mit Herkunfts-
+  nachweisen, amtlich verifiziert gegen gesetze-im-internet.de am 2026-10-10; u. a.
+  klargestellt: § 37 Abs. 2 SGB X Vier-Tage-Fiktion, 100.000-EUR-Grenze aus
+  § 94 Abs. 1a statt § 43, Schonvermögen aus der DVO zu § 90 Abs. 2 Nr. 9).
+  Fachreview-Umsetzung: Belehrung § 73 Abs. 1 SGG, Schwangeren-Mehrbedarf ab der
+  13. SSW, Bewilligungszeitraum serverseitig auf zwölf Monate begrenzt (§ 44 Abs. 3),
+  KdU-Vorbehalt zitiert § 35 Abs. 1 und 7 mit offenem Fristverzicht. Bescheid-Druck
+  zeigt ausschließlich den versionierten JSON-Snapshot aus `BESCHEID.BERECHNUNG`
+  (Erteilungszeitpunkt; Fallback Neuberechnung mit Hinweiskasten); neue Klasse
+  `BerechnungsSnapshot`. 126 Unit-Tests grün; DB-Lauf + Schema (`ALTER TABLE BESCHEID
+  ADD (BERECHNUNG CLOB)`) nachziehen, sobald die Oracle-VM wieder läuft.
 - **Kern**: `TxManager` (Rollback auch bei Error/OOM — nie implizites Commit; manuelle
   API `begin/commit/finish` repariert), `TxContext`, `TxOptions`, `RetryPolicy`
   (Wiederholung bei ORA-00054/60/8177 inkl. echtem Deadlock-Test `DeadlockRetryEchtTest`),

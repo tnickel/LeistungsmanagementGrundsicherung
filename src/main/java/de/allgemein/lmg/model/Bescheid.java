@@ -7,6 +7,9 @@ import java.time.LocalDate;
 /**
  * Bewilligungsbescheid nach § 44 SGB XII für Grundsicherungsleistungen nach SGB XII.
  * Trägt Bewilligungszeitraum, monatlichen Zahlbetrag und Status (ERTEILT / AUFGEHOBEN).
+ * BERECHNUNG hält den versionierten JSON-Snapshot des Berechnungsergebnisses aus dem
+ * Erteilungszeitpunkt fest — der Nachdruck zeigt ausschließlich diesen Stand, auch
+ * wenn die zugrunde liegenden SozialFälle später geändert werden.
  */
 public record Bescheid(
         long id,
@@ -18,5 +21,22 @@ public record Bescheid(
         BigDecimal zahlbetrag,
         String status,
         String erstelltVon,
-        Instant erstelltAm) {
+        Instant erstelltAm,
+        String berechnung) {
+
+    /** Abwärtskompatibler Konstruktor ohne Berechnungs-Snapshot (frühere Versionen). */
+    public Bescheid(
+            long id,
+            long bgId,
+            String bescheidNr,
+            LocalDate bescheidDatum,
+            String bewilligungVon,
+            String bewilligungBis,
+            BigDecimal zahlbetrag,
+            String status,
+            String erstelltVon,
+            Instant erstelltAm) {
+        this(id, bgId, bescheidNr, bescheidDatum, bewilligungVon, bewilligungBis,
+                zahlbetrag, status, erstelltVon, erstelltAm, null);
+    }
 }

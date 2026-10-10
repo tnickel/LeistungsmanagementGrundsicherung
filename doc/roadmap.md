@@ -98,7 +98,8 @@ wurden Norm für Norm gegen die amtlichen Texte verifiziert und bestätigt. Nach
 
 ### Fachrecht SGB XII vollständig ergänzt
 
-- [x] **§ 30 Abs. 2 SGB XII** — Schwangeren-Mehrbedarf (17 % ab 12. SSW): Datenmodell,
+- [x] **§ 30 Abs. 2 SGB XII** — Schwangeren-Mehrbedarf (17 % ab der 13. SSW,
+      „nach der zwölften Schwangerschaftswoche"): Datenmodell,
       Berechnung, Maske, Tests
 - [x] **§ 30 Abs. 3 SGB XII** — Alleinerziehenden-Mehrbedarf (36 % / 12 % je Kind,
       Deckel 60 % RBS 1, Basis RBS 1): Kinder unter 7 / unter 16 / minderjährig insgesamt

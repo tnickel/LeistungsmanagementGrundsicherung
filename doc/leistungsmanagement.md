@@ -44,6 +44,9 @@ Obergrenze, Absetzbeträgen und Vermögensanrechnung).
 
 ## Rechtsgrundlagen (Stand der Prüfung: Oktober 2026)
 
+Maßgebliches Verzeichnis mit Herkunftsnachweisen, Betragsverzeichnis und
+Verifikationsprotokoll: **`doc/rechtsgrundlagen.md`** (Live-Verifikation 2026-10-10).
+
 Alle Normen im Wortlaut gegen gesetze-im-internet.de geprüft, soweit nicht anders vermerkt.
 
 | Norm | Inhalt | Umsetzung |
@@ -58,30 +61,30 @@ Alle Normen im Wortlaut gegen gesetze-im-internet.de geprüft, soweit nicht ande
 | § 82 Abs. 2 SGB XII | Absetzbeträge | umgesetzt |
 | § 82 Abs. 3 SGB XII | Erwerbsfreibetrag 30 % des **Bruttoeinkommens**, max. 50 % der RBS 1 (281,50 EUR) | umgesetzt (Basis Brutto) |
 | § 82 Abs. 3 Satz 2, Abs. 4, 5 SGB XII | WfbM-Sonderregel; Freibetrag zusätzliche Altersvorsorge (100 EUR + 30 %, max. 50 % RBS 1) | **nicht modelliert** |
-| § 90 Abs. 2 Nr. 9 SGB XII + BarbetragsVO § 1 | Schonvermögen 10.000 EUR je volljähriger/alleinstehender minderjähriger Person, 500 EUR je überwiegend unterhaltener Person | umgesetzt; § 2 (Erhöhung/Herabsetzung) nicht modelliert |
-| § 43 Abs. 1 SGB XII | Einsatz des Vermögens in der Grundsicherung; (§ 43 Abs. 2: Einkommensgrenze 100.000 EUR nicht modelliert) | umgesetzt |
-| § 44 SGB XII | Bewilligungszeitraum, Beginn zum Monatsersten | teilweise (Roadmap Etappe 4) |
+| § 90 Abs. 2 Nr. 9 SGB XII + DVO § 1 | Schonvermögen 10.000 EUR je volljähriger/alleinstehender minderjähriger Person, 500 EUR je überwiegend unterhaltener Person (DVO = Verordnung zur Durchführung des § 90 Abs. 2 Nr. 9 SGB XII v. 11.02.1988, BGBl. I S. 150, idF 2023) | umgesetzt; DVO § 2 (Erhöhung/Herabsetzung) nicht modelliert |
+| § 43 Abs. 1 SGB XII | Einsatz des Vermögens in der Grundsicherung; nicht modelliert: § 43 Abs. 2 (Kapitalerträge 26 EUR/Jahr) und § 94 Abs. 1a (Unterhaltsrückgriff erst bei > 100.000 EUR Jahreseinkommen von Eltern/Kindern) | umgesetzt |
+| § 44 SGB XII | Bewilligungszeitraum, Beginn zum Monatsersten; maximale Dauer serverseitig auf den Regelfall von zwölf Monaten geprüft (§ 44 Abs. 3) | teilweise (Abs. 2 Rückwirkung und § 44a vorläufige Entscheidung offen, Roadmap Etappe 4) |
 | § 35 SGB X | Begründung des Verwaltungsakts | `BescheidGenerator` |
 | § 36 SGB X | Rechtsbehelfsbelehrung | `BescheidGenerator` |
-| § 37 Abs. 2 SGB X | Bekanntgabefiktion am 3. Tag nach Aufgabe zur Post; `BESCHEID_DATUM` ist das **Ausstellungsdatum** | im Bescheid benannt |
+| § 37 Abs. 2 SGB X | Bekanntgabefiktion **am vierten Tag** nach Aufgabe zur Post (amtlicher Wortlaut, geprüft 2026-10-10); `BESCHEID_DATUM` ist das **Ausstellungsdatum** | im Bescheid benannt |
 | § 84 SGG | Widerspruch binnen 1 Monat; fristwahrend auch bei anderer inländischer Behörde, Versicherungsträger oder deutscher Konsularbehörde | Belehrung |
 | § 87 SGG | Klage ohne Widerspruch bzw. nach Widerspruchsbescheid | Belehrung (`modus`) |
-| § 88 SGG | Untätigkeitsklage nach 3 Monaten | Belehrung |
-| § 73 Abs. 2 SGG | Vertretungsbefugte Bevollmächtigte | Belehrung |
+| § 88 SGG | Untätigkeitsklage: nach 3 Monaten ohne Widerspruchsentscheidung (Abs. 2), nach 6 Monaten ohne Bescheid über einen Antrag (Abs. 1) | Belehrung |
+| § 73 Abs. 1 SGG | Kein Vertretungszwang vor Sozial-/Landessozialgericht (Abs. 2: mögliche Bevollmächtigte) | Belehrung (Klage-Modus) |
 
 Quellen: <https://www.gesetze-im-internet.de/sgb_12/> (§§ 30, 35, 43, 82, 90), <https://www.gesetze-im-internet.de/sgg/> (§§ 73, 84, 87, 88),
-<https://www.gesetze-im-internet.de/sgb_10/> (§§ 35–37). Die BarbetragsVO-Beträge stammen aus der Fassung auf buzer.de
-(<https://www.buzer.de/gesetz/2234/index.htm>); die BMJ-Primärseite war nicht abrufbar — **vor Produktivbetrieb gegen den amtlichen Text prüfen**.
-Die Regelbedarfsstufen 2026 stützen sich auf die Regelbedarfsstufen-Fortschreibungsverordnung; ein Abgleich gegen den Bundesanzeiger steht aus.
+<https://www.gesetze-im-internet.de/sgb_10/> (§§ 35–37). Die Beträge der DVO zu § 90 Abs. 2 Nr. 9 SGB XII sind am 2026-10-10 gegen
+buzer.de (<https://www.buzer.de/gesetz/2234/index.htm>) inkl. BGBl-Fundstelle verifiziert; die Regelbedarfsstufen 2026 sind gegen die
+Anlage zu § 28 SGB XII und die Verlautbarung der Bundesregierung abgeglichen. Einzelheiten: `doc/rechtsgrundlagen.md`.
 
 ## Datenmodell (`ddl/lmg_schema.sql`, Seed: `ddl/lmg_seed.sql`)
 
 | Tabelle | Zweck |
 |---|---|
 | `BEDARFSGEMEINSCHAFT` | Vorgangskopf: Aktenzeichen (eindeutig), Hauptperson, Status aktiv/historisiert, `BUDGET_REST` (verfügbarer Restanspruch pro Monat, wird bei Auszahlung gemindert), `VERMOEGEN` (§ 90 SGB XII), `WIEDERVORLAGE_AM` (Fristen-Widget), Bankverbindung (`IBAN`, `BIC`, `KONTOINHABER`), `VERSION` (optimistisches Locking). |
-| `SOZIAL_FALL` | Leistungsberechtigter: Regelbedarfsstufe 1–6, Merkzeichen G (`FLAG_MERKZEICHEN_G`), Schwangerschaft ab 12. SSW (`FLAG_SCHWANGER`, § 30 Abs. 2), Kinder im Haushalt (`ANZ_KINDER_U7`, `ANZ_KINDER_U16`, `ANZ_KINDER_MINDERJ`, § 30 Abs. 3), Warmwasser (`FLAG_WARMWASSER`), KdU (Kaltmiete `KDU_MIETE`, kalte Betriebskosten `KDU_BETRIEBSKOSTEN`, Heizung `KDU_HEIZUNG`), Einkommen (Rente/Erwerb), Absetzbeträge (`ABZ_STEUERN`, `ABZ_SV`, `ABZ_VERSICHERUNGEN`, `ABZ_ERWERBSAUSGABEN`, § 82 Abs. 2), `VERSION`. |
+| `SOZIAL_FALL` | Leistungsberechtigter: Regelbedarfsstufe 1–6, Merkzeichen G (`FLAG_MERKZEICHEN_G`), Schwangerschaft ab der 13. SSW — nach Vollendung der 12. Woche (`FLAG_SCHWANGER`, § 30 Abs. 2), Kinder im Haushalt (`ANZ_KINDER_U7`, `ANZ_KINDER_U16`, `ANZ_KINDER_MINDERJ`, § 30 Abs. 3), Warmwasser (`FLAG_WARMWASSER`), KdU (Kaltmiete `KDU_MIETE`, kalte Betriebskosten `KDU_BETRIEBSKOSTEN`, Heizung `KDU_HEIZUNG`), Einkommen (Rente/Erwerb), Absetzbeträge (`ABZ_STEUERN`, `ABZ_SV`, `ABZ_VERSICHERUNGEN`, `ABZ_ERWERBSAUSGABEN`, § 82 Abs. 2), `VERSION`. |
 | `ZAHLUNG` | angeordnete Auszahlung: eindeutige `VORGANGS_NR` (Idempotenz), Zahlungsmonat `YYYY-MM`, Betrag, Status `ANGELEGT`/`BEREIT`/`UEBERGEBEN`/`STORNIERT` (ASCII-stabil), Empfängerbank (`EMPFAENGER_IBAN`, `EMPFAENGER_BIC`, `EMPFAENGER_NAME`), Sachbearbeiter & Freigebender (`SACHBEARBEITER_ID`, `FREIGEGEBEN_VON`). |
-| `BESCHEID` | Bewilligungsbescheid (§ 44 SGB XII): Bescheidnummer (`BESCHEID_NR`, eindeutig), `BESCHEID_DATUM` = Datum des Bescheids (die Bekanntgabe nach § 37 SGB X ist ein eigener, nicht erfasster Zeitpunkt), Bewilligungszeitraum (`BEWILLIGUNG_VON`/`BEWILLIGUNG_BIS`, Format `YYYY-MM`, von ≤ bis), Zahlbetrag, Status (`ERTEILT`/`AUFGEHOBEN`), Erfasser. |
+| `BESCHEID` | Bewilligungsbescheid (§ 44 SGB XII): Bescheidnummer (`BESCHEID_NR`, eindeutig), `BESCHEID_DATUM` = Datum des Bescheids (die Bekanntgabe nach § 37 SGB X ist ein eigener, nicht erfasster Zeitpunkt), Bewilligungszeitraum (`BEWILLIGUNG_VON`/`BEWILLIGUNG_BIS`, Format `YYYY-MM`, von ≤ bis, maximal zwölf Monate), Zahlbetrag, Status (`ERTEILT`/`AUFGEHOBEN`), Erfasser, `BERECHNUNG` (CLOB): versionierter JSON-Snapshot des Berechnungsergebnisses aus dem Erteilungszeitpunkt — der Nachdruck zeigt ausschließlich diesen Stand, auch wenn die Fälle später geändert werden (Bescheide ohne Snapshot werden mit aktuellem Datenstand neu berechnet und tragen einen Hinweiskasten). |
 | `JOURNAL` | revisionssicheres Buchungsjournal: Aktionstext, Sachbearbeiter, logische BG-Referenz ohne FK (Einträge überleben Historisierung). |
 
 IDs kommen aus den Sequences `SEQ_BG`, `SEQ_FALL`, `SEQ_ZAHLUNG`, `SEQ_BESCHEID`, `SEQ_JOURNAL`.

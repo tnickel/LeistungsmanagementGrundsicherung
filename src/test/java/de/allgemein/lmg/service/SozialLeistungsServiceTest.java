@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -61,5 +62,24 @@ class SozialLeistungsServiceTest {
                 SozialLeistungsService.normiereBetrag(eur("10.555"), "Betrag"));
         assertEquals(eur("10.55"),
                 SozialLeistungsService.normiereBetrag(eur("10.554"), "Betrag"));
+    }
+
+    // ------------------------------------------------------------------
+    // § 44 Abs. 3 SGB XII: Bewilligungszeitraum höchstens zwölf Monate (Regelfall)
+    // ------------------------------------------------------------------
+
+    @Test
+    void bewilligungszeitraumBisZwoelfMonateIstErlaubt() {
+        assertDoesNotThrow(() -> SozialLeistungsService.pruefeBewilligungszeitraum("2026-01", "2026-12"));
+        assertDoesNotThrow(() -> SozialLeistungsService.pruefeBewilligungszeitraum("2026-01", "2026-01"));
+        // Jahreswechsel mit genau zwölf Monaten bleibt erlaubt
+        assertDoesNotThrow(() -> SozialLeistungsService.pruefeBewilligungszeitraum("2025-07", "2026-06"));
+    }
+
+    @Test
+    void bewilligungszeitraumUeberZwoelfMonateWirdFachlichAbgelehnt() {
+        var ausnahme = assertThrows(FachlicheException.class,
+                () -> SozialLeistungsService.pruefeBewilligungszeitraum("2026-01", "2027-01"));
+        assertEquals(FachlicheException.VALIDATION, ausnahme.code());
     }
 }

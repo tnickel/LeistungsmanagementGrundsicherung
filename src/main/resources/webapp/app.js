@@ -506,7 +506,7 @@ function rendereFallMasken() {
       </label>
       <label class="checkbox-zeile">
         <input data-feld="schwanger" type="checkbox" ${fall.schwanger ? "checked" : ""}>
-        <span>Schwanger ab 12. SSW — Mehrbedarf 17&nbsp;% (§ 30 Abs. 2 SGB XII)</span>
+        <span>Schwanger ab der 13. SSW (nach Vollendung der 12. Woche) — Mehrbedarf 17&nbsp;% (§ 30 Abs. 2 SGB XII)</span>
       </label>
       <label class="checkbox-zeile">
         <input data-feld="warmwasser" type="checkbox" ${fall.warmwasser ? "checked" : ""}>

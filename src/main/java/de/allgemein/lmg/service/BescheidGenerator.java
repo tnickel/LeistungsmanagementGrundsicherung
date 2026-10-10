@@ -67,7 +67,25 @@ public final class BescheidGenerator {
     public static String generiereHtml(Bedarfsgemeinschaft bg, List<SozialFall> faelle,
                                        Leistungsberechnung.Berechnungsergebnis berechnung,
                                        Bescheid bescheid, Rechtsbehelf rechtsbehelf) {
+        return generiereHtml(bg, faelle, berechnung, bescheid, rechtsbehelf, false);
+    }
+
+    /**
+     * @param neuberechnetOhneSnapshot true, wenn kein gespeicherter Berechnungs-Snapshot
+     *        vorliegt und die Aufstellung mit dem aktuellen Datenstand neu erstellt wurde
+     *        (ältere Bescheide) — das Dokument erhält dann einen sichtbaren Hinweiskasten.
+     */
+    public static String generiereHtml(Bedarfsgemeinschaft bg, List<SozialFall> faelle,
+                                       Leistungsberechnung.Berechnungsergebnis berechnung,
+                                       Bescheid bescheid, Rechtsbehelf rechtsbehelf,
+                                       boolean neuberechnetOhneSnapshot) {
         Rechtsbehelf belehrung = rechtsbehelf == null ? Rechtsbehelf.standard() : rechtsbehelf;
+        String snapshotWarnung = neuberechnetOhneSnapshot
+                ? "<div class='vorbehalt'>Hinweis: Für diesen Bescheid ist kein Berechnungs-Snapshot aus "
+                        + "dem Erteilungszeitpunkt gespeichert (früherer Datenstand). Die Berechnungsaufstellung "
+                        + "wurde mit dem aktuellen Datenstand neu erstellt; verbindlich bleibt der im "
+                        + "Verfügungssatz bewilligte Betrag aus dem Erteilungszeitpunkt.</div>"
+                : "";
         String datumText = bescheid.bescheidDatum().format(DATUM_FORMAT);
         String zahlbetragText = formatBetrag(bescheid.zahlbetrag());
         String ibanText = bg.iban() != null ? SepaValidator.formatiereIban(bg.iban()) : "nicht hinterlegt";
@@ -76,13 +94,14 @@ public final class BescheidGenerator {
                 ? bg.kontoinhaber() : bg.hauptpersonName();
         String vorbehaltHinweis = berechnung.faelle().stream().anyMatch(Leistungsberechnung.FallBerechnung::kduUnangemessen)
                 ? "<p class='vorbehalt'>* Die Aufwendungen für Unterkunft und Heizung übersteigen die als "
-                        + "angemessen anerkannte Grenze. Der übersteigende Betrag wird bei der Berechnung nicht "
-                        + "berücksichtigt (§ 42a i.V.m. § 35 Abs. 1 und 3 SGB XII).</p>"
+                        + "angemessen anerkannte Grenze (§ 42a i.V.m. § 35 Abs. 1 und 7 SGB XII). Der übersteigende "
+                        + "Betrag wird bei der Berechnung nicht berücksichtigt; eine Absenkungsfrist nach § 35 Abs. 3 "
+                        + "SGB XII wird nicht gewährt.</p>"
                 : "";
         String vermoegenHinweis = berechnung.verwertbaresVermoegen().signum() > 0
                 ? "<li>Vermögen (§ 43 Abs. 1 SGB XII): " + formatBetrag(bg.vermoegen()) + " € abzüglich Schonvermögen von "
                         + formatBetrag(Leistungsberechnung.schonvermoegen(faelle))
-                        + " € (§ 90 Abs. 2 Nr. 9 SGB XII i.V.m. § 1 Barbetragsverordnung) ergibt verwertbares "
+                        + " € (§ 90 Abs. 2 Nr. 9 SGB XII i.V.m. § 1 der Verordnung zu § 90 Abs. 2 Nr. 9 SGB XII) ergibt verwertbares "
                         + "Vermögen von " + formatBetrag(berechnung.verwertbaresVermoegen())
                         + " €; es wird auf den Bedarf angerechnet.</li>"
                 : "";
@@ -174,6 +193,7 @@ public final class BescheidGenerator {
   </div>
 
   <div class="titel">Bewilligungsbescheid über Leistungen der Grundsicherung</div>
+  %s
 
   <div class="tenor">
     <strong>Verfügungssatz:</strong><br>
@@ -254,6 +274,7 @@ public final class BescheidGenerator {
                 escapeHtml(bescheid.bescheidNr()),
                 datumText,
                 escapeHtml(bescheid.erstelltVon()),
+                snapshotWarnung,
                 escapeHtml(bescheid.bewilligungVon()),
                 escapeHtml(bescheid.bewilligungBis()),
                 zahlbetragText,
@@ -345,7 +366,7 @@ public final class BescheidGenerator {
                     werden (§ 87 Abs. 1 SGG). Ein Vorverfahren (Widerspruchsverfahren) findet nicht statt.
                     Die Klage ist schriftlich, zur Niederschrift des Urkundsbeamten der Geschäftsstelle oder
                     elektronisch nach § 65a SGG zu erheben. Einer Vertretung durch einen Rechtsanwalt bedarf es
-                    nicht (§ 73 Abs. 2 SGG).%s""".formatted(escapeHtml(gericht), bekanntgabe);
+                    nicht — der Rechtsstreit kann selbst geführt werden (§ 73 Abs. 1 SGG).%s""".formatted(escapeHtml(gericht), bekanntgabe);
         }
         String stelle = belehrung.anschrift() != null && !belehrung.anschrift().isBlank()
                 ? "der Behörde, die diesen Bescheid erlassen hat (" + escapeHtml(belehrung.anschrift()) + ")"

@@ -9,8 +9,9 @@ import java.math.BigDecimal;
  * Sachbearbeiter (optimistisches Locking).
  *
  * <p>Mehrbedarfsmerkmale (§ 30 SGB XII): Merkzeichen G (Abs. 1), Schwangerschaft
- * ab der 12. Schwangerschaftswoche (Abs. 2), Alleinerziehende mit Kindern im
- * Haushalt (Abs. 3), dezentrale Warmwassererzeugung (Abs. 7). Absetzbeträge zur
+ * ab der 13. Schwangerschaftswoche — nach Vollendung der zwölften Woche (Abs. 2),
+ * Alleinerziehende mit Kindern im Haushalt (Abs. 3), dezentrale Warmwassererzeugung
+ * (Abs. 7). Absetzbeträge zur
  * Einkommensbereinigung nach § 82 Abs. 2 SGB XII (Steuern, Sozialversicherung,
  * gesetzlich vorgeschriebene/angemessene Versicherungen, Erwerbsaufwendungen)
  * werden vor dem Erwerbsfreibetrag des § 82 Abs. 3 abgezogen.</p>

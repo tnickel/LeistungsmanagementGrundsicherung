@@ -29,6 +29,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -306,6 +308,41 @@ class EchteDbVerifikationTest {
         assertTrue(html.contains(az), "HTML muss Aktenzeichen enthalten");
         assertTrue(html.contains("DE89 3704 0044 0532 0130 00"), "HTML muss formatierte IBAN enthalten");
         assertTrue(html.contains("@media print"), "HTML muss Druck-Stylesheet enthalten");
+    }
+
+    @Test
+    void bescheidDruckZeigtSnapshotAuchNachFallaenderung() {
+        String az = "BG-TEST-SNAP-" + System.nanoTime() % 100000;
+        var bg = service.legeBedarfsgemeinschaftAn(az, "Snapshot, Sigrid",
+                new BigDecimal("2000.00"), null, null, null, null, "sb-erfasser");
+
+        // RBS 1 (563 €) + KdU 300 € = 863,00 € Bedarf; Rente 300 € → Zahlbetrag 563,00 €
+        SozialFall fall = new SozialFall(0, bg.id(), 1, false, false,
+                new BigDecimal("300.00"), BigDecimal.ZERO, BigDecimal.ZERO,
+                new BigDecimal("300.00"), BigDecimal.ZERO, 1);
+        service.legeSozialFallAn(bg.id(), fall, "sb-erfasser");
+
+        Bescheid bescheid = service.erteileBescheid(bg.id(), "2026-01", "2026-12", "sb-pruefer");
+        assertEquals(new BigDecimal("563.00"), bescheid.zahlbetrag());
+        assertNotNull(bescheid.berechnung(), "Berechnungs-Snapshot muss mitgeschrieben werden");
+
+        // Fall NACH Erteilung ändern (Rente 300 → 700): der Nachdruck bleibt beim
+        // Erteilungsstand — kein Mischverhältnis aus altem Zahlbetrag und neuen Zeilen
+        SozialFall geladen = service.ladeDetail(bg.id()).faelle().get(0);
+        SozialFall geaendert = new SozialFall(geladen.id(), geladen.bgId(), geladen.regelbedarfsstufe(),
+                geladen.merkzeichenG(), geladen.schwanger(), geladen.anzKinderUnter7(),
+                geladen.anzKinderUnter16(), geladen.anzKinderMinderjaehrig(), geladen.warmwasser(),
+                geladen.kduMiete(), geladen.kduBetriebskosten(), geladen.kduHeizung(),
+                new BigDecimal("700.00"), geladen.einkommenErwerb(),
+                geladen.abzSteuern(), geladen.abzSozialversicherung(), geladen.abzVersicherungen(),
+                geladen.abzErwerbsaufwendungen(), geladen.version());
+        service.aktualisiereSozialFall(geaendert, geladen.version(), "sb-aenderer");
+
+        String html = service.generiereBescheidHtml(bg.id());
+        assertTrue(html.contains("Rente 300,00"), "Snapshot-Rente aus dem Erteilungszeitpunkt muss bleiben");
+        assertFalse(html.contains("Rente 700,00"), "Geänderte Rente darf im Nachdruck nicht auftauchen");
+        assertFalse(html.contains("kein Berechnungs-Snapshot"), "Snapshot vorhanden, kein Warnhinweis nötig");
+        assertTrue(html.contains("563,00"), "Bewilligter Zahlbetrag muss im Dokument stehen");
     }
 
     @Test

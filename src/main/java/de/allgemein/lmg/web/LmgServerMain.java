@@ -54,7 +54,7 @@ public final class LmgServerMain {
                         java.time.Duration.ofMinutes(config.sessionTimeoutMinuten()));
                 try (LmgServer server = new LmgServer(tasks, service, diagnose, sagas, benutzerverwaltung, config.port())) {
                     server.start();
-                    System.out.println("SDN.sozial — Leistungsmanagement Grundsicherung (v0.5.3)");
+                    System.out.println("SDN.sozial — Leistungsmanagement Grundsicherung (v0.5.4)");
                     System.out.println("Oberfläche: http://localhost:" + config.port() + "/");
                     System.out.println("Verbindungspool: " + pool.getClass().getSimpleName() + " (Größe: " + config.poolSize() + ")");
                     System.out.println("JMX-Monitoring: aktiv (" + taskMbean + ", " + poolMbean + ")");

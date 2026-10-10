@@ -18,7 +18,7 @@ import java.util.Map;
  *   Regelbedarf     = Betrag der Regelbedarfsstufe (Anlage zu § 28 SGB XII)
  *   Mehrbedarfe § 30:
  *     Merkzeichen G        Abs. 1:  17 % des Regelbedarfs
- *     Schwangerschaft      Abs. 2:  17 % des Regelbedarfs (ab 12. SSW — Erfassung als Flag)
+ *     Schwangerschaft      Abs. 2:  17 % des Regelbedarfs (ab der 13. SSW — Erfassung als Flag)
  *     Alleinerziehend      Abs. 3:  36 % der RBS 1 (Kind &lt; 7 J. oder 2–3 Kinder &lt; 16 J.),
  *                                    sonst 12 % je minderjährigem Kind; Deckel 60 % der RBS 1
  *     Obergrenze           Abs. 6:  Summe der Mehrbedarfe nach Abs. 1–5 höchstens der Regelbedarf
@@ -61,7 +61,7 @@ public final class Leistungsberechnung {
     /** Mehrbedarf Merkzeichen G (§ 30 Abs. 1 SGB XII): 17 % des maßgeblichen Regelbedarfs. */
     public static final BigDecimal MEHRBEDARF_G_ANTEIL = new BigDecimal("0.17");
 
-    /** Mehrbedarf Schwangerschaft (§ 30 Abs. 2 SGB XII): 17 % ab der 12. Schwangerschaftswoche. */
+    /** Mehrbedarf Schwangerschaft (§ 30 Abs. 2 SGB XII): 17 % ab der 13. Schwangerschaftswoche („nach der zwölften"). */
     public static final BigDecimal MEHRBEDARF_SCHWANGERE_ANTEIL = new BigDecimal("0.17");
 
     /** Mehrbedarf Alleinerziehende (§ 30 Abs. 3 SGB XII): 36 % bei Kind unter 7 bzw. 2–3 Kindern unter 16. */

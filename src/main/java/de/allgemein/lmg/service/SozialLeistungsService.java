@@ -1,5 +1,6 @@
 package de.allgemein.lmg.service;
 
+import de.allgemein.lmg.calc.BerechnungsSnapshot;
 import de.allgemein.lmg.calc.Leistungsberechnung;
 import de.allgemein.lmg.dao.BescheidDao;
 import de.allgemein.lmg.dao.BedarfsgemeinschaftDao;
@@ -20,6 +21,7 @@ import de.allgemein.tx.TxOptions;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -477,6 +479,7 @@ public final class SozialLeistungsService implements LeistungsService {
                     "Bewilligungszeitraum ungültig: 'von' (" + bewilligungVon
                             + ") liegt nach 'bis' (" + bewilligungBis + ")");
         }
+        pruefeBewilligungszeitraum(bewilligungVon, bewilligungBis);
         pruefeText(sachbearbeiterId, "Sachbearbeiter-Kürzel", 50);
 
         return txManager.execute(TxOptions.DEFAULT, ctx -> {
@@ -505,8 +508,11 @@ public final class SozialLeistungsService implements LeistungsService {
             String bescheidNr = "BESCH-" + bg.aktenzeichen() + "-" + LocalDate.now().getYear() + "-" + id;
             // BESCHEID_DATUM ist das Ausstellungsdatum; die Bekanntgabe (§ 37 SGB X), mit der die
             // Rechtsbehelfsfrist (1 Monat) beginnt, ist ein eigener, nicht erfasster Zeitpunkt.
+            // Der Berechnungs-Snapshot hält den Stand der Erteilung fest: der Nachdruck bleibt
+            // auch nach späteren Falländerungen beim erteilten Berechnungsstand.
+            String snapshot = BerechnungsSnapshot.schreibe(berechnung, faelle, bg.vermoegen());
             Bescheid bescheid = bescheidDao.einfuegen(ctx, id, bgId, bescheidNr, LocalDate.now(),
-                    bewilligungVon, bewilligungBis, berechnung.zahlbetrag(), sachbearbeiterId);
+                    bewilligungVon, bewilligungBis, berechnung.zahlbetrag(), sachbearbeiterId, snapshot);
 
             journalDao.einfuegen(ctx, bgId, String.format(Locale.GERMAN,
                     "Bewilligungsbescheid %s über %,.2f EUR monatlich (%s bis %s) erteilt",
@@ -529,17 +535,30 @@ public final class SozialLeistungsService implements LeistungsService {
                     .orElseThrow(() -> new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
                             "Bedarfsgemeinschaft " + bgId + " ist nicht vorhanden"));
             List<SozialFall> faelle = fallDao.listeFuerBg(ctx, bgId);
+            Bescheid bescheid = bescheidDao.letzteFuerBg(ctx, bgId, 1).stream().findFirst()
+                    .orElseThrow(() -> new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
+                            "Kein Bewilligungsbescheid für Bedarfsgemeinschaft " + bgId + " vorhanden"));
+
+            // Snapshot aus dem Erteilungszeitpunkt: der Nachdruck zeigt ausschließlich den
+            // gespeicherten Berechnungsstand, auch wenn die Fälle inzwischen geändert wurden.
+            // Nur Bescheide ohne Snapshot (frühere Versionen) werden mit aktuellem Datenstand
+            // neu berechnet — mit sichtbarem Hinweis im Dokument.
+            if (bescheid.berechnung() != null) {
+                BerechnungsSnapshot.Gelesen snapshot = BerechnungsSnapshot.lese(bescheid.berechnung());
+                Bedarfsgemeinschaft bgZurBerechnung = new Bedarfsgemeinschaft(
+                        bg.id(), bg.aktenzeichen(), bg.hauptpersonName(), bg.statusAktiv(),
+                        bg.budgetRest(), bg.wiedervorlageAm(), bg.version(),
+                        bg.iban(), bg.bic(), bg.kontoinhaber(), snapshot.vermoegen());
+                return BescheidGenerator.generiereHtml(bgZurBerechnung, snapshot.faelle(),
+                        snapshot.ergebnis(), bescheid, rechtsbehelf, false);
+            }
             Leistungsberechnung.Berechnungsergebnis berechnung = berechnungDefensiv(bg, faelle);
             if (berechnung == null) {
                 throw new FachlicheException(FachlicheException.VALIDATION,
                         "Für diese Bedarfsgemeinschaft kann keine Berechnung erstellt werden "
                                 + "(keine oder ungültige Fälle)");
             }
-            Bescheid bescheid = bescheidDao.letzteFuerBg(ctx, bgId, 1).stream().findFirst()
-                    .orElseThrow(() -> new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
-                            "Kein Bewilligungsbescheid für Bedarfsgemeinschaft " + bgId + " vorhanden"));
-
-            return BescheidGenerator.generiereHtml(bg, faelle, berechnung, bescheid, rechtsbehelf);
+            return BescheidGenerator.generiereHtml(bg, faelle, berechnung, bescheid, rechtsbehelf, true);
         });
     }
 
@@ -583,6 +602,23 @@ public final class SozialLeistungsService implements LeistungsService {
         if (!Zahlungsmonat.isValid(wert)) {
             throw new FachlicheException(FachlicheException.VALIDATION,
                     feldname + " muss im Format YYYY-MM angegeben sein");
+        }
+    }
+
+    /**
+     * § 44 Abs. 3 SGB XII: Bewilligungszeitraum in der Regel zwölf Monate (bei
+     * vorläufiger Entscheidung nach § 44a höchstens sechs). Längere Zeiträume sind
+     * ausnahmsweise rechtlich möglich, hier aber bewusst nicht vorgesehen.
+     */
+    static void pruefeBewilligungszeitraum(String bewilligungVon, String bewilligungBis) {
+        YearMonth von = YearMonth.parse(bewilligungVon);
+        YearMonth bis = YearMonth.parse(bewilligungBis);
+        int monate = (bis.getYear() - von.getYear()) * 12 + bis.getMonthValue() - von.getMonthValue() + 1;
+        if (monate > 12) {
+            throw new FachlicheException(FachlicheException.VALIDATION,
+                    "Bewilligungszeitraum umfasst " + monate + " Monate (von " + bewilligungVon
+                            + " bis " + bewilligungBis + "); der Regelfall des § 44 Abs. 3 SGB XII sind "
+                            + "höchstens zwölf Monate (vorläufige Entscheidung nach § 44a: sechs)");
         }
     }
 

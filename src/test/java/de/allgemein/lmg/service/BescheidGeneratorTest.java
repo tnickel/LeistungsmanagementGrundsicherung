@@ -59,6 +59,11 @@ class BescheidGeneratorTest {
         assertTrue(html.contains("Widerspruch"));
         assertTrue(html.contains("§ 84 Abs. 1"), "Fundstelle der Widerspruchsfrist fehlt");
         assertTrue(html.contains("§ 87 Abs. 2 SGG"), "Klagefrist nach Widerspruchsbescheid fehlt");
+        // Fachlich kritische Belehrungssätze als Regression: beide waren vor v0.5.3 falsch
+        assertTrue(html.contains("am vierten Tag"),
+                "Bekanntgabefiktion nach § 37 Abs. 2 SGB X muss 'am vierten Tag' lauten");
+        assertTrue(html.contains("drei Monaten ohne Entscheidung über den Widerspruch"),
+                "Untätigkeitsklage-Hinweis (§ 88 Abs. 2 SGG) fehlt oder ist falsch formuliert");
         assertTrue(html.contains("Regelbedarfsstufe 1"), "Regelbedarfsstufe fehlt in der Begründung");
         assertTrue(html.contains("Einkommen (§ 82 SGB XII)"), "Einkommen fehlt in der Begründung");
         assertFalse(html.contains("onclick"), "Inline-Eventhandler widerspricht der CSP");
@@ -86,9 +91,41 @@ class BescheidGeneratorTest {
                 new BescheidGenerator.Rechtsbehelf("KLAGE", null, "Sozialgericht Süd"));
         assertTrue(html.contains("Klage bei Sozialgericht Süd"));
         assertTrue(html.contains("§ 87 Abs. 1 SGG"));
+        assertTrue(html.contains("§ 73 Abs. 1 SGG"), "Kein Vertretungszwang muss § 73 Abs. 1 SGG zitieren");
+        assertFalse(html.contains("§ 73 Abs. 2"), "§ 73 Abs. 2 SGG regelt Bevollmächtigte, nicht den Zwang");
         assertFalse(html.contains("Widerspruch eingelegt"));
     }
 
+    @Test
+    void kduVorbehaltZitiertAbs1Und7UndLegtFristverzichtOffen() {
+        // KdU des Testfalls 450 + 0 + 90 = 540 € übersteigt die Grenze von 400 €
+        var grenze = new Leistungsberechnung.KduParameter(BigDecimal.ZERO, new BigDecimal("400.00"));
+        var ergebnis = Leistungsberechnung.berechne(1L, List.of(fall()), grenze, BigDecimal.ZERO);
+        Bedarfsgemeinschaft bg = new Bedarfsgemeinschaft(1L, "BG-1", "Meier, Anna", true,
+                eur("1500.00"), null, 1L, null, null, null, BigDecimal.ZERO);
+        String html = BescheidGenerator.generiereHtml(bg, List.of(fall()), ergebnis, bescheid("B-1"));
+        assertTrue(html.contains("§ 42a i.V.m. § 35 Abs. 1 und 7 SGB XII"),
+                "Vorbehalt muss die umgesetzten Absätze 1 und 7 zitieren");
+        assertTrue(html.contains("Absenkungsfrist nach § 35 Abs. 3 SGB XII wird nicht gewährt"),
+                "Verzicht auf die Absenkungsfrist muss offengelegt werden");
+        assertFalse(html.contains("Abs. 1 und 3 SGB XII"),
+                "Abs. 3 regelt die nicht umgesetzte Absenkungsfrist und gehört nicht als Zitat hierher");
+    }
+
+
+    @Test
+    void druckOhneGespeichertenSnapshotWarntVorNeuberechnung() {
+        Bedarfsgemeinschaft bg = new Bedarfsgemeinschaft(1L, "BG-1", "Meier, Anna", true,
+                eur("1500.00"), null, 1L, null, null, null, BigDecimal.ZERO);
+        String ohne = BescheidGenerator.generiereHtml(bg, List.of(fall()), berechnung(),
+                bescheid("B-ohne"), null, true);
+        assertTrue(ohne.contains("kein Berechnungs-Snapshot"),
+                "Fehlender Snapshot muss im Dokument offengelegt werden");
+        String mit = BescheidGenerator.generiereHtml(bg, List.of(fall()), berechnung(),
+                bescheid("B-mit"), null, false);
+        assertFalse(mit.contains("kein Berechnungs-Snapshot"),
+                "Mit Snapshot darf kein Warnhinweis erscheinen");
+    }
 
     // ------------------------------------------------------------------
     // Aufbau
