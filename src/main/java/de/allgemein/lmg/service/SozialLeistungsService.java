@@ -23,6 +23,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -33,8 +34,14 @@ import java.util.Optional;
  * <p>Der kritische Buchungsweg ({@link #ordneAuszahlungAn}) folgt dem Blueprint:
  * Idempotenz über die Vorgangsnummer, pessimistische Zeilensperre auf die
  * Bedarfsgemeinschaft (SELECT ... FOR UPDATE), Budget-Prüfung, Anlage der Zahlung
- * mit Status BEREIT, Minderung des Restbudgets und revisionssicherer Journaleintrag —
- * alles unteilbar in einer Transaktion.</p>
+ * mit Status ANGELEGT (Vier-Augen-Prinzip: die Freigabe erfolgt immer durch eine
+ * zweite Person über {@link #freigebenZahlung}), Minderung des Restbudgets und
+ * revisionssicherer Journaleintrag — alles unteilbar in einer Transaktion.</p>
+ *
+ * <p>Bedarfs- und Einkommensermittlung: §§ 27a, 28, 30, 35, 42a, 43a, 44, 82, 90
+ * SGB XII (Details in {@link Leistungsberechnung}). Die örtlichen KdU-Parameter
+ * (Warmwasser-Abzug von den Heizkosten, Angemessenheitsgrenze) und die
+ * Rechtsbehelfsbelehrung des Bescheids sind konfigurierbar (LmgConfig).</p>
  */
 public final class SozialLeistungsService implements LeistungsService {
 
@@ -44,9 +51,20 @@ public final class SozialLeistungsService implements LeistungsService {
     private final ZahlungDao zahlungDao = new ZahlungDao();
     private final JournalDao journalDao = new JournalDao();
     private final de.allgemein.lmg.dao.BescheidDao bescheidDao = new de.allgemein.lmg.dao.BescheidDao();
+    private final Leistungsberechnung.KduParameter kduParameter;
+    private final BescheidGenerator.Rechtsbehelf rechtsbehelf;
 
     public SozialLeistungsService(TxManager txManager) {
-        this.txManager = txManager;
+        this(txManager, Leistungsberechnung.KduParameter.AUS, null);
+    }
+
+    public SozialLeistungsService(TxManager txManager,
+            Leistungsberechnung.KduParameter kduParameter,
+            BescheidGenerator.Rechtsbehelf rechtsbehelf) {
+        this.txManager = Objects.requireNonNull(txManager, "txManager");
+        this.kduParameter = Objects.requireNonNull(
+                kduParameter == null ? Leistungsberechnung.KduParameter.AUS : kduParameter, "kduParameter");
+        this.rechtsbehelf = rechtsbehelf;
     }
 
     // ------------------------------------------------------------------
@@ -75,7 +93,7 @@ public final class SozialLeistungsService implements LeistungsService {
             List<SozialFall> faelle = fallDao.listeFuerBg(ctx, bgId);
             de.allgemein.lmg.model.Bescheid bescheid = bescheidDao.letzteFuerBg(ctx, bgId, 1)
                     .stream().findFirst().orElse(null);
-            return new Vorgangsdetail(bg, faelle, berechnungDefensiv(bgId, faelle),
+            return new Vorgangsdetail(bg, faelle, berechnungDefensiv(bg, faelle),
                     zahlungDao.letzteFuerBg(ctx, bgId, 10),
                     journalDao.letzteFuerBg(ctx, bgId, 20),
                     bescheid);
@@ -98,21 +116,26 @@ public final class SozialLeistungsService implements LeistungsService {
 
     @Override
     public SozialFall aktualisiereSozialFall(SozialFall geaendert, long erwarteteVersion) {
+        return aktualisiereSozialFall(geaendert, erwarteteVersion, SYSTEM_SACHBEARBEITER);
+    }
+
+    @Override
+    public SozialFall aktualisiereSozialFall(SozialFall geaendert, long erwarteteVersion, String sachbearbeiterId) {
         SozialFall normalisiert = pruefeUndNormalisiereFall(geaendert);
         return txManager.execute(TxOptions.DEFAULT, ctx -> {
+            SozialFall vorhandener = fallDao.finde(ctx, geaendert.id())
+                    .orElseThrow(() -> new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
+                            "SozialFall " + geaendert.id() + " ist nicht vorhanden"));
             int geaenderteZeilen = fallDao.aktualisiere(ctx, normalisiert, erwarteteVersion);
             if (geaenderteZeilen == 0) {
-                if (fallDao.finde(ctx, geaendert.id()).isEmpty()) {
-                    throw new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
-                            "SozialFall " + geaendert.id() + " ist nicht vorhanden");
-                }
                 throw new FachlicheException(FachlicheException.KONKURRENZ,
                         "Der SozialFall wurde zwischenzeitlich durch einen anderen Bearbeiter geändert. "
                                 + "Bitte die Maske neu laden (Datensatz wurde nicht überschrieben).");
             }
-            journalDao.einfuegen(ctx, geaendert.bgId(),
+            // Journal-Zuordnung aus dem Datenbestand, nicht aus dem Request-Body
+            journalDao.einfuegen(ctx, vorhandener.bgId(),
                     "SozialFall " + geaendert.id() + " geändert (Bedarfs-/Einkommensermittlung)",
-                    SYSTEM_SACHBEARBEITER);
+                    sachbearbeiterId);
             return fallDao.finde(ctx, geaendert.id()).orElseThrow();
         });
     }
@@ -121,12 +144,11 @@ public final class SozialLeistungsService implements LeistungsService {
     public Bedarfsgemeinschaft aktualisiereBedarfsgemeinschaft(
             long id, boolean statusAktiv, LocalDate wiedervorlageAm, long erwarteteVersion) {
         return txManager.execute(TxOptions.DEFAULT, ctx -> {
+            Bedarfsgemeinschaft vorhandene = bgDao.finde(ctx, id)
+                    .orElseThrow(() -> new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
+                            "Bedarfsgemeinschaft " + id + " ist nicht vorhanden"));
             int geaenderteZeilen = bgDao.aktualisiere(ctx, id, statusAktiv, wiedervorlageAm, erwarteteVersion);
             if (geaenderteZeilen == 0) {
-                if (bgDao.finde(ctx, id).isEmpty()) {
-                    throw new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
-                            "Bedarfsgemeinschaft " + id + " ist nicht vorhanden");
-                }
                 throw new FachlicheException(FachlicheException.KONKURRENZ,
                         "Der Vorgang wurde zwischenzeitlich durch einen anderen Bearbeiter geändert. "
                                 + "Bitte die Maske neu laden (Datensatz wurde nicht überschrieben).");
@@ -140,13 +162,32 @@ public final class SozialLeistungsService implements LeistungsService {
     public Bedarfsgemeinschaft aktualisiereBedarfsgemeinschaft(
             long id, boolean statusAktiv, LocalDate wiedervorlageAm,
             String iban, String bic, String kontoinhaber, long erwarteteVersion) {
+        return aktualisiereBedarfsgemeinschaft(id, statusAktiv, wiedervorlageAm, iban, bic, kontoinhaber,
+                null, erwarteteVersion, SYSTEM_SACHBEARBEITER);
+    }
+
+    @Override
+    public Bedarfsgemeinschaft aktualisiereBedarfsgemeinschaft(
+            long id, boolean statusAktiv, LocalDate wiedervorlageAm,
+            String iban, String bic, String kontoinhaber, BigDecimal vermoegen,
+            long erwarteteVersion, String sachbearbeiterId) {
         validiereBankverbindung(iban, bic);
         String normIban = iban != null && !iban.isBlank() ? SepaValidator.normalisiereIban(iban) : null;
         String normBic = bic != null && !bic.isBlank() ? SepaValidator.normalisiereBic(bic) : null;
         String inhaber = kontoinhaber != null && !kontoinhaber.isBlank() ? kontoinhaber.trim() : null;
+        BigDecimal vermoegenNormalisiert = vermoegen == null
+                ? BigDecimal.ZERO.setScale(2)
+                : normiereBetrag(vermoegen, "Vermögen");
         return txManager.execute(TxOptions.DEFAULT, ctx -> {
-            int geaenderteZeilen = bgDao.aktualisiere(ctx, id, statusAktiv, wiedervorlageAm,
-                    normIban, normBic, inhaber, erwarteteVersion);
+            int geaenderteZeilen;
+            if (vermoegen == null) {
+                // Vermögen unverändert lassen (alte Maske ohne Vermögensfeld)
+                geaenderteZeilen = bgDao.aktualisiereVermoegenUnveraendert(ctx, id, statusAktiv,
+                        wiedervorlageAm, normIban, normBic, inhaber, erwarteteVersion);
+            } else {
+                geaenderteZeilen = bgDao.aktualisiere(ctx, id, statusAktiv, wiedervorlageAm,
+                        normIban, normBic, inhaber, vermoegenNormalisiert, erwarteteVersion);
+            }
             if (geaenderteZeilen == 0) {
                 if (bgDao.finde(ctx, id).isEmpty()) {
                     throw new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
@@ -156,7 +197,8 @@ public final class SozialLeistungsService implements LeistungsService {
                         "Der Vorgang wurde zwischenzeitlich durch einen anderen Bearbeiter geändert. "
                                 + "Bitte die Maske neu laden (Datensatz wurde nicht überschrieben).");
             }
-            journalDao.einfuegen(ctx, id, "Vorgangsdaten geändert (Status/Wiedervorlage/Bankverbindung)", SYSTEM_SACHBEARBEITER);
+            journalDao.einfuegen(ctx, id,
+                    "Vorgangsdaten geändert (Status/Wiedervorlage/Bankverbindung/Vermögen)", sachbearbeiterId);
             return bgDao.finde(ctx, id).orElseThrow();
         });
     }
@@ -169,8 +211,8 @@ public final class SozialLeistungsService implements LeistungsService {
     public Auszahlungsergebnis ordneAuszahlungAn(Auszahlungsauftrag auftrag) {
         pruefeAuftrag(auftrag);
         return txManager.execute(TxOptions.DEFAULT, ctx -> {
-            // 1. Idempotenz: dieselbe Vorgangsnummer wurde evtl. schon gebucht
-            //    (Netzwerkproblem, Doppelklick). Dann nichts mehr tun.
+            // 1. Idempotenz (schneller Pfad ohne Sperre): dieselbe Vorgangsnummer
+            //    wurde evtl. schon gebucht (Netzwerkproblem, Doppelklick).
             Optional<Zahlung> vorhanden = zahlungDao.findeVorgangsNr(ctx, auftrag.vorgangsNr());
             if (vorhanden.isPresent()) {
                 Zahlung zahlung = vorhanden.get();
@@ -188,13 +230,22 @@ public final class SozialLeistungsService implements LeistungsService {
                         "Der Vorgang ist historisiert; Auszahlungen sind nicht mehr möglich");
             }
 
-            // 3. Betrag ermitteln und prüfen
+            // 2b. Idempotenz unter der Sperre erneut prüfen: ein paralleler Request mit
+            //     derselben Vorgangsnummer könnte zwischen 1 und der Sperre committet haben.
+            vorhanden = zahlungDao.findeVorgangsNr(ctx, auftrag.vorgangsNr());
+            if (vorhanden.isPresent()) {
+                Zahlung zahlung = vorhanden.get();
+                return new Auszahlungsergebnis(zahlung, bgDao.finde(ctx, zahlung.bgId()).orElse(bg), true);
+            }
+
+            // 3. Bedarf ermitteln (§§ 27a ff., 42a, 82, 90 SGB XII) und prüfen
             List<SozialFall> faelle = fallDao.listeFuerBg(ctx, bg.id());
-            Leistungsberechnung.Berechnungsergebnis berechnung = Leistungsberechnung.berechne(bg.id(), faelle);
+            Leistungsberechnung.Berechnungsergebnis berechnung = Leistungsberechnung.berechne(
+                    bg.id(), faelle, kduParameter, bg.vermoegen(), faelle.size());
             BigDecimal zahlbetrag = berechnung.zahlbetrag();
             if (zahlbetrag.signum() <= 0) {
                 throw new FachlicheException(FachlicheException.KEIN_ANSPRUCH,
-                        "Das anrechenbare Einkommen übersteigt den Gesamtbedarf — kein Anspruch "
+                        "Einkommen/Vermögen übersteigen den Gesamtbedarf — kein Anspruch "
                                 + "(Zahlbetrag " + betragText(zahlbetrag) + " EUR)");
             }
             if (zahlbetrag.compareTo(bg.budgetRest()) > 0) {
@@ -215,29 +266,27 @@ public final class SozialLeistungsService implements LeistungsService {
                     : (bg.kontoinhaber() != null && !bg.kontoinhaber().isBlank()
                             ? bg.kontoinhaber().trim()
                             : bg.hauptpersonName());
-
+            if (empfName != null && empfName.length() > 100) {
+                empfName = empfName.substring(0, 100);
+            }
             validiereBankverbindung(empfIban, empfBic);
 
-            // 5. Status & Vier-Augen-Workflow
-            String status = auftrag.vierAugenErforderlich() ? "ANGELEGT" : "BEREIT";
-            String freigegebenVon = auftrag.vierAugenErforderlich() ? null : auftrag.sachbearbeiterId();
-
+            // 5. Vier-Augen-Prinzip ist serverseitig erzwungen: jede Zahlung startet
+            //    als ANGELEGT und wird erst durch die Freigabe eines zweiten
+            //    Sachbearbeiters (freigebenZahlung) zur Kasse bereitgestellt.
             long zahlungId = zahlungDao.naechsteId(ctx);
             Long einzigerFall = faelle.size() == 1 ? faelle.get(0).id() : null;
             Zahlung zahlung = zahlungDao.einfuegen(ctx, zahlungId, bg.id(), einzigerFall,
-                    auftrag.vorgangsNr(), auftrag.zahlungsmonat(), zahlbetrag, status,
-                    auftrag.sachbearbeiterId(), freigegebenVon, empfIban, empfBic, empfName);
+                    auftrag.vorgangsNr(), auftrag.zahlungsmonat(), zahlbetrag, "ANGELEGT",
+                    auftrag.sachbearbeiterId(), null, empfIban, empfBic, empfName);
 
             // 6. Restanspruch der Bedarfsgemeinschaft mindern
             bgDao.mindereBudget(ctx, bg.id(), zahlbetrag);
 
             // 7. Revisionssicherer Journal-Eintrag
-            String aktion = auftrag.vierAugenErforderlich()
-                    ? String.format(Locale.GERMAN, "Auszahlung über %,.2f EUR für %s erfasst (Status: ANGELEGT, wartet auf Freigabe)",
-                    zahlbetrag, auftrag.zahlungsmonat())
-                    : String.format(Locale.GERMAN, "Auszahlung über %,.2f EUR für %s angeordnet (Status: BEREIT)",
-                    zahlbetrag, auftrag.zahlungsmonat());
-            journalDao.einfuegen(ctx, bg.id(), aktion, auftrag.sachbearbeiterId());
+            journalDao.einfuegen(ctx, bg.id(), String.format(Locale.GERMAN,
+                    "Auszahlung über %,.2f EUR für %s erfasst (Status: ANGELEGT, wartet auf Freigabe)",
+                    zahlbetrag, auftrag.zahlungsmonat()), auftrag.sachbearbeiterId());
 
             Bedarfsgemeinschaft aktualisiert = bgDao.finde(ctx, bg.id()).orElse(bg);
             return new Auszahlungsergebnis(zahlung, aktualisiert, false);
@@ -252,16 +301,27 @@ public final class SozialLeistungsService implements LeistungsService {
     public Bedarfsgemeinschaft legeBedarfsgemeinschaftAn(String aktenzeichen, String hauptpersonName,
             BigDecimal startBudget, LocalDate wiedervorlageAm, String sachbearbeiterId) {
         return legeBedarfsgemeinschaftAn(aktenzeichen, hauptpersonName, startBudget,
-                wiedervorlageAm, null, null, null, sachbearbeiterId);
+                wiedervorlageAm, null, null, null, null, sachbearbeiterId);
     }
 
     @Override
     public Bedarfsgemeinschaft legeBedarfsgemeinschaftAn(String aktenzeichen, String hauptpersonName,
             BigDecimal startBudget, LocalDate wiedervorlageAm,
             String iban, String bic, String kontoinhaber, String sachbearbeiterId) {
+        return legeBedarfsgemeinschaftAn(aktenzeichen, hauptpersonName, startBudget,
+                wiedervorlageAm, iban, bic, kontoinhaber, null, sachbearbeiterId);
+    }
+
+    @Override
+    public Bedarfsgemeinschaft legeBedarfsgemeinschaftAn(String aktenzeichen, String hauptpersonName,
+            BigDecimal startBudget, LocalDate wiedervorlageAm,
+            String iban, String bic, String kontoinhaber, BigDecimal vermoegen,
+            String sachbearbeiterId) {
         pruefeText(aktenzeichen, "Aktenzeichen", 50);
         pruefeText(hauptpersonName, "Hauptperson", 100);
         BigDecimal budget = normiereBetrag(startBudget, "Startbudget");
+        BigDecimal vermoegenNormalisiert = vermoegen == null
+                ? BigDecimal.ZERO.setScale(2) : normiereBetrag(vermoegen, "Vermögen");
         validiereBankverbindung(iban, bic);
         String normIban = iban != null && !iban.isBlank() ? SepaValidator.normalisiereIban(iban) : null;
         String normBic = bic != null && !bic.isBlank() ? SepaValidator.normalisiereBic(bic) : null;
@@ -272,7 +332,7 @@ public final class SozialLeistungsService implements LeistungsService {
                 long id = bgDao.naechsteId(ctx);
                 Bedarfsgemeinschaft bg = bgDao.einfuegen(ctx, id, aktenzeichen.trim(),
                         hauptpersonName.trim(), budget, wiedervorlageAm,
-                        normIban, normBic, inhaber);
+                        normIban, normBic, inhaber, vermoegenNormalisiert);
                 journalDao.einfuegen(ctx, id, "Vorgang " + aktenzeichen.trim() + " angelegt", sachbearbeiterId);
                 return bg;
             });
@@ -297,18 +357,28 @@ public final class SozialLeistungsService implements LeistungsService {
                         "Der Vorgang ist historisiert; SozialFälle können nicht mehr angelegt werden");
             }
             long id = fallDao.naechsteId(ctx);
-            SozialFall fall = new SozialFall(id, bgId, normalisiert.regelbedarfsstufe(),
-                    normalisiert.merkzeichenG(), normalisiert.warmwasser(),
-                    normalisiert.kduMiete(), normalisiert.kduBetriebskosten(), normalisiert.kduHeizung(),
-                    normalisiert.einkommenRente(), normalisiert.einkommenErwerb(), 1L);
-            fallDao.einfuegen(ctx, id, fall);
+            fallDao.einfuegen(ctx, id, normalisiertMitId(bgId, id, normalisiert));
             journalDao.einfuegen(ctx, bgId, "SozialFall " + id + " angelegt", sachbearbeiterId);
-            return fall;
+            return fallDao.finde(ctx, id).orElseThrow();
         });
+    }
+
+    private SozialFall normalisiertMitId(long bgId, long id, SozialFall fall) {
+        return new SozialFall(id, bgId, fall.regelbedarfsstufe(), fall.merkzeichenG(), fall.schwanger(),
+                fall.anzKinderUnter7(), fall.anzKinderUnter16(), fall.warmwasser(),
+                fall.kduMiete(), fall.kduBetriebskosten(), fall.kduHeizung(),
+                fall.einkommenRente(), fall.einkommenErwerb(),
+                fall.abzSteuern(), fall.abzSozialversicherung(), fall.abzVersicherungen(),
+                fall.abzErwerbsaufwendungen(), 1L);
     }
 
     @Override
     public Zahlung freigebenZahlung(long zahlungId, String freigeberId) {
+        return freigebenZahlung(zahlungId, freigeberId, false);
+    }
+
+    @Override
+    public Zahlung freigebenZahlung(long zahlungId, String freigeberId, boolean freigeberIstAdmin) {
         pruefeText(freigeberId, "Freigebender", 50);
         return txManager.execute(TxOptions.DEFAULT, ctx -> {
             Zahlung zahlung = zahlungDao.lockForUpdate(ctx, zahlungId)
@@ -319,9 +389,10 @@ public final class SozialLeistungsService implements LeistungsService {
                         "Nur angelegte Zahlungen können freigegeben werden (aktueller Status: "
                                 + zahlung.status() + ")");
             }
-            // Vier-Augen-Prinzip: Sachbearbeiter darf nicht die eigene Zahlung freigeben,
-            // außer "admin" (Sonderrolle)
-            if (freigeberId.equalsIgnoreCase(zahlung.sachbearbeiterId()) && !"admin".equalsIgnoreCase(freigeberId)) {
+            // Vier-Augen-Prinzip: Erfasser und Freigebender dürfen nicht identisch sein;
+            // ein Administrator mit Rolle admin darf ausnahmsweise selbst feststellen
+            // (Sonderrolle über die ROLLE, nicht über eine bestimmte Kennung).
+            if (freigeberId.equalsIgnoreCase(zahlung.sachbearbeiterId()) && !freigeberIstAdmin) {
                 throw new FachlicheException(FachlicheException.BERECHTIGUNG,
                         "Vier-Augen-Prinzip verletzt: Erfasser und Freigebender dürfen nicht identisch sein ("
                                 + freigeberId + ")");
@@ -344,7 +415,9 @@ public final class SozialLeistungsService implements LeistungsService {
             BigDecimal summe = bereite.stream()
                     .map(Zahlung::auszahlungsbetrag)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
-            int anzahl = zahlungDao.uebergebeBereite(ctx);
+            List<Long> ids = bereite.stream().map(Zahlung::id).toList();
+            // Übergabe genau der gesperrten Menge: Anzahl und Summe bleiben konsistent
+            int anzahl = zahlungDao.uebergebeGesperrte(ctx, ids);
             journalDao.einfuegen(ctx, null, String.format(Locale.GERMAN,
                     "Kassenlauf: %d Zahlungen über %,.2f EUR übergeben", anzahl, summe), sachbearbeiterId);
             return new Kassenlaeufergebnis(anzahl, summe);
@@ -354,7 +427,9 @@ public final class SozialLeistungsService implements LeistungsService {
     @Override
     public Zahlung storniereZahlung(long zahlungId, String sachbearbeiterId) {
         return txManager.execute(TxOptions.DEFAULT, ctx -> {
-            Zahlung zahlung = zahlungDao.finde(ctx, zahlungId)
+            // Zeilensperre auf die ZAHLUNG selbst: verhindert die Race mit einem
+            // parallelen Kassenlauf (BEREIT -> UEBERGEBEN) oder einer parallelen Freigabe.
+            Zahlung zahlung = zahlungDao.lockForUpdate(ctx, zahlungId)
                     .orElseThrow(() -> new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
                             "Zahlung " + zahlungId + " ist nicht vorhanden"));
             if (!"BEREIT".equals(zahlung.status()) && !"ANGELEGT".equals(zahlung.status())) {
@@ -362,11 +437,17 @@ public final class SozialLeistungsService implements LeistungsService {
                         "Nur bereitgestellte oder angelegte Zahlungen können storniert werden (Status: "
                                 + zahlung.status() + ")");
             }
-            // Zeilensperre auf den Vorgang: kein Mischbetrieb mit einer laufenden Buchung
+            // Zeilensperre auch auf den Vorgang: kein Mischbetrieb mit einer laufenden Buchung
             bgDao.lockForUpdate(ctx, zahlung.bgId())
                     .orElseThrow(() -> new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
                             "Bedarfsgemeinschaft " + zahlung.bgId() + " ist nicht vorhanden"));
-            zahlungDao.aktualisiereStatus(ctx, zahlungId, "STORNIERT");
+            // Guarded Update: nur ANGELEGT/BEREIT -> STORNIERT; 0 Zeilen heißt Race verloren
+            int geaendert = zahlungDao.aktualisiereStatus(ctx, zahlungId, "STORNIERT");
+            if (geaendert == 0) {
+                throw new FachlicheException(FachlicheException.KONKURRENZ,
+                        "Die Zahlung wurde zwischenzeitlich geändert (z. B. an die Kasse übergeben); "
+                                + "Storno abgebrochen, bitte neu prüfen");
+            }
             bgDao.erhoehenBudget(ctx, zahlung.bgId(), zahlung.auszahlungsbetrag());
             journalDao.einfuegen(ctx, zahlung.bgId(), String.format(Locale.GERMAN,
                     "Auszahlung über %,.2f EUR (%s, Vorgang %s) storniert, Restbudget erhöht",
@@ -381,29 +462,41 @@ public final class SozialLeistungsService implements LeistungsService {
 
     @Override
     public Bescheid erteileBescheid(long bgId, String bewilligungVon, String bewilligungBis, String sachbearbeiterId) {
-        pruefeText(bewilligungVon, "Bewilligung von", 10);
-        pruefeText(bewilligungBis, "Bewilligung bis", 10);
+        pruefeMonat(bewilligungVon, "Bewilligung von");
+        pruefeMonat(bewilligungBis, "Bewilligung bis");
+        if (bewilligungVon.compareTo(bewilligungBis) > 0) {
+            throw new FachlicheException(FachlicheException.VALIDATION,
+                    "Bewilligungszeitraum ungültig: 'von' (" + bewilligungVon
+                            + ") liegt nach 'bis' (" + bewilligungBis + ")");
+        }
         pruefeText(sachbearbeiterId, "Sachbearbeiter-Kürzel", 50);
 
         return txManager.execute(TxOptions.DEFAULT, ctx -> {
             Bedarfsgemeinschaft bg = bgDao.finde(ctx, bgId)
                     .orElseThrow(() -> new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
                             "Bedarfsgemeinschaft " + bgId + " ist nicht vorhanden"));
+            if (!bg.statusAktiv()) {
+                throw new FachlicheException(FachlicheException.VALIDATION,
+                        "Der Vorgang ist historisiert; es können keine Bescheide mehr erteilt werden");
+            }
             List<SozialFall> faelle = fallDao.listeFuerBg(ctx, bgId);
             if (faelle.isEmpty()) {
                 throw new FachlicheException(FachlicheException.VALIDATION,
                         "Bedarfsgemeinschaft hat keine Personen (SozialFälle)");
             }
 
-            Leistungsberechnung.Berechnungsergebnis berechnung = Leistungsberechnung.berechne(bgId, faelle);
+            Leistungsberechnung.Berechnungsergebnis berechnung = Leistungsberechnung.berechne(
+                    bgId, faelle, kduParameter, bg.vermoegen(), faelle.size());
             if (berechnung.zahlbetrag().signum() <= 0) {
                 throw new FachlicheException(FachlicheException.KEIN_ANSPRUCH,
-                        "Kein Leistungsanspruch nach SGB XII: Einkommen deckt den Gesamtbedarf (Zahlbetrag: "
-                                + betragText(berechnung.zahlbetrag()) + " EUR)");
+                        "Kein Leistungsanspruch nach SGB XII: Einkommen/Vermögen decken den Gesamtbedarf "
+                                + "(Zahlbetrag: " + betragText(berechnung.zahlbetrag()) + " EUR)");
             }
 
             long id = bescheidDao.naechsteId(ctx);
             String bescheidNr = "BESCH-" + bg.aktenzeichen() + "-" + LocalDate.now().getYear() + "-" + id;
+            // BESCHEID_DATUM ist das Bekanntgabedatum (§ 37 SGB X) — mit ihm wird der
+            // Bescheid wirksam und die Rechtsbehelfsfrist (1 Monat) beginnt zu laufen.
             Bescheid bescheid = bescheidDao.einfuegen(ctx, id, bgId, bescheidNr, LocalDate.now(),
                     bewilligungVon, bewilligungBis, berechnung.zahlbetrag(), sachbearbeiterId);
 
@@ -428,12 +521,12 @@ public final class SozialLeistungsService implements LeistungsService {
                     .orElseThrow(() -> new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
                             "Bedarfsgemeinschaft " + bgId + " ist nicht vorhanden"));
             List<SozialFall> faelle = fallDao.listeFuerBg(ctx, bgId);
-            Leistungsberechnung.Berechnungsergebnis berechnung = berechnungDefensiv(bgId, faelle);
+            Leistungsberechnung.Berechnungsergebnis berechnung = berechnungDefensiv(bg, faelle);
             Bescheid bescheid = bescheidDao.letzteFuerBg(ctx, bgId, 1).stream().findFirst()
                     .orElseThrow(() -> new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
                             "Kein Bewilligungsbescheid für Bedarfsgemeinschaft " + bgId + " vorhanden"));
 
-            return BescheidGenerator.generiereHtml(bg, faelle, berechnung, bescheid);
+            return BescheidGenerator.generiereHtml(bg, faelle, berechnung, bescheid, rechtsbehelf);
         });
     }
 
@@ -449,13 +542,15 @@ public final class SozialLeistungsService implements LeistungsService {
         if (faelle.isEmpty()) {
             return null;
         }
-        return berechnungDefensiv(bg.id(), faelle).zahlbetrag();
+        return berechnungDefensiv(bg, faelle).zahlbetrag();
     }
 
     /** Berechnung, die fachliche Fehlkonfiguration in "keine Vorschau" auflöst (Maske zeigt Hinweis). */
-    private Leistungsberechnung.Berechnungsergebnis berechnungDefensiv(long bgId, List<SozialFall> faelle) {
+    private Leistungsberechnung.Berechnungsergebnis berechnungDefensiv(
+            Bedarfsgemeinschaft bg, List<SozialFall> faelle) {
         try {
-            return Leistungsberechnung.berechne(bgId, faelle);
+            return Leistungsberechnung.berechne(bg.id(), faelle, kduParameter,
+                    bg.vermoegen(), Math.max(1, faelle.size()));
         } catch (FachlicheException e) {
             return null;
         }
@@ -466,24 +561,40 @@ public final class SozialLeistungsService implements LeistungsService {
         pruefeText(auftrag.sachbearbeiterId(), "Sachbearbeiter-Kürzel", 50);
         if (!Zahlungsmonat.isValid(auftrag.zahlungsmonat())) {
             throw new FachlicheException(FachlicheException.VALIDATION,
-                    "Zahlungsmonat muss im Format YYYY-MM angegeben sein (erhalten: '"
-                            + auftrag.zahlungsmonat() + "')");
+                    "Zahlungsmonat muss im Format YYYY-MM angegeben sein");
         }
     }
 
-    /** Beträge prüfen und auf NUMBER(10,2) normieren (2 Nachkommastellen, max. 8 Vorkommastellen). */
+    private void pruefeMonat(String wert, String feldname) {
+        if (!Zahlungsmonat.isValid(wert)) {
+            throw new FachlicheException(FachlicheException.VALIDATION,
+                    feldname + " muss im Format YYYY-MM angegeben sein");
+        }
+    }
+
+    /** Beträge und Mehrbedarfsmerkmale prüfen und auf Spaltenform normieren. */
     private SozialFall pruefeUndNormalisiereFall(SozialFall fall) {
         if (fall.regelbedarfsstufe() < 1 || fall.regelbedarfsstufe() > 6) {
             throw new FachlicheException(FachlicheException.VALIDATION,
                     "Regelbedarfsstufe muss zwischen 1 und 6 liegen");
         }
+        if (fall.anzKinderUnter7() < 0 || fall.anzKinderUnter16() < 0 || fall.anzKinderUnter7() > 99
+                || fall.anzKinderUnter16() > 99) {
+            throw new FachlicheException(FachlicheException.VALIDATION,
+                    "Anzahl Kinder muss zwischen 0 und 99 liegen");
+        }
         return new SozialFall(fall.id(), fall.bgId(), fall.regelbedarfsstufe(),
-                fall.merkzeichenG(), fall.warmwasser(),
+                fall.merkzeichenG(), fall.schwanger(),
+                fall.anzKinderUnter7(), fall.anzKinderUnter16(), fall.warmwasser(),
                 normiereBetrag(fall.kduMiete(), "Kaltmiete"),
                 normiereBetrag(fall.kduBetriebskosten(), "Kalte Betriebskosten"),
                 normiereBetrag(fall.kduHeizung(), "Heizkosten"),
                 normiereBetrag(fall.einkommenRente(), "Renteneinkünfte"),
                 normiereBetrag(fall.einkommenErwerb(), "Erwerbseinkommen"),
+                normiereBetrag(fall.abzSteuern(), "Absetzung Steuern"),
+                normiereBetrag(fall.abzSozialversicherung(), "Absetzung Sozialversicherung"),
+                normiereBetrag(fall.abzVersicherungen(), "Absetzung Versicherungen"),
+                normiereBetrag(fall.abzErwerbsaufwendungen(), "Absetzung Erwerbsaufwendungen"),
                 fall.version());
     }
 
@@ -517,13 +628,13 @@ public final class SozialLeistungsService implements LeistungsService {
         if (iban != null && !iban.isBlank()) {
             String normIban = SepaValidator.normalisiereIban(iban);
             if (!SepaValidator.isValidIban(normIban)) {
-                throw new FachlicheException(FachlicheException.VALIDATION, "Ungültige IBAN: " + iban);
+                throw new FachlicheException(FachlicheException.VALIDATION, "Ungültige IBAN");
             }
         }
         if (bic != null && !bic.isBlank()) {
             String normBic = SepaValidator.normalisiereBic(bic);
             if (!SepaValidator.isValidBic(normBic)) {
-                throw new FachlicheException(FachlicheException.VALIDATION, "Ungültiger BIC: " + bic);
+                throw new FachlicheException(FachlicheException.VALIDATION, "Ungültiger BIC");
             }
         }
     }

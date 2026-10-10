@@ -39,7 +39,11 @@ public final class Json {
             out.append(b);
         } else if (value instanceof BigDecimal n) {
             out.append(n.toPlainString());
-        } else if (value instanceof Number) {
+        } else if (value instanceof Number n) {
+            double d = n.doubleValue();
+            if (Double.isNaN(d) || Double.isInfinite(d)) {
+                throw new IllegalArgumentException("JSON kann NaN/Unendlich nicht schreiben");
+            }
             out.append(value);
         } else if (value instanceof Temporal t) {
             writeString(out, t.toString());
@@ -115,8 +119,13 @@ public final class Json {
     }
 
     private static final class Parser {
+
+        /** Verschachtelungstiefe-Limit: schützt den Stack vor tief verschachtelten Bomben. */
+        private static final int MAX_TIEFE = 128;
+
         private final String text;
         private int pos;
+        private int tiefe;
 
         Parser(String text) {
             this.text = text;
@@ -173,6 +182,7 @@ public final class Json {
 
         private Map<String, Object> leseObjekt() {
             erwarte('{');
+            tiefeErhoehen();
             Map<String, Object> objekt = new java.util.LinkedHashMap<>();
             ueberspringeLeerraum();
             if (aktuell() == '}') {
@@ -191,6 +201,7 @@ public final class Json {
                     pos++;
                 } else if (c == '}') {
                     pos++;
+                    tiefe--;
                     return objekt;
                 } else {
                     throw fehler("',' oder '}' erwartet");
@@ -200,10 +211,12 @@ public final class Json {
 
         private List<Object> leseArray() {
             erwarte('[');
+            tiefeErhoehen();
             List<Object> liste = new java.util.ArrayList<>();
             ueberspringeLeerraum();
             if (aktuell() == ']') {
                 pos++;
+                tiefe--;
                 return liste;
             }
             while (true) {
@@ -214,10 +227,17 @@ public final class Json {
                     pos++;
                 } else if (c == ']') {
                     pos++;
+                    tiefe--;
                     return liste;
                 } else {
                     throw fehler("',' oder ']' erwartet");
                 }
+            }
+        }
+
+        private void tiefeErhoehen() {
+            if (++tiefe > MAX_TIEFE) {
+                throw fehler("JSON zu tief verschachtelt (maximal " + MAX_TIEFE + " Ebenen)");
             }
         }
 
@@ -233,6 +253,9 @@ public final class Json {
                     return aus.toString();
                 }
                 if (c == '\\') {
+                    if (amEnde()) {
+                        throw fehler("unvollständige Escape-Folge am String-Ende");
+                    }
                     char esc = text.charAt(pos++);
                     switch (esc) {
                         case '"' -> aus.append('"');

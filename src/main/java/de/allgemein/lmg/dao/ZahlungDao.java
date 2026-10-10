@@ -75,6 +75,25 @@ public final class ZahlungDao {
         }
     }
 
+    /**
+     * Übergibt genau die zuvor gesperrten Zahlungen (Kassenlauf): nur die IDs der
+     * per FOR UPDATE gesperrten Menge — Anzahl und Summe bleiben konsistent.
+     */
+    public int uebergebeGesperrte(TxContext ctx, List<Long> ids) throws SQLException {
+        if (ids.isEmpty()) {
+            return 0;
+        }
+        String platzhalter = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
+        try (PreparedStatement stmt = ctx.connection().prepareStatement(
+                "UPDATE ZAHLUNG SET ZAHLUNGSSTATUS = 'UEBERGEBEN' "
+                        + "WHERE ID IN (" + platzhalter + ") AND ZAHLUNGSSTATUS = 'BEREIT'")) {
+            for (int i = 0; i < ids.size(); i++) {
+                stmt.setLong(i + 1, ids.get(i));
+            }
+            return stmt.executeUpdate();
+        }
+    }
+
     /** Rechnerische Feststellung (Vier-Augen-Freigabe): Status ANGELEGT -> BEREIT. */
     public int freigeben(TxContext ctx, long id, String freigegebenVon) throws SQLException {
         try (PreparedStatement stmt = ctx.connection().prepareStatement(
@@ -86,14 +105,33 @@ public final class ZahlungDao {
         }
     }
 
-    /** Setzt den Status einer einzelnen Zahlung (Storno); Aufruf nur unter Zahlungs-/BG-Sperre. */
-    public void aktualisiereStatus(TxContext ctx, long id, String neuerStatus) throws SQLException {
+    /**
+     * Statuswechsel nur aus erlaubten Quell-Status (Guard gegen Race Conditions, z. B.
+     * Storno gegen einen parallelen Kassenlauf). Liefert die Anzahl geänderter Zeilen —
+     * 0 bedeutet: Zustand hat sich unter der Sperre geändert.
+     */
+    public int aktualisiereStatusWennIn(TxContext ctx, long id, String zielStatus,
+            List<String> erlaubteQuellStatus) throws SQLException {
+        String platzhalter = String.join(",", java.util.Collections.nCopies(erlaubteQuellStatus.size(), "?"));
         try (PreparedStatement stmt = ctx.connection().prepareStatement(
-                "UPDATE ZAHLUNG SET ZAHLUNGSSTATUS = ? WHERE ID = ?")) {
-            stmt.setString(1, neuerStatus);
+                "UPDATE ZAHLUNG SET ZAHLUNGSSTATUS = ? "
+                        + "WHERE ID = ? AND ZAHLUNGSSTATUS IN (" + platzhalter + ")")) {
+            stmt.setString(1, zielStatus);
             stmt.setLong(2, id);
-            stmt.executeUpdate();
+            for (int i = 0; i < erlaubteQuellStatus.size(); i++) {
+                stmt.setString(3 + i, erlaubteQuellStatus.get(i));
+            }
+            return stmt.executeUpdate();
         }
+    }
+
+    /**
+     * Setzt den Status einer einzelnen Zahlung; Aufruf nur unter Zahlungssperre
+     * (lockForUpdate). Guard: nur ANGELEGT/BEREIT dürfen wechseln — ein paralleler
+     * Kassenlauf (UEBERGEBEN) oder Doppel-Storno wird so erkannt (Rückgabe 0).
+     */
+    public int aktualisiereStatus(TxContext ctx, long id, String neuerStatus) throws SQLException {
+        return aktualisiereStatusWennIn(ctx, id, neuerStatus, List.of("ANGELEGT", "BEREIT"));
     }
 
     /** Fügt die Zahlung ein; id im Aufruf vorher über die Sequence gezogen. */

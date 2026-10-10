@@ -30,6 +30,16 @@ public final class TxContext implements AutoCloseable {
         return connection;
     }
 
+    /**
+     * Löst die Verbindung ohne Statusprüfung aus dem Kontext — ausschließlich für
+     * {@link TxManager#finish(TxContext)}, das die Verbindung nach dem Beenden der
+     * Transaktion an den Pool zurückgeben muss (connection() würde nach close()
+     * zu Recht eine IllegalStateException werfen).
+     */
+    Connection detachConnection() {
+        return connection;
+    }
+
     public TxStatus status() {
         return status;
     }

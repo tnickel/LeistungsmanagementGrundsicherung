@@ -1,5 +1,6 @@
 package de.allgemein.lmg.service;
 
+import de.allgemein.lmg.saga.AntragsSagaProzess;
 import de.allgemein.tx.TaskController;
 import de.allgemein.tx.TaskStats;
 import de.allgemein.tx.TxContext;
@@ -7,6 +8,7 @@ import de.allgemein.tx.TxException;
 import de.allgemein.tx.TxManager;
 import de.allgemein.tx.TxOptions;
 import de.allgemein.tx.demo.AntragsDemoProzess;
+import de.allgemein.tx.saga.SagaDefinition;
 import de.allgemein.tx.saga.SagaEngine;
 
 import java.sql.PreparedStatement;
@@ -14,6 +16,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Systemdiagnose für den Adminbereich: prüft die Datenbank (Erreichbarkeit,
@@ -65,9 +70,47 @@ public final class Systemdiagnose {
                 Duration.between(serverStart, Instant.now()).toSeconds());
     }
 
-    /** Wiederanlauf: beendet halbfertige Sagas der Demo-Antragsverarbeitung; liefert die Anzahl. */
+    /**
+     * Wiederanlauf: beendet halbfertige Sagas über ALLE bekannten Definitionen — auch die
+     * produktive Fach-Saga (SGB-XII-Antragsverarbeitung), nicht nur die Demo (Fund K4).
+     * Liefert die Gesamtzahl behandelter Vorgänge; Details je Typ über {@link #wiederanlaufDetails()}.
+     */
     public int wiederanlauf() {
-        return sagas.recover(AntragsDemoProzess.definition());
+        return wiederanlaufDetails().insgesamt();
+    }
+
+    /**
+     * Wiederanlauf mit Fehlerausweis (Fund M3): je Saga-Typ die Anzahl abgeschlossener,
+     * kompensierter, fehlgeschlagener und technisch fehlerhafter Vorgänge. Der Wiederanlauf
+     * wirbt dabei nie — ein Fehler einer einzelnen Saga gefährdet den Serverstart nicht.
+     */
+    public WiederanlaufErgebnis wiederanlaufDetails() {
+        Map<String, SagaEngine.RecoveryReport> jeTyp = new LinkedHashMap<>();
+        for (SagaDefinition definition : sagaDefinitionen()) {
+            jeTyp.put(definition.type(), sagas.recoverWithReport(definition));
+        }
+        return new WiederanlaufErgebnis(Map.copyOf(jeTyp));
+    }
+
+    /** Die im System bekannten Saga-Definitionen: produktive Fach-Saga zuerst, dann Demo. */
+    private static List<SagaDefinition> sagaDefinitionen() {
+        return List.of(
+                AntragsSagaProzess.definition(),
+                AntragsDemoProzess.definition());
+    }
+
+    /** Ergebnis des Wiederanlaufs je Saga-Typ (Reihenfolge der Abarbeitung). */
+    public record WiederanlaufErgebnis(Map<String, SagaEngine.RecoveryReport> jeTyp) {
+
+        /** Gesamtzahl behandelter Vorgänge über alle Typen. */
+        public int insgesamt() {
+            return jeTyp.values().stream().mapToInt(SagaEngine.RecoveryReport::behandelt).sum();
+        }
+
+        /** Problematische Fälle über alle Typen (unvollständig kompensiert oder technisch fehlerhaft). */
+        public int fehlerhaft() {
+            return jeTyp.values().stream().mapToInt(SagaEngine.RecoveryReport::fehlerhaft).sum();
+        }
     }
 
     private Systemstatus leseDbStatus(TxContext ctx) throws Exception {

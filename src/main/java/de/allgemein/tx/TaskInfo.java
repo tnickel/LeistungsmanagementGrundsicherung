@@ -2,6 +2,7 @@ package de.allgemein.tx;
 
 import java.time.Instant;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Laufzeitinformation zu einem eingereichten Task (Vorbild: CICS-Task im Monitoring). */
 final class TaskInfo {
@@ -10,6 +11,8 @@ final class TaskInfo {
     final String name;
     final Instant submittedAt;
     private volatile boolean timedOut;
+    /** Abrechnungs-Gate: garantiert, dass das Task-Ende (Zähler + running-Map) genau einmal passiert. */
+    private final AtomicBoolean abgerechnet = new AtomicBoolean(false);
 
     TaskInfo(UUID id, String name, Instant submittedAt) {
         this.id = id;
@@ -23,5 +26,15 @@ final class TaskInfo {
 
     void markTimedOut() {
         this.timedOut = true;
+    }
+
+    /**
+     * Merkt die Abrechnung des Task-Endes an. Liefert {@code true} genau beim
+     * ersten Aufruf (compareAndSet) — Callable-Wrapper, Wachhund und Abbruch über
+     * das Handle konkurrieren darum; wer verliert, hat nichts mehr abzurechnen
+     * und darf insbesondere keinen Zähler doppelt inkrementieren.
+     */
+    boolean settle() {
+        return abgerechnet.compareAndSet(false, true);
     }
 }

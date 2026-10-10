@@ -1,6 +1,6 @@
 # Roadmap: Transaktionssteuerung
 
-*Stand: 2026-10-09, Version 0.4.0 (SEPA, Vier-Augen-Prinzip, Bescheidwesen § 37 SGB X, Antrags-Saga)*
+*Stand: 2026-10-10, Version 0.5.0 (Codereview-Umsetzung: Fachrecht § 30/82/90 vollständig, Saga-Crash-Sicherheit, Web-Sicherheit)*
 
 ## Erreicht (v0.2.0 – v0.3.0)
 
@@ -73,16 +73,93 @@
       `/api/bedarfsgemeinschaften/{id}/bescheid/druck`, `/api/saga/antrag`;
       Druck-Button und E2E-Saga-Ausführung direkt im Frontend eingebunden
 
+## Etappe 5 — Umsetzung des umfassenden Codereviews (v0.5.0)
+
+### Fachrecht SGB XII vollständig ergänzt
+
+- [x] **§ 30 Abs. 2 SGB XII** — Schwangeren-Mehrbedarf (17 % ab 12. SSW): Datenmodell,
+      Berechnung, Maske, Tests
+- [x] **§ 30 Abs. 3 SGB XII** — Alleinerziehenden-Mehrbedarf (36 % / 12 % je Kind,
+      Deckel 60 % RBS 1): Kinder unter 7 / unter 16 im Datenmodell und in der Berechnung
+- [x] **§ 30 Abs. 6 SGB XII** — Obergrenze: Mehrbedarfe übersteigen nie den Regelbedarf
+- [x] **§ 30 Abs. 7 SGB XII korrigiert** — Warmwasser-Mehrbedarf stufenabhängig
+      (2,3/2,3/–/1,4/1,2/0,8 % statt pauschal 2,3 %), mit Tests für Stufen 4–6
+- [x] **§ 82 Abs. 2 SGB XII** — Absetzbeträge (Steuern, Sozialversicherung,
+      Versicherungen, Erwerbsaufwendungen) vor dem Freibetrag des § 82 Abs. 3
+- [x] **§ 42a i.V.m. § 35 SGB XII** — KdU-Angemessenheitsprüfung mit konfigurierbarer
+      Grenze (Übernahme unter Vorbehalt, Bescheid-Kennzeichnung) und konfigurierbarem
+      Warmwasser-Abzug von den Heizkosten
+- [x] **§ 43 Abs. 3, § 90 SGB XII** — Vermögensanrechnung: Vermögen je BG,
+      Schonvermögen 10.000 € + 750 € je Mitglied (§ 90 Abs. 2 Nr. 14), mindert Zahlbetrag
+- [x] **§ 44 SGB XII** — Bewilligungszeitraum-Validierung (YYYY-MM, von ≤ bis),
+      STATUS_AKTIV-Prüfung; Normzitationen im Bescheid korrigiert
+      (Bewilligung § 44 SGB XII, Bekanntgabe § 37 SGB X statt pauschal „§ 37 SGB X“)
+- [x] **§ 36 SGB X** — vollständige, konfigurierbare Rechtsbehelfsbelehrung
+      (Widerspruch mit Behörde/Sitz oder direkte Klage zum Sozialgericht nach § 87 SGG),
+      fallbezogene Begründung (§ 35), Unterschrifts-/Datumszeile
+
+### Transaktionskern und Saga (Review-Funde)
+
+- [x] `TxManager.finish()` repariert (Connection-Leak bei manueller API);
+      Error (OOM/StackOverflow) führt zu Rollback statt implizitem Commit;
+      toter Code entfernt
+- [x] Beide Pools rollen vor `setAutoCommit(true)` zurück (kein implizites Commit);
+      UCP-Release-Leak geschlossen; SimplePool mit Borrow-Validierung, idempotentem
+      Release und Borrow-Timeout
+- [x] TaskController: Wachhund misst ab Ausführungsbeginn, kein Leak in der
+      Running-Map bei Abbruch, Interrupt-Flag-Räumung, geordneter Shutdown,
+      `CancellationException` als TxException typisiert
+- [x] Saga: Journal-Write-Ahead (`IN_FLIGHT` vor Ausführung, `DONE` in derselben
+      Transaktion wie der Fachschritt), `recover()` über **alle** Saga-Typen mit
+      `FOR UPDATE SKIP LOCKED`-Claim gegen parallele Wiederanläufe, Guards +
+      geprüfte Update-Zäher im Journal, `markState(COMPLETED)`-Fehler löst keine
+      Fehl-Kompensation aus, recover fehlertolerant je Saga
+- [x] AntragsSagaProzess: Kompensation bucht das Restbudget zurück, storniert nur
+      die eigene Zahlung (Korrelation über VORGANGS_NR), historisiert den Vorgang
+      statt zu löschen (FK-Blocker aufgelöst, § 67 SGB X Nachvollziehbarkeit),
+      Zahlung im Saga-Weg als `ANGELEGT` (Vier-Augen)
+- [x] Neue Unit-Tests: `TaskControllerTest` (Wachhund/Queue-voll/Interrupt),
+      `SimpleConnectionPoolTest` erweitert (Erschöpfung/Doppel-Release/Validierung),
+      `SagaEngineTest` (Write-Ahead, Kompensationsreihenfolge, recover-Idempotenz)
+
+### Web, Sicherheit, Betrieb
+
+- [x] **Vier-Augen serverseitig erzwungen** — jede Zahlung startet als `ANGELEGT`
+      (Request-Feld `vierAugenErforderlich` wird ignoriert); Admin-Sonderrolle über
+      die Rolle statt über eine Kennung
+- [x] **Storno-Race geschlossen** — Storno sperrt die Zahlungszeile, guarded
+      Statuswechsel (`ANGELEGT/BEREIT → STORNIERT`) mit geprüfter Update-Zählung;
+      Kassenlauf übergibt exakt die gesperrte Menge (Anzahl == Summe konsistent)
+- [x] **XSS geschlossen** — zentrale `esc()`-Funktion für alle Serverdaten im
+      Frontend, CSP-Header auf allen Antworten, Fehlertexte ohne Eingabe-Echo
+- [x] Sessions mit Idle-Timeout (konfigurierbar), Anmelde-Drosselung,
+      constant-time-Passwortvergleich; Token nur noch aus dem Authorization-Header
+      (Ausnahme: Druck-Link)
+- [x] `lmg.benutzer` über die volle Konfigurationskaskade verdrahtet (die Datei wurde
+      zuvor still ignoriert); Body-Limit 1 MB; JSON-Tiefenlimit;
+      interne Fehlerdetails nur noch im Server-Log; 403 für BERECHTIGUNG
+- [x] Journal trägt die Kennung des angemeldeten Sachbearbeiters auch bei
+      Maskenänderungen; Journal-Vorgangszuordnung aus dem Datenbestand (nicht Body)
+- [x] Seed: drei ungültige Demo-IBANs korrigiert (Modulo-97 verifiziert);
+      Showcase-Vorgang für Schwangeren-/Alleinerziehenden-Mehrbedarf + Vermögen
+- [x] Doku konsistent: README (Endpunkte, Beispiel, Testzahl, keine Micrometer-/
+      SEPA-XML-Erfindungen), architektur.md auf v0.5.0, properties.example mit
+      Semikolon-Beispiel, AGENTS.md Stand
+
 ## Etappe 4 — Betrieb & Weiterentwicklung
 
 - [x] Wiederanlauf beim Serverstart (recover wird beim Hochfahren ausgeführt und per Admin-Button)
 - [x] Revisionssicheres Audit-Log & Journal
 - [ ] XA / Two-Phase-Commit, falls mehrere Datenbanken in eine logische Einheit müssen (aktuell nicht erforderlich)
-- [ ] Archivierung historisierter Vorgänge und alter Journal-Einträge
+- [ ] Archivierung historisierter Vorgänge und alter Journal-Einträge; Audit-Rotation
 - [ ] LDAP/AD-Anbindung hinter TLS/HTTPS für den behördlichen Produktivbetrieb
+- [ ] Bewilligungszeitraum-Default 12 Monate (§ 44 Abs. 3) und Rückwirkung auf den
+      Monatsersten (§ 44 Abs. 2) nach Antragsdatum-Erweiterung des Datenmodells
+- [ ] Ausgeweitete Stufen-Zuordnung (§ 27a Paar-Regelung automatisiert plausibilisieren)
 
 ## Offene Fragen
 
-1. Welche Oracle-Version/Edition läuft bei uns (relevant für Testcontainers-Image und XA)?
+1. Welche Oracle-Version/Edition läuft in der Zielumgebung (relevant für XA/UCP-Feinkonfiguration)?
 2. Wie viele parallele Sachbearbeiter/Aufträge müssen dimensioniert werden?
-3. Kommt ein Web-Frontend davor? Dann Session-Handling und Authentifizierung hier verankern.
+3. Web-Frontend ist umgesetzt (SPA + JSON-API); für Produktion: TLS-Terminierung und
+   zentrale Sitzungen (aktuell in-memory) klären.

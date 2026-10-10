@@ -56,35 +56,52 @@ Redo-Logging, Recovery) — wir programmieren nur die Steuerungsschicht darüber
 5. Der Task-Wachhund unterbricht Tasks nach `TxOptions.timeout`; der Interrupt
    lässt den JDBC-Aufruf fehlschlagen, wodurch die DB zurückrollt.
 
-## Stand (Stand: 2026-10-09, Version 0.4.0)
+## Stand (Stand: 2026-10-10, Version 0.5.0)
 
-Kernbibliothek und Fachschicht vollständig umgesetzt und auf echter Oracle 19c Enterprise
-Edition (VirtualBox, Port 1921/o19c1p1) sowie 23ai Free verifiziert:
-- **Kern**: `TxManager`, `TxContext`, `TxOptions`, `RetryPolicy` (Wiederholung bei
-  ORA-00054/60/8177 inkl. echtem Deadlock-Test `DeadlockRetryEchtTest`),
-  `TaskController` (Parallelität, Wachhund, Statistik), `SagaEngine` mit
-  Journal-Tabellen (`TX_SAGA`, `TX_SAGA_STEP`).
-- **Produktion**: Oracle UCP (`UcpConnectionPool`), JMX-Monitoring (`TxMonitoring`),
-  externalisierte Konfiguration (`LmgConfig` via 12-Factor/`lmg.properties`),
-  revisionssicheres Audit-Log (`TxAuditLog` mit Ringpuffer, Listenern und Datei).
+Kernbibliothek und Fachschicht vollständig umgesetzt, umfassendem Codereview unterzogen
+und auf echter Oracle 19c Enterprise Edition (VirtualBox, Port 1921/o19c1p1) sowie
+23ai Free verifiziert:
+- **Kern**: `TxManager` (Rollback auch bei Error/OOM — nie implizites Commit; manuelle
+  API `begin/commit/finish` repariert), `TxContext`, `TxOptions`, `RetryPolicy`
+  (Wiederholung bei ORA-00054/60/8177 inkl. echtem Deadlock-Test `DeadlockRetryEchtTest`),
+  `TaskController` (Wachhund ab Ausführungsbeginn, settle-Gate gegen Statistik-Leaks,
+  geordneter Shutdown, eigene Tests in `TaskControllerTest`), `SagaEngine` mit
+  Journal-Tabellen (`TX_SAGA`, `TX_SAGA_STEP`) und Write-Ahead (`IN_FLIGHT`),
+  `recover()` über alle Saga-Typen mit `FOR UPDATE SKIP LOCKED`.
+- **Produktion**: Oracle UCP (`UcpConnectionPool`, Release-Leak geschlossen), beide Pools
+  rollen vor `setAutoCommit(true)` zurück; `SimpleConnectionPool` mit Borrow-Validierung,
+  idempotentem Release und Borrow-Timeout; JMX-Monitoring (`TxMonitoring`),
+  externalisierte Konfiguration (`LmgConfig` inkl. `lmg.benutzer`-Kaskade — Datei wird
+  jetzt genutzt), revisionssicheres Audit-Log (`TxAuditLog`).
 - **Fachschicht Leistungsmanagement (SDN.sozial LMG)**: SGB-XII-Bedarfsberechnung
-  (RBS 1–6, Mehrbedarfe § 30 Abs. 1 & 7, KdU-Dreiteilung, Erwerbsfreibetrag § 82 Abs. 3),
-  Zahlungs-Workflow (Idempotenz, `SELECT … FOR UPDATE`, Budget-Prüfung, Journal),
-  optimistisches Locking über VERSION-Spalten + Trigger, JSON-API und Widget-Oberfläche.
+  vollständig (RBS 1–6, Mehrbedarfe § 30 Abs. 1/2/3/7 mit Obergrenze Abs. 6 und
+  stufenabhängigem Warmwasser-Satz, KdU-Dreiteilung mit § 42a-Angemessenheitsprüfung
+  und konfigurierbarem Warmwasser-Abzug, Absetzbeträge § 82 Abs. 2, Erwerbsfreibetrag
+  § 82 Abs. 3, Vermögensanrechnung § 90 mit Schonvermögen), Zahlungs-Workflow
+  (Idempotenz inkl. Recheck unter Sperre, `SELECT … FOR UPDATE`, Budget-Prüfung,
+  Zahlung immer `ANGELEGT` — Vier-Augen serverseitig erzwungen), optimistisches Locking
+  über VERSION-Spalten + Trigger, JSON-API und Widget-Oberfläche (HTML-escaped, CSP).
 - **Betrieb & Sicherheit**: Anmeldung mit Rollen (admin/sachbearbeiter, serverseitige
-  Berechtigungsprüfung), Neuanlage, Kassenlauf, Storno mit Restbudget-Rückbuchung,
-  Wiederanlauf beim Serverstart (`recover()`).
+  Berechtigungsprüfung; Admin-Sonderrolle über Rolle statt Kennung), Sitzungs-Idle-Timeout
+  und Anmelde-Drosselung, Token nur aus dem Header (Ausnahme Druck-Link), Body-Limit,
+  JSON-Tiefenlimit, Neuanlage, Kassenlauf (übergibt exakt die gesperrte Menge), Storno
+  mit Zahlungssperre + guarded Statuswechsel und Restbudget-Rückbuchung, Wiederanlauf
+  beim Serverstart über alle Saga-Typen.
 - **SEPA-Bankverbindung & Vier-Augen-Prinzip**: IBAN, BIC, Kontoinhaber mit ISO 13616
   Modulo-97-Prüfziffernvalidierung (`SepaValidator`), Vier-Augen-Freigabe-Workflow
   (`ANGELEGT` → `BEREIT` → `UEBERGEBEN`) mit Rechnerischer Feststellung und Abwehr
-  von Selbstfreigaben.
-- **Bescheidwesen (§ 37 SGB X)**: Tabelle `BESCHEID`, `BescheidDao`, Bewilligungsbescheid-
-  Erteilung im Service und Druck-Generator (`BescheidGenerator`) mit amtlichem Layout,
-  Verfügungssatz, Bedarfsaufschlüsselung, § 35 Begründung, § 36 Rechtsbehelfsbelehrung
-  und `@media print`-Stylesheet.
+  von Selbstfreigaben; Saga-Zahlungen gleichfalls `ANGELEGT` (keine Vier-Augen-Umgehung).
+- **Bescheidwesen (§ 44 SGB XII; Bekanntgabe § 37 SGB X)**: Tabelle `BESCHEID`,
+  `BescheidDao`, Bewilligungsbescheid-Erteilung im Service (Zeitraum-Validierung
+  YYYY-MM, von ≤ bis) und Druck-Generator (`BescheidGenerator`) mit amtlichem Layout,
+  Verfügungssatz, Bedarfsaufschlüsselung mit KdU-Vorbehalt, fallbezogener § 35-Begründung,
+  konfigurierbarer vollständiger § 36-Rechtsbehelfsbelehrung und `@media print`-Stylesheet.
 - **End-to-End-Saga (`AntragsSagaProzess`)**: 4-stufiger Geschäftsvorgang
-  (Vorgang erfassen → Bedarfsprüfung → Bescheid erteilen → Erstauszahlung anweisen)
-  mit automatischer Rückwärtskompensation bei fehlendem Anspruch.
-- **Qualitätssicherung**: 60 automatisierte Unit-Tests grün (`mvn test`), 11 echte
-  Datenbanktests in `EchteDbVerifikationTest` sowie `DeadlockRetryEchtTest` erfolgreich
-  gegen Oracle 19c Enterprise Edition ausgeführt.
+  (Vorgang erfassen → Bedarfsprüfung → Bescheid erteilen → Erstauszahlung) mit
+  idempotenter Rückwärtskompensation (Budget-Rückbuchung, Korrelation über VORGANGS_NR,
+  Historisierung statt Löschung).
+- **Qualitätssicherung**: Unit-Tests ohne DB grün (`mvn test`; DB-abhängige Tests
+  `EchteDbVerifikationTest` + `DeadlockRetryEchtTest` laufen automatisch mit gesetzter
+  `TX_URL`); neue Tests: `TaskControllerTest`, `SagaEngineTest`, erweiterte
+  `SimpleConnectionPoolTest`/`LeistungsberechnungTest` (Warmwasser-Stufen 4–6,
+  Kinder-/Schwangeren-Mehrbedarf, Obergrenze, Absetzbeträge, Vermögen).

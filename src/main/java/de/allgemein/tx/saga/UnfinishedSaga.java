@@ -4,8 +4,19 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** Unvollendete Saga aus dem Journal — Grundlage für den Wiederanlauf (Recovery). */
+/**
+ * Unvollendete Saga aus dem Journal — Grundlage für den Wiederanlauf (Recovery).
+ * Ein Schritt im Zustand IN_FLIGHT gilt als „möglicherweise committet" und wird
+ * beim Wiederanlauf konservativ mit kompensiert (idempotente Kompensationen
+ * vorausgesetzt).
+ */
 public final class UnfinishedSaga {
+
+    /** Zustände eines Schritts im Journal (TX_SAGA_STEP.STATE). */
+    public static final String STEP_PENDING = "PENDING";
+    public static final String STEP_IN_FLIGHT = "IN_FLIGHT";
+    public static final String STEP_DONE = "DONE";
+    public static final String STEP_COMPENSATED = "COMPENSATED";
 
     private final String sagaId;
     private final String type;
@@ -45,10 +56,22 @@ public final class UnfinishedSaga {
     }
 
     public boolean isStepDone(int index) {
-        return "DONE".equals(stepStates.get(index));
+        return STEP_DONE.equals(stepStates.get(index));
+    }
+
+    public boolean isStepInFlight(int index) {
+        return STEP_IN_FLIGHT.equals(stepStates.get(index));
+    }
+
+    /**
+     * Der Schritt könnte committet gewesen sein (DONE oder IN_FLIGHT) — beim
+     * Wiederanlauf muss er daher mit kompensiert werden.
+     */
+    public boolean isStepPossiblyCommitted(int index) {
+        return isStepDone(index) || isStepInFlight(index);
     }
 
     public boolean isStepCompensated(int index) {
-        return "COMPENSATED".equals(stepStates.get(index));
+        return STEP_COMPENSATED.equals(stepStates.get(index));
     }
 }

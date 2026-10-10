@@ -23,7 +23,7 @@ public final class BedarfsgemeinschaftDao {
 
     private static final String COLUMNS =
             "ID, AKTENZEICHEN, HAUPTPERSON_NAME, STATUS_AKTIV, BUDGET_REST, WIEDERVORLAGE_AM, VERSION, "
-                    + "IBAN, BIC, KONTOINHABER";
+                    + "IBAN, BIC, KONTOINHABER, VERMOEGEN";
 
     public List<Bedarfsgemeinschaft> listeAlle(TxContext ctx) throws SQLException {
         try (PreparedStatement stmt = ctx.connection().prepareStatement(
@@ -59,7 +59,31 @@ public final class BedarfsgemeinschaftDao {
      * betroffener Zeilen — 0 heißt "zwischenzeitlich geändert".
      */
     public int aktualisiere(TxContext ctx, long id, boolean statusAktiv, LocalDate wiedervorlageAm,
-                            String iban, String bic, String kontoinhaber,
+                            String iban, String bic, String kontoinhaber, BigDecimal vermoegen,
+                            long erwarteteVersion) throws SQLException {
+        try (PreparedStatement stmt = ctx.connection().prepareStatement(
+                "UPDATE BEDARFSGEMEINSCHAFT SET STATUS_AKTIV = ?, WIEDERVORLAGE_AM = ?, "
+                        + "IBAN = ?, BIC = ?, KONTOINHABER = ?, VERMOEGEN = ? "
+                        + "WHERE ID = ? AND VERSION = ?")) {
+            stmt.setInt(1, statusAktiv ? 1 : 0);
+            if (wiedervorlageAm != null) {
+                stmt.setDate(2, Date.valueOf(wiedervorlageAm));
+            } else {
+                stmt.setNull(2, java.sql.Types.DATE);
+            }
+            stmt.setString(3, iban);
+            stmt.setString(4, bic);
+            stmt.setString(5, kontoinhaber);
+            stmt.setBigDecimal(6, vermoegen);
+            stmt.setLong(7, id);
+            stmt.setLong(8, erwarteteVersion);
+            return stmt.executeUpdate();
+        }
+    }
+
+    /** Wie aktualisiere, aber ohne VERMOEGEN anzufassen (alte Maske ohne Vermögensfeld). */
+    public int aktualisiereVermoegenUnveraendert(TxContext ctx, long id, boolean statusAktiv,
+                            LocalDate wiedervorlageAm, String iban, String bic, String kontoinhaber,
                             long erwarteteVersion) throws SQLException {
         try (PreparedStatement stmt = ctx.connection().prepareStatement(
                 "UPDATE BEDARFSGEMEINSCHAFT SET STATUS_AKTIV = ?, WIEDERVORLAGE_AM = ?, "
@@ -101,9 +125,18 @@ public final class BedarfsgemeinschaftDao {
     public Bedarfsgemeinschaft einfuegen(TxContext ctx, long id, String aktenzeichen, String hauptpersonName,
                                          BigDecimal startBudget, LocalDate wiedervorlageAm,
                                          String iban, String bic, String kontoinhaber) throws SQLException {
+        return einfuegen(ctx, id, aktenzeichen, hauptpersonName, startBudget, wiedervorlageAm,
+                iban, bic, kontoinhaber, BigDecimal.ZERO);
+    }
+
+    public Bedarfsgemeinschaft einfuegen(TxContext ctx, long id, String aktenzeichen, String hauptpersonName,
+                                         BigDecimal startBudget, LocalDate wiedervorlageAm,
+                                         String iban, String bic, String kontoinhaber,
+                                         BigDecimal vermoegen) throws SQLException {
         try (PreparedStatement stmt = ctx.connection().prepareStatement(
                 "INSERT INTO BEDARFSGEMEINSCHAFT (ID, AKTENZEICHEN, HAUPTPERSON_NAME, STATUS_AKTIV, "
-                        + "BUDGET_REST, WIEDERVORLAGE_AM, IBAN, BIC, KONTOINHABER) VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)")) {
+                        + "BUDGET_REST, WIEDERVORLAGE_AM, IBAN, BIC, KONTOINHABER, VERMOEGEN) "
+                        + "VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, ?)")) {
             stmt.setLong(1, id);
             stmt.setString(2, aktenzeichen);
             stmt.setString(3, hauptpersonName);
@@ -116,10 +149,11 @@ public final class BedarfsgemeinschaftDao {
             stmt.setString(6, iban);
             stmt.setString(7, bic);
             stmt.setString(8, kontoinhaber);
+            stmt.setBigDecimal(9, vermoegen);
             stmt.executeUpdate();
         }
         return new Bedarfsgemeinschaft(id, aktenzeichen, hauptpersonName, true, startBudget,
-                wiedervorlageAm, 1L, iban, bic, kontoinhaber);
+                wiedervorlageAm, 1L, iban, bic, kontoinhaber, vermoegen);
     }
 
     public Bedarfsgemeinschaft einfuegen(TxContext ctx, long id, String aktenzeichen, String hauptpersonName,
@@ -176,6 +210,7 @@ public final class BedarfsgemeinschaftDao {
 
     private Bedarfsgemeinschaft mappe(ResultSet rs) throws SQLException {
         Date wiedervorlage = rs.getDate(6);
+        BigDecimal vermoegen = rs.getBigDecimal(11);
         return new Bedarfsgemeinschaft(
                 rs.getLong(1),
                 rs.getString(2),
@@ -186,6 +221,7 @@ public final class BedarfsgemeinschaftDao {
                 rs.getLong(7),
                 rs.getString(8),
                 rs.getString(9),
-                rs.getString(10));
+                rs.getString(10),
+                vermoegen == null ? BigDecimal.ZERO.setScale(2) : vermoegen);
     }
 }

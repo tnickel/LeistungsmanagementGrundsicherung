@@ -3,7 +3,6 @@ package de.allgemein.lmg.web;
 import de.allgemein.lmg.service.LeistungsService;
 import de.allgemein.lmg.service.SozialLeistungsService;
 import de.allgemein.lmg.service.Systemdiagnose;
-import de.allgemein.lmg.web.Benutzerverwaltung;
 import de.allgemein.tx.ConnectionPool;
 import de.allgemein.tx.SimpleConnectionPool;
 import de.allgemein.tx.TaskController;
@@ -41,13 +40,21 @@ public final class LmgServerMain {
             TxManager txManager = new TxManager(pool);
             try (TaskController tasks = new TaskController(txManager, config.maxTasks(), config.queueCapacity())) {
                 var taskMbean = tasks.registerJmx();
-                LeistungsService service = new SozialLeistungsService(txManager);
+                // KdU-Parameter (§ 42a SGB XII) und Rechtsbehelfsbelehrung (§ 36 SGB X)
+                // aus der Konfiguration; Vier-Augen wird serverseitig erzwungen
+                LeistungsService service = new SozialLeistungsService(
+                        txManager, config.kduParameter(), config.rechtsbehelf());
                 SagaEngine sagas = new SagaEngine(txManager, new SagaJournal(pool));
                 Systemdiagnose diagnose = new Systemdiagnose(txManager, tasks, sagas, Instant.now());
-                Benutzerverwaltung benutzerverwaltung = Benutzerverwaltung.ausUmgebung();
+                // Benutzerkonten über die volle Konfigurationskaskade:
+                // System-Property lmg.benutzer > LMG_BENUTZER > lmg.properties > Demo-Konten
+                boolean demoKonten = config.benutzer() == null || config.benutzer().isBlank();
+                Benutzerverwaltung benutzerverwaltung = new Benutzerverwaltung(
+                        demoKonten ? Benutzerverwaltung.STANDARD_KONTEN : config.benutzer(),
+                        java.time.Duration.ofMinutes(config.sessionTimeoutMinuten()));
                 try (LmgServer server = new LmgServer(tasks, service, diagnose, sagas, benutzerverwaltung, config.port())) {
                     server.start();
-                    System.out.println("SDN.sozial — Leistungsmanagement Grundsicherung");
+                    System.out.println("SDN.sozial — Leistungsmanagement Grundsicherung (v0.5.0)");
                     System.out.println("Oberfläche: http://localhost:" + config.port() + "/");
                     System.out.println("Verbindungspool: " + pool.getClass().getSimpleName() + " (Größe: " + config.poolSize() + ")");
                     System.out.println("JMX-Monitoring: aktiv (" + taskMbean + ", " + poolMbean + ")");
@@ -55,10 +62,11 @@ public final class LmgServerMain {
                         System.out.println("Audit-Log: aktiv (" + config.auditFile() + ")");
                     }
                     System.out.println("Anmeldung: " + benutzerverwaltung.anzahlKonten() + " Konto(s)"
-                            + (System.getenv("LMG_BENUTZER") == null && config.benutzer() == null
+                            + (demoKonten
                                     ? " — STANDARD-DEMO-KONTEN aktiv (admin-01/admin, sb-01/sb-01, "
-                                      + "sb-02/sb-02)! Für echte Passwörter LMG_BENUTZER setzen."
+                                      + "sb-02/sb-02)! Für echte Passwörter lmg.benutzer/LMG_BENUTZER setzen."
                                     : " (aus Konfiguration)"));
+                    System.out.println("Sitzungs-Idle-Timeout: " + config.sessionTimeoutMinuten() + " Minuten");
                     int wiederanlauf = diagnose.wiederanlauf();
                     System.out.println("Wiederanlauf beim Start: " + wiederanlauf
                             + " halbfertige Saga(s) beendet");
@@ -76,10 +84,5 @@ public final class LmgServerMain {
             return new SimpleConnectionPool(url, user, pass, groesse);
         }
         return new UcpConnectionPool(url, user, pass, groesse);
-    }
-
-    private static String env(String key, String defaultValue) {
-        String value = System.getenv(key);
-        return value == null || value.isBlank() ? defaultValue : value;
     }
 }

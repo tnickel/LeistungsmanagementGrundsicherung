@@ -32,6 +32,12 @@ public final class LmgConfig {
     private final int queueCapacity;
     private final String auditFile;
     private final String benutzer;
+    private final String kduWarmwasserAbzugProzent;
+    private final String kduAngemessenheitsgrenze;
+    private final String rechtsbehelfModus;
+    private final String rechtsbehelfBehoerde;
+    private final String rechtsbehelfSozialgericht;
+    private final int sessionTimeoutMinuten;
 
     private LmgConfig(Properties props) {
         this.url = resolve(props, "tx.url", "TX_URL", "jdbc:oracle:thin:@//localhost:1921/o19c1p1");
@@ -44,6 +50,12 @@ public final class LmgConfig {
         this.queueCapacity = Integer.parseInt(resolve(props, "lmg.tasks.queue", "LMG_WARTESCHLANGE", "100"));
         this.auditFile = resolve(props, "lmg.audit.file", "LMG_AUDIT_FILE", "lmg_audit.log");
         this.benutzer = resolve(props, "lmg.benutzer", "LMG_BENUTZER", null);
+        this.kduWarmwasserAbzugProzent = resolve(props, "lmg.kdu.warmwasserabzug", "LMG_KDU_WARMWASSERABZUG", "0");
+        this.kduAngemessenheitsgrenze = resolve(props, "lmg.kdu.angemessenheitsgrenze", "LMG_KDU_ANGEMESSENHEITSGRENZE", "0");
+        this.rechtsbehelfModus = resolve(props, "lmg.rechtsbehelf.modus", "LMG_RECHTSBEHELFSMODUS", "WIDERSPRUCH");
+        this.rechtsbehelfBehoerde = resolve(props, "lmg.rechtsbehelf.behoerde", "LMG_RECHTSBEHELFSBEHOERDE", null);
+        this.rechtsbehelfSozialgericht = resolve(props, "lmg.rechtsbehelf.sozialgericht", "LMG_RECHTSBEHOLF_SG", null);
+        this.sessionTimeoutMinuten = Integer.parseInt(resolve(props, "lmg.session.timeout.minuten", "LMG_SESSION_TIMEOUT", "60"));
 
         validate();
     }
@@ -88,6 +100,9 @@ public final class LmgConfig {
         if (queueCapacity < 1) {
             throw new IllegalArgumentException("Warteschlange muss mindestens 1 sein: " + queueCapacity);
         }
+        if (sessionTimeoutMinuten < 1) {
+            throw new IllegalArgumentException("Session-Timeout muss mindestens 1 Minute sein: " + sessionTimeoutMinuten);
+        }
     }
 
     private static String resolve(Properties props, String propKey, String envKey, String fallback) {
@@ -116,4 +131,26 @@ public final class LmgConfig {
     public int queueCapacity() { return queueCapacity; }
     public String auditFile() { return auditFile; }
     public String benutzer() { return benutzer; }
+
+    /** KdU-Parameter der Bedarfsberechnung (§ 42a i.V.m. § 35 SGB XII); 0 = Prüfung deaktiviert. */
+    public de.allgemein.lmg.calc.Leistungsberechnung.KduParameter kduParameter() {
+        try {
+            return new de.allgemein.lmg.calc.Leistungsberechnung.KduParameter(
+                    new java.math.BigDecimal(kduWarmwasserAbzugProzent),
+                    new java.math.BigDecimal(kduAngemessenheitsgrenze));
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                    "KdU-Parameter müssen Zahlen sein (warmwasserabzug='" + kduWarmwasserAbzugProzent
+                            + "', angemessenheitsgrenze='" + kduAngemessenheitsgrenze + "')", e);
+        }
+    }
+
+    /** Konfiguration der Bescheid-Rechtsbehelfsbelehrung (§ 36 SGB X, träger-/landesrechtlich). */
+    public de.allgemein.lmg.service.BescheidGenerator.Rechtsbehelf rechtsbehelf() {
+        return new de.allgemein.lmg.service.BescheidGenerator.Rechtsbehelf(
+                rechtsbehelfModus, rechtsbehelfBehoerde, rechtsbehelfSozialgericht);
+    }
+
+    /** Idle-Timeout angemeldeter Sitzungen in Minuten (0 ist ungültig, Minimum 1). */
+    public int sessionTimeoutMinuten() { return sessionTimeoutMinuten; }
 }

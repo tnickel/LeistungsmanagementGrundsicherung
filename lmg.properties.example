@@ -24,6 +24,24 @@ lmg.tasks.queue=100
 # Audit-Logdatei für revisionssichere Nachvollziehbarkeit (leer lassen für nur Konsolen-/Logger-Ausgabe)
 lmg.audit.file=lmg_audit.log
 
-# Benutzerkonten (Format: kennung:passwort:rolle, durch Komma getrennt)
+# Benutzerkonten (Format: kennung:passwort:rolle, Einträge DURCH SEMIKOLON getrennt;
+# Rollen: admin oder sachbearbeiter)
 # Wenn nicht gesetzt, sind Standard-Demo-Konten aktiv (admin-01/admin, sb-01/sb-01, sb-02/sb-02)
-# lmg.benutzer=admin-01:geheim123:admin,sb-01:geheim456:sachbearbeiter
+# lmg.benutzer=admin-01:geheim123:admin;sb-01:geheim456:sachbearbeiter
+
+# Sitzungen laufen nach dieser Idle-Zeit ab (Minuten)
+lmg.session.timeout.minuten=60
+
+# KdU-Prüfung (§ 42a i.V.m. § 35 SGB XII): 0 = deaktiviert
+#  - warmwasserabzug: örtlicher Warmwasseranteil an den Heizkosten bei dezentraler
+#    Erzeugung (Dezimalanteil, z. B. 0.10 für 10 %)
+#  - angemessenheitsgrenze: monatliche Obergrenze der KdU in EUR; darüber wird nur
+#    bis zur Grenze anerkannt und im Bescheid "unter Vorbehalt" gekennzeichnet
+lmg.kdu.warmwasserabzug=0
+lmg.kdu.angemessenheitsgrenze=0
+
+# Rechtsbehelfsbelehrung der Bescheide (§ 36 SGB X): WIDERSPRUCH oder KLAGE —
+# je nach Träger/Landesrecht (§ 78 bzw. § 87 Abs. 1 SGG)
+lmg.rechtsbehelf.modus=WIDERSPRUCH
+# lmg.rechtsbehelf.behoerde=Stadt Musterstadt, Amt für Soziales und Wohnen, Musterstraße 1, 12345 Musterstadt
+# lmg.rechtsbehelf.sozialgericht=Sozialgericht Musterstadt, Musterstraße 2, 12345 Musterstadt

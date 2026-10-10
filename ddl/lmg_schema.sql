@@ -20,6 +20,7 @@ CREATE TABLE BEDARFSGEMEINSCHAFT (
     HAUPTPERSON_NAME VARCHAR2(100 CHAR) NOT NULL,   -- Name des Antragstellers
     STATUS_AKTIV     NUMBER(1)          DEFAULT 1 NOT NULL,  -- 1 = aktiv, 0 = historisiert
     BUDGET_REST      NUMBER(10,2)       DEFAULT 0 NOT NULL,  -- verfügbarer Restanspruch pro Monat
+    VERMOEGEN        NUMBER(12,2)       DEFAULT 0 NOT NULL,  -- Gesamtvermögen der BG (§ 90 SGB XII; Schonvermögen in der Berechnung)
     WIEDERVORLAGE_AM DATE,                          -- Frist/Wiedervorlage für die Fallübersicht
     VERSION          NUMBER(10)         DEFAULT 1 NOT NULL,  -- optimistisches Locking
     IBAN             VARCHAR2(34 CHAR),             -- SEPA-IBAN für Auszahlungen
@@ -28,7 +29,8 @@ CREATE TABLE BEDARFSGEMEINSCHAFT (
     CONSTRAINT PK_BEDARFSGEMEINSCHAFT PRIMARY KEY (ID),
     CONSTRAINT UQ_BG_AKTENZEICHEN UNIQUE (AKTENZEICHEN),
     CONSTRAINT CK_BG_STATUS_AKTIV CHECK (STATUS_AKTIV IN (0, 1)),
-    CONSTRAINT CK_BG_BUDGET_REST CHECK (BUDGET_REST >= 0)
+    CONSTRAINT CK_BG_BUDGET_REST CHECK (BUDGET_REST >= 0),
+    CONSTRAINT CK_BG_VERMOEGEN CHECK (VERMOEGEN >= 0)
 );
 
 -- ------------------------------------------------------------------
@@ -39,24 +41,35 @@ CREATE TABLE SOZIAL_FALL (
     ID                 NUMBER(19)    NOT NULL,
     BG_ID              NUMBER(19)    NOT NULL,
     REGELBEDARFSSTUFE  NUMBER(1)     NOT NULL,           -- 1..6, steuert den Basisbetrag
-    FLAG_MERKZEICHEN_G NUMBER(1)     DEFAULT 0 NOT NULL, -- 1 = Merkzeichen G, 17 % Mehrbedarf
-    FLAG_WARMWASSER    NUMBER(1)     DEFAULT 0 NOT NULL, -- 1 = Warmwasser dezentral (§ 30 Abs. 7), 2,3 %
+    FLAG_MERKZEICHEN_G NUMBER(1)     DEFAULT 0 NOT NULL, -- 1 = Merkzeichen G, 17 % Mehrbedarf (§ 30 Abs. 1)
+    FLAG_SCHWANGER     NUMBER(1)     DEFAULT 0 NOT NULL, -- 1 = schwanger ab 12. SSW, 17 % Mehrbedarf (§ 30 Abs. 2)
+    ANZ_KINDER_U7      NUMBER(2)     DEFAULT 0 NOT NULL, -- Kinder unter 7 im Haushalt (§ 30 Abs. 3)
+    ANZ_KINDER_U16     NUMBER(2)     DEFAULT 0 NOT NULL, -- Kinder unter 16 im Haushalt (§ 30 Abs. 3)
+    FLAG_WARMWASSER    NUMBER(1)     DEFAULT 0 NOT NULL, -- 1 = Warmwasser dezentral (§ 30 Abs. 7), stufenabhängig 2,3/–/1,4/1,2/0,8 %
     KDU_MIETE          NUMBER(10,2)  DEFAULT 0 NOT NULL, -- anerkannte Kaltmiete
     KDU_BETRIEBSKOSTEN NUMBER(10,2)  DEFAULT 0 NOT NULL, -- anerkannte kalte Betriebskosten
-    KDU_HEIZUNG        NUMBER(10,2)  DEFAULT 0 NOT NULL, -- anerkannte Heizkosten
-    EINKOMMEN_RENTE    NUMBER(10,2)  DEFAULT 0 NOT NULL, -- voll anrechenbare Renteneinkünfte
+    KDU_HEIZUNG        NUMBER(10,2)  DEFAULT 0 NOT NULL, -- anerkannte Heizkosten (ohne dezentralen Warmwasseranteil)
+    EINKOMMEN_RENTE    NUMBER(10,2)  DEFAULT 0 NOT NULL, -- Renteneinkünfte (§ 82 Abs. 1)
     EINKOMMEN_ERWERB   NUMBER(10,2)  DEFAULT 0 NOT NULL, -- Brutto-Erwerbseinkommen (Freibetrag § 82 Abs. 3)
+    ABZ_STEUERN        NUMBER(10,2)  DEFAULT 0 NOT NULL, -- Absetzung: auf das Einkommen entrichtete Steuern (§ 82 Abs. 2)
+    ABZ_SV             NUMBER(10,2)  DEFAULT 0 NOT NULL, -- Absetzung: Pflichtbeiträge Sozialversicherung (§ 82 Abs. 2)
+    ABZ_VERSICHERUNGEN NUMBER(10,2)  DEFAULT 0 NOT NULL, -- Absetzung: gesetzl./angemessene Versicherungsbeiträge (§ 82 Abs. 2)
+    ABZ_ERWERBSAUSGABEN NUMBER(10,2) DEFAULT 0 NOT NULL, -- Absetzung: mit der Erzielung verbundene Ausgaben (§ 82 Abs. 2)
     VERSION            NUMBER(10)    DEFAULT 1 NOT NULL, -- optimistisches Locking
     CONSTRAINT PK_SOZIAL_FALL PRIMARY KEY (ID),
     CONSTRAINT FK_SOZIAL_FALL_BG FOREIGN KEY (BG_ID) REFERENCES BEDARFSGEMEINSCHAFT (ID),
     CONSTRAINT CK_FALL_RBS CHECK (REGELBEDARFSSTUFE BETWEEN 1 AND 6),
     CONSTRAINT CK_FALL_MERKZEICHEN_G CHECK (FLAG_MERKZEICHEN_G IN (0, 1)),
+    CONSTRAINT CK_FALL_SCHWANGER CHECK (FLAG_SCHWANGER IN (0, 1)),
     CONSTRAINT CK_FALL_WARMWASSER CHECK (FLAG_WARMWASSER IN (0, 1)),
+    CONSTRAINT CK_FALL_KINDER CHECK (ANZ_KINDER_U7 >= 0 AND ANZ_KINDER_U16 >= 0),
     CONSTRAINT CK_FALL_KDU_MIETE CHECK (KDU_MIETE >= 0),
     CONSTRAINT CK_FALL_KDU_BETRIEB CHECK (KDU_BETRIEBSKOSTEN >= 0),
     CONSTRAINT CK_FALL_KDU_HEIZUNG CHECK (KDU_HEIZUNG >= 0),
     CONSTRAINT CK_FALL_EINK_RENTE CHECK (EINKOMMEN_RENTE >= 0),
-    CONSTRAINT CK_FALL_EINK_ERWERB CHECK (EINKOMMEN_ERWERB >= 0)
+    CONSTRAINT CK_FALL_EINK_ERWERB CHECK (EINKOMMEN_ERWERB >= 0),
+    CONSTRAINT CK_FALL_ABZUEGE CHECK (ABZ_STEUERN >= 0 AND ABZ_SV >= 0
+        AND ABZ_VERSICHERUNGEN >= 0 AND ABZ_ERWERBSAUSGABEN >= 0)
 );
 
 -- ------------------------------------------------------------------
@@ -86,13 +99,14 @@ CREATE TABLE ZAHLUNG (
 );
 
 -- ------------------------------------------------------------------
--- Bescheid: Verwaltungsakt nach § 37 SGB X (Bewilligung/Aufhebung)
+-- Bescheid: Bewilligungsbescheid (§ 44 SGB XII); BESCHEID_DATUM ist das
+-- Datum der Bekanntgabe (§ 37 SGB X) — mit ihr wird der Verwaltungsakt wirksam.
 -- ------------------------------------------------------------------
 CREATE TABLE BESCHEID (
     ID              NUMBER(19)        NOT NULL,
     BG_ID           NUMBER(19)        NOT NULL,
-    BESCHEID_NR     VARCHAR2(50 CHAR) NOT NULL,
-    BESCHEID_DATUM  DATE              DEFAULT SYSDATE NOT NULL,
+    BESCHEID_NR     VARCHAR2(100 CHAR) NOT NULL,
+    BESCHEID_DATUM  DATE              DEFAULT SYSDATE NOT NULL,  -- Bekanntgabedatum (§ 37 SGB X)
     BEWILLIGUNG_VON VARCHAR2(7 CHAR)  NOT NULL,
     BEWILLIGUNG_BIS VARCHAR2(7 CHAR)  NOT NULL,
     ZAHLBETRAG      NUMBER(10,2)      NOT NULL,
@@ -155,6 +169,7 @@ END;
 -- ------------------------------------------------------------------
 CREATE INDEX IX_SOZIAL_FALL_BG ON SOZIAL_FALL (BG_ID);
 CREATE INDEX IX_ZAHLUNG_BG ON ZAHLUNG (BG_ID);
+CREATE INDEX IX_ZAHLUNG_FALL ON ZAHLUNG (FALL_ID);
 CREATE INDEX IX_ZAHLUNG_STATUS ON ZAHLUNG (ZAHLUNGSSTATUS);
 CREATE INDEX IX_JOURNAL_BG ON JOURNAL (BG_ID);
 CREATE INDEX IX_BG_WIEDERVORLAGE ON BEDARFSGEMEINSCHAFT (WIEDERVORLAGE_AM);

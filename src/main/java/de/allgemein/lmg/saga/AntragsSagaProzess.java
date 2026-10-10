@@ -11,9 +11,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * Vollständige fachliche End-to-End-Saga für das Leistungsmanagement Grundsicherung:
@@ -23,12 +23,27 @@ import java.util.UUID;
  *   <li><b>Vorgang erfassen:</b> Anlage von BEDARFSGEMEINSCHAFT und SOZIAL_FALL</li>
  *   <li><b>Bedarfsprüfung:</b> SGB-XII-Berechnung; Abbruch bei fehlendem Anspruch</li>
  *   <li><b>Bescheid erteilen:</b> Erstellung des Bewilligungsbescheids nach § 37 SGB X</li>
- *   <li><b>Erstauszahlung anweisen:</b> Zahlungsanordnung (Status BEREIT), Minderung des Restbudgets</li>
+ *   <li><b>Erstauszahlung anweisen:</b> Zahlung im Status ANGELEGT (wartet auf die
+ *       Vier-Augen-Freigabe durch einen zweiten Sachbearbeiter), Minderung des Restbudgets</li>
  * </ol>
+ *
+ * <p>Konventionen für die Kompensationen (Voraussetzung für den Wiederanlauf, der
+ * IN_FLIGHT-Schritte konservativ als „möglicherweise committet" mit kompensiert):</p>
+ * <ul>
+ *   <li>Alle Kompensationen sind <b>idempotent</b> — wiederholte Ausführung ist harmlos.</li>
+ *   <li>Die Zahlung der Saga wird über die deterministische VORGANGS_NR
+ *       {@code "SAGA-" + sagaId} korreliert — fremde Zahlungen derselben Bedarfsgemeinschaft
+ *       bleiben unberührt.</li>
+ *   <li>Der Vorgang wird beim Rückwärtslauf <b>historisiert</b> (STATUS_AKTIV = 0), nicht
+ *       gelöscht (§ 67 SGB X: Nachvollziehbarkeit der Ablehnung).</li>
+ * </ul>
  */
 public final class AntragsSagaProzess {
 
     public static final String SAGA_TYPE = "SGB_XII_ANTRAGSVERARBEITUNG";
+
+    /** Präfix der VORGANGS_NR für Saga-Zahlungen: deterministisch aus der sagaId ableitbar. */
+    public static final String VORGANGS_NR_PRAEFIX = "SAGA-";
 
     private AntragsSagaProzess() {
     }
@@ -42,11 +57,16 @@ public final class AntragsSagaProzess {
                 .build();
     }
 
+    /** Deterministische VORGANGS_NR der Saga-Zahlung (Korrelation für die Kompensation). */
+    public static String vorgangsNrFuer(String sagaId) {
+        return VORGANGS_NR_PRAEFIX + sagaId;
+    }
+
     // ------------------------------------------------------------------
     // Schritt 1: Vorgang erfassen
     // ------------------------------------------------------------------
 
-    public static void vorgangErfassen(Connection c, String payload) throws SQLException {
+    public static void vorgangErfassen(Connection c, String payload, String sagaId) throws SQLException {
         Map<String, Object> data = parsePayload(payload);
         String aktenzeichen = (String) data.get("aktenzeichen");
         String name = (String) data.get("hauptpersonName");
@@ -91,17 +111,37 @@ public final class AntragsSagaProzess {
         }
     }
 
-    public static void vorgangKompensieren(Connection c, String payload) throws SQLException {
+    /**
+     * Kompensation von Schritt 1: Der Vorgang wird HISTORISIERT (STATUS_AKTIV = 0), nicht
+     * gelöscht. Gründe (Fund K3):
+     * <ul>
+     *   <li>BESCHEID (AUFGEHOBEN) und ZAHLUNG (STORNIERT) halten Fremdschlüssel auf die
+     *       Bedarfsgemeinschaft — ein DELETE scheitert an ORA-02292, die Saga bliebe dauerhaft
+     *       FAILED und bei jedem Wiederanlauf kaputt.</li>
+     *   <li>Sozialdaten sind revisionssicher zu führen: Nach § 67 SGB X muss die Ablehnung
+     *       eines Antrags nachvollziehbar bleiben. Die Bedarfsgemeinschaft und ihre
+     *       Sozialfälle bleiben daher erhalten, werden aber inaktiv gesetzt und sind damit
+     *       für alle Fachoperationen (Anlage, Auszahlung, Bescheid) gesperrt.</li>
+     *   <li>Das Aktenzeichen (UQ) bleibt belegt — fachlich korrekt, da der Vorgang real
+     *       existiert hat und nicht „ungeschehen" gemacht werden darf.</li>
+     * </ul>
+     * Idempotent: bereits historisierte Vorgänge werden nicht erneut geändert.
+     */
+    public static void vorgangKompensieren(Connection c, String payload, String sagaId) throws SQLException {
         Map<String, Object> data = parsePayload(payload);
         String aktenzeichen = (String) data.get("aktenzeichen");
         Long bgId = findBgId(c, aktenzeichen);
-        if (bgId != null) {
-            try (PreparedStatement delFall = c.prepareStatement("DELETE FROM SOZIAL_FALL WHERE BG_ID = ?");
-                 PreparedStatement delBg = c.prepareStatement("DELETE FROM BEDARFSGEMEINSCHAFT WHERE ID = ?")) {
-                delFall.setLong(1, bgId);
-                delFall.executeUpdate();
-                delBg.setLong(1, bgId);
-                delBg.executeUpdate();
+        if (bgId == null) {
+            return; // Vorgang wurde nie angelegt — nichts zu kompensieren
+        }
+        try (PreparedStatement stmt = c.prepareStatement(
+                "UPDATE BEDARFSGEMEINSCHAFT SET STATUS_AKTIV = 0 WHERE ID = ? AND STATUS_AKTIV = 1")) {
+            stmt.setLong(1, bgId);
+            int geaendert = stmt.executeUpdate();
+            if (geaendert == 1) {
+                schreibeJournal(c, bgId, "Vorgang historisiert (Saga-Kompensation): Antrag abgelehnt bzw. "
+                        + "abgebrochen — Sozialdaten bleiben aus Gründen der Nachvollziehbarkeit "
+                        + "(§ 67 SGB X) erhalten", "saga-engine");
             }
         }
     }
@@ -110,7 +150,7 @@ public final class AntragsSagaProzess {
     // Schritt 2: Bedarfsprüfung
     // ------------------------------------------------------------------
 
-    public static void bedarfspruefung(Connection c, String payload) throws SQLException {
+    public static void bedarfspruefung(Connection c, String payload, String sagaId) throws SQLException {
         Map<String, Object> data = parsePayload(payload);
         int rbs = ((Number) data.get("regelbedarfsstufe")).intValue();
         BigDecimal miete = getBigDecimal(data.get("kduMiete"));
@@ -128,8 +168,13 @@ public final class AntragsSagaProzess {
         }
     }
 
-    public static void bedarfspruefungKompensieren(Connection c, String payload) throws SQLException {
-        // Bedarfsprüfung hat keine persistenten Änderungen hinterlassen; Journal-Eintrag zur Revisionssicherheit
+    /**
+     * Kompensation von Schritt 2: Die Bedarfsprüfung selbst hinterlässt keine persistenten
+     * Fachdaten; der Journal-Eintrag dokumentiert die Rücknahme. Eine wiederholte Ausführung
+     * (IN_FLIGHT gilt beim Wiederanlauf als möglicherweise committet) erzeugt höchstens einen
+     * weiteren rein dokumentierenden Journaleintrag — keine Fachwirkung.
+     */
+    public static void bedarfspruefungKompensieren(Connection c, String payload, String sagaId) throws SQLException {
         Map<String, Object> data = parsePayload(payload);
         String aktenzeichen = (String) data.get("aktenzeichen");
         Long bgId = findBgId(c, aktenzeichen);
@@ -142,7 +187,7 @@ public final class AntragsSagaProzess {
     // Schritt 3: Bescheid erteilen
     // ------------------------------------------------------------------
 
-    public static void bescheidErteilen(Connection c, String payload) throws SQLException {
+    public static void bescheidErteilen(Connection c, String payload, String sagaId) throws SQLException {
         Map<String, Object> data = parsePayload(payload);
         String aktenzeichen = (String) data.get("aktenzeichen");
         Long bgId = findBgId(c, aktenzeichen);
@@ -181,17 +226,25 @@ public final class AntragsSagaProzess {
         schreibeJournal(c, bgId, "Bescheid " + bescheidNr + " ueber " + ergebnis.zahlbetrag() + " EUR erteilt", sb);
     }
 
-    public static void bescheidKompensieren(Connection c, String payload) throws SQLException {
+    /**
+     * Kompensation von Schritt 3: Bescheid aufheben (Guard nur ERTEILT → AUFGEHOBEN,
+     * idempotent). Der aufgehobene Bescheid bleibt aus Gründen der Nachvollziehbarkeit
+     * (§ 67 SGB X) erhalten.
+     */
+    public static void bescheidKompensieren(Connection c, String payload, String sagaId) throws SQLException {
         Map<String, Object> data = parsePayload(payload);
         String aktenzeichen = (String) data.get("aktenzeichen");
         Long bgId = findBgId(c, aktenzeichen);
-        if (bgId != null) {
-            try (PreparedStatement stmt = c.prepareStatement(
-                    "UPDATE BESCHEID SET STATUS = 'AUFGEHOBEN' WHERE BG_ID = ? AND STATUS = 'ERTEILT'")) {
-                stmt.setLong(1, bgId);
-                stmt.executeUpdate();
+        if (bgId == null) {
+            return;
+        }
+        try (PreparedStatement stmt = c.prepareStatement(
+                "UPDATE BESCHEID SET STATUS = 'AUFGEHOBEN' WHERE BG_ID = ? AND STATUS = 'ERTEILT'")) {
+            stmt.setLong(1, bgId);
+            int geaendert = stmt.executeUpdate();
+            if (geaendert > 0) {
+                schreibeJournal(c, bgId, "Bescheid aufgehoben (Saga-Kompensation)", "saga-engine");
             }
-            schreibeJournal(c, bgId, "Bescheid aufgehoben (Saga-Kompensation)", "saga-engine");
         }
     }
 
@@ -199,7 +252,17 @@ public final class AntragsSagaProzess {
     // Schritt 4: Erstauszahlung anweisen
     // ------------------------------------------------------------------
 
-    public static void erstauszahlungAnweisen(Connection c, String payload) throws SQLException {
+    /**
+     * Schritt 4: Zahlung im Status ANGELEGT anlegen und das Restbudget mindern.
+     *
+     * <p>Vier-Augen-Prinzip (fachliche Korrektur): Die Saga legt die Zahlung bewusst nur
+     * als ANGELEGT an und trägt KEINEN Freigeber ein — die Freigabe (ANGELEGT → BEREIT)
+     * erfolgt über den normalen Endpunkt durch einen zweiten Sachbearbeiter, derselben
+     * Regel folgend wie der manuelle Buchungsweg. Der Kassenlauf nimmt weiterhin nur
+     * BEREIT-Zahlungen. Die VORGANGS_NR ist deterministisch aus der sagaId abgeleitet,
+     * damit die Kompensation gezielt NUR die eigene Zahlung der Saga erfasst (Fund M1).</p>
+     */
+    public static void erstauszahlungAnweisen(Connection c, String payload, String sagaId) throws SQLException {
         Map<String, Object> data = parsePayload(payload);
         String aktenzeichen = (String) data.get("aktenzeichen");
         Long bgId = findBgId(c, aktenzeichen);
@@ -234,7 +297,7 @@ public final class AntragsSagaProzess {
         long zahlungId = nextVal(c, "SEQ_ZAHLUNG");
         String monat = (String) data.get("zahlungsmonat");
         String sb = data.containsKey("sachbearbeiterId") ? (String) data.get("sachbearbeiterId") : "saga-engine";
-        String vorgangsNr = "SAGA-" + UUID.randomUUID();
+        String vorgangsNr = vorgangsNrFuer(sagaId);
         String iban = (String) data.get("iban");
         String bic = (String) data.get("bic");
         String name = (String) data.get("hauptpersonName");
@@ -242,17 +305,16 @@ public final class AntragsSagaProzess {
         try (PreparedStatement stmt = c.prepareStatement(
                 "INSERT INTO ZAHLUNG (ID, BG_ID, VORGANGS_NR, ZAHLUNGSMONAT, AUSZAHLUNGSBETRAG, ZAHLUNGSSTATUS, "
                         + "SACHBEARBEITER_ID, FREIGEGEBEN_VON, EMPFAENGER_IBAN, EMPFAENGER_BIC, EMPFAENGER_NAME) "
-                        + "VALUES (?, ?, ?, ?, ?, 'BEREIT', ?, ?, ?, ?, ?)")) {
+                        + "VALUES (?, ?, ?, ?, ?, 'ANGELEGT', ?, NULL, ?, ?, ?)")) {
             stmt.setLong(1, zahlungId);
             stmt.setLong(2, bgId);
             stmt.setString(3, vorgangsNr);
             stmt.setString(4, monat);
             stmt.setBigDecimal(5, zahlbetrag);
             stmt.setString(6, sb);
-            stmt.setString(7, sb);
-            stmt.setString(8, iban);
-            stmt.setString(9, bic);
-            stmt.setString(10, name);
+            stmt.setString(7, iban);
+            stmt.setString(8, bic);
+            stmt.setString(9, name);
             stmt.executeUpdate();
         }
 
@@ -263,21 +325,94 @@ public final class AntragsSagaProzess {
             stmt.executeUpdate();
         }
 
-        schreibeJournal(c, bgId, "Erstauszahlung ueber " + zahlbetrag + " EUR fuer " + monat + " angewiesen", sb);
+        schreibeJournal(c, bgId, "Erstauszahlung ueber " + zahlbetrag + " EUR fuer " + monat
+                + " erfasst (Status: ANGELEGT, wartet auf Freigabe)", sb);
     }
 
-    public static void erstauszahlungKompensieren(Connection c, String payload) throws SQLException {
+    /**
+     * Kompensation von Schritt 4 (Fund K2/H3/M1): Storniert NUR die eigene Zahlung der Saga
+     * (Korrelation über die deterministische VORGANGS_NR) und bucht das Restbudget in
+     * derselben Transaktion wieder hoch. Doppel-Gutschriften sind ausgeschlossen: Es zählen
+     * nur Zeilen, die in DIESER Ausführung tatsächlich von ANGELEGT/BEREIT/UEBERGEBEN auf
+     * STORNIERT gewandelt wurden (SELECT … FOR UPDATE, Summe merken, bedingtes UPDATE mit
+     * Guard, erst danach Budget-Update). Eine bereits (z. B. manuell) stornierte Zahlung
+     * führt zu einer No-Operation. War eine Zahlung bereits an die Kasse übergeben
+     * (UEBERGEBEN), wird sie zurückgeholt und ein ALARM-Journaleintrag zur manuellen
+     * Klärung mit der Kasse geschrieben — ein Status AUSGEZOHLT existiert im Modell nicht.
+     */
+    public static void erstauszahlungKompensieren(Connection c, String payload, String sagaId) throws SQLException {
         Map<String, Object> data = parsePayload(payload);
         String aktenzeichen = (String) data.get("aktenzeichen");
         Long bgId = findBgId(c, aktenzeichen);
-        if (bgId != null) {
-            // Zahlungen stornieren und Budget zurückbuchen
-            try (PreparedStatement stornoStmt = c.prepareStatement(
-                    "UPDATE ZAHLUNG SET ZAHLUNGSSTATUS = 'STORNIERT' WHERE BG_ID = ? AND ZAHLUNGSSTATUS = 'BEREIT'")) {
-                stornoStmt.setLong(1, bgId);
-                stornoStmt.executeUpdate();
+        if (bgId == null) {
+            return; // Vorgang wurde nie angelegt — nichts zu stornieren
+        }
+        String vorgangsNr = vorgangsNrFuer(sagaId);
+
+        // 1. Eigene Zahlungen der Saga sperren und lesen (nur diese — niemals
+        //    WHERE BG_ID = ?, sonst träfen fremde Zahlungen derselben BG).
+        List<Long> ids = new ArrayList<>();
+        List<BigDecimal> betraege = new ArrayList<>();
+        List<String> statusse = new ArrayList<>();
+        try (PreparedStatement stmt = c.prepareStatement(
+                "SELECT ID, ZAHLUNGSSTATUS, AUSZAHLUNGSBETRAG FROM ZAHLUNG "
+                        + "WHERE VORGANGS_NR = ? AND ZAHLUNGSSTATUS IN ('ANGELEGT', 'BEREIT', 'UEBERGEBEN') "
+                        + "FOR UPDATE")) {
+            stmt.setString(1, vorgangsNr);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    ids.add(rs.getLong(1));
+                    statusse.add(rs.getString(2));
+                    betraege.add(rs.getBigDecimal(3));
+                }
             }
-            schreibeJournal(c, bgId, "Erstauszahlung storniert (Saga-Kompensation)", "saga-engine");
+        }
+
+        // 2. Bedingtes Storno je Zeile (Guard über den gelesenen Status) — nur tatsächlich
+        //    gewandelte Zeilen gehen in die Gutschrift ein.
+        BigDecimal gutzuschreiben = BigDecimal.ZERO;
+        boolean warUebergeben = false;
+        try (PreparedStatement storno = c.prepareStatement(
+                "UPDATE ZAHLUNG SET ZAHLUNGSSTATUS = 'STORNIERT' WHERE ID = ? AND ZAHLUNGSSTATUS = ?")) {
+            for (int i = 0; i < ids.size(); i++) {
+                storno.setLong(1, ids.get(i));
+                storno.setString(2, statusse.get(i));
+                if (storno.executeUpdate() == 1) {
+                    gutzuschreiben = gutzuschreiben.add(betraege.get(i));
+                    if ("UEBERGEBEN".equals(statusse.get(i))) {
+                        warUebergeben = true;
+                    }
+                }
+            }
+        }
+
+        if (gutzuschreiben.signum() <= 0) {
+            return; // nichts zu stornieren (bereits storniert) — idempotente No-Operation
+        }
+
+        // 3. Budget-Rückbuchung in derselben Transaktion, BG-Zeile sperren (Fund K2).
+        try (PreparedStatement lock = c.prepareStatement(
+                "SELECT BUDGET_REST FROM BEDARFSGEMEINSCHAFT WHERE ID = ? FOR UPDATE")) {
+            lock.setLong(1, bgId);
+            try (ResultSet rs = lock.executeQuery()) {
+                if (!rs.next()) {
+                    throw new IllegalStateException("BG nicht vorhanden: " + bgId);
+                }
+            }
+        }
+        try (PreparedStatement stmt = c.prepareStatement(
+                "UPDATE BEDARFSGEMEINSCHAFT SET BUDGET_REST = BUDGET_REST + ? WHERE ID = ?")) {
+            stmt.setBigDecimal(1, gutzuschreiben);
+            stmt.setLong(2, bgId);
+            stmt.executeUpdate();
+        }
+
+        schreibeJournal(c, bgId, "Erstauszahlung storniert (Saga-Kompensation), Restbudget um "
+                + gutzuschreiben + " EUR erhoeht", "saga-engine");
+        if (warUebergeben) {
+            schreibeJournal(c, bgId, "ALARM: Die stornierte Zahlung (" + vorgangsNr
+                    + ") war bereits an die Kasse uebergeben — manuelle Klaerung mit der Kasse erforderlich",
+                    "saga-engine");
         }
     }
 

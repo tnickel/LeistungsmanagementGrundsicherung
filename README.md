@@ -45,8 +45,8 @@
 | **Task Control & Concurrency** | Begrenzter Worker-Thread-Pool mit Request-Warteschlange & Überlastschutz | `de.allgemein.tx.TaskController` |
 | **Timeouts & Task-Abbruch** | Watchdog-Timer: Unterbricht den Task-Thread, Oracle führt Rollback aus | `TxOptions.timeout(Duration)` |
 | **Journalling & Long-Running Sagas** | Persistentes Datenbankjournal mit Vorwärts-/Rückwärts-Kompensation | `de.allgemein.tx.saga.SagaEngine` |
-| **Emergency Restart / Crash Recovery** | Automatisches Fortsetzen/Kompensieren offener Geschäftsvorgänge beim Serverstart | `SagaEngine.recover(definition)` |
-| **CICS Monitoring & Statistics** | Echtzeit-Telemetrie via JMX MBeans, Micrometer & strukturiertem Audit-Log | `TxMonitoring`, `TxAuditLog` |
+| **Emergency Restart / Crash Recovery** | Automatisches Kompensieren offener Geschäftsvorgänge beim Serverstart (alle registrierten Saga-Typen) | `SagaEngine.recover(...)` |
+| **CICS Monitoring & Statistics** | Echtzeit-Telemetrie via JMX MBeans und strukturiertem Audit-Log | `TxMonitoring`, `TxAuditLog` |
 
 ---
 
@@ -57,7 +57,7 @@ Das Gesamtsystem basiert auf einem konsequenten **Zero-Framework-Ansatz** (kein 
 ```
 LeistungsmanagementGrundsicherung/
 ├── ddl/
-│   ├── oracle_schema.sql        # Basistabellen: TX_SAGA, TX_SAGA_STEP, TX_DEMO_KONTO
+│   ├── oracle_schema.sql        # Basistabellen: TX_SAGA, TX_SAGA_STEP, TX_DEMO_ANTRAG, TX_DEMO_ZAHLUNG
 │   ├── lmg_schema.sql           # Fachschema: BEDARFSGEMEINSCHAFT, SOZIAL_FALL, ZAHLUNG, BESCHEID, JOURNAL
 │   └── lmg_seed.sql             # Realitätsnaher Demo-Bestand (SGB XII Leistungsfälle 2026)
 ├── doc/
@@ -81,7 +81,7 @@ Kurze, hochfrequente Datenbankinteraktionen werden transaktional geklammert. Bei
 ```java
 TxManager tx = new TxManager(pool);
 
-tx.execute(TxOptions.of(IsolationLevel.READ_COMMITTED, Duration.ofSeconds(5), 3), ctx -> {
+tx.execute(TxOptions.DEFAULT.withTimeout(Duration.ofSeconds(5)).withMaxAttempts(3), ctx -> {
     try (PreparedStatement ps = ctx.connection().prepareStatement(
             "UPDATE BEDARFSGEMEINSCHAFT SET BUDGET_REST = BUDGET_REST - ? WHERE ID = ?")) {
         ps.setBigDecimal(1, auszahlungsBetrag);
@@ -130,13 +130,17 @@ Die Leistungsberechnung ist als seiteneffektfreie, deterministische Funktion in 
 
 | Gesetzliche Vorgabe | Gesetzesgrundlage | Parameter & Wert (2026) |
 |:---|:---|:---|
-| **Regelbedarfsstufen (RBS 1–6)** | § 27a SGB XII / RBEG | RBS 1: **563,00 €** · RBS 2: **506,00 €** · RBS 3: **451,00 €**<br>RBS 4: **471,00 €** · RBS 5: **390,00 €** · RBS 6: **357,00 €** |
+| **Regelbedarfsstufen (RBS 1–6)** | § 27a SGB XII / Anlage zu § 28 | RBS 1: **563,00 €** · RBS 2: **506,00 €** · RBS 3: **451,00 €**<br>RBS 4: **471,00 €** · RBS 5: **390,00 €** · RBS 6: **357,00 €** |
 | **Mehrbedarf Gehbehinderung** | § 30 Abs. 1 SGB XII (Merkzeichen G) | **17 %** des maßgeblichen Regelbedarfs (RBS 1: 95,71 € / RBS 2: 86,02 €) |
-| **Mehrbedarf Warmwasser** | § 30 Abs. 7 SGB XII | **2,3 %** des Regelbedarfs (dezentrale Erzeugung; RBS 1: 12,95 €) |
-| **Kosten der Unterkunft (KdU)** | § 35 SGB XII (Dreiteilung) | Anerkannte Kaltmiete + kalte Betriebskosten + tatsächliche Heizkosten |
+| **Mehrbedarf Schwangerschaft** | § 30 Abs. 2 SGB XII | **17 %** ab der 12. Schwangerschaftswoche (RBS 1: 95,71 €) |
+| **Mehrbedarf Alleinerziehende** | § 30 Abs. 3 SGB XII | **36 %** (Kind u. 7 J. oder 2–3 Kinder u. 16 J.), sonst **12 % je Kind**, Deckel **60 % RBS 1** (337,80 €) |
+| **Mehrbedarf Warmwasser** | § 30 Abs. 7 SGB XII | Stufenabhängig: **2,3 %** (RBS 1/2), **1,4 %** (RBS 4), **1,2 %** (RBS 5), **0,8 %** (RBS 6); RBS 3 ohne Satz |
+| **Obergrenze der Mehrbedarfe** | § 30 Abs. 6 SGB XII | Summe der Mehrbedarfe höchstens der Regelbedarf selbst |
+| **Kosten der Unterkunft (KdU)** | § 42a i.V.m. § 35 SGB XII | Kaltmiete + kalte Betriebskosten + Heizkosten; Angemessenheitsprüfung mit Vorbehalt; Warmwasser-Abzug konfigurierbar |
+| **Absetzbeträge vom Einkommen** | § 82 Abs. 2 SGB XII | Steuern, Sozialversicherung, Versicherungen, Erwerbsaufwendungen |
 | **Erwerbseinkommensfreibetrag** | § 82 Abs. 3 SGB XII | $\min(30\,\%\text{ Brutto}, 50\,\%\text{ RBS 1} = 281{,}50\text{ €})$ |
-| **Anrechenbares Einkommen** | § 82 SGB XII | Renten (100 % anrechenbar) + Erwerbseinkommen abzüglich Freibetrag |
-| **Monatlicher Zahlbetrag** | § 41 ff. SGB XII | $\text{Gesamtbedarf der BG} - \text{anrechenbares Gesamteinkommen}$ |
+| **Vermögensanrechnung** | § 43 Abs. 3, § 90 Abs. 2 Nr. 14 SGB XII | Schonvermögen **10.000 €** + **750 €** je weiterem Mitglied; Verwertbares mindert den Zahlbetrag |
+| **Monatlicher Zahlbetrag** | § 43a SGB XII | $\text{Gesamtbedarf der BG} - \text{anrechenbares Einkommen} - \text{verwertbares Vermögen}$ |
 
 ---
 
@@ -159,13 +163,13 @@ Automatische Berechnung aller Leistungsansprüche bei Eingabe von Miete, Heizung
 </p>
 
 ### Strikte Compliance: Vier-Augen-Prinzip & SEPA-Auszahlung
-Keine Auszahlung ohne Zweitfreigabe! Versucht ein Sachbearbeiter, seine eigene Kassenanordnung freizugeben, blockiert das System den Vorgang kryptografisch und protokolliert den Abwehrversuch im Journal:
+Keine Auszahlung ohne Zweitfreigabe! Jede Zahlung startet im Status `ANGELEGT` und muss durch einen zweiten Sachbearbeiter rechnerisch festgestellt werden. Versucht der Erfasser die eigene Anordnung freizugeben, wehrt der Server das serverseitig ab und protokolliert den Versuch im Journal:
 
 <p align="center">
   <img src="doc/manual-bilder/08_selbstfreigabe_abgewehrt.png" alt="Vier-Augen-Prinzip: Selbstfreigabe abgewehrt" width="95%" />
 </p>
 
-Nach Anmeldung des zweiten Sachbearbeiters (`sb-01`) wird die Freigabe erteilt und der Zahlungsauftrag mit SEPA-XML-kompatibler Prüfsumme scharfgeschaltet:
+Nach Anmeldung des zweiten Sachbearbeiters (`sb-01`) wird die Freigabe erteilt. Alle Bankverbindungen sind SEPA-validiert (IBAN-Prüfung nach ISO 13616 mit Modulo-97-Prüfziffer):
 
 <p align="center">
   <img src="doc/manual-bilder/09_freigabe_sb01_bereit.png" alt="Erfolgreiche Freigabe durch Zweitsachbearbeiter" width="95%" />
@@ -175,8 +179,8 @@ Nach Anmeldung des zweiten Sachbearbeiters (`sb-01`) wird die Freigabe erteilt u
   <img src="doc/manual-bilder/d04_zahlungsworkflow.png" alt="Workflow der Zahlungsanordnung und Freigabe" width="85%" />
 </p>
 
-### Behördenkonformes Bescheidwesen (§ 37 SGB X)
-Druckfertige Generierung rechtssicherer Bewilligungsbescheide mit Begründung, Berechnungsbogen und Rechtsbehelfsbelehrung direkt im Browser:
+### Behördenkonformes Bescheidwesen (§ 44 SGB XII, §§ 35–39 SGB X)
+Druckfertige Generierung rechtssicherer Bewilligungsbescheide mit fallbezogener Begründung, Berechnungsbogen, KdU-Vorbehaltskennzeichnung und konfigurierbarer Rechtsbehelfsbelehrung direkt im Browser:
 
 <p align="center">
   <img src="doc/manual-bilder/11_bescheid_druck.png" alt="Druckansicht Bewilligungsbescheid" width="95%" />
@@ -235,7 +239,7 @@ sqlplus tx_demo/tx_demo@... @ddl/oracle_schema.sql
 sqlplus tx_demo/tx_demo@... @ddl/lmg_schema.sql
 sqlplus tx_demo/tx_demo@... @ddl/lmg_seed.sql
 
-# 2. Testsuite ausführen (60 Tests, 100% Pass)
+# 2. Testsuite ausführen (Unit-Tests laufen ohne DB; die DB-Tests brauchen TX_URL)
 mvn test
 
 # 3. Server starten
@@ -262,8 +266,13 @@ Der integrierte JDK-HttpServer stellt alle Fach- und Systemfunktionen über eine
 | `GET` | `/api/bedarfsgemeinschaften/{id}` | Vorgangsdetail mit SozialFällen, Bescheiden & Zahlungen |
 | `PUT` | `/api/bedarfsgemeinschaften/{id}` | Stammdaten aktualisieren (Optimistisches Locking via `VERSION`) |
 | `PUT` | `/api/sozialfaelle/{id}` | Einzelperson anpassen (Miete, Einkommen, Mehrbedarfe) |
-| `POST` | `/api/auszahlung` | Auszahlung anordnen (Idempotenz via `vorgangsNr`) |
-| `POST` | `/api/auszahlung/freigabe` | Vier-Augen-Freigabe erteilen (Prüft `SACHBEARBEITER_ID != FREIGEBER`) |
+| `POST` | `/api/auszahlung` | Auszahlung erfassen — immer Status `ANGELEGT` (Idempotenz via `vorgangsNr`) |
+| `POST` | `/api/zahlungen/{id}/freigabe` | Vier-Augen-Freigabe (Prüft serverseitig `SACHBEARBEITER_ID != FREIGEBER`) |
+| `POST` | `/api/zahlungen/{id}/storno` | Storno mit Restbudget-Rückbuchung *(Admin)* |
+| `POST` | `/api/kassenlauf` | Alle `BEREIT`-Zahlungen an die Kasse übergeben *(Admin)* |
+| `POST` | `/api/bedarfsgemeinschaften/{id}/bescheid` | Bewilligungsbescheid erteilen (§ 44 SGB XII) |
+| `GET` | `/api/bedarfsgemeinschaften/{id}/bescheid/druck` | Druckansicht des amtlichen Bescheids |
+| `POST` | `/api/saga/antrag` | End-to-End-Antragsverarbeitung als Saga |
 | `GET` | `/api/journal` | Revisionssicheres Buchungsjournal abrufen |
 | `GET` | `/api/system/status` | Systemdiagnose: DB-Verbindung, Latenz, Pool, Task-Stats *(Admin)* |
 | `POST` | `/api/system/wiederanlauf` | Saga-Crash-Recovery manuell triggern *(Admin)* |

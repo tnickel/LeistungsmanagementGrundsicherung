@@ -16,6 +16,17 @@ let angemeldet = null;
 
 // ---------------------------------------------------------------- Hilfsfunktionen
 
+/** HTML-Escaping für ALLE Serverdaten vor innerHTML (XSS-Schutz). */
+function esc(wert) {
+  if (wert === null || wert === undefined) return "";
+  return String(wert)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 async function api(pfad, optionen) {
   const kopf = optionen?.headers ? { ...optionen.headers } : {};
   if (token) kopf["Authorization"] = "Bearer " + token;
@@ -87,7 +98,7 @@ function zeitpunkt(iso) {
 }
 
 function statusChip(klasse, text) {
-  return `<span class="chip ${klasse}">${text}</span>`;
+  return `<span class="chip ${klasse}">${esc(text)}</span>`;
 }
 
 function zahlungsChip(status) {
@@ -95,7 +106,7 @@ function zahlungsChip(status) {
   if (status === "BEREIT") return statusChip("bereit", "bereit");
   if (status === "UEBERGEBEN") return statusChip("uebergeben", "übergeben");
   if (status === "STORNIERT") return statusChip("storniert", "storniert");
-  return status;
+  return esc(status);
 }
 
 // ---------------------------------------------------------------- Navigation
@@ -175,6 +186,7 @@ $("btn-vorgang-speichern").addEventListener("click", async () => {
         iban: $("neu-iban").value.trim() || null,
         bic: $("neu-bic").value.trim() || null,
         kontoinhaber: $("neu-kontoinhaber").value.trim() || null,
+        vermoegen: Number($("neu-vermoegen").value || 0),
       }),
     });
     $("karte-neu-vorgang").classList.add("hidden");
@@ -243,12 +255,19 @@ $("btn-fall-speichern").addEventListener("click", async () => {
       body: JSON.stringify({
         regelbedarfsstufe: Number($("neu-fall-rbs").value),
         merkzeichenG: $("neu-fall-g").checked,
+        schwanger: $("neu-fall-schwanger").checked,
+        anzKinderUnter7: Number($("neu-fall-kinder-u7").value || 0),
+        anzKinderUnter16: Number($("neu-fall-kinder-u16").value || 0),
         warmwasser: $("neu-fall-warmwasser").checked,
         kduMiete: Number($("neu-fall-miete").value || 0),
         kduBetriebskosten: Number($("neu-fall-betriebskosten").value || 0),
         kduHeizung: Number($("neu-fall-heizung").value || 0),
         einkommenRente: Number($("neu-fall-rente").value || 0),
         einkommenErwerb: Number($("neu-fall-erwerb").value || 0),
+        abzSteuern: Number($("neu-fall-abz-steuern").value || 0),
+        abzSozialversicherung: Number($("neu-fall-abz-sv").value || 0),
+        abzVersicherungen: Number($("neu-fall-abz-vers").value || 0),
+        abzErwerbsaufwendungen: Number($("neu-fall-abz-erwerb").value || 0),
       }),
     });
     await oeffneVorgang(ergebnis.sozialfall.bgId);
@@ -304,8 +323,8 @@ function rendereBgTabelle() {
     const zeile = document.createElement("tr");
     zeile.className = "klickbar" + (eintrag.statusAktiv ? "" : " historisch");
     zeile.innerHTML = `
-      <td>${eintrag.aktenzeichen}</td>
-      <td>${eintrag.hauptpersonName}</td>
+      <td>${esc(eintrag.aktenzeichen)}</td>
+      <td>${esc(eintrag.hauptpersonName)}</td>
       <td>${eintrag.statusAktiv ? statusChip("aktiv", "aktiv") : statusChip("historisch", "historisiert")}</td>
       <td class="zahl">${betrag(eintrag.budgetRest)}</td>
       <td class="zahl">${eintrag.zahlbetragVorschau === null ? "nicht berechenbar" : betrag(eintrag.zahlbetragVorschau)}</td>
@@ -341,12 +360,14 @@ function rendereVorgang() {
   $("kopf-aktenzeichen").textContent = bg.aktenzeichen;
   $("kopf-name").textContent = bg.hauptpersonName;
   $("kopf-budget").textContent = betrag(bg.budgetRest);
+  $("kopf-vermoegen").textContent = betrag(bg.vermoegen);
   $("kopf-version").textContent = bg.version;
   $("kopf-status").value = bg.statusAktiv ? "1" : "0";
   $("kopf-wiedervorlage").value = bg.wiedervorlageAm || "";
   $("kopf-iban").value = bg.iban || "";
   $("kopf-bic").value = bg.bic || "";
   $("kopf-kontoinhaber").value = bg.kontoinhaber || "";
+  $("kopf-vermoegen-feld").value = bg.vermoegen ?? 0;
 
   $("auszahlung-empfaenger").value = bg.kontoinhaber || bg.hauptpersonName || "";
   $("auszahlung-iban").value = bg.iban || "";
@@ -363,7 +384,7 @@ function rendereBescheid(bescheid) {
   const box = $("bescheid-status-text");
   const druckBtn = $("btn-bescheid-drucken");
   if (bescheid && bescheid.id) {
-    box.innerHTML = `<strong>Bescheid erteilt:</strong> ${bescheid.bescheidNr} · Datum: ${bescheid.bescheidDatum || '–'} · Zeitraum: <strong>${bescheid.bewilligungVon} bis ${bescheid.bewilligungBis}</strong> · Monatlicher Zahlbetrag: <strong>${betrag(bescheid.zahlbetrag)}</strong> (${bescheid.status}) · Bearbeiter: ${bescheid.erstelltVon}`;
+    box.innerHTML = `<strong>Bescheid erteilt:</strong> ${esc(bescheid.bescheidNr)} · Bekanntgabe: ${esc(bescheid.bescheidDatum || '–')} · Zeitraum: <strong>${esc(bescheid.bewilligungVon)} bis ${esc(bescheid.bewilligungBis)}</strong> · Monatlicher Zahlbetrag: <strong>${betrag(bescheid.zahlbetrag)}</strong> (${esc(bescheid.status)}) · Bearbeiter: ${esc(bescheid.erstelltVon)}`;
     druckBtn.classList.remove("hidden");
     $("bescheid-von").value = bescheid.bewilligungVon || "";
     $("bescheid-bis").value = bescheid.bewilligungBis || "";
@@ -386,6 +407,9 @@ function rendereBerechnung() {
   $("gesamtbedarf").textContent = betrag(detail.gesamtbedarf);
   $("anrechenbar").textContent = betrag(detail.anrechenbaresEinkommen);
   $("zahlbetrag").textContent = betrag(detail.zahlbetrag);
+  if (detail.verwertbaresVermoegen !== null && detail.verwertbaresVermoegen !== undefined) {
+    $("verwertbares-vermoegen").textContent = betrag(detail.verwertbaresVermoegen);
+  }
 
   // Die API liefert die Berechnung flach: Gesamtwerte auf Vorgangs- und
   // Fallwerte je SozialFall; ein fehlender Regelbedarf zeigt eine nicht
@@ -405,13 +429,13 @@ function rendereBerechnung() {
   hinweis.textContent = "";
   for (const fall of detail.faelle) {
     const zeile = document.createElement("tr");
-    const mbTitel = `Merkzeichen G: ${betrag(fall.mehrbedarfG)} | Dezentrales Warmwasser: ${betrag(fall.mehrbedarfWarmwasser)}`;
-    const kduTitel = `Kaltmiete: ${betrag(fall.kduMiete)} | Kalte Betriebskosten: ${betrag(fall.kduBetriebskosten)} | Heizung: ${betrag(fall.kduHeizung)}`;
+    const mbTitel = esc(`Merkzeichen G: ${betrag(fall.mehrbedarfG)} | Schwangerschaft: ${betrag(fall.mehrbedarfSchwangere)} | Alleinerziehend: ${betrag(fall.mehrbedarfAlleinerziehend)} | Dezentrales Warmwasser: ${betrag(fall.mehrbedarfWarmwasser)}`);
+    const kduTitel = esc(`Kaltmiete: ${betrag(fall.kduMiete)} | Kalte Betriebskosten: ${betrag(fall.kduBetriebskosten)} | Heizung: ${betrag(fall.kduHeizung)}${fall.kduUnangemessen ? " | UNANGEMESSEN — Übernahme unter Vorbehalt (§ 42a SGB XII)" : ""}`);
     zeile.innerHTML = `
       <td>SozialFall #${fall.id}</td>
       <td class="zahl">${betrag(fall.regelbedarf)}</td>
       <td class="zahl" title="${mbTitel}">${betrag(fall.mehrbedarf)}</td>
-      <td class="zahl" title="${kduTitel}">${betrag(fall.kdu)}</td>
+      <td class="zahl" title="${kduTitel}">${betrag(fall.kdu)}${fall.kduUnangemessen ? " *" : ""}</td>
       <td class="zahl">${betrag(fall.gesamtbedarfFall)}</td>
       <td class="zahl">${betrag(fall.freibetragErwerb)}</td>
       <td class="zahl">${betrag(fall.anrechenbaresEinkommenFall)}</td>
@@ -436,6 +460,12 @@ function rendereFallMasken() {
               `<option value="${s}" ${fall.regelbedarfsstufe === s ? "selected" : ""}>Stufe ${s}</option>`).join("")}
           </select>
         </label>
+        <label>Kinder unter 7 im Haushalt (§ 30 Abs. 3)
+          <input data-feld="anzKinderUnter7" type="number" step="1" min="0" max="99" value="${fall.anzKinderUnter7}">
+        </label>
+        <label>Kinder unter 16 im Haushalt (§ 30 Abs. 3)
+          <input data-feld="anzKinderUnter16" type="number" step="1" min="0" max="99" value="${fall.anzKinderUnter16}">
+        </label>
         <label>Kaltmiete (EUR)
           <input data-feld="kduMiete" type="number" step="0.01" min="0" value="${fall.kduMiete}">
         </label>
@@ -445,11 +475,25 @@ function rendereFallMasken() {
         <label>Heizkosten (EUR)
           <input data-feld="kduHeizung" type="number" step="0.01" min="0" value="${fall.kduHeizung}">
         </label>
-        <label>Renteneinkünfte (EUR, voll anrechenbar)
+        <label>Renteneinkünfte (EUR, § 82 Abs. 1)
           <input data-feld="einkommenRente" type="number" step="0.01" min="0" value="${fall.einkommenRente}">
         </label>
         <label>Brutto-Erwerbseinkommen (EUR)
           <input data-feld="einkommenErwerb" type="number" step="0.01" min="0" value="${fall.einkommenErwerb}">
+        </label>
+      </div>
+      <div class="maske-gitter">
+        <label>Absetzung Steuern (§ 82 Abs. 2)
+          <input data-feld="abzSteuern" type="number" step="0.01" min="0" value="${fall.abzSteuern ?? 0}">
+        </label>
+        <label>Absetzung Sozialversicherung (§ 82 Abs. 2)
+          <input data-feld="abzSozialversicherung" type="number" step="0.01" min="0" value="${fall.abzSozialversicherung ?? 0}">
+        </label>
+        <label>Absetzung Versicherungen (§ 82 Abs. 2)
+          <input data-feld="abzVersicherungen" type="number" step="0.01" min="0" value="${fall.abzVersicherungen ?? 0}">
+        </label>
+        <label>Absetzung Erwerbsaufwendungen (§ 82 Abs. 2)
+          <input data-feld="abzErwerbsaufwendungen" type="number" step="0.01" min="0" value="${fall.abzErwerbsaufwendungen ?? 0}">
         </label>
       </div>
       <label class="checkbox-zeile">
@@ -457,8 +501,12 @@ function rendereFallMasken() {
         <span>Merkzeichen G — Mehrbedarf 17&nbsp;% (§ 30 Abs. 1 SGB XII)</span>
       </label>
       <label class="checkbox-zeile">
+        <input data-feld="schwanger" type="checkbox" ${fall.schwanger ? "checked" : ""}>
+        <span>Schwanger ab 12. SSW — Mehrbedarf 17&nbsp;% (§ 30 Abs. 2 SGB XII)</span>
+      </label>
+      <label class="checkbox-zeile">
         <input data-feld="warmwasser" type="checkbox" ${fall.warmwasser ? "checked" : ""}>
-        <span>Dezentrale Warmwassererzeugung — Mehrbedarf 2,3&nbsp;% (§ 30 Abs. 7 SGB XII)</span>
+        <span>Dezentrale Warmwassererzeugung — Mehrbedarf stufenabhängig (§ 30 Abs. 7 SGB XII)</span>
       </label>
       <div style="margin-top:12px">
         <button class="primaer">Speichern</button>
@@ -472,15 +520,21 @@ function rendereFallMasken() {
 async function speichereFall(fall, maske) {
   const wert = (feld) => maske.querySelector(`[data-feld="${feld}"]`);
   const koerper = {
-    bgId: fall.bgId,
     regelbedarfsstufe: Number(wert("regelbedarfsstufe").value),
     merkzeichenG: wert("merkzeichenG").checked,
+    schwanger: wert("schwanger").checked,
+    anzKinderUnter7: Number(wert("anzKinderUnter7").value || 0),
+    anzKinderUnter16: Number(wert("anzKinderUnter16").value || 0),
     warmwasser: wert("warmwasser").checked,
     kduMiete: Number(wert("kduMiete").value || 0),
     kduBetriebskosten: Number(wert("kduBetriebskosten").value || 0),
     kduHeizung: Number(wert("kduHeizung").value || 0),
     einkommenRente: Number(wert("einkommenRente").value || 0),
     einkommenErwerb: Number(wert("einkommenErwerb").value || 0),
+    abzSteuern: Number(wert("abzSteuern").value || 0),
+    abzSozialversicherung: Number(wert("abzSozialversicherung").value || 0),
+    abzVersicherungen: Number(wert("abzVersicherungen").value || 0),
+    abzErwerbsaufwendungen: Number(wert("abzErwerbsaufwendungen").value || 0),
     version: fall.version,
   };
   const knopf = maske.querySelector("button");
@@ -519,6 +573,7 @@ $("btn-kopf").addEventListener("click", async () => {
         iban: $("kopf-iban").value.trim() || null,
         bic: $("kopf-bic").value.trim() || null,
         kontoinhaber: $("kopf-kontoinhaber").value.trim() || null,
+        vermoegen: Number($("kopf-vermoegen-feld").value || 0),
         version: bg.version,
       }),
     });
@@ -556,7 +611,6 @@ $("btn-auszahlung").addEventListener("click", async () => {
         bgId: bg.id,
         vorgangsNr: crypto.randomUUID(),
         zahlungsmonat: monat,
-        vierAugenErforderlich: $("auszahlung-vieraugen").checked,
         empfaengerIban: $("auszahlung-iban").value.trim() || null,
         empfaengerBic: $("auszahlung-bic").value.trim() || null,
         empfaengerName: $("auszahlung-empfaenger").value.trim() || null,
@@ -567,12 +621,10 @@ $("btn-auszahlung").addEventListener("click", async () => {
         "Diese Vorgangsnummer war bereits vorhanden — es wurde nichts erneut gebucht (Idempotenz). "
         + "Buchung vom " + zeitpunkt(ergebnis.zahlung.erstelltAm) + ".");
     } else {
-      const statusText = ergebnis.zahlung.status === "ANGELEGT"
-        ? "wurde erfasst (Status „angelegt“, wartet auf Vier-Augen-Freigabe)"
-        : "wurde mit Status „bereit“ gebucht";
-      zeigeDialog("Auszahlung angeordnet",
+      zeigeDialog("Auszahlung erfasst",
         "Zahlung über " + betrag(ergebnis.zahlung.auszahlungsbetrag) + " für "
-        + ergebnis.zahlung.zahlungsmonat + " " + statusText + ". "
+        + ergebnis.zahlung.zahlungsmonat + " wurde erfasst (Status „angelegt“) und wartet auf "
+        + "die Vier-Augen-Freigabe durch einen zweiten Sachbearbeiter. "
         + "Neues Restbudget: " + betrag(ergebnis.bedarfsgemeinschaft.budgetRest) + ".");
     }
     await oeffneVorgang(bg.id);
@@ -625,25 +677,26 @@ function rendereZahlungen(zahlungen) {
     const zeile = document.createElement("tr");
     const freigabeMoeglich = z.status === "ANGELEGT";
     const stornoMoeglich = (istAdmin() && z.status === "BEREIT") || z.status === "ANGELEGT";
-    const empfText = (z.empfaengerName || "–") + (z.empfaengerIban ? `<br><small style="color:var(--farbe-text-leise)">${z.empfaengerIban}</small>` : "");
+    const empfText = esc(z.empfaengerName || "–")
+      + (z.empfaengerIban ? `<br><small style="color:var(--farbe-text-leise)">${esc(z.empfaengerIban)}</small>` : "");
     zeile.innerHTML = `
-      <td>${z.zahlungsmonat}</td>
+      <td>${esc(z.zahlungsmonat)}</td>
       <td class="zahl">${betrag(z.auszahlungsbetrag)}</td>
       <td>${zahlungsChip(z.status)}</td>
       <td>${empfText}</td>
-      <td>${z.sachbearbeiterId || "–"}</td>
-      <td>${z.freigegebenVon || "–"}</td>
-      <td class="hinweis">${z.vorgangsNr}</td>
+      <td>${esc(z.sachbearbeiterId || "–")}</td>
+      <td>${esc(z.freigegebenVon || "–")}</td>
+      <td class="hinweis">${esc(z.vorgangsNr)}</td>
       <td>${zeitpunkt(z.erstelltAm)}</td>
       <td>
         ${freigabeMoeglich ? `<button class="primaer freigeben" data-id="${z.id}" style="padding:4px 8px;font-size:12px;margin-right:4px;">Freigeben</button>` : ""}
         ${stornoMoeglich ? `<button class="sekundaer storno" data-id="${z.id}" style="padding:4px 8px;font-size:12px;">Storno</button>` : ""}
       </td>`;
     if (freigabeMoeglich) {
-      zeile.querySelector("button.freigeben").addEventListener("click", () => freigeben(z));
+      zeile.querySelector("button.freigeben").addEventListener("click", (e) => freigeben(z, e.target));
     }
     if (stornoMoeglich) {
-      zeile.querySelector("button.storno").addEventListener("click", () => storniere(z));
+      zeile.querySelector("button.storno").addEventListener("click", (e) => storniere(z, e.target));
     }
     koerper.appendChild(zeile);
   }
@@ -652,11 +705,13 @@ function rendereZahlungen(zahlungen) {
   }
 }
 
-async function freigeben(zahlung) {
+async function freigeben(zahlung, knopf) {
   if (!confirm(`Zahlung über ${betrag(zahlung.auszahlungsbetrag)} (${zahlung.zahlungsmonat}) ` +
       "freigeben (rechnerisch feststellen)? Status wechselt zu BEREIT.")) {
     return;
   }
+  // Doppelklick-Sperre während der Freigabe
+  if (knopf) knopf.disabled = true;
   try {
     const ergebnis = await api("/api/zahlungen/" + zahlung.id + "/freigabe", { method: "POST" });
     zeigeDialog("Zahlung freigegeben",
@@ -664,22 +719,25 @@ async function freigeben(zahlung) {
     await oeffneVorgang(zahlung.bgId);
   } catch (fehler) {
     zeigeDialog("Freigabe nicht möglich", fehler.message, true);
+    if (knopf) knopf.disabled = false;
   }
 }
 
-async function storniere(zahlung) {
+async function storniere(zahlung, knopf) {
   if (!confirm(`Auszahlung über ${betrag(zahlung.auszahlungsbetrag)} (${zahlung.zahlungsmonat}) ` +
       "stornieren? Das Restbudget wird zurückgebucht.")) {
     return;
   }
+  // Doppelklick-Sperre während des Stornos
+  if (knopf) knopf.disabled = true;
   try {
     const ergebnis = await api("/api/zahlungen/" + zahlung.id + "/storno", { method: "POST" });
     zeigeDialog("Storno gebucht",
-      ergebnis.hinweis + " Neue Zahlungssumme im Vorgang: "
-      + betrag(ergebnis.zahlung.auszahlungsbetrag) + " (Status " + ergebnis.zahlung.status + ").");
+      ergebnis.hinweis + " Status: " + ergebnis.zahlung.status + ".");
     await oeffneVorgang(zahlung.bgId);
   } catch (fehler) {
     zeigeDialog("Storno nicht möglich", fehler.message, true);
+    if (knopf) knopf.disabled = false;
   }
 }
 
@@ -716,8 +774,8 @@ async function ladeJournal() {
       zeile.innerHTML = `
         <td>${zeitpunkt(eintrag.erstelltAm)}</td>
         <td>${eintrag.bgId === null ? "–" : "#" + eintrag.bgId}</td>
-        <td>${eintrag.aktionText}</td>
-        <td>${eintrag.sachbearbeiterId}</td>`;
+        <td>${esc(eintrag.aktionText)}</td>
+        <td>${esc(eintrag.sachbearbeiterId)}</td>`;
       koerper.appendChild(zeile);
     }
     if (antwort.eintraege.length === 0) {
@@ -733,8 +791,8 @@ function rendereJournalListe(id, eintraege) {
   liste.innerHTML = "";
   for (const eintrag of eintraege) {
     const punkt = document.createElement("li");
-    punkt.innerHTML = `${eintrag.aktionText}
-      <div class="journal-zeit">${zeitpunkt(eintrag.erstelltAm)} · ${eintrag.sachbearbeiterId}</div>`;
+    punkt.innerHTML = `${esc(eintrag.aktionText)}
+      <div class="journal-zeit">${zeitpunkt(eintrag.erstelltAm)} · ${esc(eintrag.sachbearbeiterId)}</div>`;
     liste.appendChild(punkt);
   }
   if (eintraege.length === 0) {
@@ -753,16 +811,16 @@ async function ladeSystemstatus() {
     const status = await api("/api/system/status");
     rendereSystemstatus(status);
   } catch (fehler) {
-    koerper.innerHTML = `<tr><td colspan="3">Statusprüfung fehlgeschlagen: ${fehler.message}</td></tr>`;
+    koerper.innerHTML = `<tr><td colspan="3">Statusprüfung fehlgeschlagen: ${esc(fehler.message)}</td></tr>`;
     $("admin-laufzeit").innerHTML = `<div class="hinweis">—</div>`;
   }
 }
 
 function statusZeile(name, ok, details) {
   return `<tr>
-    <td>${name}</td>
+    <td>${esc(name)}</td>
     <td>${ok ? statusChip("aktiv", "OK") : statusChip("storniert", "Störung")}</td>
-    <td class="hinweis">${details}</td>
+    <td class="hinweis">${esc(details)}</td>
   </tr>`;
 }
 
@@ -793,7 +851,7 @@ function rendereSystemstatus(s) {
   ].join("");
 
   $("admin-laufzeit").innerHTML = `
-    <div>Java: <strong>${s.javaVersion}</strong></div>
+    <div>Java: <strong>${esc(s.javaVersion)}</strong></div>
     <div>Server gestartet: <strong>${zeitpunkt(s.serverStart)}</strong></div>
     <div>Laufzeit: <strong>${Math.floor(s.serverLaufzeitSekunden / 60)} min ${s.serverLaufzeitSekunden % 60} s</strong></div>
     <div class="hinweis" style="margin-top:6px">${allesOk

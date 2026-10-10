@@ -22,6 +22,7 @@ import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.Statement;
 import java.time.Instant;
 import java.util.Map;
@@ -126,7 +127,9 @@ class EchteDbVerifikationTest {
                 new Auszahlungsauftrag(9901L, UUID.randomUUID().toString(), "2026-09", "sb-test"));
         assertEquals(new BigDecimal("808.71"), ergebnis.zahlung().auszahlungsbetrag());
         assertEquals(0, new BigDecimal("91.29").compareTo(ergebnis.bedarfsgemeinschaft().budgetRest()));
-        assertEquals("BEREIT", ergebnis.zahlung().status());
+        // Vier-Augen-Prinzip ist serverseitig erzwungen: jede Zahlung startet ANGELEGT
+        // und wird erst durch freigebenZahlung (zweiter Bearbeiter) BEREIT.
+        assertEquals("ANGELEGT", ergebnis.zahlung().status());
     }
 
     @Test
@@ -201,7 +204,11 @@ class EchteDbVerifikationTest {
         service.legeSozialFallAn(bg.id(), neuerFallEntwurf(bg.id()), "sb-test");
         var zahlung = service.ordneAuszahlungAn(new Auszahlungsauftrag(bg.id(),
                 UUID.randomUUID().toString(), "2026-10", "sb-test")).zahlung();
-        assertEquals("BEREIT", zahlung.status());
+        // Vier-Augen-Prinzip: Anordnung erzeugt ANGELEGT, die Freigabe erfolgt durch
+        // einen zweiten Bearbeiter — erst danach nimmt der Kassenlauf die Zahlung.
+        assertEquals("ANGELEGT", zahlung.status());
+        var freigegeben = service.freigebenZahlung(zahlung.id(), "sb-freigabe");
+        assertEquals("BEREIT", freigegeben.status());
 
         var ergebnis = service.uebergebeBereiteZahlungen("admin-01");
         assertTrue(ergebnis.anzahl() >= 1, "mindestens die eigene Zahlung sollte übergeben werden");
@@ -311,11 +318,13 @@ class EchteDbVerifikationTest {
         assertTrue(detail.bescheid() != null, "Bescheid muss erteilt sein");
         assertEquals("ERTEILT", detail.bescheid().status());
         assertEquals(1, detail.zahlungen().size(), "Erstauszahlung muss angelegt sein");
-        assertEquals("BEREIT", detail.zahlungen().get(0).status());
+        // Vier-Augen-Prinzip gilt auch im Saga-Weg: Die Zahlung wartet als ANGELEGT auf
+        // die Freigabe durch einen zweiten Sachbearbeiter (FREIGEGEBEN_VON ist leer).
+        assertEquals("ANGELEGT", detail.zahlungen().get(0).status());
         assertEquals(0, new BigDecimal("1183.00").compareTo(detail.zahlungen().get(0).auszahlungsbetrag()));
 
         // 2. Kompensationsfall: Hohes Einkommen (Rente 5000 €) übersteigt Gesamtbedarf
-        // Schritt 1 committet -> Schritt 2 wirft Fehler -> Schritt 1 wird rückwärts kompensiert (BG + Fall gelöscht)
+        // Schritt 1 committet -> Schritt 2 wirft Fehler -> Schritt 1 wird rückwärts kompensiert
         String azFehler = "BG-TEST-SAGA-ERR-" + System.nanoTime() % 100000;
         String payloadFehler = erstelleSagaPayload(azFehler, "Saga-Fehler, Fiona",
                 new BigDecimal("5000.00"), "2026-10", "DE89370400440532013000", "MARKDEF1100",
@@ -324,10 +333,191 @@ class EchteDbVerifikationTest {
 
         assertThrows(Exception.class, () -> sagas.run(AntragsSagaProzess.definition(), payloadFehler));
 
-        // Nach Kompensation darf der Vorgang nicht mehr in der DB existieren
-        boolean bgVorhanden = service.listeBedarfsgemeinschaften().stream()
-                .anyMatch(b -> b.aktenzeichen().equals(azFehler));
-        assertTrue(!bgVorhanden, "Kompensation muss angelegten Vorgang nach Fehler sauber gelöscht haben");
+        // Nach Kompensation ist der Vorgang HISTORISIERT (§ 67 SGB X): Sozialdaten
+        // bleiben revisionssicher erhalten und FKs von Bescheid/Zahlung intakt —
+        // gelöscht wird nichts, der Vorgang wird nur inaktiv gesetzt.
+        try (Connection c = verbindung();
+             PreparedStatement stmt = c.prepareStatement(
+                     "SELECT STATUS_AKTIV FROM BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN = ?")) {
+            stmt.setString(1, azFehler);
+            try (ResultSet rs = stmt.executeQuery()) {
+                assertTrue(rs.next(), "Vorgang muss nach Kompensation (historisiert) existieren");
+                assertEquals(0, rs.getInt(1), "Vorgang muss STATUS_AKTIV = 0 haben");
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Wiederanlauf (Recover) der Fach-Saga nach simuliertem Absturz
+    // ------------------------------------------------------------------
+
+    /**
+     * Stellt einen Absturz mitten im 4. Schritt der Fach-Saga per JDBC nach:
+     * Journal-Kopf RUNNING, Schritte 0–2 DONE, Schritt 3 (Erstauszahlung) IN_FLIGHT —
+     * der Fachschritt war „möglicherweise committet": Zahlung existiert (ANGELEGT),
+     * das Restbudget ist gemindert. Der Wiederanlauf über ALLE Definitionen
+     * (Systemdiagnose) muss die Saga konservativ kompensieren: Zahlung storniert,
+     * Restbudget zurückgebucht, Bescheid aufgehoben, Vorgang historisiert,
+     * Journal-Endstatus COMPENSATED.
+     */
+    @Test
+    void recoverDerFachSagaStorniertBuchtBudgetZurueckUndHistorisiert() throws Exception {
+        TxManager txManager = new TxManager(pool);
+        String sagaId = UUID.randomUUID().toString();
+        String az = "BG-TEST-RECOVER-" + System.nanoTime() % 100000;
+        BigDecimal zahlbetrag = new BigDecimal("1183.00"); // RBS 1 + KdU 450/90/80
+        BigDecimal startBudget = new BigDecimal("5000.00");
+        String vorgangsNr = "SAGA-" + sagaId;
+        String payload = erstelleSagaPayload(az, "Recover, Rita", startBudget,
+                "2026-10", "DE89370400440532013000", "MARKDEF1100", 1,
+                new BigDecimal("450.00"), new BigDecimal("90.00"), new BigDecimal("80.00"),
+                BigDecimal.ZERO, BigDecimal.ZERO);
+        long bgId;
+        try (Connection c = verbindung()) {
+            c.setAutoCommit(false);
+            bgId = naechsteId(c, "SEQ_BG");
+            long fallId = naechsteId(c, "SEQ_FALL");
+            long bescheidId = naechsteId(c, "SEQ_BESCHEID");
+            long zahlungId = naechsteId(c, "SEQ_ZAHLUNG");
+
+            // Journal: Kopf RUNNING, Schritte 0-2 DONE, Schritt 3 IN_FLIGHT (Write-Ahead)
+            try (PreparedStatement saga = c.prepareStatement(
+                    "INSERT INTO TX_SAGA (SAGA_ID, SAGA_TYPE, STATE, PAYLOAD) VALUES (?, ?, 'RUNNING', ?)");
+                 PreparedStatement schritt = c.prepareStatement(
+                         "INSERT INTO TX_SAGA_STEP (SAGA_ID, IDX, NAME, STATE) VALUES (?, ?, ?, ?)")) {
+                saga.setString(1, sagaId);
+                saga.setString(2, AntragsSagaProzess.SAGA_TYPE);
+                saga.setString(3, payload);
+                saga.executeUpdate();
+                String[] namen = {"Vorgang erfassen", "Bedarfspruefung", "Bescheid erteilen",
+                        "Erstauszahlung anweisen"};
+                String[] zustaende = {"DONE", "DONE", "DONE", "IN_FLIGHT"};
+                for (int i = 0; i < 4; i++) {
+                    schritt.setString(1, sagaId);
+                    schritt.setInt(2, i);
+                    schritt.setString(3, namen[i]);
+                    schritt.setString(4, zustaende[i]);
+                    schritt.executeUpdate();
+                }
+            }
+
+            // Fachdaten: Vorgang aktiv, Budget bereits gemindert, Bescheid erteilt,
+            // Zahlung der Saga im Status ANGELEGT (Write-Ahead-Schritt „möglicherweise committet")
+            try (PreparedStatement bg = c.prepareStatement(
+                    "INSERT INTO BEDARFSGEMEINSCHAFT (ID, AKTENZEICHEN, HAUPTPERSON_NAME, STATUS_AKTIV, "
+                            + "BUDGET_REST, IBAN, BIC, KONTOINHABER) VALUES (?, ?, ?, 1, ?, ?, ?, ?)");
+                 PreparedStatement fall = c.prepareStatement(
+                         "INSERT INTO SOZIAL_FALL (ID, BG_ID, REGELBEDARFSSTUFE, KDU_MIETE, "
+                                 + "KDU_BETRIEBSKOSTEN, KDU_HEIZUNG) VALUES (?, ?, 1, 450, 90, 80)");
+                 PreparedStatement bescheid = c.prepareStatement(
+                         "INSERT INTO BESCHEID (ID, BG_ID, BESCHEID_NR, BEWILLIGUNG_VON, BEWILLIGUNG_BIS, "
+                                 + "ZAHLBETRAG, STATUS, ERSTELLT_VON) VALUES (?, ?, ?, '2026-10', '2026-10', ?, 'ERTEILT', 'saga-engine')");
+                 PreparedStatement zahlung = c.prepareStatement(
+                         "INSERT INTO ZAHLUNG (ID, BG_ID, VORGANGS_NR, ZAHLUNGSMONAT, AUSZAHLUNGSBETRAG, "
+                                 + "ZAHLUNGSSTATUS, SACHBEARBEITER_ID, EMPFAENGER_IBAN, EMPFAENGER_BIC, EMPFAENGER_NAME) "
+                                 + "VALUES (?, ?, ?, '2026-10', ?, 'ANGELEGT', 'saga-sb', ?, ?, ?)")) {
+                bg.setLong(1, bgId);
+                bg.setString(2, az);
+                bg.setString(3, "Recover, Rita");
+                bg.setBigDecimal(4, startBudget.subtract(zahlbetrag));
+                bg.setString(5, "DE89370400440532013000");
+                bg.setString(6, "MARKDEF1100");
+                bg.setString(7, "Recover, Rita");
+                bg.executeUpdate();
+                fall.setLong(1, fallId);
+                fall.setLong(2, bgId);
+                fall.executeUpdate();
+                bescheid.setLong(1, bescheidId);
+                bescheid.setLong(2, bgId);
+                bescheid.setString(3, "BESCH-" + az);
+                bescheid.setBigDecimal(4, zahlbetrag);
+                bescheid.executeUpdate();
+                zahlung.setLong(1, zahlungId);
+                zahlung.setLong(2, bgId);
+                zahlung.setString(3, vorgangsNr);
+                zahlung.setBigDecimal(4, zahlbetrag);
+                zahlung.setString(5, "DE89370400440532013000");
+                zahlung.setString(6, "MARKDEF1100");
+                zahlung.setString(7, "Recover, Rita");
+                zahlung.executeUpdate();
+            }
+            c.commit();
+        }
+
+        try {
+            // Wiederanlauf über ALLE bekannten Definitionen (Fach-Saga + Demo, Fund K4)
+            try (TaskController tasks = new TaskController(txManager, 1, 1)) {
+                Systemdiagnose diagnose = new Systemdiagnose(txManager, tasks,
+                        new SagaEngine(txManager, new SagaJournal(pool)), Instant.now());
+                var ergebnis = diagnose.wiederanlaufDetails();
+                assertTrue(ergebnis.insgesamt() >= 1,
+                        "mindestens die Test-Saga muss behandelt werden (je Typ: " + ergebnis.jeTyp() + ")");
+            }
+
+            // Fachliche Prüfungen nach der Kompensation
+            try (Connection c = verbindung()) {
+                assertEquals("COMPENSATED", abfrageText(c,
+                        "SELECT STATE FROM TX_SAGA WHERE SAGA_ID = ?", sagaId),
+                        "Saga muss im Journal mit COMPENSATED abgeschlossen sein");
+                assertEquals("4", abfrageText(c,
+                        "SELECT COUNT(*) FROM TX_SAGA_STEP WHERE SAGA_ID = ? AND STATE = 'COMPENSATED'",
+                        sagaId), "alle 4 Schritte müssen kompensiert sein (inkl. IN_FLIGHT-Schritt 3)");
+                assertEquals("STORNIERT", abfrageText(c,
+                        "SELECT ZAHLUNGSSTATUS FROM ZAHLUNG WHERE VORGANGS_NR = ?", vorgangsNr),
+                        "die Zahlung der Saga muss storniert sein");
+                assertEquals(0, new BigDecimal("5000.00").compareTo(new BigDecimal(abfrageText(c,
+                        "SELECT BUDGET_REST FROM BEDARFSGEMEINSCHAFT WHERE ID = ?", String.valueOf(bgId)))),
+                        "Restbudget muss vollständig zurückgebucht sein");
+                assertEquals("AUFGEHOBEN", abfrageText(c,
+                        "SELECT STATUS FROM BESCHEID WHERE BG_ID = ?", String.valueOf(bgId)),
+                        "Bescheid muss aufgehoben sein");
+                assertEquals("0", abfrageText(c,
+                        "SELECT STATUS_AKTIV FROM BEDARFSGEMEINSCHAFT WHERE ID = ?", String.valueOf(bgId)),
+                        "Vorgang muss historisiert (STATUS_AKTIV = 0) sein — nicht gelöscht (§ 67 SGB X)");
+            }
+        } finally {
+            // Testdaten aufräumen (Journal + Fachdaten dieses einen Vorgangs)
+            try (Connection c = verbindung()) {
+                c.setAutoCommit(false);
+                try (Statement st = c.createStatement()) {
+                    st.executeUpdate("DELETE FROM TX_SAGA_STEP WHERE SAGA_ID = '" + sagaId.replace("'", "''") + "'");
+                    st.executeUpdate("DELETE FROM TX_SAGA WHERE SAGA_ID = '" + sagaId.replace("'", "''") + "'");
+                    st.executeUpdate("DELETE FROM JOURNAL WHERE BG_ID = " + bgId);
+                    st.executeUpdate("DELETE FROM BESCHEID WHERE BG_ID = " + bgId);
+                    st.executeUpdate("DELETE FROM ZAHLUNG WHERE BG_ID = " + bgId);
+                    st.executeUpdate("DELETE FROM SOZIAL_FALL WHERE BG_ID = " + bgId);
+                    st.executeUpdate("DELETE FROM BEDARFSGEMEINSCHAFT WHERE ID = " + bgId);
+                }
+                c.commit();
+            }
+        }
+    }
+
+    private static Connection verbindung() throws Exception {
+        Connection c = DriverManager.getConnection(
+                System.getenv("TX_URL"), System.getenv("TX_USER"), System.getenv("TX_PASS"));
+        c.setAutoCommit(true);
+        return c;
+    }
+
+    private static long naechsteId(Connection c, String sequence) throws Exception {
+        try (Statement st = c.createStatement();
+             ResultSet rs = st.executeQuery("SELECT " + sequence + ".NEXTVAL FROM DUAL")) {
+            rs.next();
+            return rs.getLong(1);
+        }
+    }
+
+    /** Liest einen einzelnen Text-Wert (erster Parameter als String eingebunden). */
+    private static String abfrageText(Connection c, String sql, String... parameter) throws Exception {
+        try (PreparedStatement stmt = c.prepareStatement(sql)) {
+            for (int i = 0; i < parameter.length; i++) {
+                stmt.setString(i + 1, parameter[i]);
+            }
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next() ? rs.getString(1) : null;
+            }
+        }
     }
 
     private String erstelleSagaPayload(String aktenzeichen, String name, BigDecimal budget,

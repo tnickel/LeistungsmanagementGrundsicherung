@@ -23,8 +23,8 @@ public final class TxManager {
     }
 
     public TxManager(ConnectionPool pool, RetryPolicy retryPolicy) {
-        this.pool = pool;
-        this.retryPolicy = retryPolicy;
+        this.pool = java.util.Objects.requireNonNull(pool, "pool");
+        this.retryPolicy = java.util.Objects.requireNonNull(retryPolicy, "retryPolicy");
     }
 
     /**
@@ -70,6 +70,14 @@ public final class TxManager {
                 long durationMillis = (System.nanoTime() - startNanos) / 1_000_000;
                 de.allgemein.tx.audit.TxAuditLog.recordTxRollback(txId, attempt, durationMillis, e.getMessage());
                 throw TxException.nonRetryable("Transaktion abgebrochen: " + e.getMessage(), e);
+            } catch (Error e) {
+                // OOM/StackOverflow o. ä.: Transaktion zurückrollen und den Error durchreichen.
+                // Wichtig: die Pools dürfen beim release() nie implizit committen
+                // (sie rollen vor setAutoCommit(true) selbst zurück).
+                rollbackQuietly(raw);
+                long durationMillis = (System.nanoTime() - startNanos) / 1_000_000;
+                de.allgemein.tx.audit.TxAuditLog.recordTxRollback(txId, attempt, durationMillis, e.toString());
+                throw e;
             } finally {
                 if (raw != null) {
                     pool.release(raw);
@@ -83,10 +91,9 @@ public final class TxManager {
             de.allgemein.tx.audit.TxAuditLog.recordTxRetry(txId, attempt, failure.getMessage());
             retryPolicy.sleepBeforeAttempt(attempt);
         }
-        long durationMillis = (System.nanoTime() - startNanos) / 1_000_000;
-        de.allgemein.tx.audit.TxAuditLog.recordTxRollback(txId, maxAttempts, durationMillis,
-                lastFailure != null ? lastFailure.getMessage() : "unbekannt");
-        throw lastFailure;
+        // Nicht erreichbar: die Schleife endet immer mit return oder throw
+        // (maxAttempts >= 1 wird von TxOptions erzwungen).
+        throw new AssertionError("unreachable");
     }
 
     /** Beginnt eine manuell gesteuerte Transaktion; danach commit()/rollback() und finish(). */
@@ -108,6 +115,9 @@ public final class TxManager {
     }
 
     public void rollback(TxContext ctx) {
+        if (ctx.status() != TxStatus.ACTIVE) {
+            return; // bereits committet oder abgebrochen — nichts zu tun
+        }
         try {
             ctx.connection().rollback();
         } catch (SQLException e) {
@@ -119,8 +129,11 @@ public final class TxManager {
 
     /** Gibt die Verbindung nach einer manuellen Transaktion in den Pool zurück. */
     public void finish(TxContext ctx) {
+        // Verbindung VOR close() aus dem Kontext lösen: close() beendet die
+        // Transaktion und connection() würde danach eine IllegalStateException werfen.
+        Connection raw = ctx.detachConnection();
         ctx.close();
-        pool.release(ctx.connection());
+        pool.release(raw);
     }
 
     private void rollbackQuietly(Connection raw) {

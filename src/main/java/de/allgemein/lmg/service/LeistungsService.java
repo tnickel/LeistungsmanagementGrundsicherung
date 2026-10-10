@@ -29,6 +29,9 @@ public interface LeistungsService {
     /** SozialFall speichern (optimistisches Locking über erwartete VERSION). */
     SozialFall aktualisiereSozialFall(SozialFall geaendert, long erwarteteVersion);
 
+    /** SozialFall speichern mit Sachbearbeiter-Kennung für das Journal (revisionssicher). */
+    SozialFall aktualisiereSozialFall(SozialFall geaendert, long erwarteteVersion, String sachbearbeiterId);
+
     /** Vorgangskopf speichern: Status und Wiedervorlage (optimistisches Locking). */
     Bedarfsgemeinschaft aktualisiereBedarfsgemeinschaft(
             long id, boolean statusAktiv, LocalDate wiedervorlageAm, long erwarteteVersion);
@@ -37,6 +40,12 @@ public interface LeistungsService {
     Bedarfsgemeinschaft aktualisiereBedarfsgemeinschaft(
             long id, boolean statusAktiv, LocalDate wiedervorlageAm,
             String iban, String bic, String kontoinhaber, long erwarteteVersion);
+
+    /** Vorgangskopf inklusive Bankverbindung und Vermögen (§ 90 SGB XII) speichern. */
+    Bedarfsgemeinschaft aktualisiereBedarfsgemeinschaft(
+            long id, boolean statusAktiv, LocalDate wiedervorlageAm,
+            String iban, String bic, String kontoinhaber, java.math.BigDecimal vermoegen,
+            long erwarteteVersion, String sachbearbeiterId);
 
     /** Letzte Zahlungen über alle Vorgänge (Widget/Journalansicht). */
     List<Zahlung> letzteZahlungen(int limit);
@@ -57,11 +66,22 @@ public interface LeistungsService {
             BigDecimal startBudget, LocalDate wiedervorlageAm,
             String iban, String bic, String kontoinhaber, String sachbearbeiterId);
 
+    /** Legt einen Vorgang inklusive Bankverbindung und Vermögen (§ 90 SGB XII) an. */
+    Bedarfsgemeinschaft legeBedarfsgemeinschaftAn(String aktenzeichen, String hauptpersonName,
+            BigDecimal startBudget, LocalDate wiedervorlageAm,
+            String iban, String bic, String kontoinhaber, BigDecimal vermoegen, String sachbearbeiterId);
+
     /** Legt einen weiteren SozialFall zu einem aktiven Vorgang an. */
     SozialFall legeSozialFallAn(long bgId, SozialFall entwurf, String sachbearbeiterId);
 
     /** Rechnerische Feststellung / Vier-Augen-Freigabe einer Zahlung (Status ANGELEGT -> BEREIT). */
     Zahlung freigebenZahlung(long zahlungId, String freigeberId);
+
+    /**
+     * Vier-Augen-Freigabe mit Rolleninformation: ein Administrator (Rolle admin)
+     * darf ausnahmsweise die eigene Anordnung rechnerisch feststellen.
+     */
+    Zahlung freigebenZahlung(long zahlungId, String freigeberId, boolean freigeberIstAdmin);
 
     /** Kassenlauf: alle BEREIT-Zahlungen auf UEBERGEBEN setzen (eine Transaktion). */
     Kassenlaeufergebnis uebergebeBereiteZahlungen(String sachbearbeiterId);
@@ -69,7 +89,7 @@ public interface LeistungsService {
     /** Storniert eine BEREIT- oder ANGELEGT-Zahlung und bucht das Restbudget zurück. */
     Zahlung storniereZahlung(long zahlungId, String sachbearbeiterId);
 
-    /** Erteilt einen Bewilligungsbescheid nach § 37 SGB X für eine Bedarfsgemeinschaft. */
+    /** Erteilt einen Bewilligungsbescheid (§ 44 SGB XII); Bekanntgabe nach § 37 SGB X. */
     de.allgemein.lmg.model.Bescheid erteileBescheid(long bgId, String bewilligungVon, String bewilligungBis, String sachbearbeiterId);
 
     /** Liefert den aktuellen/letzten Bescheid der Bedarfsgemeinschaft, falls vorhanden. */

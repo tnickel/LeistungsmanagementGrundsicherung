@@ -41,6 +41,21 @@ public final class UcpConnectionPool implements ConnectionPool {
         return poolDataSource.getConnection();
     }
 
+    /**
+     * Gibt die Verbindung an den UCP zurück. Zwei Sicherheitsregeln:
+     * <ul>
+     *   <li><b>Kein impliziter Commit:</b> JDBC sieht vor, dass
+     *       {@code setAutoCommit(true)} eine offene Transaktion committet. Deshalb
+     *       wird vor dem Umschalten grundsätzlich {@code rollback()} ausgeführt
+     *       (quietly) — auch wenn der TxManager nach einem {@code Error} (OOM o. ä.)
+     *       abbricht, darf kein Teilstand festgeschrieben werden.</li>
+     *   <li><b>Kein Leak im Fehlerpfad:</b> Wirft {@code isClosed()}/
+     *       {@code getAutoCommit()} bereits eine {@code SQLException} (tote
+     *       Verbindung nach DB-Neustart), wird {@code close()} trotzdem versucht —
+     *       sonst bliebe die Verbindung im UCP dauerhaft als „borrowed“ stehen und
+     *       der Pool liefe leer.</li>
+     * </ul>
+     */
     @Override
     public void release(Connection connection) {
         if (connection == null) {
@@ -49,13 +64,32 @@ public final class UcpConnectionPool implements ConnectionPool {
         try {
             if (!connection.isClosed()) {
                 if (!connection.getAutoCommit()) {
+                    rollbackQuietly(connection);
                     connection.setAutoCommit(true);
                 }
                 // Bei UCP gibt connection.close() die physische Verbindung an den Pool zurück
                 connection.close();
             }
         } catch (SQLException e) {
-            LOG.log(Level.WARNING, "Fehler beim Zurückgeben der Verbindung an den UCP", e);
+            LOG.log(Level.WARNING, "Fehler beim Zurückgeben der Verbindung an den UCP, Verbindung wird geschlossen", e);
+            closeQuietly(connection);
+        }
+    }
+
+    private void rollbackQuietly(Connection connection) {
+        try {
+            connection.rollback();
+        } catch (SQLException e) {
+            LOG.log(Level.FINE, "Rollback vor dem Zurückstellen fehlgeschlagen: " + e.getMessage(), e);
+        }
+    }
+
+    private void closeQuietly(Connection connection) {
+        try {
+            connection.close();
+        } catch (SQLException | RuntimeException ignored) {
+            // nichts zu holen, Verbindung ist bereits weg — Hauptsache, sie hängt
+            // nicht mehr als „borrowed“ im UCP
         }
     }
 
