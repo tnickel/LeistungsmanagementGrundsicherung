@@ -2,6 +2,8 @@ package de.allgemein.lmg.saga;
 
 import de.allgemein.lmg.calc.Leistungsberechnung;
 import de.allgemein.lmg.model.SozialFall;
+import de.allgemein.lmg.service.FachlicheException;
+import de.allgemein.lmg.service.Zahlungsmonat;
 import de.allgemein.lmg.web.Json;
 import de.allgemein.tx.saga.SagaDefinition;
 
@@ -22,7 +24,7 @@ import java.util.Map;
  * <ol>
  *   <li><b>Vorgang erfassen:</b> Anlage von BEDARFSGEMEINSCHAFT und SOZIAL_FALL</li>
  *   <li><b>Bedarfsprüfung:</b> SGB-XII-Berechnung; Abbruch bei fehlendem Anspruch</li>
- *   <li><b>Bescheid erteilen:</b> Erstellung des Bewilligungsbescheids nach § 37 SGB X</li>
+ *   <li><b>Bescheid erteilen:</b> Erstellung des Bewilligungsbescheids nach § 44 SGB XII</li>
  *   <li><b>Erstauszahlung anweisen:</b> Zahlung im Status ANGELEGT (wartet auf die
  *       Vier-Augen-Freigabe durch einen zweiten Sachbearbeiter), Minderung des Restbudgets</li>
  * </ol>
@@ -337,8 +339,9 @@ public final class AntragsSagaProzess {
      * STORNIERT gewandelt wurden (SELECT … FOR UPDATE, Summe merken, bedingtes UPDATE mit
      * Guard, erst danach Budget-Update). Eine bereits (z. B. manuell) stornierte Zahlung
      * führt zu einer No-Operation. War eine Zahlung bereits an die Kasse übergeben
-     * (UEBERGEBEN), wird sie zurückgeholt und ein ALARM-Journaleintrag zur manuellen
-     * Klärung mit der Kasse geschrieben — ein Status AUSGEZOHLT existiert im Modell nicht.
+     * (UEBERGEBEN), wird sie NICHT automatisch storniert und das Budget nicht gutgeschrieben:
+     * Das Geld kann bereits ausgezahlt sein (ein Status AUSGEZOHLT existiert im Modell nicht).
+     * Stattdessen entsteht ein ALARM-Journaleintrag zur manuellen Klärung mit der Kasse.
      */
     public static void erstauszahlungKompensieren(Connection c, String payload, String sagaId) throws SQLException {
         Map<String, Object> data = parsePayload(payload);
@@ -375,17 +378,24 @@ public final class AntragsSagaProzess {
         try (PreparedStatement storno = c.prepareStatement(
                 "UPDATE ZAHLUNG SET ZAHLUNGSSTATUS = 'STORNIERT' WHERE ID = ? AND ZAHLUNGSSTATUS = ?")) {
             for (int i = 0; i < ids.size(); i++) {
+                if ("UEBERGEBEN".equals(statusse.get(i))) {
+                    warUebergeben = true;
+                    continue;
+                }
                 storno.setLong(1, ids.get(i));
                 storno.setString(2, statusse.get(i));
                 if (storno.executeUpdate() == 1) {
                     gutzuschreiben = gutzuschreiben.add(betraege.get(i));
-                    if ("UEBERGEBEN".equals(statusse.get(i))) {
-                        warUebergeben = true;
-                    }
                 }
             }
         }
 
+        if (warUebergeben) {
+            schreibeJournal(c, bgId, "ALARM: Die Zahlung (" + vorgangsNr
+                    + ") der abgebrochenen Antrags-Saga wurde bereits an die Kasse uebergeben und NICHT storniert — "
+                    + "manuelle Klaerung mit der Kasse erforderlich (Rueckholung bzw. Rueckforderung)",
+                    "saga-engine");
+        }
         if (gutzuschreiben.signum() <= 0) {
             return; // nichts zu stornieren (bereits storniert) — idempotente No-Operation
         }
@@ -409,11 +419,6 @@ public final class AntragsSagaProzess {
 
         schreibeJournal(c, bgId, "Erstauszahlung storniert (Saga-Kompensation), Restbudget um "
                 + gutzuschreiben + " EUR erhoeht", "saga-engine");
-        if (warUebergeben) {
-            schreibeJournal(c, bgId, "ALARM: Die stornierte Zahlung (" + vorgangsNr
-                    + ") war bereits an die Kasse uebergeben — manuelle Klaerung mit der Kasse erforderlich",
-                    "saga-engine");
-        }
     }
 
     // ------------------------------------------------------------------
@@ -429,11 +434,70 @@ public final class AntragsSagaProzess {
         return (Map<String, Object>) map;
     }
 
+    /**
+     * Prüft die Eingabedaten vor dem Start der Saga, damit fehlerhafte Anträge als
+     * Fachfehler (HTTP 400) abgewiesen werden statt als halb ausgeführte, kompensierte Saga.
+     */
+    public static void validierePayload(Map<String, Object> data) {
+        for (String feld : List.of("aktenzeichen", "hauptpersonName")) {
+            if (!(data.get(feld) instanceof String text) || text.isBlank()) {
+                throw new FachlicheException(FachlicheException.VALIDATION, "Pflichtfeld fehlt: " + feld);
+            }
+        }
+        for (String feld : List.of("iban", "bic")) {
+            if (data.get(feld) != null && !(data.get(feld) instanceof String)) {
+                throw new FachlicheException(FachlicheException.VALIDATION, feld + " muss ein Text sein");
+            }
+        }
+        if (!(data.get("regelbedarfsstufe") instanceof Number rbs)
+                || rbs.doubleValue() != rbs.intValue() || rbs.intValue() < 1 || rbs.intValue() > 6) {
+            throw new FachlicheException(FachlicheException.VALIDATION,
+                    "Regelbedarfsstufe muss eine ganze Zahl zwischen 1 und 6 sein");
+        }
+        Object von = data.get("zahlungsmonat");
+        if (!(von instanceof String vonText) || !Zahlungsmonat.isValid(vonText)) {
+            throw new FachlicheException(FachlicheException.VALIDATION,
+                    "Zahlungsmonat muss im Format YYYY-MM angegeben sein");
+        }
+        Object bis = data.get("bewilligungBis");
+        if (bis != null && (!(bis instanceof String bisText) || !Zahlungsmonat.isValid(bisText)
+                || bisText.compareTo(vonText) < 0)) {
+            throw new FachlicheException(FachlicheException.VALIDATION,
+                    "Bewilligung bis muss im Format YYYY-MM angegeben sein und darf nicht vor dem Zahlungsmonat liegen");
+        }
+        for (String feld : List.of("startBudget", "kduMiete", "kduBetriebskosten", "kduHeizung",
+                "einkommenRente", "einkommenErwerb")) {
+            try {
+                getBigDecimal(data.get(feld));
+            } catch (IllegalArgumentException e) {
+                throw new FachlicheException(FachlicheException.VALIDATION, feld + ": " + e.getMessage());
+            }
+        }
+    }
+
+    /** Betrag mit zwei Nachkommastellen (kaufmännisch gerundet); negativ, zu groß oder keine Zahl → Fehler. */
     private static BigDecimal getBigDecimal(Object val) {
         if (val == null) return BigDecimal.ZERO.setScale(2);
-        if (val instanceof BigDecimal bd) return bd.setScale(2);
-        if (val instanceof Number n) return BigDecimal.valueOf(n.doubleValue()).setScale(2, java.math.RoundingMode.HALF_UP);
-        return new BigDecimal(String.valueOf(val)).setScale(2);
+        BigDecimal betrag;
+        try {
+            if (val instanceof BigDecimal bd) {
+                betrag = bd;
+            } else if (val instanceof Number n) {
+                betrag = new BigDecimal(String.valueOf(n));
+            } else {
+                betrag = new BigDecimal(String.valueOf(val).trim());
+            }
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("ist keine gültige Zahl");
+        }
+        if (betrag.signum() < 0) {
+            throw new IllegalArgumentException("darf nicht negativ sein");
+        }
+        BigDecimal gerundet = betrag.setScale(2, java.math.RoundingMode.HALF_UP);
+        if (gerundet.precision() - gerundet.scale() > 8) {
+            throw new IllegalArgumentException("ist zu groß (maximal 99.999.999,99 EUR)");
+        }
+        return gerundet;
     }
 
     private static Long findBgId(Connection c, String aktenzeichen) throws SQLException {

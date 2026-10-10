@@ -133,13 +133,13 @@ Die Leistungsberechnung ist als seiteneffektfreie, deterministische Funktion in 
 | **Regelbedarfsstufen (RBS 1–6)** | § 27a SGB XII / Anlage zu § 28 | RBS 1: **563,00 €** · RBS 2: **506,00 €** · RBS 3: **451,00 €**<br>RBS 4: **471,00 €** · RBS 5: **390,00 €** · RBS 6: **357,00 €** |
 | **Mehrbedarf Gehbehinderung** | § 30 Abs. 1 SGB XII (Merkzeichen G) | **17 %** des maßgeblichen Regelbedarfs (RBS 1: 95,71 € / RBS 2: 86,02 €) |
 | **Mehrbedarf Schwangerschaft** | § 30 Abs. 2 SGB XII | **17 %** ab der 12. Schwangerschaftswoche (RBS 1: 95,71 €) |
-| **Mehrbedarf Alleinerziehende** | § 30 Abs. 3 SGB XII | **36 %** (Kind u. 7 J. oder 2–3 Kinder u. 16 J.), sonst **12 % je Kind**, Deckel **60 % RBS 1** (337,80 €) |
+| **Mehrbedarf Alleinerziehende** | § 30 Abs. 3 SGB XII | Basis stets **RBS 1**: **36 %** (Kind u. 7 J. oder 2–3 Kinder u. 16 J.), sonst **12 % je minderjähriges Kind**, Deckel **60 % RBS 1** (337,80 €) |
 | **Mehrbedarf Warmwasser** | § 30 Abs. 7 SGB XII | Stufenabhängig: **2,3 %** (RBS 1/2), **1,4 %** (RBS 4), **1,2 %** (RBS 5), **0,8 %** (RBS 6); RBS 3 ohne Satz |
 | **Obergrenze der Mehrbedarfe** | § 30 Abs. 6 SGB XII | Summe der Mehrbedarfe höchstens der Regelbedarf selbst |
-| **Kosten der Unterkunft (KdU)** | § 42a i.V.m. § 35 SGB XII | Kaltmiete + kalte Betriebskosten + Heizkosten; Angemessenheitsprüfung mit Vorbehalt; Warmwasser-Abzug konfigurierbar |
+| **Kosten der Unterkunft (KdU)** | § 42a i.V.m. § 35 SGB XII | Kaltmiete + kalte Betriebskosten + Heizkosten; Angemessenheitsgrenze je Bedarfsgemeinschaft (§ 35 Abs. 7); Warmwasser-Abzug nur bei zentraler Erzeugung konfigurierbar; Karenzzeit/Absenkungsfrist nicht abgebildet |
 | **Absetzbeträge vom Einkommen** | § 82 Abs. 2 SGB XII | Steuern, Sozialversicherung, Versicherungen, Erwerbsaufwendungen |
 | **Erwerbseinkommensfreibetrag** | § 82 Abs. 3 SGB XII | $\min(30\,\%\text{ Brutto}, 50\,\%\text{ RBS 1} = 281{,}50\text{ €})$ |
-| **Vermögensanrechnung** | § 43 Abs. 3, § 90 Abs. 2 Nr. 14 SGB XII | Schonvermögen **10.000 €** + **750 €** je weiterem Mitglied; Verwertbares mindert den Zahlbetrag |
+| **Vermögensanrechnung** | § 43 Abs. 1, § 90 Abs. 2 Nr. 9 SGB XII i.V.m. § 1 BarbetragsVO | Schonvermögen **10.000 €** je volljähriger Person (RBS 1–3) + **500 €** je überwiegend unterhaltener Person (RBS 4–6); Verwertbares mindert den Zahlbetrag |
 | **Monatlicher Zahlbetrag** | § 43a SGB XII | $\text{Gesamtbedarf der BG} - \text{anrechenbares Einkommen} - \text{verwertbares Vermögen}$ |
 
 ---

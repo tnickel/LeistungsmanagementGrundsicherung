@@ -89,12 +89,12 @@ public interface LeistungsService {
     /** Storniert eine BEREIT- oder ANGELEGT-Zahlung und bucht das Restbudget zurück. */
     Zahlung storniereZahlung(long zahlungId, String sachbearbeiterId);
 
-    /** Erteilt einen Bewilligungsbescheid (§ 44 SGB XII); Bekanntgabe nach § 37 SGB X. */
+    /** Erteilt einen Bewilligungsbescheid (§ 44 SGB XII); das Bescheiddatum ist der Ausstellungstag. */
     de.allgemein.lmg.model.Bescheid erteileBescheid(long bgId, String bewilligungVon, String bewilligungBis, String sachbearbeiterId);
 
     /** Liefert den aktuellen/letzten Bescheid der Bedarfsgemeinschaft, falls vorhanden. */
     java.util.Optional<de.allgemein.lmg.model.Bescheid> letzterBescheid(long bgId);
 
-    /** Generiert das amtliche, druckfertige Bescheid-Dokument (HTML nach § 37 SGB X). */
+    /** Generiert das amtliche, druckfertige Bescheid-Dokument (HTML, Bewilligungsbescheid nach § 44 SGB XII). */
     String generiereBescheidHtml(long bgId);
 }

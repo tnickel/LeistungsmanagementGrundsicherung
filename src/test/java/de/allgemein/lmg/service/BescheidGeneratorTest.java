@@ -54,10 +54,41 @@ class BescheidGeneratorTest {
     void bescheinhaeltPflichtbestandteile() {
         String html = generiere("BESCH-2026-1", "BG-2026-0001");
         assertTrue(html.contains("Bewilligungsbescheid"));
-        assertTrue(html.contains("Bekanntgegeben am"));
+        assertTrue(html.contains("Datum des Bescheids"));
         assertTrue(html.contains("Rechtsbehelfsbelehrung"));
         assertTrue(html.contains("Widerspruch"));
+        assertTrue(html.contains("§ 84 Abs. 1"), "Fundstelle der Widerspruchsfrist fehlt");
+        assertTrue(html.contains("§ 87 Abs. 2 SGG"), "Klagefrist nach Widerspruchsbescheid fehlt");
+        assertTrue(html.contains("Regelbedarfsstufe 1"), "Regelbedarfsstufe fehlt in der Begründung");
+        assertTrue(html.contains("Einkommen (§ 82 SGB XII)"), "Einkommen fehlt in der Begründung");
+        assertFalse(html.contains("onclick"), "Inline-Eventhandler widerspricht der CSP");
+        assertFalse(html.contains("Musterstadt"), "Hartcodierter Ort");
     }
+
+    @Test
+    void ortAnschriftUndGerichtKommenAusDerKonfiguration() {
+        Bedarfsgemeinschaft bg = new Bedarfsgemeinschaft(1L, "BG-1", "Meier, Anna", true,
+                eur("1500.00"), null, 1L, null, null, null, BigDecimal.ZERO);
+        String html = BescheidGenerator.generiereHtml(bg, List.of(fall()), berechnung(), bescheid("B-1"),
+                new BescheidGenerator.Rechtsbehelf("WIDERSPRUCH", "Bezirksregierung Nord", "Sozialgericht Nord",
+                        "Nordstadt", "Amt Nord, Hauptstraße 1, 11111 Nordstadt"));
+        assertTrue(html.contains("Nordstadt, den "));
+        assertTrue(html.contains("Amt Nord, Hauptstraße 1, 11111 Nordstadt"));
+        assertTrue(html.contains("Bezirksregierung Nord"));
+        assertTrue(html.contains("Sozialgericht Nord"));
+    }
+
+    @Test
+    void klagemodusNenntKeinVorverfahren() {
+        Bedarfsgemeinschaft bg = new Bedarfsgemeinschaft(1L, "BG-1", "Meier, Anna", true,
+                eur("1500.00"), null, 1L, null, null, null, BigDecimal.ZERO);
+        String html = BescheidGenerator.generiereHtml(bg, List.of(fall()), berechnung(), bescheid("B-1"),
+                new BescheidGenerator.Rechtsbehelf("KLAGE", null, "Sozialgericht Süd"));
+        assertTrue(html.contains("Klage bei Sozialgericht Süd"));
+        assertTrue(html.contains("§ 87 Abs. 1 SGG"));
+        assertFalse(html.contains("Widerspruch eingelegt"));
+    }
+
 
     // ------------------------------------------------------------------
     // Aufbau

@@ -238,10 +238,18 @@ public final class SozialLeistungsService implements LeistungsService {
                 return new Auszahlungsergebnis(zahlung, bgDao.finde(ctx, zahlung.bgId()).orElse(bg), true);
             }
 
+            // 2c. Pro Bedarfsgemeinschaft und Monat nur eine wirksame Zahlung: verhindert die
+            //     Doppelzahlung durch zwei verschiedene Vorgangsnummern (Storno gibt den Monat frei).
+            if (zahlungDao.existiertAktiveFuerMonat(ctx, bg.id(), auftrag.zahlungsmonat())) {
+                throw new FachlicheException(FachlicheException.VALIDATION,
+                        "Für " + auftrag.zahlungsmonat() + " existiert bereits eine nicht stornierte Zahlung "
+                                + "dieser Bedarfsgemeinschaft; ggf. zuerst stornieren");
+            }
+
             // 3. Bedarf ermitteln (§§ 27a ff., 42a, 82, 90 SGB XII) und prüfen
             List<SozialFall> faelle = fallDao.listeFuerBg(ctx, bg.id());
             Leistungsberechnung.Berechnungsergebnis berechnung = Leistungsberechnung.berechne(
-                    bg.id(), faelle, kduParameter, bg.vermoegen(), faelle.size());
+                    bg.id(), faelle, kduParameter, bg.vermoegen());
             BigDecimal zahlbetrag = berechnung.zahlbetrag();
             if (zahlbetrag.signum() <= 0) {
                 throw new FachlicheException(FachlicheException.KEIN_ANSPRUCH,
@@ -365,7 +373,7 @@ public final class SozialLeistungsService implements LeistungsService {
 
     private SozialFall normalisiertMitId(long bgId, long id, SozialFall fall) {
         return new SozialFall(id, bgId, fall.regelbedarfsstufe(), fall.merkzeichenG(), fall.schwanger(),
-                fall.anzKinderUnter7(), fall.anzKinderUnter16(), fall.warmwasser(),
+                fall.anzKinderUnter7(), fall.anzKinderUnter16(), fall.anzKinderMinderjaehrig(), fall.warmwasser(),
                 fall.kduMiete(), fall.kduBetriebskosten(), fall.kduHeizung(),
                 fall.einkommenRente(), fall.einkommenErwerb(),
                 fall.abzSteuern(), fall.abzSozialversicherung(), fall.abzVersicherungen(),
@@ -486,7 +494,7 @@ public final class SozialLeistungsService implements LeistungsService {
             }
 
             Leistungsberechnung.Berechnungsergebnis berechnung = Leistungsberechnung.berechne(
-                    bgId, faelle, kduParameter, bg.vermoegen(), faelle.size());
+                    bgId, faelle, kduParameter, bg.vermoegen());
             if (berechnung.zahlbetrag().signum() <= 0) {
                 throw new FachlicheException(FachlicheException.KEIN_ANSPRUCH,
                         "Kein Leistungsanspruch nach SGB XII: Einkommen/Vermögen decken den Gesamtbedarf "
@@ -495,8 +503,8 @@ public final class SozialLeistungsService implements LeistungsService {
 
             long id = bescheidDao.naechsteId(ctx);
             String bescheidNr = "BESCH-" + bg.aktenzeichen() + "-" + LocalDate.now().getYear() + "-" + id;
-            // BESCHEID_DATUM ist das Bekanntgabedatum (§ 37 SGB X) — mit ihm wird der
-            // Bescheid wirksam und die Rechtsbehelfsfrist (1 Monat) beginnt zu laufen.
+            // BESCHEID_DATUM ist das Ausstellungsdatum; die Bekanntgabe (§ 37 SGB X), mit der die
+            // Rechtsbehelfsfrist (1 Monat) beginnt, ist ein eigener, nicht erfasster Zeitpunkt.
             Bescheid bescheid = bescheidDao.einfuegen(ctx, id, bgId, bescheidNr, LocalDate.now(),
                     bewilligungVon, bewilligungBis, berechnung.zahlbetrag(), sachbearbeiterId);
 
@@ -522,6 +530,11 @@ public final class SozialLeistungsService implements LeistungsService {
                             "Bedarfsgemeinschaft " + bgId + " ist nicht vorhanden"));
             List<SozialFall> faelle = fallDao.listeFuerBg(ctx, bgId);
             Leistungsberechnung.Berechnungsergebnis berechnung = berechnungDefensiv(bg, faelle);
+            if (berechnung == null) {
+                throw new FachlicheException(FachlicheException.VALIDATION,
+                        "Für diese Bedarfsgemeinschaft kann keine Berechnung erstellt werden "
+                                + "(keine oder ungültige Fälle)");
+            }
             Bescheid bescheid = bescheidDao.letzteFuerBg(ctx, bgId, 1).stream().findFirst()
                     .orElseThrow(() -> new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
                             "Kein Bewilligungsbescheid für Bedarfsgemeinschaft " + bgId + " vorhanden"));
@@ -542,7 +555,8 @@ public final class SozialLeistungsService implements LeistungsService {
         if (faelle.isEmpty()) {
             return null;
         }
-        return berechnungDefensiv(bg, faelle).zahlbetrag();
+        Leistungsberechnung.Berechnungsergebnis berechnung = berechnungDefensiv(bg, faelle);
+        return berechnung == null ? null : berechnung.zahlbetrag();
     }
 
     /** Berechnung, die fachliche Fehlkonfiguration in "keine Vorschau" auflöst (Maske zeigt Hinweis). */
@@ -550,7 +564,7 @@ public final class SozialLeistungsService implements LeistungsService {
             Bedarfsgemeinschaft bg, List<SozialFall> faelle) {
         try {
             return Leistungsberechnung.berechne(bg.id(), faelle, kduParameter,
-                    bg.vermoegen(), Math.max(1, faelle.size()));
+                    bg.vermoegen());
         } catch (FachlicheException e) {
             return null;
         }
@@ -578,14 +592,18 @@ public final class SozialLeistungsService implements LeistungsService {
             throw new FachlicheException(FachlicheException.VALIDATION,
                     "Regelbedarfsstufe muss zwischen 1 und 6 liegen");
         }
-        if (fall.anzKinderUnter7() < 0 || fall.anzKinderUnter16() < 0 || fall.anzKinderUnter7() > 99
-                || fall.anzKinderUnter16() > 99) {
+        if (fall.anzKinderUnter7() < 0 || fall.anzKinderUnter16() < 0 || fall.anzKinderMinderjaehrig() < 0
+                || fall.anzKinderUnter7() > 99 || fall.anzKinderUnter16() > 99
+                || fall.anzKinderMinderjaehrig() > 99) {
             throw new FachlicheException(FachlicheException.VALIDATION,
                     "Anzahl Kinder muss zwischen 0 und 99 liegen");
         }
+        // Jede Altersgruppe enthält die engere: unter 7 ⊆ unter 16 ⊆ minderjährig
+        int kinderU16 = Math.max(fall.anzKinderUnter16(), fall.anzKinderUnter7());
+        int minderjaehrig = Math.max(fall.anzKinderMinderjaehrig(), kinderU16);
         return new SozialFall(fall.id(), fall.bgId(), fall.regelbedarfsstufe(),
                 fall.merkzeichenG(), fall.schwanger(),
-                fall.anzKinderUnter7(), fall.anzKinderUnter16(), fall.warmwasser(),
+                fall.anzKinderUnter7(), kinderU16, minderjaehrig, fall.warmwasser(),
                 normiereBetrag(fall.kduMiete(), "Kaltmiete"),
                 normiereBetrag(fall.kduBetriebskosten(), "Kalte Betriebskosten"),
                 normiereBetrag(fall.kduHeizung(), "Heizkosten"),

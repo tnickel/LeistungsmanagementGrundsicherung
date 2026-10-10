@@ -49,7 +49,7 @@ VALUES (7, 6, 1, 0, 0, 0, 0, 0, 500.00, 0);
 
 -- 7) Weiss: Showcase der neuen Rechtsregeln — schwanger ab 12. SSW (§ 30 Abs. 2, 17 %),
 --    alleinerziehend mit einem Kind unter 7 (§ 30 Abs. 3, 36 %), Vermögen 10.500 EUR
---    über dem Schonvermögen (§ 90 Abs. 2 Nr. 14: 10.000 EUR) -> 500 EUR mindern den Bedarf.
+--    über dem Schonvermögen (§ 90 Abs. 2 Nr. 9 i.V.m. BarbetragsVO: 10.000 EUR) -> 500 EUR mindern den Bedarf.
 --    Bedarf: 563,00 + 95,71 + 202,68 + 650,00 = 1.511,39 EUR
 --    Zahlbetrag-Vorschau: 1.511,39 - 0 Einkommen - 500,00 Vermögen = 1.011,39 EUR
 INSERT INTO BEDARFSGEMEINSCHAFT (ID, AKTENZEICHEN, HAUPTPERSON_NAME, STATUS_AKTIV, BUDGET_REST, IBAN, BIC, KONTOINHABER, VERMOEGEN)

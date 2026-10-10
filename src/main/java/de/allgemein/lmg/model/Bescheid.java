@@ -5,7 +5,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 /**
- * Bewilligungsbescheid nach § 37 SGB X für Grundsicherungsleistungen nach SGB XII.
+ * Bewilligungsbescheid nach § 44 SGB XII für Grundsicherungsleistungen nach SGB XII.
  * Trägt Bewilligungszeitraum, monatlichen Zahlbetrag und Status (ERTEILT / AUFGEHOBEN).
  */
 public record Bescheid(

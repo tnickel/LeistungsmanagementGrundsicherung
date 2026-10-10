@@ -258,6 +258,7 @@ $("btn-fall-speichern").addEventListener("click", async () => {
         schwanger: $("neu-fall-schwanger").checked,
         anzKinderUnter7: Number($("neu-fall-kinder-u7").value || 0),
         anzKinderUnter16: Number($("neu-fall-kinder-u16").value || 0),
+        anzKinderMinderjaehrig: Number($("neu-fall-kinder-minderj").value || 0),
         warmwasser: $("neu-fall-warmwasser").checked,
         kduMiete: Number($("neu-fall-miete").value || 0),
         kduBetriebskosten: Number($("neu-fall-betriebskosten").value || 0),
@@ -384,7 +385,7 @@ function rendereBescheid(bescheid) {
   const box = $("bescheid-status-text");
   const druckBtn = $("btn-bescheid-drucken");
   if (bescheid && bescheid.id) {
-    box.innerHTML = `<strong>Bescheid erteilt:</strong> ${esc(bescheid.bescheidNr)} · Bekanntgabe: ${esc(bescheid.bescheidDatum || '–')} · Zeitraum: <strong>${esc(bescheid.bewilligungVon)} bis ${esc(bescheid.bewilligungBis)}</strong> · Monatlicher Zahlbetrag: <strong>${betrag(bescheid.zahlbetrag)}</strong> (${esc(bescheid.status)}) · Bearbeiter: ${esc(bescheid.erstelltVon)}`;
+    box.innerHTML = `<strong>Bescheid erteilt:</strong> ${esc(bescheid.bescheidNr)} · Bescheiddatum: ${esc(bescheid.bescheidDatum || '–')} · Zeitraum: <strong>${esc(bescheid.bewilligungVon)} bis ${esc(bescheid.bewilligungBis)}</strong> · Monatlicher Zahlbetrag: <strong>${betrag(bescheid.zahlbetrag)}</strong> (${esc(bescheid.status)}) · Bearbeiter: ${esc(bescheid.erstelltVon)}`;
     druckBtn.classList.remove("hidden");
     $("bescheid-von").value = bescheid.bewilligungVon || "";
     $("bescheid-bis").value = bescheid.bewilligungBis || "";
@@ -466,6 +467,9 @@ function rendereFallMasken() {
         <label>Kinder unter 16 im Haushalt (§ 30 Abs. 3)
           <input data-feld="anzKinderUnter16" type="number" step="1" min="0" max="99" value="${fall.anzKinderUnter16}">
         </label>
+        <label>Minderjährige Kinder insgesamt (§ 30 Abs. 3 Nr. 2)
+          <input data-feld="anzKinderMinderjaehrig" type="number" step="1" min="0" max="99" value="${fall.anzKinderMinderjaehrig}">
+        </label>
         <label>Kaltmiete (EUR)
           <input data-feld="kduMiete" type="number" step="0.01" min="0" value="${fall.kduMiete}">
         </label>
@@ -525,6 +529,7 @@ async function speichereFall(fall, maske) {
     schwanger: wert("schwanger").checked,
     anzKinderUnter7: Number(wert("anzKinderUnter7").value || 0),
     anzKinderUnter16: Number(wert("anzKinderUnter16").value || 0),
+    anzKinderMinderjaehrig: Number(wert("anzKinderMinderjaehrig").value || 0),
     warmwasser: wert("warmwasser").checked,
     kduMiete: Number(wert("kduMiete").value || 0),
     kduBetriebskosten: Number(wert("kduBetriebskosten").value || 0),

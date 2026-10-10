@@ -33,10 +33,12 @@ lmg.audit.file=lmg_audit.log
 lmg.session.timeout.minuten=60
 
 # KdU-Prüfung (§ 42a i.V.m. § 35 SGB XII): 0 = deaktiviert
-#  - warmwasserabzug: örtlicher Warmwasseranteil an den Heizkosten bei dezentraler
-#    Erzeugung (Dezimalanteil, z. B. 0.10 für 10 %)
-#  - angemessenheitsgrenze: monatliche Obergrenze der KdU in EUR; darüber wird nur
-#    bis zur Grenze anerkannt und im Bescheid "unter Vorbehalt" gekennzeichnet
+#  - warmwasserabzug: örtlicher Warmwasseranteil an den Heizkosten bei ZENTRALER Erzeugung
+#    (§ 35 Abs. 5; Dezimalanteil, z. B. 0.10 für 10 %). Wird nur abgezogen, wenn der Fall
+#    NICHT dezentral erzeugt (dann gilt stattdessen der Mehrbedarf nach § 30 Abs. 7).
+#  - angemessenheitsgrenze: monatliche Obergrenze der KdU je BEDARFSGEMEINSCHAFT in EUR
+#    (§ 35 Abs. 7); darüber hinausgehende Kosten werden nicht berücksichtigt und im Bescheid
+#    mit * gekennzeichnet. Karenzzeit und Absenkungsfrist (§ 35 Abs. 1/3) sind NICHT abgebildet.
 lmg.kdu.warmwasserabzug=0
 lmg.kdu.angemessenheitsgrenze=0
 
@@ -45,3 +47,5 @@ lmg.kdu.angemessenheitsgrenze=0
 lmg.rechtsbehelf.modus=WIDERSPRUCH
 # lmg.rechtsbehelf.behoerde=Stadt Musterstadt, Amt für Soziales und Wohnen, Musterstraße 1, 12345 Musterstadt
 # lmg.rechtsbehelf.sozialgericht=Sozialgericht Musterstadt, Musterstraße 2, 12345 Musterstadt
+# lmg.behoerde.ort=Musterstadt
+# lmg.behoerde.anschrift=Stadt Musterstadt, Amt für Soziales und Wohnen, Musterstraße 1, 12345 Musterstadt

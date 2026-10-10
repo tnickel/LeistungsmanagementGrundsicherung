@@ -1,6 +1,6 @@
 # Leistungsmanagement Grundsicherung (SDN.sozial LMG)
 
-*Stand: 2026-10-10, Version 0.5.0 (Fachrecht §§ 30/82/42a/90 vollständig, Saga-Crash-Sicherheit, Vier-Augen serverseitig erzwungen)*
+*Stand: 2026-10-10, Version 0.5.2 (Fachrecht §§ 30/35/82/90 nachgeprüft, Rechtsgrundlagen-Tabelle, Bescheid mit § 84/87/88 SGG)*
 
 Fachschicht auf der eigenen Transaktionssteuerung: Bearbeitung von Grundsicherungs-
 Leistungen im Alter und bei Erwerbsminderung nach **SGB XII** — von der Bedarfs-
@@ -26,14 +26,14 @@ Widget-Dashboard-Stil unter der Produktbezeichnung **SDN.sozial**.
 | Regelbedarf | RBS 1 = 563,00 EUR, RBS 2 = 506,00 EUR, RBS 3 = 451,00 EUR, RBS 4 = 471,00 EUR, RBS 5 = 390,00 EUR, RBS 6 = 357,00 EUR (Stufen 1–6 für 2026 vollständig hinterlegt; absolute Beträge nach Anlage zu § 28 SGB XII). |
 | Mehrbedarf Merkzeichen G | 17 % des Regelbedarfs (§ 30 Abs. 1 SGB XII); bei RBS 1 exakt 95,71 EUR, bei RBS 2 exakt 86,02 EUR. |
 | Mehrbedarf Schwangerschaft | 17 % des Regelbedarfs ab der 12. Schwangerschaftswoche (§ 30 Abs. 2 SGB XII), erfasst als Kennzeichen je SozialFall. |
-| Mehrbedarf Alleinerziehende | 36 % des Regelbedarfs bei einem Kind unter 7 oder zwei/drei Kindern unter 16 im Haushalt, sonst 12 % je Kind unter 16; gedeckelt auf 60 % der RBS 1 = 337,80 EUR (§ 30 Abs. 3 SGB XII). Vereinfachung: keine Kumulation von 36 %- und 12 %-Satz (dokumentiert). |
+| Mehrbedarf Alleinerziehende | Bemessungsgrundlage ist stets die RBS 1 (§ 30 Abs. 3 SGB XII): 36 % bei mindestens einem Kind unter 7 oder zwei/drei Kindern unter 16, sonst 12 % je minderjährigem Kind (Feld `ANZ_KINDER_MINDERJ`); gedeckelt auf 60 % der RBS 1 = 337,80 EUR. Keine Kumulation von 36 %- und 12 %-Satz (§ 30 Abs. 3 verlangt die höhere der beiden Varianten). |
 | Mehrbedarf dezentrale Warmwassererzeugung | stufenabhängig (§ 30 Abs. 7 SGB XII): RBS 1/2 = 2,3 % (12,95/11,64 EUR), RBS 4 = 1,4 % (6,59 EUR), RBS 5 = 1,2 % (4,68 EUR), RBS 6 = 0,8 % (2,86 EUR); für RBS 3 sieht das Gesetz keinen Satz vor (0 EUR). |
 | Obergrenze der Mehrbedarfe | Summe der Mehrbedarfe je Person übersteigt nie den eigenen Regelbedarf (§ 30 Abs. 6 SGB XII, Kappung). |
-| KdU (Dreiteilung) | anerkannte Kaltmiete + kalte Betriebskosten + Heizkosten, je SozialFall erfasst, BG-weit summiert (§ 42a i.V.m. § 35 SGB XII). Angemessenheitsprüfung: überschreitet die KdU die konfigurierbare Grenze (`lmg.kdu.angemessenheitsgrenze`), wird nur bis zur Grenze anerkannt und im Bescheid „unter Vorbehalt" gekennzeichnet. Bei dezentraler Warmwassererzeugung wird ein örtlich konfigurierbarer Warmwasseranteil von den Heizkosten abgezogen (`lmg.kdu.warmwasserabzug`). |
+| KdU (Dreiteilung) | anerkannte Kaltmiete + kalte Betriebskosten + Heizkosten, je SozialFall erfasst, BG-weit summiert (§ 42a i.V.m. § 35 SGB XII). Angemessenheitsgrenze (§ 35 Abs. 7): überschreitet die KdU der gesamten Bedarfsgemeinschaft die konfigurierbare Grenze (`lmg.kdu.angemessenheitsgrenze`), wird nur bis zur Grenze anerkannt (Reihenfolge der Fälle) und im Bescheid mit * gekennzeichnet. Bei ZENTRALER Warmwassererzeugung (Flag aus) wird ein örtlich konfigurierbarer Warmwasseranteil von den Heizkosten abgezogen (`lmg.kdu.warmwasserabzug`, § 35 Abs. 5); bei dezentraler Erzeugung stattdessen der Mehrbedarf nach § 30 Abs. 7. |
 | Absetzbeträge | vom Einkommen sind abzusetzen: Steuern, Pflichtbeiträge zur Sozialversicherung, gesetzlich vorgeschriebene/angemessene Versicherungsbeiträge, mit der Erzielung verbundene Ausgaben (§ 82 Abs. 2 SGB XII) — je SozialFall erfasst, vor dem Freibetrag abgezogen. |
 | Erwerbsfreibetrag | min(30 % Brutto-Erwerbseinkommen, 50 % der RBS 1 = 281,50 EUR) nach § 82 Abs. 3 SGB XII. |
 | Anrechenbares Einkommen | Renteneinkünfte (voll anrechenbar) + Erwerbseinkommen − Freibetrag − Absetzbeträge, mindestens 0. |
-| Vermögensanrechnung | Vermögen der BG abzüglich Schonvermögen: 10.000 EUR für die leistungsberechtigte Person + 750 EUR je weiterem Mitglied (§ 90 Abs. 2 Nr. 14 SGB XII); das verwertbare Vermögen mindert den Zahlbetrag (§ 43 Abs. 3 SGB XII). Vereinfachung: kein Verbrauchsfortschrieb über Monate. |
+| Vermögensanrechnung | Vermögen der BG abzüglich Schonvermögen: 10.000 EUR je volljähriger Person (RBS 1–3) + 500 EUR je überwiegend unterhaltener Person (RBS 4–6) nach § 90 Abs. 2 Nr. 9 SGB XII i.V.m. § 1 Barbetragsverordnung; das verwertbare Vermögen mindert den Zahlbetrag (§ 43 Abs. 1 SGB XII). Vereinfachung: kein Verbrauchsfortschrieb über Monate. |
 | Gesamtbedarf / Zahlbetrag | Summe über alle SozialFälle der Bedarfsgemeinschaft; Zahlbetrag = Gesamtbedarf − anrechenbares Einkommen − verwertbares Vermögen. Zahlbetrag ≤ 0 → fachlicher Hinweis, kein Anspruch. |
 
 Alle Berechnungen stehen als reine Funktion in
@@ -42,14 +42,46 @@ Alle Berechnungen stehen als reine Funktion in
 Stufen 4–6 des Warmwasser-Mehrbedarfs, Kinder-/Schwangeren-Mehrbedarfen,
 Obergrenze, Absetzbeträgen und Vermögensanrechnung).
 
+## Rechtsgrundlagen (Stand der Prüfung: Oktober 2026)
+
+Alle Normen im Wortlaut gegen gesetze-im-internet.de geprüft, soweit nicht anders vermerkt.
+
+| Norm | Inhalt | Umsetzung |
+|---|---|---|
+| § 28 + Anlage SGB XII | Regelbedarfsstufen 1–6 (2026: 563/506/451/471/390/357 EUR) | `Leistungsberechnung` |
+| § 30 Abs. 1, 2 SGB XII | Mehrbedarf Merkzeichen G und Schwangerschaft: je 17 % | umgesetzt |
+| § 30 Abs. 3 SGB XII | Alleinerziehende: Bezug **RBS 1**; 36 % (1 Kind < 7 oder 2–3 Kinder < 16) bzw. 12 % je minderjährigem Kind, max. 60 % | umgesetzt (neues Feld `ANZ_KINDER_MINDERJ`) |
+| § 30 Abs. 6 SGB XII | Deckel gilt nur für Abs. 1–5 | umgesetzt |
+| § 30 Abs. 7 SGB XII | dezentrale Warmwassererzeugung, stufenabhängig 2,3/2,3/–/1,4/1,2/0,8 %; liegt **außerhalb** des Deckels | umgesetzt |
+| § 35 Abs. 1, 3, 5, 7 SGB XII | KdU in tatsächlicher Höhe, soweit angemessen; zentrale Warmwasserversorgung ist Teil der Heizkosten; Gesamtangemessenheitsgrenze | umgesetzt (Grenze und Abzug konfigurierbar) |
+| § 35 Abs. 1 Satz 2–9, Abs. 3 Satz 2–5 SGB XII | **Karenzzeit** (1 Jahr, seit 2023), Absenkungsfrist (i. d. R. 6 Monate), 12-Monats-Schutz nach Tod eines Haushaltsmitglieds | **nicht modelliert** (Vereinfachung) |
+| § 82 Abs. 2 SGB XII | Absetzbeträge | umgesetzt |
+| § 82 Abs. 3 SGB XII | Erwerbsfreibetrag 30 % des **Bruttoeinkommens**, max. 50 % der RBS 1 (281,50 EUR) | umgesetzt (Basis Brutto) |
+| § 82 Abs. 3 Satz 2, Abs. 4, 5 SGB XII | WfbM-Sonderregel; Freibetrag zusätzliche Altersvorsorge (100 EUR + 30 %, max. 50 % RBS 1) | **nicht modelliert** |
+| § 90 Abs. 2 Nr. 9 SGB XII + BarbetragsVO § 1 | Schonvermögen 10.000 EUR je volljähriger/alleinstehender minderjähriger Person, 500 EUR je überwiegend unterhaltener Person | umgesetzt; § 2 (Erhöhung/Herabsetzung) nicht modelliert |
+| § 43 Abs. 1 SGB XII | Einsatz des Vermögens in der Grundsicherung; (§ 43 Abs. 2: Einkommensgrenze 100.000 EUR nicht modelliert) | umgesetzt |
+| § 44 SGB XII | Bewilligungszeitraum, Beginn zum Monatsersten | teilweise (Roadmap Etappe 4) |
+| § 35 SGB X | Begründung des Verwaltungsakts | `BescheidGenerator` |
+| § 36 SGB X | Rechtsbehelfsbelehrung | `BescheidGenerator` |
+| § 37 Abs. 2 SGB X | Bekanntgabefiktion am 3. Tag nach Aufgabe zur Post; `BESCHEID_DATUM` ist das **Ausstellungsdatum** | im Bescheid benannt |
+| § 84 SGG | Widerspruch binnen 1 Monat; fristwahrend auch bei anderer inländischer Behörde, Versicherungsträger oder deutscher Konsularbehörde | Belehrung |
+| § 87 SGG | Klage ohne Widerspruch bzw. nach Widerspruchsbescheid | Belehrung (`modus`) |
+| § 88 SGG | Untätigkeitsklage nach 3 Monaten | Belehrung |
+| § 73 Abs. 2 SGG | Vertretungsbefugte Bevollmächtigte | Belehrung |
+
+Quellen: <https://www.gesetze-im-internet.de/sgb_12/> (§§ 30, 35, 43, 82, 90), <https://www.gesetze-im-internet.de/sgg/> (§§ 73, 84, 87, 88),
+<https://www.gesetze-im-internet.de/sgb_10/> (§§ 35–37). Die BarbetragsVO-Beträge stammen aus der Fassung auf buzer.de
+(<https://www.buzer.de/gesetz/2234/index.htm>); die BMJ-Primärseite war nicht abrufbar — **vor Produktivbetrieb gegen den amtlichen Text prüfen**.
+Die Regelbedarfsstufen 2026 stützen sich auf die Regelbedarfsstufen-Fortschreibungsverordnung; ein Abgleich gegen den Bundesanzeiger steht aus.
+
 ## Datenmodell (`ddl/lmg_schema.sql`, Seed: `ddl/lmg_seed.sql`)
 
 | Tabelle | Zweck |
 |---|---|
 | `BEDARFSGEMEINSCHAFT` | Vorgangskopf: Aktenzeichen (eindeutig), Hauptperson, Status aktiv/historisiert, `BUDGET_REST` (verfügbarer Restanspruch pro Monat, wird bei Auszahlung gemindert), `VERMOEGEN` (§ 90 SGB XII), `WIEDERVORLAGE_AM` (Fristen-Widget), Bankverbindung (`IBAN`, `BIC`, `KONTOINHABER`), `VERSION` (optimistisches Locking). |
-| `SOZIAL_FALL` | Leistungsberechtigter: Regelbedarfsstufe 1–6, Merkzeichen G (`FLAG_MERKZEICHEN_G`), Schwangerschaft ab 12. SSW (`FLAG_SCHWANGER`, § 30 Abs. 2), Kinder im Haushalt (`ANZ_KINDER_U7`, `ANZ_KINDER_U16`, § 30 Abs. 3), Warmwasser (`FLAG_WARMWASSER`), KdU (Kaltmiete `KDU_MIETE`, kalte Betriebskosten `KDU_BETRIEBSKOSTEN`, Heizung `KDU_HEIZUNG`), Einkommen (Rente/Erwerb), Absetzbeträge (`ABZ_STEUERN`, `ABZ_SV`, `ABZ_VERSICHERUNGEN`, `ABZ_ERWERBSAUSGABEN`, § 82 Abs. 2), `VERSION`. |
+| `SOZIAL_FALL` | Leistungsberechtigter: Regelbedarfsstufe 1–6, Merkzeichen G (`FLAG_MERKZEICHEN_G`), Schwangerschaft ab 12. SSW (`FLAG_SCHWANGER`, § 30 Abs. 2), Kinder im Haushalt (`ANZ_KINDER_U7`, `ANZ_KINDER_U16`, `ANZ_KINDER_MINDERJ`, § 30 Abs. 3), Warmwasser (`FLAG_WARMWASSER`), KdU (Kaltmiete `KDU_MIETE`, kalte Betriebskosten `KDU_BETRIEBSKOSTEN`, Heizung `KDU_HEIZUNG`), Einkommen (Rente/Erwerb), Absetzbeträge (`ABZ_STEUERN`, `ABZ_SV`, `ABZ_VERSICHERUNGEN`, `ABZ_ERWERBSAUSGABEN`, § 82 Abs. 2), `VERSION`. |
 | `ZAHLUNG` | angeordnete Auszahlung: eindeutige `VORGANGS_NR` (Idempotenz), Zahlungsmonat `YYYY-MM`, Betrag, Status `ANGELEGT`/`BEREIT`/`UEBERGEBEN`/`STORNIERT` (ASCII-stabil), Empfängerbank (`EMPFAENGER_IBAN`, `EMPFAENGER_BIC`, `EMPFAENGER_NAME`), Sachbearbeiter & Freigebender (`SACHBEARBEITER_ID`, `FREIGEGEBEN_VON`). |
-| `BESCHEID` | Bewilligungsbescheid (§ 44 SGB XII): Bescheidnummer (`BESCHEID_NR`, eindeutig), `BESCHEID_DATUM` = Bekanntgabedatum (§ 37 SGB X — mit ihm wird der Bescheid wirksam), Bewilligungszeitraum (`BEWILLIGUNG_VON`/`BEWILLIGUNG_BIS`, Format `YYYY-MM`, von ≤ bis), Zahlbetrag, Status (`ERTEILT`/`AUFGEHOBEN`), Erfasser. |
+| `BESCHEID` | Bewilligungsbescheid (§ 44 SGB XII): Bescheidnummer (`BESCHEID_NR`, eindeutig), `BESCHEID_DATUM` = Datum des Bescheids (die Bekanntgabe nach § 37 SGB X ist ein eigener, nicht erfasster Zeitpunkt), Bewilligungszeitraum (`BEWILLIGUNG_VON`/`BEWILLIGUNG_BIS`, Format `YYYY-MM`, von ≤ bis), Zahlbetrag, Status (`ERTEILT`/`AUFGEHOBEN`), Erfasser. |
 | `JOURNAL` | revisionssicheres Buchungsjournal: Aktionstext, Sachbearbeiter, logische BG-Referenz ohne FK (Einträge überleben Historisierung). |
 
 IDs kommen aus den Sequences `SEQ_BG`, `SEQ_FALL`, `SEQ_ZAHLUNG`, `SEQ_BESCHEID`, `SEQ_JOURNAL`.
@@ -116,7 +148,7 @@ lädt neu (`FachlicheException` mit Code `KONKURRENZ`). Kein Lost Update.
 | `POST /api/zahlungen/{id}/freigabe` | Vier-Augen-Freigabe (Status ANGELEGT → BEREIT, rechnerische Feststellung) |
 | `POST /api/zahlungen/{id}/storno` | BEREIT-Zahlung stornieren, Restbudget zurückbuchen *(nur Admin)* |
 | `GET /api/bedarfsgemeinschaften/{id}/bescheid` | Letzten Bewilligungsbescheid der Bedarfsgemeinschaft abrufen |
-| `POST /api/bedarfsgemeinschaften/{id}/bescheid` | Bewilligungsbescheid (§ 44 SGB XII) erteilen; Bekanntgabe nach § 37 SGB X |
+| `POST /api/bedarfsgemeinschaften/{id}/bescheid` | Bewilligungsbescheid (§ 44 SGB XII) erteilen (Bescheiddatum = heute) |
 | `GET /api/bedarfsgemeinschaften/{id}/bescheid/druck` | Amtliche HTML-Druckansicht mit `@media print` generieren |
 | `POST /api/saga/antrag` | Vollständige End-to-End-Saga (Antragsverarbeitung) ausführen |
 | `POST /api/anmeldung` · `POST /api/abmeldung` · `GET /api/werbin` | Anmeldung (Token) und angemeldete Kennung/Rolle |
@@ -219,18 +251,23 @@ Fehler und Sperrkonflikte erscheinen als Dialoge.
    vollständig persistiert, werden mit ISO 13616 Modulo 97 validiert und können
    in der Maske bearbeitet werden.
 7. **Bescheidwesen und Saga (v0.4.0/0.5.0)**: Bewilligungsbescheid nach § 44 SGB XII
-   (Bekanntgabe nach § 37 SGB X) mit fallbezogener Begründung (§ 35 SGB X) und
+   (Bescheiddatum; Bekanntgabe nach § 37 SGB X separat) mit fallbezogener Begründung (§ 35 SGB X) und
    konfigurierbarer, vollständiger Rechtsbehelfsbelehrung (§ 36 SGB X — Widerspruch
    mit Behörde/Sitz oder direkte Klage zum Sozialgericht nach Landesrecht);
    4-stufige Antrags-Saga mit idempotenter Rückwärtskompensation (Vorgang wird
    historisiert statt gelöscht, Budget-Rückbuchung, Korrelation über VORGANGS_NR).
-8. **Dokumentierte Vereinfachungen des Fachrechts (v0.5.0)**: Alleinerziehenden-
-   Mehrbedarf ohne Kumulation von 36 %- und 12 %-Sätzen; kein Vermögensverbrauchs-
-   Fortschrieb über Monate (verwertbares Vermögen mindert jeden Monat bis zur
+8. **Dokumentierte Vereinfachungen des Fachrechts (v0.5.2)**: keine Karenzzeit
+   (§ 35 Abs. 1 Satz 2, 1 Jahr) und keine Absenkungsfrist (§ 35 Abs. 3, i. d. R. 6 Monate)
+   bei der KdU-Angemessenheit; kein § 82 Abs. 4/5 (Aufwandsentschädigungen, Altersvorsorge),
+   kein § 43 Abs. 2 (Einkommensgrenze 100.000 EUR), keine Nachzahlungen/Aufrechnung;
+   kein Vermögensverbrauchs-Fortschrieb über Monate (verwertbares Vermögen mindert jeden Monat bis zur
    Meldung); § 44 Abs. 2 (Rückwirkung auf den Monatsersten) und Abs. 3 (12-Monats-
    Standardzeitraum) noch nicht automatisiert (offen in roadmap.md Etappe 4);
    Warmwasser-KdU-Abzug und Angemessenheitsgrenze sind örtlich zu parametrisieren
    (Standard: deaktiviert).
+9. **Aktualisierter Blueprint (v0.5.2)**: Das ursprüngliche Blueprint-PDF (Google-Docs-Export)
+   bleibt als Archiv unverändert; der fortgeschriebene Stand steht in
+   `doc/SDN-sozial-LMG-Blueprint-aktualisiert-v0.5.2.md` (und `.pdf`).
 
 ## Bedienung
 

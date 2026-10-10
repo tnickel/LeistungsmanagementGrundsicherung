@@ -1,6 +1,6 @@
 # Architektur der Transaktionssteuerung
 
-*Stand: 2026-10-10, Version 0.5.0*
+*Stand: 2026-10-10, Version 0.5.2*
 
 ## Schichtenbild
 
@@ -55,7 +55,7 @@ Fachschicht: Leistungsmanagement Grundsicherung (SDN.sozial LMG)
 
 | Baustein | Verantwortung |
 |---|---|
-| `lmg.calc.Leistungsberechnung` | Reine SGB-XII-Berechnung (Regelbedarfsstufen 2026, Mehrbedarfe § 30 Abs. 1/2/3/7 mit Obergrenze Abs. 6, KdU § 42a mit Angemessenheitsgrenze/Warmwasser-Abzug, Absetzbeträge § 82 Abs. 2, Erwerbsfreibetrag § 82 Abs. 3, Vermögensanrechnung § 90), je SozialFall und summiert je Bedarfsgemeinschaft. |
+| `lmg.calc.Leistungsberechnung` | Reine SGB-XII-Berechnung (Regelbedarfsstufen 2026, Mehrbedarfe § 30 Abs. 1/2/3/7 mit Obergrenze Abs. 6, KdU § 42a mit Angemessenheitsgrenze/Warmwasser-Abzug, Absetzbeträge § 82 Abs. 2, Erwerbsfreibetrag § 82 Abs. 3, Vermögensanrechnung § 43 Abs. 1/§ 90 Abs. 2 Nr. 9), je SozialFall und summiert je Bedarfsgemeinschaft. |
 | `lmg.service.SozialLeistungsService` | Fachdienste als kurze Transaktionen: Zahlungsweg (Idempotenz → FOR-UPDATE-Sperre → Budget-Prüfung → Zahlung immer `ANGELEGT` → Restbudget mindern → Journal; Vier-Augen serverseitig erzwungen), Freigabe/Kassenlauf/Storno (guarded Statuswechsel), Masken-Speicherung mit optimistischem Locking. |
 | `lmg.service.BescheidGenerator` | Amtlicher, druckfertiger Bewilligungsbescheid (§ 44 SGB XII): Verfügungssatz, Bedarfsaufschlüsselung mit KdU-Vorbehalt, fallbezogene Begründung (§ 35 SGB X), konfigurierbare Rechtsbehelfsbelehrung (§ 36 SGB X). |
 | `lmg.service.SepaValidator` | IBAN/BIC-Validierung nach ISO 13616 (Modulo-97). |
@@ -112,7 +112,7 @@ Fachschicht: Leistungsmanagement Grundsicherung (SDN.sozial LMG)
 | `BEDARFSGEMEINSCHAFT` | Vorgang: Aktenzeichen (unique), Restbudget, Vermögen (§ 90), Bankverbindung, VERSION |
 | `SOZIAL_FALL` | Person: RBS, Mehrbedarfsmerkmale (G/Schwanger/Kinder/Warmwasser), KdU-Dreiteilung, Einkommen, Absetzbeträge (§ 82 Abs. 2), VERSION |
 | `ZAHLUNG` | Auszahlung: VORGANGS_NR unique (Idempotenz), Statusautomat ANGELEGT/BEREIT/UEBERGEBEN/STORNIERT |
-| `BESCHEID` | Bewilligungsbescheid (§ 44 SGB XII): Nr (unique), Bekanntgabedatum (§ 37 SGB X), Zeitraum YYYY-MM |
+| `BESCHEID` | Bewilligungsbescheid (§ 44 SGB XII): Nr (unique), Bescheiddatum, Zeitraum YYYY-MM |
 | `JOURNAL` | Revisionssicheres Journal (bewusst ohne FK — überlebt Historisierung) |
 
 Status-Automatik Saga: `RUNNING → COMPLETED`, `RUNNING → FAILED → COMPENSATING →

@@ -23,7 +23,8 @@ public final class SozialFallDao {
                     + "ANZ_KINDER_U7, ANZ_KINDER_U16, FLAG_WARMWASSER, "
                     + "KDU_MIETE, KDU_BETRIEBSKOSTEN, KDU_HEIZUNG, "
                     + "EINKOMMEN_RENTE, EINKOMMEN_ERWERB, "
-                    + "ABZ_STEUERN, ABZ_SV, ABZ_VERSICHERUNGEN, ABZ_ERWERBSAUSGABEN, VERSION";
+                    + "ABZ_STEUERN, ABZ_SV, ABZ_VERSICHERUNGEN, ABZ_ERWERBSAUSGABEN, VERSION, "
+                    + "ANZ_KINDER_MINDERJ";
 
     public List<SozialFall> listeFuerBg(TxContext ctx, long bgId) throws SQLException {
         try (PreparedStatement stmt = ctx.connection().prepareStatement(
@@ -47,8 +48,8 @@ public final class SozialFallDao {
                 "INSERT INTO SOZIAL_FALL (ID, BG_ID, REGELBEDARFSSTUFE, FLAG_MERKZEICHEN_G, FLAG_SCHWANGER, "
                         + "ANZ_KINDER_U7, ANZ_KINDER_U16, FLAG_WARMWASSER, "
                         + "KDU_MIETE, KDU_BETRIEBSKOSTEN, KDU_HEIZUNG, EINKOMMEN_RENTE, EINKOMMEN_ERWERB, "
-                        + "ABZ_STEUERN, ABZ_SV, ABZ_VERSICHERUNGEN, ABZ_ERWERBSAUSGABEN) "
-                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+                        + "ABZ_STEUERN, ABZ_SV, ABZ_VERSICHERUNGEN, ABZ_ERWERBSAUSGABEN, ANZ_KINDER_MINDERJ) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
             stmt.setLong(1, id);
             stmt.setLong(2, neu.bgId());
             stmt.setInt(3, neu.regelbedarfsstufe());
@@ -66,10 +67,11 @@ public final class SozialFallDao {
             stmt.setBigDecimal(15, neu.abzSozialversicherung());
             stmt.setBigDecimal(16, neu.abzVersicherungen());
             stmt.setBigDecimal(17, neu.abzErwerbsaufwendungen());
+            stmt.setInt(18, neu.anzKinderMinderjaehrig());
             stmt.executeUpdate();
         }
         return new SozialFall(id, neu.bgId(), neu.regelbedarfsstufe(), neu.merkzeichenG(), neu.schwanger(),
-                neu.anzKinderUnter7(), neu.anzKinderUnter16(), neu.warmwasser(),
+                neu.anzKinderUnter7(), neu.anzKinderUnter16(), neu.anzKinderMinderjaehrig(), neu.warmwasser(),
                 neu.kduMiete(), neu.kduBetriebskosten(), neu.kduHeizung(),
                 neu.einkommenRente(), neu.einkommenErwerb(),
                 neu.abzSteuern(), neu.abzSozialversicherung(), neu.abzVersicherungen(),
@@ -87,7 +89,8 @@ public final class SozialFallDao {
                         + "ANZ_KINDER_U7 = ?, ANZ_KINDER_U16 = ?, FLAG_WARMWASSER = ?, "
                         + "KDU_MIETE = ?, KDU_BETRIEBSKOSTEN = ?, KDU_HEIZUNG = ?, "
                         + "EINKOMMEN_RENTE = ?, EINKOMMEN_ERWERB = ?, "
-                        + "ABZ_STEUERN = ?, ABZ_SV = ?, ABZ_VERSICHERUNGEN = ?, ABZ_ERWERBSAUSGABEN = ? "
+                        + "ABZ_STEUERN = ?, ABZ_SV = ?, ABZ_VERSICHERUNGEN = ?, ABZ_ERWERBSAUSGABEN = ?, "
+                        + "ANZ_KINDER_MINDERJ = ? "
                         + "WHERE ID = ? AND VERSION = ?")) {
             stmt.setInt(1, geaendert.regelbedarfsstufe());
             stmt.setInt(2, geaendert.merkzeichenG() ? 1 : 0);
@@ -104,8 +107,9 @@ public final class SozialFallDao {
             stmt.setBigDecimal(13, geaendert.abzSozialversicherung());
             stmt.setBigDecimal(14, geaendert.abzVersicherungen());
             stmt.setBigDecimal(15, geaendert.abzErwerbsaufwendungen());
-            stmt.setLong(16, geaendert.id());
-            stmt.setLong(17, erwarteteVersion);
+            stmt.setInt(16, geaendert.anzKinderMinderjaehrig());
+            stmt.setLong(17, geaendert.id());
+            stmt.setLong(18, erwarteteVersion);
             return stmt.executeUpdate();
         }
     }
@@ -138,6 +142,7 @@ public final class SozialFallDao {
                 rs.getInt(5) == 1,
                 rs.getInt(6),
                 rs.getInt(7),
+                rs.getInt(19),
                 rs.getInt(8) == 1,
                 nullSafeBetrag(rs.getBigDecimal(9)),
                 nullSafeBetrag(rs.getBigDecimal(10)),

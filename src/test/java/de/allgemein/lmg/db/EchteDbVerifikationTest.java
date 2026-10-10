@@ -65,6 +65,7 @@ class EchteDbVerifikationTest {
         legeVorgangAn(9902L, "900.00"); // Idempotenz
         legeVorgangAn(9903L, "800.00"); // Budget zu knapp -> BUDGET_ERSCHOEPFT
         legeVorgangAn(9904L, "900.00"); // optimistisches Locking
+        legeVorgangAn(9907L, "2000.00"); // Monatsprüfung
     }
 
     @AfterAll
@@ -141,6 +142,19 @@ class EchteDbVerifikationTest {
                 new Auszahlungsauftrag(9902L, vorgangsNr, "2026-09", "sb-andere"));
         assertTrue(zweite.bereitsGebucht());
         assertEquals(erste.zahlung().id(), zweite.zahlung().id());
+    }
+
+    @Test
+    void zweiteZahlungFuerDenSelbenMonatWirdAbgelehnt() {
+        service.ordneAuszahlungAn(
+                new Auszahlungsauftrag(9907L, UUID.randomUUID().toString(), "2026-09", "sb-test"));
+        var ex = assertThrows(FachlicheException.class, () -> service.ordneAuszahlungAn(
+                new Auszahlungsauftrag(9907L, UUID.randomUUID().toString(), "2026-09", "sb-test")));
+        assertEquals(FachlicheException.VALIDATION, ex.code());
+        // anderer Monat bleibt möglich
+        var folgemonat = service.ordneAuszahlungAn(
+                new Auszahlungsauftrag(9907L, UUID.randomUUID().toString(), "2026-10", "sb-test"));
+        assertEquals("ANGELEGT", folgemonat.zahlung().status());
     }
 
     @Test
@@ -285,7 +299,7 @@ class EchteDbVerifikationTest {
         // HTML-Druckansicht generieren und prüfen
         String html = service.generiereBescheidHtml(bg.id());
         assertTrue(html.contains("Bewilligungsbescheid"), "HTML muss Bescheidtitel enthalten");
-        assertTrue(html.contains("§ 37 SGB X"), "HTML muss gesetzliche Grundlage § 37 SGB X enthalten");
+        assertTrue(html.contains("§ 37 Abs. 2 SGB X"), "HTML muss die Bekanntgabefiktion § 37 Abs. 2 SGB X nennen");
         assertTrue(html.contains("§ 35 SGB X"), "HTML muss Begründung nach § 35 SGB X enthalten");
         assertTrue(html.contains("§ 36 SGB X"), "HTML muss Rechtsbehelfsbelehrung nach § 36 SGB X enthalten");
         assertTrue(html.contains("1.113,00"), "HTML muss Zahlbetrag 1.113,00 enthalten");

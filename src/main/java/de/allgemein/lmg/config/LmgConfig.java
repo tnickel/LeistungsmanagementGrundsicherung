@@ -37,6 +37,8 @@ public final class LmgConfig {
     private final String rechtsbehelfModus;
     private final String rechtsbehelfBehoerde;
     private final String rechtsbehelfSozialgericht;
+    private final String behoerdeOrt;
+    private final String behoerdeAnschrift;
     private final int sessionTimeoutMinuten;
 
     private LmgConfig(Properties props) {
@@ -54,7 +56,9 @@ public final class LmgConfig {
         this.kduAngemessenheitsgrenze = resolve(props, "lmg.kdu.angemessenheitsgrenze", "LMG_KDU_ANGEMESSENHEITSGRENZE", "0");
         this.rechtsbehelfModus = resolve(props, "lmg.rechtsbehelf.modus", "LMG_RECHTSBEHELFSMODUS", "WIDERSPRUCH");
         this.rechtsbehelfBehoerde = resolve(props, "lmg.rechtsbehelf.behoerde", "LMG_RECHTSBEHELFSBEHOERDE", null);
-        this.rechtsbehelfSozialgericht = resolve(props, "lmg.rechtsbehelf.sozialgericht", "LMG_RECHTSBEHOLF_SG", null);
+        this.rechtsbehelfSozialgericht = resolve(props, "lmg.rechtsbehelf.sozialgericht", "LMG_RECHTSBEHELFSGERICHT", null);
+        this.behoerdeOrt = resolve(props, "lmg.behoerde.ort", "LMG_BEHOERDE_ORT", null);
+        this.behoerdeAnschrift = resolve(props, "lmg.behoerde.anschrift", "LMG_BEHOERDE_ANSCHRIFT", null);
         this.sessionTimeoutMinuten = Integer.parseInt(resolve(props, "lmg.session.timeout.minuten", "LMG_SESSION_TIMEOUT", "60"));
 
         validate();
@@ -148,7 +152,7 @@ public final class LmgConfig {
     /** Konfiguration der Bescheid-Rechtsbehelfsbelehrung (§ 36 SGB X, träger-/landesrechtlich). */
     public de.allgemein.lmg.service.BescheidGenerator.Rechtsbehelf rechtsbehelf() {
         return new de.allgemein.lmg.service.BescheidGenerator.Rechtsbehelf(
-                rechtsbehelfModus, rechtsbehelfBehoerde, rechtsbehelfSozialgericht);
+                rechtsbehelfModus, rechtsbehelfBehoerde, rechtsbehelfSozialgericht, behoerdeOrt, behoerdeAnschrift);
     }
 
     /** Idle-Timeout angemeldeter Sitzungen in Minuten (0 ist ungültig, Minimum 1). */

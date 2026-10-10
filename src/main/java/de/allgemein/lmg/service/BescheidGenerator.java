@@ -15,7 +15,8 @@ import java.util.Locale;
  * SGB XII (Grundsicherung im Alter und bei Erwerbsminderung). Enthält Verfügungssatz,
  * fallbezogene Bedarfsaufschlüsselung, Zahlungsverbindung, Begründung mit
  * Hauptgründen (§ 35 SGB X) und vollständige Rechtsbehelfsbelehrung (§ 36 SGB X).
- * BESCHEID_DATUM ist das Bekanntgabedatum (§ 37 SGB X).
+ * BESCHEID_DATUM ist das Datum des Bescheids; die Bekanntgabe (§ 37 SGB X) ist ein eigener,
+ * hier nicht erfasster Zeitpunkt (bei Postversand: dritter Tag nach Aufgabe zur Post).
  */
 public final class BescheidGenerator {
 
@@ -31,13 +32,20 @@ public final class BescheidGenerator {
      *
      * @param modus               MODUS_WIDERSPRUCH oder MODUS_KLAGE
      * @param widerspruchsbehoerde vollständiger Name und Sitz der Widerspruchsbehörde
-     *                             (leer = die im Briefkopf genannte Behörde)
+     *                             (leer = die Behörde, die den Bescheid erlassen hat)
      * @param sozialgericht       Name und Sitz des zuständigen Sozialgerichts
+     * @param ort                 Ort der Behörde für die Unterschriftszeile (optional)
+     * @param anschrift           Anschrift der erlassenden Behörde für Briefkopf und Belehrung (optional)
      */
-    public record Rechtsbehelf(String modus, String widerspruchsbehoerde, String sozialgericht) {
+    public record Rechtsbehelf(String modus, String widerspruchsbehoerde, String sozialgericht,
+                               String ort, String anschrift) {
 
         public static final String MODUS_WIDERSPRUCH = "WIDERSPRUCH";
         public static final String MODUS_KLAGE = "KLAGE";
+
+        public Rechtsbehelf(String modus, String widerspruchsbehoerde, String sozialgericht) {
+            this(modus, widerspruchsbehoerde, sozialgericht, null, null);
+        }
 
         public static Rechtsbehelf standard() {
             return new Rechtsbehelf(MODUS_WIDERSPRUCH, null, null);
@@ -67,15 +75,16 @@ public final class BescheidGenerator {
         String inhaberText = bg.kontoinhaber() != null && !bg.kontoinhaber().isBlank()
                 ? bg.kontoinhaber() : bg.hauptpersonName();
         String vorbehaltHinweis = berechnung.faelle().stream().anyMatch(Leistungsberechnung.FallBerechnung::kduUnangemessen)
-                ? "<p class='vorbehalt'>Die Kosten der Unterkunft übersteigen die ortsübliche Angemessenheitsgrenze. "
-                        + "Sie werden vorläufig in voller Höhe unter dem Vorbehalt der Rückforderung übernommen "
-                        + "(§ 42a i.V.m. § 35 SGB XII); eine Senkung ist möglich, wenn die unangemessenen Aufwendungen "
-                        + "nicht gesenkt werden.</p>"
+                ? "<p class='vorbehalt'>* Die Aufwendungen für Unterkunft und Heizung übersteigen die als "
+                        + "angemessen anerkannte Grenze. Der übersteigende Betrag wird bei der Berechnung nicht "
+                        + "berücksichtigt (§ 42a i.V.m. § 35 Abs. 1 und 3 SGB XII).</p>"
                 : "";
         String vermoegenHinweis = berechnung.verwertbaresVermoegen().signum() > 0
-                ? "<li>Verwertbares Vermögen nach Abzug des Schonvermögens (§ 90 Abs. 2 Nr. 14 SGB XII): "
-                        + formatBetrag(berechnung.verwertbaresVermoegen()) + " € — der Bedarf wird gemindert "
-                        + "(§ 43 Abs. 3 SGB XII).</li>"
+                ? "<li>Vermögen (§ 43 Abs. 1 SGB XII): " + formatBetrag(bg.vermoegen()) + " € abzüglich Schonvermögen von "
+                        + formatBetrag(Leistungsberechnung.schonvermoegen(faelle))
+                        + " € (§ 90 Abs. 2 Nr. 9 SGB XII i.V.m. § 1 Barbetragsverordnung) ergibt verwertbares "
+                        + "Vermögen von " + formatBetrag(berechnung.verwertbaresVermoegen())
+                        + " €; es wird auf den Bedarf angerechnet.</li>"
                 : "";
 
         StringBuilder fallZeilen = new StringBuilder();
@@ -93,8 +102,12 @@ public final class BescheidGenerator {
                     .append("</tr>");
         }
 
-        String begruendungPunkte = begruendungPunkte(berechnung, vermoegenHinweis);
+        String begruendungPunkte = begruendungPunkte(faelle, berechnung, vermoegenHinweis);
         String belehrungText = belehrungText(belehrung);
+        String anschriftZeile = belehrung.anschrift() == null || belehrung.anschrift().isBlank() ? ""
+                : "<div class=\"untertitel\">" + escapeHtml(belehrung.anschrift()) + "</div>";
+        String ortUndDatum = belehrung.ort() == null || belehrung.ort().isBlank()
+                ? datumText : escapeHtml(belehrung.ort()) + ", den " + datumText;
 
         return """
 <!DOCTYPE html>
@@ -137,11 +150,13 @@ public final class BescheidGenerator {
   </style>
 </head>
 <body>
-  <button class="druck-button" onclick="window.print()">🖨️ Diesen Bescheid drucken (PDF)</button>
+  <button id="druck-button" class="druck-button" type="button">🖨️ Diesen Bescheid drucken (PDF)</button>
+  <script src="/druck.js"></script>
 
   <div class="briefkopf">
     <div class="behoerde">Amt für Soziales und Wohnen — Leistungsmanagement</div>
     <div class="untertitel">SDN.sozial · Grundsicherung im Alter und bei Erwerbsminderung (SGB XII)</div>
+    %s
   </div>
 
   <div class="meta-gitter">
@@ -153,7 +168,7 @@ public final class BescheidGenerator {
     <div class="meta-box">
       <strong>Aktenzeichen:</strong> %s<br>
       <strong>Bescheid-Nr.:</strong> %s<br>
-      <strong>Bekanntgegeben am:</strong> %s (§ 37 SGB X)<br>
+      <strong>Datum des Bescheids:</strong> %s<br>
       <strong>Sachbearbeiter:</strong> %s
     </div>
   </div>
@@ -222,7 +237,7 @@ public final class BescheidGenerator {
 
   <div class="unterschrift">
     <div class="unterschrift-inner">
-      %s, den %s<br>
+      %s<br>
       <strong>Amt für Soziales und Wohnen</strong><br>
       i. A. %s
     </div>
@@ -233,6 +248,7 @@ public final class BescheidGenerator {
                 // <title> enthält die Bescheidnummer samt Aktenzeichen (Nutzereingabe)
                 // — auch hier escapen, sonst bricht "</title><script>…" aus dem Element aus.
                 escapeHtml(bescheid.bescheidNr()),
+                anschriftZeile,
                 escapeHtml(bg.hauptpersonName()),
                 escapeHtml(bg.aktenzeichen()),
                 escapeHtml(bescheid.bescheidNr()),
@@ -251,19 +267,23 @@ public final class BescheidGenerator {
                 escapeHtml(bicText),
                 begruendungPunkte,
                 belehrungText,
-                "Musterstadt",
-                datumText,
+                ortUndDatum,
                 escapeHtml(bescheid.erstelltVon()));
     }
 
     /** Fallbezogene Hauptgründe der Begründung (§ 35 Abs. 1 SGB X). */
-    private static String begruendungPunkte(Leistungsberechnung.Berechnungsergebnis berechnung,
+    private static String begruendungPunkte(List<SozialFall> faelle,
+                                            Leistungsberechnung.Berechnungsergebnis berechnung,
                                             String vermoegenHinweis) {
         StringBuilder punkte = new StringBuilder();
         int person = 1;
         for (Leistungsberechnung.FallBerechnung fb : berechnung.faelle()) {
-            punkte.append("<li><strong>Person ").append(person++).append(":</strong> Regelbedarf Stufe ")
-                    .append("nach der Anlage zu § 28 SGB XII: ").append(formatBetrag(fb.regelbedarf())).append(" €");
+            SozialFall fall = faelle.stream().filter(f -> f.id() == fb.fallId()).findFirst().orElse(null);
+            punkte.append("<li><strong>Person ").append(person++).append(":</strong> Regelbedarf");
+            if (fall != null) {
+                punkte.append(" der Regelbedarfsstufe ").append(fall.regelbedarfsstufe());
+            }
+            punkte.append(" nach der Anlage zu § 28 SGB XII: ").append(formatBetrag(fb.regelbedarf())).append(" €");
             if (fb.mehrbedarfG().signum() > 0) {
                 punkte.append("; Mehrbedarf Merkzeichen G (§ 30 Abs. 1 SGB XII): ")
                         .append(formatBetrag(fb.mehrbedarfG())).append(" €");
@@ -283,23 +303,32 @@ public final class BescheidGenerator {
             punkte.append("; Kosten der Unterkunft und Heizung (§ 42a i.V.m. § 35 SGB XII): ")
                     .append(formatBetrag(fb.kdu())).append(" €.");
             if (fb.kduWarmwasserAbzug().signum() > 0) {
-                punkte.append(" Der Warmwasseranteil ist in den Heizkosten enthalten und wurde um ")
+                punkte.append(" Die Heizkosten enthalten Kosten der zentralen Warmwassererzeugung "
+                        + "(§ 35 Abs. 5 SGB XII); ein örtlich festgelegter Anteil von ")
                         .append(formatBetrag(fb.kduWarmwasserAbzug()))
-                        .append(" € gemindert (Abgeltung über § 30 Abs. 7 SGB XII).");
+                        .append(" € wurde nicht als Heizbedarf berücksichtigt.");
             }
             punkte.append("</li>");
         }
-        punkte.append("<li>Einkommensberücksichtigung: Erwerbsfreibetrag nach § 82 Abs. 3 SGB XII ");
+        punkte.append("<li>Einkommen (§ 82 SGB XII): ");
         boolean erste = true;
+        person = 1;
         for (Leistungsberechnung.FallBerechnung fb : berechnung.faelle()) {
+            SozialFall fall = faelle.stream().filter(f -> f.id() == fb.fallId()).findFirst().orElse(null);
             if (!erste) {
-                punkte.append(", ");
+                punkte.append("; ");
             }
-            punkte.append(formatBetrag(fb.freibetragErwerb())).append(" €");
+            punkte.append("Person ").append(person++).append(": ");
+            if (fall != null) {
+                punkte.append("Rente ").append(formatBetrag(fall.einkommenRente()))
+                        .append(" €, Erwerbseinkommen (brutto) ").append(formatBetrag(fall.einkommenErwerb())).append(" €, ");
+            }
+            punkte.append("Erwerbsfreibetrag (§ 82 Abs. 3 SGB XII) ").append(formatBetrag(fb.freibetragErwerb()))
+                    .append(" €, Absetzbeträge (§ 82 Abs. 2 SGB XII) ").append(formatBetrag(fb.absetzbetaetrag()))
+                    .append(" € → anrechenbar ").append(formatBetrag(fb.anrechenbaresEinkommen())).append(" €");
             erste = false;
         }
-        punkte.append("; Absetzbeträge nach § 82 Abs. 2 SGB XII (Steuern, Sozialversicherung, "
-                + "Versicherungen, Erwerbsaufwendungen).</li>");
+        punkte.append(".</li>");
         punkte.append(vermoegenHinweis);
         return punkte.toString();
     }
@@ -308,25 +337,32 @@ public final class BescheidGenerator {
     private static String belehrungText(Rechtsbehelf belehrung) {
         String gericht = belehrung.sozialgericht() != null && !belehrung.sozialgericht().isBlank()
                 ? belehrung.sozialgericht() : "das für den Sitz der Behörde zuständige Sozialgericht";
+        String bekanntgabe = " Der Bescheid gilt bei Übermittlung durch die Post im Inland am dritten Tag nach "
+                + "der Aufgabe zur Post als bekannt gegeben (§ 37 Abs. 2 SGB X).";
         if (Rechtsbehelf.MODUS_KLAGE.equals(belehrung.modus())) {
             return """
                     Gegen diesen Bescheid kann innerhalb eines Monats nach seiner Bekanntgabe Klage bei %s erhoben
                     werden (§ 87 Abs. 1 SGG). Ein Vorverfahren (Widerspruchsverfahren) findet nicht statt.
                     Die Klage ist schriftlich, zur Niederschrift des Urkundsbeamten der Geschäftsstelle oder
                     elektronisch nach § 65a SGG zu erheben. Einer Vertretung durch einen Rechtsanwalt bedarf es
-                    nicht (§ 73 Abs. 2 SGG).""".formatted(escapeHtml(gericht));
+                    nicht (§ 73 Abs. 2 SGG).%s""".formatted(escapeHtml(gericht), bekanntgabe);
         }
-        String behoerde = belehrung.widerspruchsbehoerde() != null && !belehrung.widerspruchsbehoerde().isBlank()
-                ? escapeHtml(belehrung.widerspruchsbehoerde())
-                : "der im Briefkopf genannten Behörde";
+        String stelle = belehrung.anschrift() != null && !belehrung.anschrift().isBlank()
+                ? "der Behörde, die diesen Bescheid erlassen hat (" + escapeHtml(belehrung.anschrift()) + ")"
+                : "der Behörde, die diesen Bescheid erlassen hat";
+        String widerspruchsbehoerde = belehrung.widerspruchsbehoerde() != null
+                && !belehrung.widerspruchsbehoerde().isBlank()
+                ? escapeHtml(belehrung.widerspruchsbehoerde()) : "die zuständige Widerspruchsbehörde";
         return """
-                Gegen diesen Bescheid kann innerhalb eines Monats nach seiner Bekanntgabe schriftlich oder zur
-                Niederschrift bei %s Widerspruch eingelegt werden. Der Widerspruch kann auch zur Niederschrift
-                bei jeder anderen den Widerspruch entgegennehmenden Behörde eingelegt werden.
-                Hilft der Widerspruchsbehörde dem Widerspruch nicht ab, ergeht ein Widerspruchsbescheid. Dagegen
-                kann innerhalb eines Monats nach seiner Bekanntgabe Klage bei %s erhoben werden
-                (§§ 78, 85 SGG). Nach Ablauf von drei Monaten ohne Entscheidung über den Widerspruch ist die
-                Untätigkeitsklage möglich (§ 88 SGG).""".formatted(behoerde, escapeHtml(gericht));
+                Gegen diesen Bescheid kann innerhalb eines Monats nach seiner Bekanntgabe Widerspruch eingelegt
+                werden. Der Widerspruch ist schriftlich oder zur Niederschrift bei %s einzulegen (§ 84 Abs. 1
+                SGG). Die Frist ist auch gewahrt, wenn der Widerspruch innerhalb der Frist bei einer anderen
+                inländischen Behörde, einem Versicherungsträger oder einer deutschen Konsularbehörde eingeht
+                (§ 84 Abs. 2 SGG).%s
+                Hilft die Behörde dem Widerspruch nicht ab, entscheidet %s durch Widerspruchsbescheid. Gegen den
+                Widerspruchsbescheid kann innerhalb eines Monats nach seiner Bekanntgabe Klage bei %s erhoben
+                werden (§ 87 Abs. 2 SGG). Nach Ablauf von drei Monaten ohne Entscheidung über den Widerspruch ist die
+                Untätigkeitsklage möglich (§ 88 SGG).""".formatted(stelle, bekanntgabe, widerspruchsbehoerde, escapeHtml(gericht));
     }
 
     private static String formatBetrag(BigDecimal betrag) {

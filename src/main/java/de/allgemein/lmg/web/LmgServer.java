@@ -121,8 +121,7 @@ public final class LmgServer implements AutoCloseable {
         if (benutzer == null) {
             byte[] msg = "Nicht autorisiert. Bitte anmelden.".getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=utf-8");
-            exchange.getResponseHeaders().set("Content-Security-Policy",
-                    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'");
+            exchange.getResponseHeaders().set("Content-Security-Policy", "default-src 'none'");
             exchange.getResponseHeaders().set("X-Content-Type-Options", "nosniff");
             exchange.sendResponseHeaders(401, msg.length);
             try (OutputStream out = exchange.getResponseBody()) {
@@ -139,7 +138,8 @@ public final class LmgServer implements AutoCloseable {
             byte[] bytes = html.getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "text/html; charset=utf-8");
             exchange.getResponseHeaders().set("Content-Security-Policy",
-                    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'");
+                    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'");
+            exchange.getResponseHeaders().set("X-Content-Type-Options", "nosniff");
             exchange.sendResponseHeaders(200, bytes.length);
             try (OutputStream out = exchange.getResponseBody()) {
                 out.write(bytes);
@@ -325,6 +325,7 @@ public final class LmgServer implements AutoCloseable {
                     boolWertDefensiv(body.get("schwanger")),
                     (int) zahlWertDefensiv(body.get("anzKinderUnter7")),
                     (int) zahlWertDefensiv(body.get("anzKinderUnter16")),
+                    (int) zahlWertDefensiv(body.get("anzKinderMinderjaehrig")),
                     boolWertDefensiv(body.get("warmwasser")),
                     betragWert(body.get("kduMiete")),
                     betragWert(body.get("kduBetriebskosten")),
@@ -350,6 +351,7 @@ public final class LmgServer implements AutoCloseable {
                     boolWertDefensiv(body.get("schwanger")),
                     (int) zahlWertDefensiv(body.get("anzKinderUnter7")),
                     (int) zahlWertDefensiv(body.get("anzKinderUnter16")),
+                    (int) zahlWertDefensiv(body.get("anzKinderMinderjaehrig")),
                     boolWertDefensiv(body.get("warmwasser")),
                     betragWert(body.get("kduMiete")),
                     betragWert(body.get("kduBetriebskosten")),
@@ -396,6 +398,7 @@ public final class LmgServer implements AutoCloseable {
             }
             Map<String, Object> body = leseKoerper(exchange);
             body.put("sachbearbeiterId", angemeldet.kennung());
+            AntragsSagaProzess.validierePayload(body);
             String jsonPayload = Json.stringify(body);
             String sagaId = sagas.run(AntragsSagaProzess.definition(), jsonPayload);
             return Map.of("sagaId", sagaId, "status", "ERFOLGREICH",
@@ -446,6 +449,7 @@ public final class LmgServer implements AutoCloseable {
         String resource = switch (pfad) {
             case "/", "/index.html" -> "/webapp/index.html";
             case "/app.js" -> "/webapp/app.js";
+            case "/druck.js" -> "/webapp/druck.js";
             case "/style.css" -> "/webapp/style.css";
             default -> null;
         };
@@ -550,6 +554,7 @@ public final class LmgServer implements AutoCloseable {
         map.put("schwanger", fall.schwanger());
         map.put("anzKinderUnter7", fall.anzKinderUnter7());
         map.put("anzKinderUnter16", fall.anzKinderUnter16());
+        map.put("anzKinderMinderjaehrig", fall.anzKinderMinderjaehrig());
         map.put("warmwasser", fall.warmwasser());
         map.put("kduMiete", fall.kduMiete());
         map.put("kduBetriebskosten", fall.kduBetriebskosten());

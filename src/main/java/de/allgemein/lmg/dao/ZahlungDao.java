@@ -34,6 +34,19 @@ public final class ZahlungDao {
         }
     }
 
+    /** Gibt es für die Bedarfsgemeinschaft und den Monat schon eine nicht stornierte Zahlung? */
+    public boolean existiertAktiveFuerMonat(TxContext ctx, long bgId, String zahlungsmonat) throws SQLException {
+        try (PreparedStatement stmt = ctx.connection().prepareStatement(
+                "SELECT COUNT(*) FROM ZAHLUNG WHERE BG_ID = ? AND ZAHLUNGSMONAT = ? AND ZAHLUNGSSTATUS <> 'STORNIERT'")) {
+            stmt.setLong(1, bgId);
+            stmt.setString(2, zahlungsmonat);
+            try (ResultSet rs = stmt.executeQuery()) {
+                rs.next();
+                return rs.getLong(1) > 0;
+            }
+        }
+    }
+
     public Optional<Zahlung> findeVorgangsNr(TxContext ctx, String vorgangsNr) throws SQLException {
         try (PreparedStatement stmt = ctx.connection().prepareStatement(
                 "SELECT " + COLUMNS + " FROM ZAHLUNG WHERE VORGANGS_NR = ?")) {

@@ -1,6 +1,6 @@
 # Roadmap: Transaktionssteuerung
 
-*Stand: 2026-10-10, Version 0.5.1 (externe Gegenprüfung eingearbeitet: Title-XSS, Betrags-Grenzwert, Jahresfenster, CSP-Vollständigkeit)*
+*Stand: 2026-10-10, Version 0.5.2 (Fachrechts-Korrekturen; v0.5.1: externe Gegenprüfung eingearbeitet: Title-XSS, Betrags-Grenzwert, Jahresfenster, CSP-Vollständigkeit)*
 
 ## Erreicht (v0.2.0 – v0.3.0)
 
@@ -81,8 +81,8 @@
 - [x] **§ 30 Abs. 2 SGB XII** — Schwangeren-Mehrbedarf (17 % ab 12. SSW): Datenmodell,
       Berechnung, Maske, Tests
 - [x] **§ 30 Abs. 3 SGB XII** — Alleinerziehenden-Mehrbedarf (36 % / 12 % je Kind,
-      Deckel 60 % RBS 1): Kinder unter 7 / unter 16 im Datenmodell und in der Berechnung
-- [x] **§ 30 Abs. 6 SGB XII** — Obergrenze: Mehrbedarfe übersteigen nie den Regelbedarf
+      Deckel 60 % RBS 1, Basis RBS 1): Kinder unter 7 / unter 16 / minderjährig insgesamt
+- [x] **§ 30 Abs. 6 SGB XII** — Obergrenze: Mehrbedarfe nach Abs. 1–5 übersteigen nie den Regelbedarf (Abs. 7 liegt außerhalb der Kappung)
 - [x] **§ 30 Abs. 7 SGB XII korrigiert** — Warmwasser-Mehrbedarf stufenabhängig
       (2,3/2,3/–/1,4/1,2/0,8 % statt pauschal 2,3 %), mit Tests für Stufen 4–6
 - [x] **§ 82 Abs. 2 SGB XII** — Absetzbeträge (Steuern, Sozialversicherung,
@@ -90,11 +90,12 @@
 - [x] **§ 42a i.V.m. § 35 SGB XII** — KdU-Angemessenheitsprüfung mit konfigurierbarer
       Grenze (Übernahme unter Vorbehalt, Bescheid-Kennzeichnung) und konfigurierbarem
       Warmwasser-Abzug von den Heizkosten
-- [x] **§ 43 Abs. 3, § 90 SGB XII** — Vermögensanrechnung: Vermögen je BG,
-      Schonvermögen 10.000 € + 750 € je Mitglied (§ 90 Abs. 2 Nr. 14), mindert Zahlbetrag
+- [x] **§ 43 Abs. 1, § 90 SGB XII** — Vermögensanrechnung: Vermögen je BG,
+      Schonvermögen 10.000 € je Erwachsenem + 500 € je unterhaltener Person
+      (§ 90 Abs. 2 Nr. 9 i.V.m. § 1 BarbetragsVO), mindert Zahlbetrag
 - [x] **§ 44 SGB XII** — Bewilligungszeitraum-Validierung (YYYY-MM, von ≤ bis),
       STATUS_AKTIV-Prüfung; Normzitationen im Bescheid korrigiert
-      (Bewilligung § 44 SGB XII, Bekanntgabe § 37 SGB X statt pauschal „§ 37 SGB X“)
+      (Bewilligung § 44 SGB XII; Bescheiddatum statt Bekanntgabe)
 - [x] **§ 36 SGB X** — vollständige, konfigurierbare Rechtsbehelfsbelehrung
       (Widerspruch mit Behörde/Sitz oder direkte Klage zum Sozialgericht nach § 87 SGG),
       fallbezogene Begründung (§ 35), Unterschrifts-/Datumszeile

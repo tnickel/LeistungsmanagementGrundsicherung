@@ -216,6 +216,21 @@ class LeistungsberechnungTest {
     }
 
     @Test
+    void alleinerziehendBasisIstImmerRbs1() {
+        // RBS 2 (506): Bemessung trotzdem auf 563 × 36 % = 202,68
+        var f = vollerFall(2, false, false, 1, 1, false, "0", "0", "0", "0", "0");
+        assertEquals(eur("202.68"), Leistungsberechnung.berechneFall(f).mehrbedarfAlleinerziehend());
+    }
+
+    @Test
+    void alleinerziehendZaehltMinderjaehrigeKinderUeber16() {
+        // ein 16-jähriges Kind: Nr. 2 → 12 % von 563 = 67,56
+        var f = new SozialFall(1L, 1L, 1, false, false, 0, 0, 1, false, eur("0"), eur("0"), eur("0"),
+                eur("0"), eur("0"), eur("0"), eur("0"), eur("0"), eur("0"), 1L);
+        assertEquals(eur("67.56"), Leistungsberechnung.berechneFall(f).mehrbedarfAlleinerziehend());
+    }
+
+    @Test
     void alleinerziehendDeckel60ProzentDerRbs1() {
         // 5 Kinder × 12 % = 60 % — am Deckel (337,80 EUR); 8 Kinder × 12 % = 96 % gekappt
         var amDeckel = vollerFall(1, false, false, 0, 5, false, "0", "0", "0", "0", "0");
@@ -237,10 +252,10 @@ class LeistungsberechnungTest {
         var f = vollerFall(1, true, true, 0, 8, true, "0", "0", "0", "0", "0");
         var ergebnis = Leistungsberechnung.berechneFall(f);
         assertEquals(eur("542.17"), ergebnis.mehrbedarf());
-        // Stufe 6: G 60,69 + Schwangere 60,69 + AE am Deckel 337,80 + Warmwasser 2,86
-        // = 462,04 > 357,00 → Kappung auf den Regelbedarf
+        // Stufe 6: G 60,69 + Schwangere 60,69 + AE am Deckel 337,80 = 459,18 > 357,00 →
+        // Abs. 1–5 auf den Regelbedarf gekappt; Warmwasser (Abs. 7, 2,86) kommt darüber hinaus
         var klein = vollerFall(6, true, true, 0, 8, true, "0", "0", "0", "0", "0");
-        assertEquals(eur("357.00"), Leistungsberechnung.berechneFall(klein).mehrbedarf());
+        assertEquals(eur("359.86"), Leistungsberechnung.berechneFall(klein).mehrbedarf());
     }
 
     // ------------------------------------------------------------------
@@ -271,14 +286,47 @@ class LeistungsberechnungTest {
     // ------------------------------------------------------------------
 
     @Test
-    void warmwasserAbzugVonHeizkostenMitOrtlicherQuote() {
-        // Heizung 100 EUR, örtlicher Warmwasseranteil 10 % → KdU-Seite −10 EUR;
-        // der Warmwasser-Mehrbedarf (12,95) bleibt daneben (§ 30 Abs. 7)
-        var f = vollerFall(1, false, false, 0, 0, true, "400", "0", "100", "0", "0");
+    void warmwasserAbzugVonHeizkostenNurBeiZentralemWarmwasser() {
+        // zentrales Warmwasser (Flag aus): Heizung 100 EUR, örtlicher Anteil 10 % → −10 EUR
+        var f = vollerFall(1, false, false, 0, 0, false, "400", "0", "100", "0", "0");
         var ergebnis = Leistungsberechnung.berechneFall(f,
                 new Leistungsberechnung.KduParameter(new BigDecimal("0.10"), BigDecimal.ZERO));
         assertEquals(eur("10.00"), ergebnis.kduWarmwasserAbzug());
         assertEquals(eur("490.00"), ergebnis.kdu());
+    }
+
+    @Test
+    void keinWarmwasserAbzugBeiDezentralemWarmwasser() {
+        // dezentral: Mehrbedarf nach § 30 Abs. 7 statt Abzug — keine Doppelkürzung
+        var f = vollerFall(1, false, false, 0, 0, true, "400", "0", "100", "0", "0");
+        var ergebnis = Leistungsberechnung.berechneFall(f,
+                new Leistungsberechnung.KduParameter(new BigDecimal("0.10"), BigDecimal.ZERO));
+        assertEquals(eur("0.00"), ergebnis.kduWarmwasserAbzug());
+        assertEquals(eur("500.00"), ergebnis.kdu());
+    }
+
+    @Test
+    void angemessenheitsgrenzeGiltFuerDieGanzeBedarfsgemeinschaft() {
+        // Grenze 600 für das Paar: Fall A 400 voll, Fall B 300 → nur 200 anerkannt
+        var a = vollerFall(1, false, false, 0, 0, false, "400", "0", "0", "0", "0");
+        var b = vollerFall(2, false, false, 0, 0, false, "300", "0", "0", "0", "0");
+        var ergebnis = Leistungsberechnung.berechne(1L, List.of(a, b),
+                new Leistungsberechnung.KduParameter(BigDecimal.ZERO, new BigDecimal("600.00")),
+                BigDecimal.ZERO);
+        assertEquals(eur("400.00"), ergebnis.faelle().get(0).kdu());
+        assertEquals(eur("200.00"), ergebnis.faelle().get(1).kdu());
+        assertFalse(ergebnis.faelle().get(0).kduUnangemessen());
+        assertTrue(ergebnis.faelle().get(1).kduUnangemessen());
+    }
+
+    @Test
+    void kduParameterWerdenValidiert() {
+        assertThrows(IllegalArgumentException.class, () ->
+                new Leistungsberechnung.KduParameter(new BigDecimal("1.5"), BigDecimal.ZERO));
+        assertThrows(IllegalArgumentException.class, () ->
+                new Leistungsberechnung.KduParameter(new BigDecimal("-0.1"), BigDecimal.ZERO));
+        assertThrows(IllegalArgumentException.class, () ->
+                new Leistungsberechnung.KduParameter(BigDecimal.ZERO, new BigDecimal("-1")));
     }
 
     @Test
@@ -308,25 +356,39 @@ class LeistungsberechnungTest {
         // Bedarf 563,00; Vermögen 10.500 − 10.000 Schonvermögen = 500 → Zahlbetrag 63,00
         var f = vollerFall(1, false, false, 0, 0, false, "0", "0", "0", "0", "0");
         var ergebnis = Leistungsberechnung.berechne(1L, List.of(f),
-                Leistungsberechnung.KduParameter.AUS, eur("10500.00"), 1);
+                Leistungsberechnung.KduParameter.AUS, eur("10500.00"));
         assertEquals(eur("500.00"), ergebnis.verwertbaresVermoegen());
         assertEquals(eur("63.00"), ergebnis.zahlbetrag());
     }
 
     @Test
-    void schoenvermoegenJeWeiteremMitglied() {
-        // 2 Mitglieder: Schonvermögen 10.000 + 750 = 10.750; Vermögen 11.000 → 250 verwertbar
-        var f = vollerFall(1, false, false, 0, 0, false, "0", "0", "0", "0", "0");
-        var ergebnis = Leistungsberechnung.berechne(1L, List.of(f),
-                Leistungsberechnung.KduParameter.AUS, eur("11000.00"), 2);
-        assertEquals(eur("250.00"), ergebnis.verwertbaresVermoegen());
+    void schonvermoegenPaarIstZweimal10000() {
+        var a = vollerFall(1, false, false, 0, 0, false, "0", "0", "0", "0", "0");
+        var b = vollerFall(2, false, false, 0, 0, false, "0", "0", "0", "0", "0");
+        assertEquals(eur("20000.00"), Leistungsberechnung.schonvermoegen(List.of(a, b)));
+        var ergebnis = Leistungsberechnung.berechne(1L, List.of(a, b),
+                Leistungsberechnung.KduParameter.AUS, eur("21000.00"));
+        assertEquals(eur("1000.00"), ergebnis.verwertbaresVermoegen());
+    }
+
+    @Test
+    void schonvermoegenErwachsenerMitKindIst10500() {
+        var erw = vollerFall(1, false, false, 0, 0, false, "0", "0", "0", "0", "0");
+        var kind = vollerFall(6, false, false, 0, 0, false, "0", "0", "0", "0", "0");
+        assertEquals(eur("10500.00"), Leistungsberechnung.schonvermoegen(List.of(erw, kind)));
+    }
+
+    @Test
+    void schonvermoegenOhneErwachsenenIstEinmalGrundbetrag() {
+        var kind = vollerFall(6, false, false, 0, 0, false, "0", "0", "0", "0", "0");
+        assertEquals(eur("10000.00"), Leistungsberechnung.schonvermoegen(List.of(kind)));
     }
 
     @Test
     void vermoegenUnterSchonvermoegenWirdNichtAngerechnet() {
         var f = vollerFall(1, false, false, 0, 0, false, "0", "0", "0", "0", "0");
         var ergebnis = Leistungsberechnung.berechne(1L, List.of(f),
-                Leistungsberechnung.KduParameter.AUS, eur("9000.00"), 1);
+                Leistungsberechnung.KduParameter.AUS, eur("9000.00"));
         assertEquals(eur("0.00"), ergebnis.verwertbaresVermoegen());
         assertEquals(eur("563.00"), ergebnis.zahlbetrag());
     }

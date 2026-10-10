@@ -56,7 +56,7 @@ Redo-Logging, Recovery) — wir programmieren nur die Steuerungsschicht darüber
 5. Der Task-Wachhund unterbricht Tasks nach `TxOptions.timeout`; der Interrupt
    lässt den JDBC-Aufruf fehlschlagen, wodurch die DB zurückrollt.
 
-## Stand (Stand: 2026-10-10, Version 0.5.1)
+## Stand (Stand: 2026-10-10, Version 0.5.2)
 
 Kernbibliothek und Fachschicht vollständig umgesetzt, umfassendem Codereview unterzogen
 und auf echter Oracle 19c Enterprise Edition (VirtualBox, Port 1921/o19c1p1) sowie
@@ -75,8 +75,8 @@ und auf echter Oracle 19c Enterprise Edition (VirtualBox, Port 1921/o19c1p1) sow
   jetzt genutzt), revisionssicheres Audit-Log (`TxAuditLog`).
 - **Fachschicht Leistungsmanagement (SDN.sozial LMG)**: SGB-XII-Bedarfsberechnung
   vollständig (RBS 1–6, Mehrbedarfe § 30 Abs. 1/2/3/7 mit Obergrenze Abs. 6 und
-  stufenabhängigem Warmwasser-Satz, KdU-Dreiteilung mit § 42a-Angemessenheitsprüfung
-  und konfigurierbarem Warmwasser-Abzug, Absetzbeträge § 82 Abs. 2, Erwerbsfreibetrag
+  stufenabhängigem Warmwasser-Satz, KdU-Dreiteilung mit § 35-Angemessenheitsgrenze je Bedarfsgemeinschaft
+  und Warmwasser-Abzug nur bei zentraler Erzeugung, Absetzbeträge § 82 Abs. 2, Erwerbsfreibetrag
   § 82 Abs. 3, Vermögensanrechnung § 90 mit Schonvermögen), Zahlungs-Workflow
   (Idempotenz inkl. Recheck unter Sperre, `SELECT … FOR UPDATE`, Budget-Prüfung,
   Zahlung immer `ANGELEGT` — Vier-Augen serverseitig erzwungen), optimistisches Locking
@@ -91,7 +91,7 @@ und auf echter Oracle 19c Enterprise Edition (VirtualBox, Port 1921/o19c1p1) sow
   Modulo-97-Prüfziffernvalidierung (`SepaValidator`), Vier-Augen-Freigabe-Workflow
   (`ANGELEGT` → `BEREIT` → `UEBERGEBEN`) mit Rechnerischer Feststellung und Abwehr
   von Selbstfreigaben; Saga-Zahlungen gleichfalls `ANGELEGT` (keine Vier-Augen-Umgehung).
-- **Bescheidwesen (§ 44 SGB XII; Bekanntgabe § 37 SGB X)**: Tabelle `BESCHEID`,
+- **Bescheidwesen (§ 44 SGB XII; Datum des Bescheids)**: Tabelle `BESCHEID`,
   `BescheidDao`, Bewilligungsbescheid-Erteilung im Service (Zeitraum-Validierung
   YYYY-MM, von ≤ bis) und Druck-Generator (`BescheidGenerator`) mit amtlichem Layout,
   Verfügungssatz, Bedarfsaufschlüsselung mit KdU-Vorbehalt, fallbezogener § 35-Begründung,

@@ -23,6 +23,7 @@ public record SozialFall(
         boolean schwanger,
         int anzKinderUnter7,
         int anzKinderUnter16,
+        int anzKinderMinderjaehrig,
         boolean warmwasser,
         BigDecimal kduMiete,
         BigDecimal kduBetriebskosten,
@@ -34,6 +35,35 @@ public record SozialFall(
         BigDecimal abzVersicherungen,
         BigDecimal abzErwerbsaufwendungen,
         long version) {
+
+    /**
+     * Abwärtskompatibler Konstruktor ohne eigene Zählung minderjähriger Kinder:
+     * der Wert wird aus den Kindern unter 16 bzw. unter 7 abgeleitet.
+     */
+    public SozialFall(
+            long id,
+            long bgId,
+            int regelbedarfsstufe,
+            boolean merkzeichenG,
+            boolean schwanger,
+            int anzKinderUnter7,
+            int anzKinderUnter16,
+            boolean warmwasser,
+            BigDecimal kduMiete,
+            BigDecimal kduBetriebskosten,
+            BigDecimal kduHeizung,
+            BigDecimal einkommenRente,
+            BigDecimal einkommenErwerb,
+            BigDecimal abzSteuern,
+            BigDecimal abzSozialversicherung,
+            BigDecimal abzVersicherungen,
+            BigDecimal abzErwerbsaufwendungen,
+            long version) {
+        this(id, bgId, regelbedarfsstufe, merkzeichenG, schwanger, anzKinderUnter7, anzKinderUnter16,
+                Math.max(anzKinderUnter7, anzKinderUnter16), warmwasser,
+                kduMiete, kduBetriebskosten, kduHeizung, einkommenRente, einkommenErwerb,
+                abzSteuern, abzSozialversicherung, abzVersicherungen, abzErwerbsaufwendungen, version);
+    }
 
     /** Abwärtskompatibler Konstruktor: Alter Stand ohne Mehrbedarfe/Absetzbeträge. */
     public SozialFall(

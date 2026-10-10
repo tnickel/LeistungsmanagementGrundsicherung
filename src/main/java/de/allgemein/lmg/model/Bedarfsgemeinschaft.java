@@ -10,8 +10,8 @@ import java.time.LocalDate;
  * Trägt die Standard-Bankverbindung (IBAN, BIC, Kontoinhaber) für Auszahlungen
  * sowie das verwertbare Vermögen für die Vermögensanrechnung (§ 90 SGB XII):
  * VERMOEGEN ist das Gesamtvermögen der Bedarfsgemeinschaft; das Schonvermögen
- * (§ 90 Abs. 2 Nr. 14 SGB XII: 10.000 EUR für die leistungsberechtigte Person
- * zzgl. 750 EUR je weiterem Mitglied) wird in der Berechnung abgezogen.
+ * (§ 90 Abs. 2 Nr. 9 SGB XII i.V.m. § 1 BarbetragsVO: 10.000 EUR je volljähriger
+ * Person zzgl. 500 EUR je überwiegend unterhaltener Person) wird in der Berechnung abgezogen.
  */
 public record Bedarfsgemeinschaft(
         long id,

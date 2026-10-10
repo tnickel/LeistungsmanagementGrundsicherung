@@ -44,7 +44,8 @@ CREATE TABLE SOZIAL_FALL (
     FLAG_MERKZEICHEN_G NUMBER(1)     DEFAULT 0 NOT NULL, -- 1 = Merkzeichen G, 17 % Mehrbedarf (§ 30 Abs. 1)
     FLAG_SCHWANGER     NUMBER(1)     DEFAULT 0 NOT NULL, -- 1 = schwanger ab 12. SSW, 17 % Mehrbedarf (§ 30 Abs. 2)
     ANZ_KINDER_U7      NUMBER(2)     DEFAULT 0 NOT NULL, -- Kinder unter 7 im Haushalt (§ 30 Abs. 3)
-    ANZ_KINDER_U16     NUMBER(2)     DEFAULT 0 NOT NULL, -- Kinder unter 16 im Haushalt (§ 30 Abs. 3)
+    ANZ_KINDER_U16     NUMBER(2)     DEFAULT 0 NOT NULL, -- Kinder unter 16 im Haushalt (§ 30 Abs. 3 Nr. 1)
+    ANZ_KINDER_MINDERJ NUMBER(2)     DEFAULT 0 NOT NULL, -- minderjährige Kinder im Haushalt insgesamt (§ 30 Abs. 3 Nr. 2)
     FLAG_WARMWASSER    NUMBER(1)     DEFAULT 0 NOT NULL, -- 1 = Warmwasser dezentral (§ 30 Abs. 7), stufenabhängig 2,3/–/1,4/1,2/0,8 %
     KDU_MIETE          NUMBER(10,2)  DEFAULT 0 NOT NULL, -- anerkannte Kaltmiete
     KDU_BETRIEBSKOSTEN NUMBER(10,2)  DEFAULT 0 NOT NULL, -- anerkannte kalte Betriebskosten
@@ -62,7 +63,7 @@ CREATE TABLE SOZIAL_FALL (
     CONSTRAINT CK_FALL_MERKZEICHEN_G CHECK (FLAG_MERKZEICHEN_G IN (0, 1)),
     CONSTRAINT CK_FALL_SCHWANGER CHECK (FLAG_SCHWANGER IN (0, 1)),
     CONSTRAINT CK_FALL_WARMWASSER CHECK (FLAG_WARMWASSER IN (0, 1)),
-    CONSTRAINT CK_FALL_KINDER CHECK (ANZ_KINDER_U7 >= 0 AND ANZ_KINDER_U16 >= 0),
+    CONSTRAINT CK_FALL_KINDER CHECK (ANZ_KINDER_U7 >= 0 AND ANZ_KINDER_U16 >= 0 AND ANZ_KINDER_MINDERJ >= 0),
     CONSTRAINT CK_FALL_KDU_MIETE CHECK (KDU_MIETE >= 0),
     CONSTRAINT CK_FALL_KDU_BETRIEB CHECK (KDU_BETRIEBSKOSTEN >= 0),
     CONSTRAINT CK_FALL_KDU_HEIZUNG CHECK (KDU_HEIZUNG >= 0),
@@ -100,13 +101,13 @@ CREATE TABLE ZAHLUNG (
 
 -- ------------------------------------------------------------------
 -- Bescheid: Bewilligungsbescheid (§ 44 SGB XII); BESCHEID_DATUM ist das
--- Datum der Bekanntgabe (§ 37 SGB X) — mit ihr wird der Verwaltungsakt wirksam.
+-- Datum des Bescheids (die Bekanntgabe nach § 37 SGB X ist ein eigener Zeitpunkt).
 -- ------------------------------------------------------------------
 CREATE TABLE BESCHEID (
     ID              NUMBER(19)        NOT NULL,
     BG_ID           NUMBER(19)        NOT NULL,
     BESCHEID_NR     VARCHAR2(100 CHAR) NOT NULL,
-    BESCHEID_DATUM  DATE              DEFAULT SYSDATE NOT NULL,  -- Bekanntgabedatum (§ 37 SGB X)
+    BESCHEID_DATUM  DATE              DEFAULT SYSDATE NOT NULL,  -- Bescheiddatum
     BEWILLIGUNG_VON VARCHAR2(7 CHAR)  NOT NULL,
     BEWILLIGUNG_BIS VARCHAR2(7 CHAR)  NOT NULL,
     ZAHLBETRAG      NUMBER(10,2)      NOT NULL,

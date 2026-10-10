@@ -19,23 +19,27 @@ import java.util.Map;
  *   Mehrbedarfe § 30:
  *     Merkzeichen G        Abs. 1:  17 % des Regelbedarfs
  *     Schwangerschaft      Abs. 2:  17 % des Regelbedarfs (ab 12. SSW — Erfassung als Flag)
- *     Alleinerziehend      Abs. 3:  36 % (Kind &lt; 7 J. oder 2–3 Kinder &lt; 16 J. im Haushalt),
- *                                    sonst 12 % je Kind &lt; 16 J.; Deckel 60 % der RBS 1
+ *     Alleinerziehend      Abs. 3:  36 % der RBS 1 (Kind &lt; 7 J. oder 2–3 Kinder &lt; 16 J.),
+ *                                    sonst 12 % je minderjährigem Kind; Deckel 60 % der RBS 1
+ *     Obergrenze           Abs. 6:  Summe der Mehrbedarfe nach Abs. 1–5 höchstens der Regelbedarf
  *     Warmwasser (dezentral) Abs. 7: stufenabhängig 2,3 % / 2,3 % / – / 1,4 % / 1,2 % / 0,8 %
- *                                    (Stufen 1–6; für Stufe 3 sieht das Gesetz keinen Satz vor)
- *     Obergrenze           Abs. 6:  Summe der Mehrbedarfe höchstens der Regelbedarf selbst
- *   KdU § 42a i.V.m. § 35:  Kaltmiete + kalte Betriebskosten + Heizkosten; bei dezentraler
- *                                    Warmwassererzeugung örtlicher Abzug von den Heizkosten
- *                                    (konfigurierbar, Default 0 = aus); unangemessene Aufwendungen
- *                                    werden nur bis zur Angemessenheitsgrenze anerkannt und
- *                                    im Ergebnis gekennzeichnet (Übernahme unter Vorbehalt)
+ *                                    (Stufen 1–6; für Stufe 3 sieht das Gesetz keinen Satz vor);
+ *                                    nicht von der Obergrenze nach Abs. 6 erfasst
+ *   KdU § 42a i.V.m. § 35:  Kaltmiete + kalte Betriebskosten + Heizkosten; die Angemessenheits-
+ *                                    grenze gilt für die Summe der Bedarfsgemeinschaft
+ *                                    gem. § 35 Abs. 7 (Karenzzeit/Absenkungsfrist sind nicht
+ *                                    abgebildet); der Überschuss wird nicht anerkannt und
+ *                                    gekennzeichnet (Übernahme unter Vorbehalt). Optionaler
+ *                                    örtlicher Heizkosten-Abzug nur bei zentralem Warmwasser
+ *                                    (Default 0 = aus)
  *   Einkommen § 82:
  *     Absetzbeträge        Abs. 2:  Steuern, Sozialversicherung, Versicherungen, Erwerbsaufwendungen
  *     Erwerbsfreibetrag    Abs. 3:  min(30 % Brutto-Erwerbseinkommen, 50 % der RBS 1)
  *     Anrechenbar          = Rente + Erwerb − Freibetrag − Absetzbeträge (mindestens 0)
- *   Vermögen § 43 Abs. 3, § 90:
- *     Verwertbar           = Vermögen − Schonvermögen (10.000 EUR + 750 EUR je weiterem
- *                            Mitglied der Bedarfsgemeinschaft; § 90 Abs. 2 Nr. 14 SGB XII)
+ *   Vermögen § 43 Abs. 1, § 90:
+ *     Verwertbar           = Vermögen − Schonvermögen (10.000 EUR je volljähriger Person,
+ *                            500 EUR je weiterer unterhaltener Person; § 90 Abs. 2 Nr. 9
+ *                            SGB XII i.V.m. § 1 BarbetragsVO)
  *   Zahlbetrag       = Gesamtbedarf − anrechenbares Einkommen − verwertbares Vermögen
  *                      (je Bedarfsgemeinschaft summiert; ≤ 0 bedeutet KEIN_ANSPRUCH)
  * </pre>
@@ -87,11 +91,11 @@ public final class Leistungsberechnung {
     /** … aber hart gedeckelt auf 50 % der Regelbedarfsstufe 1 (2026: 281,50 EUR). */
     public static final BigDecimal ERWERBSFREIBETRAG_KAPPUNG_RBS1 = new BigDecimal("0.50");
 
-    /** Schonvermögen (§ 90 Abs. 2 Nr. 14 SGB XII): Grundbetrag der leistungsberechtigten Person. */
+    /** Schonvermögen (§ 90 Abs. 2 Nr. 9 SGB XII, § 1 BarbetragsVO): je volljähriger leistungsberechtigter Person. */
     public static final BigDecimal SCHONVERMOEGEN_GRUNDBETRAG = new BigDecimal("10000.00");
 
-    /** Schonvermögen (§ 90 Abs. 2 Nr. 14 SGB XII): je weiterem Mitglied der Bedarfsgemeinschaft. */
-    public static final BigDecimal SCHONVERMOEGEN_JE_MITGLIED = new BigDecimal("750.00");
+    /** Schonvermögen (§ 1 BarbetragsVO): je weiterer, überwiegend unterhaltener Person. */
+    public static final BigDecimal SCHONVERMOEGEN_UNTERHALTENE_PERSON = new BigDecimal("500.00");
 
     private static final int SCALE = 2;
 
@@ -103,20 +107,19 @@ public final class Leistungsberechnung {
      * die KdU-Parameter (Warmwasser-Abzug, Angemessenheitsgrenze) sind deaktiviert.
      */
     public static Berechnungsergebnis berechne(long bgId, List<SozialFall> faelle) {
-        return berechne(bgId, faelle, KduParameter.AUS, BigDecimal.ZERO, 1);
+        return berechne(bgId, faelle, KduParameter.AUS, BigDecimal.ZERO);
     }
 
     /**
      * Summierte Berechnung über alle SozialFälle einer Bedarfsgemeinschaft inklusive
-     * Vermögensanrechnung (§ 43 Abs. 3, § 90 SGB XII).
+     * Vermögensanrechnung (§ 43 Abs. 1, § 90 SGB XII). Die Angemessenheitsgrenze gilt für die
+     * Summe der KdU der gesamten Bedarfsgemeinschaft (Gesamtangemessenheitsgrenze, § 35 Abs. 7).
      *
-     * @param kduParameter   örtliche Parameter der KdU-Prüfung (§ 42a SGB XII)
-     * @param vermoegen      Gesamtvermögen der Bedarfsgemeinschaft in EUR
-     * @param anzahlMitglieder Anzahl Mitglieder der Bedarfsgemeinschaft (für das Schonvermögen)
+     * @param kduParameter örtliche Parameter der KdU-Prüfung (§ 42a SGB XII)
+     * @param vermoegen    Gesamtvermögen der Bedarfsgemeinschaft in EUR
      */
     public static Berechnungsergebnis berechne(
-            long bgId, List<SozialFall> faelle, KduParameter kduParameter,
-            BigDecimal vermoegen, int anzahlMitglieder) {
+            long bgId, List<SozialFall> faelle, KduParameter kduParameter, BigDecimal vermoegen) {
         if (faelle.isEmpty()) {
             throw new FachlicheException(FachlicheException.VALIDATION,
                     "Die Bedarfsgemeinschaft " + bgId + " hat keinen SozialFall");
@@ -124,13 +127,18 @@ public final class Leistungsberechnung {
         BigDecimal gesamtbedarf = BigDecimal.ZERO;
         BigDecimal anrechenbarGesamt = BigDecimal.ZERO;
         List<FallBerechnung> einzeln = new ArrayList<>();
+        BigDecimal kduRest = kduParameter.angemessenheitsgrenze().signum() > 0
+                ? kduParameter.angemessenheitsgrenze() : null;
         for (SozialFall fall : faelle) {
-            FallBerechnung berechnung = berechneFall(fall, kduParameter);
+            FallBerechnung berechnung = berechneFall(fall, kduParameter, kduRest);
             einzeln.add(berechnung);
+            if (kduRest != null) {
+                kduRest = kduRest.subtract(berechnung.kdu());
+            }
             gesamtbedarf = gesamtbedarf.add(berechnung.gesamtbedarf());
             anrechenbarGesamt = anrechenbarGesamt.add(berechnung.anrechenbaresEinkommen());
         }
-        BigDecimal verwertbaresVermoegen = verwertbaresVermoegen(vermoegen, anzahlMitglieder);
+        BigDecimal verwertbaresVermoegen = verwertbaresVermoegen(vermoegen, faelle);
         BigDecimal zahlbetrag = gesamtbedarf.subtract(anrechenbarGesamt)
                 .subtract(verwertbaresVermoegen);
         return new Berechnungsergebnis(bgId, List.copyOf(einzeln), gesamtbedarf,
@@ -143,6 +151,13 @@ public final class Leistungsberechnung {
     }
 
     static FallBerechnung berechneFall(SozialFall fall, KduParameter kduParameter) {
+        BigDecimal grenze = kduParameter.angemessenheitsgrenze();
+        return berechneFall(fall, kduParameter, grenze.signum() > 0 ? grenze : null);
+    }
+
+    /** @param kduRest noch anerkennbare KdU der Bedarfsgemeinschaft; {@code null} = keine Grenze */
+    private static FallBerechnung berechneFall(
+            SozialFall fall, KduParameter kduParameter, BigDecimal kduRest) {
         BigDecimal regelbedarf = regelbedarf(fall.regelbedarfsstufe());
 
         BigDecimal mehrbedarfG = fall.merkzeichenG()
@@ -151,27 +166,33 @@ public final class Leistungsberechnung {
         BigDecimal mehrbedarfSchwangere = fall.schwanger()
                 ? regelbedarf.multiply(MEHRBEDARF_SCHWANGERE_ANTEIL).setScale(SCALE, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO.setScale(SCALE);
-        BigDecimal mehrbedarfAlleinerziehend = mehrbedarfAlleinerziehend(fall, regelbedarf);
+        BigDecimal mehrbedarfAlleinerziehend = mehrbedarfAlleinerziehend(fall);
         BigDecimal mehrbedarfWarmwasser = fall.warmwasser()
                 ? regelbedarf.multiply(MEHRBEDARF_WARMWASSER_ANTEILE.get(fall.regelbedarfsstufe()))
                         .setScale(SCALE, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO.setScale(SCALE);
-        BigDecimal mehrbedarfRoeh = mehrbedarfG.add(mehrbedarfSchwangere)
-                .add(mehrbedarfAlleinerziehend).add(mehrbedarfWarmwasser);
-        // § 30 Abs. 6 SGB XII: Mehrbedarfe übersteigen nicht den Regelbedarf selbst.
-        BigDecimal mehrbedarf = mehrbedarfRoeh.min(regelbedarf);
+        // § 30 Abs. 6 SGB XII deckelt nur die Mehrbedarfe nach Abs. 1 bis 5;
+        // der Mehrbedarf für dezentrale Warmwassererzeugung (Abs. 7) kommt darüber hinaus.
+        BigDecimal mehrbedarfAbs1bis5 = mehrbedarfG.add(mehrbedarfSchwangere)
+                .add(mehrbedarfAlleinerziehend).min(regelbedarf);
+        BigDecimal mehrbedarf = mehrbedarfAbs1bis5.add(mehrbedarfWarmwasser);
 
         BigDecimal kduRoh = fall.kduMiete().add(fall.kduBetriebskosten()).add(fall.kduHeizung());
-        BigDecimal warmwasserAbzugKdu = fall.warmwasser()
+        // Optionaler örtlicher Abzug nur bei zentraler Warmwasserbereitung: nur dort stecken
+        // Warmwasserkosten in den Heizkosten (§ 35 Abs. 5). Bei dezentraler Erzeugung gilt
+        // stattdessen der Mehrbedarf nach § 30 Abs. 7 — ein Abzug wäre eine Doppelkürzung.
+        BigDecimal warmwasserAbzugKdu = !fall.warmwasser()
                 ? fall.kduHeizung().multiply(kduParameter.warmwasserAbzugHeizungProzent())
                         .setScale(SCALE, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO.setScale(SCALE);
-        BigDecimal kduOhneWarmwasser = kduRoh.subtract(warmwasserAbzugKdu).max(BigDecimal.ZERO);
-        boolean kduUnangemessen = kduParameter.angemessenheitsgrenze().signum() > 0
-                && kduOhneWarmwasser.compareTo(kduParameter.angemessenheitsgrenze()) > 0;
-        // § 42a i.V.m. § 35 SGB XII: unangemessene Aufwendungen nur bis zur Grenze;
-        // der Überschuss wird unter Vorbehalt der Anpassung nicht als Bedarf anerkannt.
-        BigDecimal kdu = kduUnangemessen ? kduParameter.angemessenheitsgrenze() : kduOhneWarmwasser;
+        BigDecimal kduOhneWarmwasser = kduRoh.subtract(warmwasserAbzugKdu).max(BigDecimal.ZERO)
+                .setScale(SCALE, RoundingMode.HALF_UP);
+        // § 42a i.V.m. § 35 SGB XII: unangemessene Aufwendungen nur bis zur Grenze der
+        // Bedarfsgemeinschaft; der Überschuss wird nicht als Bedarf anerkannt (Vorbehalt).
+        BigDecimal kdu = kduRest == null
+                ? kduOhneWarmwasser
+                : kduOhneWarmwasser.min(kduRest.max(BigDecimal.ZERO));
+        boolean kduUnangemessen = kdu.compareTo(kduOhneWarmwasser) < 0;
 
         BigDecimal gesamtbedarf = regelbedarf.add(mehrbedarf).add(kdu);
 
@@ -190,32 +211,47 @@ public final class Leistungsberechnung {
     }
 
     /**
-     * Alleinerziehenden-Mehrbedarf (§ 30 Abs. 3 SGB XII). Vereinfachung: bei erfüllter
-     * Konstellation (Kind unter 7 oder zwei/drei Kinder unter 16 im Haushalt) einmal 36 %,
-     * sonst 12 % je Kind unter 16 — ohne Kumulation beider Sätze; gedeckelt auf 60 % der RBS 1.
+     * Alleinerziehenden-Mehrbedarf (§ 30 Abs. 3 SGB XII), Bemessungsgrundlage ist stets die
+     * Regelbedarfsstufe 1: bei Kind unter 7 oder zwei/drei Kindern unter 16 einmal 36 %
+     * (Nr. 1), sonst 12 % je minderjährigem Kind (Nr. 2); gedeckelt auf 60 % der RBS 1.
      */
-    private static BigDecimal mehrbedarfAlleinerziehend(SozialFall fall, BigDecimal regelbedarf) {
+    private static BigDecimal mehrbedarfAlleinerziehend(SozialFall fall) {
         int kinderU16 = Math.max(fall.anzKinderUnter16(), fall.anzKinderUnter7());
-        if (kinderU16 == 0) {
+        int minderjaehrig = Math.max(fall.anzKinderMinderjaehrig(), kinderU16);
+        if (minderjaehrig == 0) {
             return BigDecimal.ZERO.setScale(SCALE);
         }
-        boolean konstellation36 = fall.anzKinderUnter7() >= 1 || (kinderU16 >= 2 && kinderU16 <= 3);
-        BigDecimal anteil = konstellation36
+        boolean nr1 = fall.anzKinderUnter7() >= 1 || (kinderU16 >= 2 && kinderU16 <= 3);
+        BigDecimal anteil = nr1
                 ? MEHRBEDARF_ALLEINERZIEHEND_36
-                : MEHRBEDARF_ALLEINERZIEHEND_JE_KIND.multiply(BigDecimal.valueOf(kinderU16));
-        BigDecimal betrag = regelbedarf.multiply(anteil).setScale(SCALE, RoundingMode.HALF_UP);
-        BigDecimal deckel = REGELBEDARF_2026.get(1)
-                .multiply(MEHRBEDARF_ALLEINERZIEHEND_DECKEL_RBS1)
+                : MEHRBEDARF_ALLEINERZIEHEND_JE_KIND.multiply(BigDecimal.valueOf(minderjaehrig));
+        BigDecimal rbs1 = REGELBEDARF_2026.get(1);
+        BigDecimal betrag = rbs1.multiply(anteil).setScale(SCALE, RoundingMode.HALF_UP);
+        BigDecimal deckel = rbs1.multiply(MEHRBEDARF_ALLEINERZIEHEND_DECKEL_RBS1)
                 .setScale(SCALE, RoundingMode.HALF_UP);
         return betrag.min(deckel);
     }
 
-    /** Verwertbares Vermögen: Vermögen abzüglich Schonvermögen (§ 90 Abs. 2 Nr. 14 SGB XII). */
-    static BigDecimal verwertbaresVermoegen(BigDecimal vermoegen, int anzahlMitglieder) {
-        BigDecimal schonvermoegen = SCHONVERMOEGEN_GRUNDBETRAG
-                .add(SCHONVERMOEGEN_JE_MITGLIED.multiply(
-                        BigDecimal.valueOf(Math.max(0, anzahlMitglieder - 1))));
-        return vermoegen.subtract(schonvermoegen)
+    /**
+     * Schonvermögen der Bedarfsgemeinschaft (§ 90 Abs. 2 Nr. 9 SGB XII i.V.m. § 1
+     * Barbetragsverordnung): 10.000 EUR je volljähriger leistungsberechtigter Person
+     * (Regelbedarfsstufen 1 bis 3) und 500 EUR je weiterer, überwiegend unterhaltener Person
+     * (Regelbedarfsstufen 4 bis 6). Ohne Erwachsene gilt der Grundbetrag einmal.
+     */
+    public static BigDecimal schonvermoegen(List<SozialFall> faelle) {
+        long erwachsene = faelle.stream().filter(f -> f.regelbedarfsstufe() <= 3).count();
+        long unterhaltene = faelle.size() - erwachsene;
+        BigDecimal summe = SCHONVERMOEGEN_GRUNDBETRAG.multiply(BigDecimal.valueOf(erwachsene))
+                .add(SCHONVERMOEGEN_UNTERHALTENE_PERSON.multiply(BigDecimal.valueOf(unterhaltene)));
+        if (erwachsene == 0) {
+            summe = SCHONVERMOEGEN_GRUNDBETRAG;
+        }
+        return summe.setScale(SCALE, RoundingMode.HALF_UP);
+    }
+
+    /** Verwertbares Vermögen: Vermögen abzüglich Schonvermögen der Bedarfsgemeinschaft. */
+    static BigDecimal verwertbaresVermoegen(BigDecimal vermoegen, List<SozialFall> faelle) {
+        return vermoegen.subtract(schonvermoegen(faelle))
                 .max(BigDecimal.ZERO)
                 .setScale(SCALE, RoundingMode.HALF_UP);
     }
@@ -250,6 +286,16 @@ public final class Leistungsberechnung {
         public KduParameter {
             java.util.Objects.requireNonNull(warmwasserAbzugHeizungProzent, "warmwasserAbzugHeizungProzent");
             java.util.Objects.requireNonNull(angemessenheitsgrenze, "angemessenheitsgrenze");
+            if (warmwasserAbzugHeizungProzent.signum() < 0
+                    || warmwasserAbzugHeizungProzent.compareTo(BigDecimal.ONE) > 0) {
+                throw new IllegalArgumentException(
+                        "warmwasserAbzugHeizungProzent muss zwischen 0 und 1 liegen: "
+                                + warmwasserAbzugHeizungProzent);
+            }
+            if (angemessenheitsgrenze.signum() < 0) {
+                throw new IllegalArgumentException(
+                        "angemessenheitsgrenze darf nicht negativ sein: " + angemessenheitsgrenze);
+            }
         }
     }
 
