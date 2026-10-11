@@ -192,6 +192,21 @@ app.js-Interpolationen als XSS) dokumentiert nicht umgesetzt:
       synthetischem Crash-Zustand, paralleler Wiederanlauf als Integrationstest,
       Session-Timeout-Timing) — siehe Etappe 4
 
+## Szenario-Regression (2026-10-11)
+
+- [x] **Zehn Nutzer-Szenarien mit mehreren Sachbearbeitern** als neue DB-Suite
+      `SzenarioRegressionTest` (läuft mit `TX_URL`): verschiedene Sachbearbeiter
+      erfassen unterschiedliche SozialFälle (RBS-Kombinationen, Mehrbedarfe §§ 30/82/90,
+      Vermögen, Erwerb), Vier-Augen-Freigabe inkl. abgewehrter Selbstfreigabe,
+      Doppelklick-Idempotenz, Storno + korrigierte Neuauszahlung im selben Monat,
+      Bescheid mit Berechnungs-Snapshot, Konkurrenz-Abwehr beim Masken speichern,
+      Kassenlauf, Historisierung. Verifiziert wird je Szenario der persistierte
+      Endzustand per SQL direkt auf den Tabellen (Beträge, Status, Sachbearbeiter-
+      Zuordnungen, Journal-Chronologie). Testfälle im Detail:
+      [regressionstests.md](regressionstests.md)
+- [x] Gegen VirtualBox-Oracle verifiziert: Suite 10/10 grün; Gesamtlauf 136 Tests,
+      0 Fehler; keine Test-Rückstände (Cleanup-Präfix `BG-REG-`)
+
 ## Etappe 4 — Betrieb & Weiterentwicklung
 
 - [x] Wiederanlauf beim Serverstart (recover wird beim Hochfahren ausgeführt und per Admin-Button)

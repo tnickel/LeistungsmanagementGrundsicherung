@@ -299,3 +299,9 @@ mvn compile exec:java -Dexec.mainClass=de.allgemein.lmg.web.LmgServerMain
 Berechnungsregeln sind unabhängig von der Datenbank testbar: `mvn test`
 (Unit-Tests ohne DB; die echten DB-Tests — `EchteDbVerifikationTest`,
 `DeadlockRetryEchtTest` — laufen automatisch mit, wenn `TX_URL` gesetzt ist).
+
+Dazu die **Szenario-Regression** `SzenarioRegressionTest` (ebenfalls mit `TX_URL`):
+zehn Nutzer-Szenarien mit mehreren Sachbearbeitern, die jeweils am Ende den
+persistierten Endzustand per SQL auf den Oracle-Tabellen verifizieren —
+Testfälle mit Akteuren, Ablauf und erwartetem Datenbank-Endzustand sind in
+[regressionstests.md](regressionstests.md) dokumentiert.

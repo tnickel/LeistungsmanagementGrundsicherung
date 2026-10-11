@@ -16,6 +16,8 @@ Redo-Logging, Recovery) — wir programmieren nur die Steuerungsschicht darüber
 - `doc/leistungsmanagement.md` — Fachschicht Leistungsmanagement (SDN.sozial LMG)
 - `doc/rechtsgrundlagen.md` — Rechtsquellen-Verzeichnis mit Herkunftsnachweisen und
   Verifikationsprotokoll (maßgeblich für Fach-Reviews; Stand 2026-10-10)
+- `doc/regressionstests.md` — die zehn Testfälle der Szenario-Regression mit Akteuren,
+  Abläufen und erwartetem Datenbank-Endzustand (Stand 2026-10-11)
 - `doc/roadmap.md` — aktueller Stand und geplante Etappen
 
 ## Namenskonventionen für die Fachschicht (wichtig)
@@ -120,3 +122,11 @@ und auf echter Oracle 19c Enterprise Edition (VirtualBox, Port 1921/o19c1p1) sow
   `TX_URL`); neue Tests: `TaskControllerTest`, `SagaEngineTest`, erweiterte
   `SimpleConnectionPoolTest`/`LeistungsberechnungTest` (Warmwasser-Stufen 4–6,
   Kinder-/Schwangeren-Mehrbedarf, Obergrenze, Absetzbeträge, Vermögen).
+- **Szenario-Regression (`SzenarioRegressionTest`, läuft mit `TX_URL`; Testfälle
+  dokumentiert in [doc/regressionstests.md](doc/regressionstests.md))**: zehn
+  Nutzer-Szenarien mit mehreren Sachbearbeitern (Erfassung, Vier-Augen-Freigabe,
+  Doppelklick/Idempotenz, Storno + korrigierte Neuauszahlung im selben Monat, Vermögens-,
+  Erwerbs- und Mehrbedarfsfälle, Bescheid mit Snapshot, Konkurrenz beim Masken speichern,
+  Kassenlauf, Historisierung). Verifiziert wird je Szenario der persistierte Endzustand
+  per SQL direkt auf den Tabellen (Beträge, Status, Sachbearbeiter-Zuordnungen,
+  Journal-Chronologie); Datenhygiene über Aktenzeichen-Präfix `BG-REG-`.
