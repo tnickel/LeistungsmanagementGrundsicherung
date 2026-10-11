@@ -31,6 +31,19 @@ public final class SweetMain {
             System.out.println("Markdown: " + simulator.letztesMd());
             return;
         }
+        if (args.length > 0 && ("web".equalsIgnoreCase(args[0]) || "run-web".equalsIgnoreCase(args[0]))) {
+            int ma = args.length > 1 ? Integer.parseInt(args[1]) : 2;
+            int auf = args.length > 2 ? Integer.parseInt(args[2]) : 4;
+            int seed = args.length > 3 ? Integer.parseInt(args[3]) : 42;
+            int denkzeit = args.length > 4 ? Integer.parseInt(args[4]) : 200;
+            Simulator simulator = new Simulator();
+            System.out.println("testsweet — Starte Weboberflächen-Lauf (Selenium) mit " + ma
+                    + " Browserfenstern, " + auf + " Aufträgen (Seed " + seed + ") auf " + simulator.dbUrl);
+            simulator.laufWebSynchron(new Simulator.LaufKonfiguration(ma, auf, seed, denkzeit, true));
+            System.out.println("Web-Lauf beendet. PDF: " + simulator.letztesPdf());
+            System.out.println("Markdown: " + simulator.letztesMd());
+            return;
+        }
 
         int port = ganzeZahlAusUmgebung("SWEET_PORT", 8095);
         Simulator simulator = new Simulator();

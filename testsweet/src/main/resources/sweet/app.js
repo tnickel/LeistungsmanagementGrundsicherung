@@ -93,6 +93,18 @@ window.addEventListener("DOMContentLoaded", () => {
         });
     });
 
+    // Modus-Umschaltung (Modus 1 Fachschicht vs. Modus 2 Web/Selenium)
+    $("modus1").addEventListener("click", () => {
+        $("modus1").classList.add("ausgewaehlt");
+        $("modus2").classList.remove("ausgewaehlt");
+        gewaehlterModus = "FACHSCHICHT";
+    });
+    $("modus2").addEventListener("click", () => {
+        $("modus2").classList.add("ausgewaehlt");
+        $("modus1").classList.remove("ausgewaehlt");
+        gewaehlterModus = "WEB";
+    });
+
     // Auto-Scroll Ticker
     $("log-auto-scroll").addEventListener("click", () => {
         autoScroll = !autoScroll;
@@ -103,6 +115,8 @@ window.addEventListener("DOMContentLoaded", () => {
     setInterval(aktualisiere, 700);
     aktualisiere();
 });
+
+let gewaehlterModus = "FACHSCHICHT";
 
 function setzePreset(ma, auf, seed, denkzeit) {
     $("mitarbeiter").value = ma;
@@ -117,7 +131,7 @@ function setzePreset(ma, auf, seed, denkzeit) {
 
 async function starteSimulation() {
     const body = {
-        modus: "FACHSCHICHT",
+        modus: gewaehlterModus,
         mitarbeiter: Number($("mitarbeiter").value),
         auftraege: Number($("auftraege").value),
         seed: Number($("seed").value),

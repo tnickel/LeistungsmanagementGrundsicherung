@@ -91,9 +91,8 @@ final class SweetServer {
             return;
         }
         String modus = text(wunsch, "modus", "FACHSCHICHT");
-        if (!"FACHSCHICHT".equals(modus)) {
-            sendeFehler(exchange, 400,
-                    "Modus " + modus + " ist noch nicht implementiert (Schritt 2: Selenium)");
+        if (!"FACHSCHICHT".equals(modus) && !"WEB".equals(modus)) {
+            sendeFehler(exchange, 400, "Unbekannter Modus: " + modus);
             return;
         }
         Simulator.LaufKonfiguration konfig = new Simulator.LaufKonfiguration(
@@ -103,7 +102,11 @@ final class SweetServer {
                 zahl(wunsch, "denkzeitMs", 120),
                 Boolean.TRUE.equals(wunsch.get("aufraeumen")));
         try {
-            simulator.starte(konfig);
+            if ("WEB".equals(modus)) {
+                simulator.starteWeb(konfig);
+            } else {
+                simulator.starte(konfig);
+            }
             sendeJson(exchange, Map.of("ok", true));
         } catch (IllegalStateException e) {
             sendeFehler(exchange, 409, e.getMessage());
@@ -132,15 +135,27 @@ final class SweetServer {
         antwort.put("kennzahlen", kennzahlen);
 
         List<Map<String, Object>> leute = new ArrayList<>();
-        for (Mitarbeiter m : simulator.mitarbeiterListe()) {
-            Map<String, Object> eintrag = new LinkedHashMap<>();
-            eintrag.put("kuerzel", m.kuerzel);
-            eintrag.put("aktuellerAuftrag", m.aktuellerAuftrag);
-            eintrag.put("erledigt", m.erledigt);
-            eintrag.put("aktiv", m.aktiv);
-            leute.add(eintrag);
+        if ("WEB".equals(simulator.letzterModus())) {
+            for (WebMitarbeiter m : simulator.webMitarbeiterListe()) {
+                Map<String, Object> eintrag = new LinkedHashMap<>();
+                eintrag.put("kuerzel", m.kuerzel + " (Browserfenster)");
+                eintrag.put("aktuellerAuftrag", m.aktuellerAuftrag);
+                eintrag.put("erledigt", m.erledigt);
+                eintrag.put("aktiv", m.aktiv);
+                leute.add(eintrag);
+            }
+        } else {
+            for (Mitarbeiter m : simulator.mitarbeiterListe()) {
+                Map<String, Object> eintrag = new LinkedHashMap<>();
+                eintrag.put("kuerzel", m.kuerzel);
+                eintrag.put("aktuellerAuftrag", m.aktuellerAuftrag);
+                eintrag.put("erledigt", m.erledigt);
+                eintrag.put("aktiv", m.aktiv);
+                leute.add(eintrag);
+            }
         }
         antwort.put("mitarbeiter", leute);
+        antwort.put("modus", simulator.letzterModus());
 
         SweetLog log = simulator.log();
         antwort.put("logs", log == null ? List.of() : log.letzteZeilen(120));

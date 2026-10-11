@@ -86,7 +86,11 @@ final class Testdokumentation {
         pdf.leereZeile(6f);
 
         pdf.fettZeile("Automatische Testdokumentation", SweetPdf.BLAU, 20f);
-        pdf.text("Mitarbeiter-Simulator „testsweet“ — Modus 1: Fachschicht- und Transaktionstest", SweetPdf.SCHWARZ, 10.5f);
+        boolean istWeb = "WEB".equalsIgnoreCase(simulator.letzterModus());
+        String modusTitel = istWeb
+                ? "Mitarbeiter-Simulator „testsweet“ — Modus 2: Weboberfläche & Selenium-Automatisierung"
+                : "Mitarbeiter-Simulator „testsweet“ — Modus 1: Fachschicht- und Transaktionstest";
+        pdf.text(modusTitel, SweetPdf.SCHWARZ, 10.5f);
         pdf.leereZeile(3f);
         pdf.linie();
         pdf.leereZeile(4f);
@@ -251,8 +255,14 @@ final class Testdokumentation {
     private static void zusammenfassung(SweetPdf pdf, Simulator simulator) {
         List<Auftrag> auftraege = simulator.auftraege();
         pdf.ueberschrift("Zusammenfassung der Testergebnisse");
-        pdf.paar("Modus", "1 — Fachschicht/Transaktionstest (Aufrufe direkt über den SozialLeistungsService der Fachschicht)");
-        pdf.paar("Ablauf", "Die simulierten Sachbearbeiter nehmen nacheinander Aufträge aus einem gemeinsamen Pool und "
+        boolean istWeb = "WEB".equalsIgnoreCase(simulator.letzterModus());
+        pdf.paar("Modus", istWeb
+                ? "2 — Weboberfläche & Selenium (Interaktive Browsersteuerung der SDN.Leistung-Oberfläche)"
+                : "1 — Fachschicht/Transaktionstest (Aufrufe direkt über den SozialLeistungsService der Fachschicht)");
+        pdf.paar("Ablauf", istWeb
+                ? "Die simulierten Sachbearbeiter bedienen parallele Chrome-Fenster über die Weboberfläche; "
+                + "nach dem Lauf wird der Endzustand per SQL direkt gegen die Datenbank verifiziert."
+                : "Die simulierten Sachbearbeiter nehmen nacheinander Aufträge aus einem gemeinsamen Pool und "
                 + "spielen sie parallel; nach dem Lauf wird die Erwartungshaltung per SQL direkt gegen die Datenbank geprüft.");
         pdf.leereZeile(3f);
 
@@ -338,7 +348,10 @@ final class Testdokumentation {
         pdf.paar("Bearbeitet von", a.bearbeiter != null ? a.bearbeiter : "—");
         pdf.paar("Vorgang (BG-ID)", a.bgId != null ? String.valueOf(a.bgId) : "—");
         pdf.paar("Bearbeitungsdauer", a.dauerMs() + " ms");
-        pdf.paar("Erwartete Dauer des Falls", a.aktionen.size() + " Arbeitsschritte");
+        pdf.paar("Erwartete Dauer des Falls",
+                (a.webAktionen.isEmpty() ? a.aktionen.size() : a.webAktionen.size())
+                        + " Arbeitsschritte (Modus: "
+                        + (a.webAktionen.isEmpty() ? "Fachschicht" : "Weboberfläche") + ")");
 
         // ------------------------------------------------------------
         // Rechenweg

@@ -1,8 +1,21 @@
 package de.allgemein.testsweet;
 
+import de.allgemein.lmg.config.LmgConfig;
+import de.allgemein.lmg.service.LeistungsService;
 import de.allgemein.lmg.service.SozialLeistungsService;
+import de.allgemein.lmg.service.Systemdiagnose;
+import de.allgemein.lmg.web.Benutzerverwaltung;
+import de.allgemein.lmg.web.LmgServer;
+import de.allgemein.tx.ConnectionPool;
 import de.allgemein.tx.SimpleConnectionPool;
+import de.allgemein.tx.TaskController;
 import de.allgemein.tx.TxManager;
+import de.allgemein.tx.saga.SagaEngine;
+import de.allgemein.tx.saga.SagaJournal;
+
+import java.net.ServerSocket;
+import java.time.Instant;
+import java.util.LinkedHashMap;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -57,6 +70,13 @@ public final class Simulator {
     private volatile String letztesLogVerzeichnis;
     private volatile String letztesPdf;
     private volatile String letztesMd;
+    private volatile String modusLetzter = "FACHSCHICHT";
+    private volatile List<WebMitarbeiter> webMitarbeiter = List.of();
+    private final java.util.concurrent.ConcurrentHashMap<String, String> webKonten =
+            new java.util.concurrent.ConcurrentHashMap<>();
+    private ConnectionPool webPool;
+    private TaskController webTasks;
+    private LmgServer webServer;
 
     public Simulator() {
         this.dbUrl = umgebung("TX_URL", "jdbc:oracle:thin:@//localhost:1521/FREEPDB1");
@@ -222,10 +242,232 @@ public final class Simulator {
     }
 
     // ------------------------------------------------------------------
+    // Modus 2: Weboberflächen-Lauf (Selenium steuert sichtbare Chrome-Fenster)
+    // ------------------------------------------------------------------
+
+    public String letzterModus() {
+        return modusLetzter;
+    }
+
+    public List<WebMitarbeiter> webMitarbeiterListe() {
+        return webMitarbeiter;
+    }
+
+    /** Passwort eines Web-Kontos (Konten werden beim Web-Lauf-Start festgelegt). */
+    public String webPasswort(String kennung) {
+        return webKonten.getOrDefault(kennung, "sb-01");
+    }
+
+    /** Zufälliger ANDERER Kollege für die Vier-Augen-Freigabe über die Oberfläche. */
+    public String zufallsWebKollege(String ausser) {
+        if (webKonten.size() <= 1) {
+            return "sb-02"; // Einzelgänger: fester Ersatzkollege
+        }
+        String kollege;
+        do {
+            kollege = webKonten.keySet().stream()
+                    .skip(ThreadLocalRandom.current().nextInt(webKonten.size())).findFirst()
+                    .orElse("sb-02");
+        } while (kollege.equals(ausser));
+        return kollege;
+    }
+
+    /** Startet einen Weboberflächen-Lauf synchron im aufrufenden Thread (für CLI). */
+    public void laufWebSynchron(LaufKonfiguration konfig) throws Exception {
+        this.konfiguration = konfig;
+        this.abgebrochen = false;
+        this.letzteFehlermeldung = null;
+        laufWebAusfuehren(konfig);
+    }
+
+    /** Startet einen Weboberflächen-Lauf in einem Hintergrund-Thread. */
+    public synchronized void starteWeb(LaufKonfiguration konfig) {
+        if (phase == Phase.AUFRAEUMEN || phase == Phase.LAUF || phase == Phase.VERIFIKATION) {
+            throw new IllegalStateException("Es läuft bereits ein Simulator-Lauf (Phase " + phase + ")");
+        }
+        this.konfiguration = konfig;
+        this.abgebrochen = false;
+        this.letzteFehlermeldung = null;
+        Thread laufThread = new Thread(() -> {
+            try {
+                laufWebAusfuehren(konfig);
+            } catch (Exception e) {
+                letzteFehlermeldung = e.getClass().getSimpleName() + ": " + e.getMessage();
+                phase = Phase.ABGEBROCHEN;
+                if (log != null) {
+                    log.fehler("SIMULATOR", "Web-Lauf abgebrochen: " + letzteFehlermeldung);
+                }
+                schliesseWebServer();
+            }
+        }, "testsweet-web-lauf");
+        laufThread.setDaemon(true);
+        laufThread.start();
+    }
+
+    private void laufWebAusfuehren(LaufKonfiguration konfig) throws Exception {
+        modusLetzter = "WEB";
+        laufStart = LocalDateTime.now();
+        laufEnde = null;
+        log = new SweetLog(PathLogBasis());
+        letztesLogVerzeichnis = log.runVerzeichnis.toString();
+        log.ereignis("SIMULATOR", "", "Web-Lauf gestartet: " + konfig.mitarbeiter()
+                + " sichtbare Browserfenster, " + konfig.auftraege() + " Aufträge, Seed "
+                + konfig.seed() + ", Oberfläche " + WebHelfer.basisUrl);
+
+        // Fenster eines früheren Laufs schließen, Datenbank prüfen, Altdaten aufräumen
+        webMitarbeiter.forEach(WebMitarbeiter::schliesse);
+        pruefeDatenbank();
+        if (konfig.aufraeumen()) {
+            phase = Phase.AUFRAEUMEN;
+            log.ereignis("SIMULATOR", "", "Altdaten aufgeräumt: "
+                    + raeumeAltdatenAuf() + " SWEET-Vorgänge entfernt");
+        }
+
+        // LMG-Server einbetten (eigene Sim-Konten) oder laufenden externen nutzen
+        boolean eingebettet = starteEingebettetenLmgServer(konfig.mitarbeiter());
+        if (!eingebettet) {
+            webKonten.clear();
+            webKonten.put("sb-01", "sb-01");
+            webKonten.put("sb-02", "sb-02");
+            log.ereignis("SIMULATOR", "", "Port 8080 ist belegt — es wird der bereits laufende "
+                    + "SDN.Leistung-Server genutzt (Standard-Konten sb-01/sb-02). "
+                    + "Für eigene Sim-Konten den externen Server beenden.");
+        }
+
+        WebMitarbeiter.bereiteTreiberVor();
+        long seed = konfig.seed() != 0 ? konfig.seed() : ThreadLocalRandom.current().nextLong();
+        auftraege = new WebSzenarioBibliothek(seed).erzeuge(konfig.auftraege(),
+                SzenarioBibliothek.PREFIX + "W-");
+        naechsterAuftrag.set(0);
+
+        webMitarbeiter = new ArrayList<>();
+        List<String> kennungen = new ArrayList<>(webKonten.keySet());
+        for (int i = 0; i < konfig.mitarbeiter(); i++) {
+            String kennung = eingebettet
+                    ? String.format("sb-web-%02d", i + 1)
+                    : kennungen.get(i % kennungen.size());
+            webMitarbeiter.add(new WebMitarbeiter(this, kennung, webPasswort(kennung),
+                    i, konfig.mitarbeiter()));
+        }
+        mitarbeiterLatch = new CountDownLatch(webMitarbeiter.size());
+        log.ereignis("SIMULATOR", "", "Chrome-Fenster werden geöffnet und nebeneinander "
+                + "angeordnet — die Oberfläche läuft unter " + WebHelfer.basisUrl);
+
+        phase = Phase.LAUF;
+        ExecutorService executor = Executors.newFixedThreadPool(konfig.mitarbeiter());
+        try {
+            for (WebMitarbeiter m : webMitarbeiter) {
+                executor.submit(m);
+            }
+            executor.shutdown();
+            boolean fertig = executor.awaitTermination(30, TimeUnit.MINUTES);
+            if (!fertig) {
+                log.fehler("SIMULATOR", "Laufzeit-Limit (30 min) überschritten — Zwangsabbruch");
+                executor.shutdownNow();
+                abgebrochen = true;
+            }
+        } finally {
+            schliesseWebServer();
+        }
+
+        // Verifikation wie in Modus 1: Erwartungshaltung per SQL gegen die Datenbank
+        if (abgebrochen) {
+            phase = Phase.ABGEBROCHEN;
+            log.ereignis("SIMULATOR", "", "Web-Lauf abgebrochen — keine Verifikation");
+        } else {
+            phase = Phase.VERIFIKATION;
+            int verifiziert = new Verifikator(dbUrl, dbUser, dbPass).verifiziereAlle(auftraege, log);
+            globalerKonsistenzcheck();
+            phase = Phase.FERTIG;
+            log.ereignis("SIMULATOR", "", "Web-Verifikation abgeschlossen: " + verifiziert
+                    + " von " + auftraege.size() + " Aufträgen vollständig verifiziert");
+        }
+
+        laufEnde = LocalDateTime.now();
+        schreibeTestdokumentation();
+        log.zusammenfassung(zusammenfassungsText());
+        log.ereignis("SIMULATOR", "", "Web-Lauf beendet in " + laufdauerSekunden()
+                + " s — Browserfenster bleiben zur Ansicht offen (bis zum nächsten Lauf/Stopp).");
+        log.close();
+        log = null;
+    }
+
+    /**
+     * Startet den SDN.Leistung-Server im eigenen Prozess (Port 8080) mit eigenen
+     * Sim-Konten sb-web-NN — nur wenn der Port frei ist. Rückgabe: true = eingebettet.
+     */
+    private boolean starteEingebettetenLmgServer(int anzahlMitarbeiter) throws Exception {
+        try (ServerSocket test = new ServerSocket(8080)) {
+            // Port frei — wir starten selbst
+        } catch (Exception belegt) {
+            return false;
+        }
+        StringBuilder konten = new StringBuilder();
+        webKonten.clear();
+        for (int i = 1; i <= anzahlMitarbeiter; i++) {
+            String kennung = String.format("sb-web-%02d", i);
+            if (konten.length() > 0) {
+                konten.append(';');
+            }
+            konten.append(kennung).append(":sim:sachbearbeiter");
+            webKonten.put(kennung, "sim");
+        }
+        // Konten über die Konfigurationskaskade (System-Property lmg.benutzer)
+        System.setProperty("lmg.benutzer", konten.toString());
+        LmgConfig config = LmgConfig.load();
+        System.clearProperty("lmg.benutzer");
+        Class.forName("oracle.jdbc.OracleDriver");
+        webPool = new SimpleConnectionPool(config.url(), config.user(), config.password(),
+                Math.max(8, anzahlMitarbeiter + 2));
+        TxManager txManager = new TxManager(webPool);
+        webTasks = new TaskController(txManager, config.maxTasks(), config.queueCapacity());
+        LeistungsService service = new SozialLeistungsService(txManager, config.kduParameter(),
+                config.rechtsbehelf());
+        SagaEngine sagas = new SagaEngine(txManager, new SagaJournal(webPool));
+        Systemdiagnose diagnose = new Systemdiagnose(txManager, webTasks, sagas, Instant.now());
+        Benutzerverwaltung benutzerverwaltung = new Benutzerverwaltung(konten.toString(),
+                Duration.ofMinutes(config.sessionTimeoutMinuten()));
+        webServer = new LmgServer(webTasks, service, diagnose, sagas, benutzerverwaltung,
+                config.port());
+        webServer.start();
+        log.ereignis("SIMULATOR", "", "Eingebetteter SDN.Leistung-Server gestartet auf Port "
+                + config.port() + " mit " + anzahlMitarbeiter + " Sim-Konten (sb-web-01…)");
+        return true;
+    }
+
+    private void schliesseWebServer() {
+        if (webServer != null) {
+            try {
+                webServer.close();
+            } catch (Exception ignored) {
+                // Aufräumen
+            }
+            webServer = null;
+        }
+        if (webTasks != null) {
+            try {
+                webTasks.close();
+            } catch (Exception ignored) {
+                // Aufräumen
+            }
+            webTasks = null;
+        }
+        if (webPool != null) {
+            try {
+                webPool.close();
+            } catch (Exception ignored) {
+                // Aufräumen
+            }
+            webPool = null;
+        }
+    }
+
+    // ------------------------------------------------------------------
     // Lauf-Ausführung (Hintergrundthread)
     // ------------------------------------------------------------------
 
     private void laufAusfuehren(LaufKonfiguration konfig) throws Exception {
+        modusLetzter = "FACHSCHICHT";
         laufStart = LocalDateTime.now();
         laufEnde = null;
         log = new SweetLog(PathLogBasis());

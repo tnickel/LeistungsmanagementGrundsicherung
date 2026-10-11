@@ -31,6 +31,19 @@
       <artifactId>transaktionssteuerung</artifactId>
       <version>0.5.4</version>
     </dependency>
+
+    <!-- Modus 2: Selenium steuert sichtbare Chrome-Fenster, die die echte
+         SDN.Leistung-Weboberfläche bedienen (10 Fenster nebeneinander). -->
+    <dependency>
+      <groupId>org.seleniumhq.selenium</groupId>
+      <artifactId>selenium-java</artifactId>
+      <version>4.27.0</version>
+    </dependency>
+    <dependency>
+      <groupId>io.github.bonigarcia</groupId>
+      <artifactId>webdrivermanager</artifactId>
+      <version>5.9.0</version>
+    </dependency>
   </dependencies>
 
   <build>

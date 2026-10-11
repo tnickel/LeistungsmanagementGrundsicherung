@@ -351,8 +351,11 @@ Nach jedem Lauf generiert das System vollautomatisch zwei umfassende Testbericht
   <img src="testsweet/assets/bedarfsberechnung_sgb12.png" alt="Gesetzliche SGB-XII-Berechnungskaskade" width="90%" />
 </p>
 
-### 5. Interaktives Web-Dashboard (Port 8095)
+### 5. Interaktives Web-Dashboard (Port 8095) & Zwei Betriebsmodi
 Die mitgelieferte Weboberfläche bietet eine moderne Arbeitsumgebung für Last- und Abnahmetests:
+* **Modus-Auswahl per Mausklick:**
+  * **Modus 1 (Fachschicht):** High-Performance Transaktionslast direkt über `SozialLeistungsService → TxManager → Oracle`.
+  * **Modus 2 (Weboberfläche / Selenium):** Echte parallele Chrome-Fenster im Bildschirmraster bedienen interaktiv die SDN.Leistung-Oberfläche (Anmeldung, Fallerfassung, Auszahlung, Vier-Augen-Freigabe, Storno) mit automatischer Screenshot-Dokumentation.
 * **Echtzeit-Mitarbeiterkarten:** Visualisiert jeden simulierten Sachbearbeiter live mit aktuellem Auftrag, Status-Puls und Reaktionszeiten.
 * **Diagramm-Showcase:** Interaktive Galerie aller vier Fachflussdiagramme direkt im Browser.
 * **Filter & Volltextsuche:** Schnelle Filterung nach Verifikationsstatus (*Alle*, *Nur Verifiziert*, *Auffälligkeiten*) sowie Sofortsuche über Aktenzeichen, Personen und Szenario-Typen.
@@ -362,14 +365,17 @@ Die mitgelieferte Weboberfläche bietet eine moderne Arbeitsumgebung für Last- 
 ### 6. Start & CI/CD Batch-Ausführung
 
 ```bash
-# 1. Interaktives Dashboard starten (Port 8095):
+# 1. Interaktives Dashboard starten (Port 8095, Modus 1 & 2 direkt wählbar):
 testsweet\start.bat
 
-# 2. Headless-Batchlauf für CI/CD (z. B. 10 Sachbearbeiter, 60 Aufträge):
+# 2. Headless-Batchlauf für CI/CD (Modus 1 Fachschicht, z. B. 10 Sachbearbeiter, 60 Aufträge):
 testsweet\start.bat run 10 60
+
+# 3. Weboberflächen-Batchlauf (Modus 2 Selenium, z. B. 2 Browserfenster, 4 Aufträge):
+testsweet\start.bat web 2 4
 ```
 
-> ⚡ **Performance:** Der Batchlauf von **60 komplexen Vorgängen mit 10 parallelen Sachbearbeitern** wird auf der lokalen Oracle-Datenbank in rund **1,5 Sekunden** vollständig abgearbeitet, zu 100 % per SQL verifiziert und in eine druckfertige 72-seitige PDF-Dokumentation überführt.
+> ⚡ **Performance:** Der Batchlauf von **60 komplexen Vorgängen mit 10 parallelen Sachbearbeitern** (Modus 1) wird auf der lokalen Oracle-Datenbank in rund **1,3 bis 1,5 Sekunden** vollständig abgearbeitet, zu 100 % per SQL verifiziert und in eine druckfertige 72-seitige PDF-Dokumentation überführt.
 
 *Detaillierte Dokumentation und Konfiguration: [testsweet/README.md](testsweet/README.md).*
 *Verwandt: Die deterministische Szenario-Regression [`SzenarioRegressionTest`](src/test/java/de/allgemein/lmg/SzenarioRegressionTest.java) ([doc/regressionstests.md](doc/regressionstests.md)).*

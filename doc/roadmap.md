@@ -236,7 +236,7 @@ app.js-Interpolationen als XSS) dokumentiert nicht umgesetzt:
       den autonomen Headless-Batchlauf für CI/CD-Pipelines
 - [x] Gegen Docker-Oracle verifiziert: 10 Mitarbeiter / 60 Aufträge, 60/60 verifiziert in ~1,5 s;
       Batch-Lauf 5/10 verifiziert in < 1 s (100 % Erfolgsquote)
-- [ ] **Modus 2: Weboberfläche per Selenium bedienen** (Schritt 2, GUI bereits vorbereitet)
+- [x] **Modus 2: Weboberfläche per Selenium bedienen** (Selenium WebDriver steuert parallele Chrome-Fenster im Bildschirmraster; bedient SDN.Leistung interaktiv mit Screenshot-Erfassung und vollständiger SQL-Verifikation; in GUI und CLI `testsweet\start.bat web` integriert)
 
 ## Etappe 4 — Betrieb & Weiterentwicklung
 

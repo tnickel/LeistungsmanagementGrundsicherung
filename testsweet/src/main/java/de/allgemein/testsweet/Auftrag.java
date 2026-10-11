@@ -37,6 +37,8 @@ public final class Auftrag {
     public volatile String beschreibungEinfach = "";
     /** Nachvollziehbare Rechenwege (Eingaben + vollständige Berechnungsaufschlüsselung). */
     public volatile List<Rechenblock> rechenbloecke = List.of();
+    /** Aktionen für Modus 2 (Weboberfläche/Selenium); Modus 1 nutzt {@link #aktionen}. */
+    public volatile List<WebAktion> webAktionen = List.of();
 
     public volatile Status status = Status.OFFEN;
     public volatile String bearbeiter;
@@ -65,6 +67,12 @@ public final class Auftrag {
     public Auftrag dokumentiere(String beschreibungEinfach, List<Rechenblock> rechenbloecke) {
         this.beschreibungEinfach = beschreibungEinfach == null ? "" : beschreibungEinfach;
         this.rechenbloecke = rechenbloecke == null ? List.of() : List.copyOf(rechenbloecke);
+        return this;
+    }
+
+    /** Fluent: UI-Aktionen für den Weboberflächen-Modus. */
+    public Auftrag mitWebAktionen(List<WebAktion> webAktionen) {
+        this.webAktionen = webAktionen == null ? List.of() : List.copyOf(webAktionen);
         return this;
     }
 

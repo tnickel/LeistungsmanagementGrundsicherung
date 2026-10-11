@@ -11,8 +11,12 @@ mit dem Nutzer) mitgeloggt.
 1. **Fachschicht / Transaktionstest** (implementiert): Die simulierten
    Mitarbeiter rufen direkt `SozialLeistungsService` → `TxManager` → Oracle auf.
    Belastet Sperren, Deadlock-Wiederholung, Budget-Führung, Vier-Augen-Logik.
-2. **Weboberfläche / Selenium** (Schritt 2, noch nicht implementiert): Browser
-   werden per Selenium bedient. In der GUI anwählbar, startet noch nicht.
+2. **Weboberfläche / Selenium** (implementiert): Die simulierten Sachbearbeiter
+   steuern jeweils ein eigenes sichtbares Chrome-Fenster über Selenium WebDriver.
+   Sie bedienen interaktiv die echte SDN.Leistung-Weboberfläche (Anmeldung,
+   Vorgang anlegen, SozialFall erfassen, Auszahlung anordnen, Vier-Augen-Freigabe
+   durch Kollegen, Storno), fertigen für jeden Schritt Screenshots an und verifizieren
+   nach dem Lauf den Zustand der Oracle-Datenbank per SQL.
 
 ## Start & Ausführung
 
@@ -32,8 +36,9 @@ oder plattformunabhängig per Maven:
 mvn -f testsweet/pom.xml compile exec:java
 ```
 Die Oberfläche öffnet sich automatisch unter <http://127.0.0.1:8095/> (Port über `SWEET_PORT`).
+Dort kann zwischen **Modus 1 (Fachschicht)** und **Modus 2 (Weboberfläche/Selenium)** gewählt werden.
 
-### Option B: Headless Batch-Lauf (für CI/CD und automatisierte Abnahme)
+### Option B: Headless Batch-Lauf (Fachschicht, für CI/CD und automatisierte Abnahme)
 Ausführung direkt über CLI ohne Browser:
 ```cmd
 testsweet\start.bat run <mitarbeiter> <auftraege> [seed] [denkzeitMs]
@@ -42,7 +47,17 @@ Beispiel (10 parallele Mitarbeiter, 60 Aufträge, Seed 42, 0 ms Denkzeit):
 ```cmd
 testsweet\start.bat run 10 60 42 0
 ```
-*Ablauf: Bereinigt Altdaten, startet die Worker, führt die Transaktionen aus, verifiziert 100 % per SQL gegen Oracle und schreibt die vollständigen Logfiles inklusive druckfertigem PDF und maschinenlesbarem Markdown nach `testsweet/logs/run-.../`.*
+
+### Option C: Weboberflächen-Lauf über Selenium (Modus 2)
+Ausführung über CLI mit parallelen sichtbaren Chrome-Fenstern im Bildschirmraster:
+```cmd
+testsweet\start.bat web <mitarbeiter> <auftraege> [seed] [denkzeitMs]
+```
+Beispiel (2 parallele Browserfenster, 4 Aufträge, Seed 42, 200 ms Denkzeit):
+```cmd
+testsweet\start.bat web 2 4 42 200
+```
+*Ablauf: Startet bei Bedarf automatisch den SDN.Leistung-Server auf Port 8080, ordnet die Chrome-Fenster nebeneinander an, spielt die Vorgänge mit Screenshot-Erfassung durch, verifiziert 100 % per SQL gegen Oracle und schreibt PDF (`/api/pdf`) sowie Markdown (`/api/md`).*
 
 ## Konfiguration
 
