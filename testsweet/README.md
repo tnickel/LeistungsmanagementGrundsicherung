@@ -16,7 +16,13 @@ mit dem Nutzer) mitgeloggt.
    Sie bedienen interaktiv die echte SDN.Leistung-Weboberfläche (Anmeldung,
    Vorgang anlegen, SozialFall erfassen, Auszahlung anordnen, Vier-Augen-Freigabe
    durch Kollegen, Storno), fertigen für jeden Schritt Screenshots an und verifizieren
-   nach dem Lauf den Zustand der Oracle-Datenbank per SQL.
+   nach dem Lauf den Zustand der Oracle-Datenbank per SQL. Die Fenster werden
+   im Bildschirm-Raster nebeneinander angeordnet und mit verkleinerter
+   Darstellung (`--force-device-scale-factor=0.8`) betrieben, damit die Seiten
+   auch in den kleinen Fenstern vollständig sichtbar bleiben. Der Storno einer
+   freigegebenen (BEREIT-)Zahlung erfordert die Admin-Rolle — das Storno-Szenario
+   wechselt dafür auf das Administrationskonto `web-admin` (eingebetteter Server)
+   bzw. `admin-01` (externer Server).
 
 ## Start & Ausführung
 
@@ -77,6 +83,10 @@ zu Freigaben). Die **Erwartungshaltung** (Beträge, Status, Budgets, Versionen)
 steht in jedem Szenario und wird vorab mit derselben reinen Berechnung
 (`Leistungsberechnung`) ermittelt, die auch die Fachschicht nutzt.
 
+Im **Modus 2** kommen Web-Varianten hinzu: WEB-STANDARDRENTE und WEB-MEHRBEDARF
+(je mit Vier-Augen-Freigabe durch einen Kollegen) sowie WEB-STORNO (Anordnung,
+Freigabe, dann Storno durch die Administration mit vollständiger Budget-Rückbuchung).
+
 ## Logfiles (der eigentliche Zweck)
 
 Je Lauf ein Verzeichnis `testsweet/logs/run-<Zeitstempel>/`:
@@ -88,7 +98,8 @@ Je Lauf ein Verzeichnis `testsweet/logs/run-<Zeitstempel>/`:
 | `auftrag-<id>-<aktenzeichen>.log` | Schrittprotokoll eines Auftrags |
 | `db-verifikation.log` | Erwartung vs. Ist je Prüfung (OK/ABW) |
 | `fehler.log` | nur Fehler und Abweichungen |
-| `zusammenfassung.txt` | Kenndaten des Laufs |
+| `zusammenfassung.txt` | Kenndaten des Laufs (Modus, Mitarbeiter, Verifikationsquote) |
+| `screenshots/` | Modus 2: Screenshot je UI-Schritt (`tf-NN-schritt-MM.png`) |
 | `testdokumentation.pdf` | hochprofessionelle Testdokumentation (repräsentatives Deckblatt mit Titelbild, Fachflussdiagramme zu Architektur, SGB-XII-Rechenkaskade und Vier-Augen-Workflow, Inhaltsverzeichnis mit exakter Pagination, je Testfall nachrechenbarer Rechenweg + Erwartung/Ist-SQL-Prüfung + Ablauf); in der GUI per Button abrufbar (`/api/pdf`) |
 | `testdokumentation.md` | maschinenlesbare Fassung derselben Daten inkl. der vergebenen DB-IDs und der Prüf-SQLs — zum unabhängigen Nachprüfen durch KI/Dritte (`/api/md`) |
 

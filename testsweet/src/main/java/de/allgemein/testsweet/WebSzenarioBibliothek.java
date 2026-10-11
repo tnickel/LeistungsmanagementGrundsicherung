@@ -90,8 +90,8 @@ public final class WebSzenarioBibliothek {
                 WebAktion.schritt("Zahlung freigeben (rechnerisch feststellen)",
                         WebHelfer::freigeben)));
         if (!mitFreigabeEnde) {
-            schritte.add(WebAktion.schritt("Erneut wechseln und Storno buchen",
-                    WebHelfer::stornoWechsel));
+            schritte.add(WebAktion.schritt("Als Administration wechseln und Storno buchen",
+                    (d, ctx) -> WebHelfer.stornoWechsel(d, ctx, aktenzeichen)));
         }
 
         List<Erwartung> erwartungen = new ArrayList<>();
@@ -127,8 +127,10 @@ public final class WebSzenarioBibliothek {
                         + "freigibt (Vier-Augen-Prinzip). "
                         + (mitFreigabeEnde
                         ? "Geprüft wird, ob Status, Betrag und Budget in der Datenbank stimmen."
-                        : "Anschließend wird die Zahlung wieder storniert — geprüft wird Status "
-                        + "STORNIERT inklusive vollständiger Budget-Rückbuchung.")
+                        : "Anschließend übernimmt eine Administration — die Oberfläche bietet "
+                        + "den Storno einer freigegebenen (BEREIT-)Zahlung nur der Admin-Rolle "
+                        + "an — und storniert die Zahlung. Geprüft wird Status STORNIERT "
+                        + "inklusive vollständiger Budget-Rückbuchung.")
                         + " Jeder Schritt wird als Screenshot im Laufprotokoll festgehalten.",
                         rechnungen);
     }

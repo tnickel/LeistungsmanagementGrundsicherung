@@ -74,6 +74,9 @@ public final class Simulator {
     private volatile List<WebMitarbeiter> webMitarbeiter = List.of();
     private final java.util.concurrent.ConcurrentHashMap<String, String> webKonten =
             new java.util.concurrent.ConcurrentHashMap<>();
+    /** Administrationskonto für Rollenwechsel-Abläufe (Storno freigegebener Zahlungen). */
+    private volatile String webAdminKennung = "admin-01";
+    private volatile String webAdminPasswort = "admin";
     private ConnectionPool webPool;
     private TaskController webTasks;
     private LmgServer webServer;
@@ -258,6 +261,15 @@ public final class Simulator {
         return webKonten.getOrDefault(kennung, "sb-01");
     }
 
+    /** Administrationskonto für Rollenwechsel (Storno freigegebener Zahlungen). */
+    public String webAdminKennung() {
+        return webAdminKennung;
+    }
+
+    public String webAdminPasswort() {
+        return webAdminPasswort;
+    }
+
     /** Zufälliger ANDERER Kollege für die Vier-Augen-Freigabe über die Oberfläche. */
     public String zufallsWebKollege(String ausser) {
         if (webKonten.size() <= 1) {
@@ -314,8 +326,10 @@ public final class Simulator {
                 + " sichtbare Browserfenster, " + konfig.auftraege() + " Aufträge, Seed "
                 + konfig.seed() + ", Oberfläche " + WebHelfer.basisUrl);
 
-        // Fenster eines früheren Laufs schließen, Datenbank prüfen, Altdaten aufräumen
+        // Fenster eines früheren Laufs schließen — inklusive verwaister Fenster aus
+        // gestorbenen Server-Prozessen — bevor neue geöffnet werden
         webMitarbeiter.forEach(WebMitarbeiter::schliesse);
+        WebMitarbeiter.raeumeVerwaisteFensterAuf();
         pruefeDatenbank();
         if (konfig.aufraeumen()) {
             phase = Phase.AUFRAEUMEN;
@@ -329,8 +343,10 @@ public final class Simulator {
             webKonten.clear();
             webKonten.put("sb-01", "sb-01");
             webKonten.put("sb-02", "sb-02");
+            webAdminKennung = "admin-01";
+            webAdminPasswort = "admin";
             log.ereignis("SIMULATOR", "", "Port 8080 ist belegt — es wird der bereits laufende "
-                    + "SDN.Leistung-Server genutzt (Standard-Konten sb-01/sb-02). "
+                    + "SDN.Leistung-Server genutzt (Standard-Konten sb-01/sb-02, Admin admin-01). "
                     + "Für eigene Sim-Konten den externen Server beenden.");
         }
 
@@ -412,6 +428,11 @@ public final class Simulator {
             konten.append(kennung).append(":sim:sachbearbeiter");
             webKonten.put(kennung, "sim");
         }
+        // Administrationskonto für Rollenwechsel-Abläufe (Storno freigegebener
+        // Zahlungen erfordert die Admin-Rolle) — bewusst NICHT im Kollegen-Pool
+        konten.append(";web-admin:sim:admin");
+        webAdminKennung = "web-admin";
+        webAdminPasswort = "sim";
         // Konten über die Konfigurationskaskade (System-Property lmg.benutzer)
         System.setProperty("lmg.benutzer", konten.toString());
         LmgConfig config = LmgConfig.load();
@@ -634,7 +655,10 @@ public final class Simulator {
         sb.append("Zeitraum        : ").append(laufStart).append(" bis ").append(laufEnde).append('\n');
         sb.append("Dauer           : ").append(laufdauerSekunden()).append(" s\n");
         sb.append("Datenbank       : ").append(dbUrl).append('\n');
-        sb.append("Mitarbeiter     : ").append(mitarbeiter.size()).append('\n');
+        sb.append("Modus           : ").append("WEB".equals(modusLetzter)
+                ? "Weboberfläche (Selenium)" : "Fachschicht").append('\n');
+        sb.append("Mitarbeiter     : ").append("WEB".equals(modusLetzter)
+                ? webMitarbeiter.size() : mitarbeiter.size()).append('\n');
         sb.append("Aufträge        : ").append(auftraege.size()).append('\n');
         sb.append("fehlgeschlagen  : ").append(fehler).append('\n');
         sb.append("verifiziert     : ").append(verifiziert).append('\n');

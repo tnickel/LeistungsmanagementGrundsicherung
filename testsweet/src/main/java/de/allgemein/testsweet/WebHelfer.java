@@ -27,6 +27,30 @@ public final class WebHelfer {
 
     private WebHelfer() {}
 
+    /** Klick mit JavaScript-Fallback: überlappt bei schmalen Fenstern ein Menü
+     *  den Zielknopf, klickt Selenium direkt im DOM — robust in der Fenster-Rasterung. */
+    private static void klick(WebDriver d, WebElement element) {
+        try {
+            element.click();
+        } catch (org.openqa.selenium.ElementClickInterceptedException
+                | org.openqa.selenium.TimeoutException e) {
+            ((org.openqa.selenium.JavascriptExecutor) d).executeScript(
+                    "arguments[0].click()", element);
+        }
+    }
+
+    /** Wartet nur auf das VORHANDENSEIN eines Knopfes, scrollt ihn ins Sichtfeld und
+     *  klickt mit JS-Fallback. Bewusst kein elementToBeClickable: In den kleinen
+     *  Rasterfenstern ist der Knopf oft außerhalb des sichtbaren Ausschnitts, obwohl
+     *  er im DOM längst da ist — der DOM-Klick arbeitet davon unabhängig. */
+    private static void klickAufButton(WebDriver d, By locator) {
+        WebDriverWait wait = new WebDriverWait(d, TIMEOUT);
+        WebElement element = wait.until(ExpectedConditions.presenceOfElementLocated(locator));
+        ((JavascriptExecutor) d).executeScript(
+                "arguments[0].scrollIntoView({block: 'center'});", element);
+        klick(d, element);
+    }
+
     /** Vollständiger Fall-Entwurf für die Weboberfläche. */
     public static SozialFall fallEntwurf(int rbs, boolean g, boolean ww,
             BigDecimal miete, BigDecimal betrieb, BigDecimal heizung) {
@@ -60,7 +84,7 @@ public final class WebHelfer {
         try {
             WebElement abmelden = treiber.findElement(By.id("btn-abmelden"));
             if (abmelden.isDisplayed()) {
-                abmelden.click();
+                klick(treiber, abmelden);
             }
         } catch (Exception ignored) {}
 
@@ -74,7 +98,7 @@ public final class WebHelfer {
         String pw = (String) ctx.getOrDefault("passwort", user);
         passwort.sendKeys(pw);
 
-        treiber.findElement(By.id("btn-login")).click();
+        klick(treiber, treiber.findElement(By.id("btn-login")));
 
         // Warten bis Fallübersicht sichtbar ist
         wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("view-uebersicht")));
@@ -88,7 +112,7 @@ public final class WebHelfer {
         autoConfirmAktivieren(treiber);
 
         WebElement neuBtn = wait.until(ExpectedConditions.elementToBeClickable(By.id("btn-neu-vorgang")));
-        neuBtn.click();
+        klick(treiber, neuBtn);
 
         wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("karte-neu-vorgang")));
 
@@ -99,7 +123,7 @@ public final class WebHelfer {
         setzeWert(treiber, By.id("neu-bic"), "MARKDEF1100");
         setzeWert(treiber, By.id("neu-kontoinhaber"), name);
 
-        treiber.findElement(By.id("btn-vorgang-speichern")).click();
+        klick(treiber, treiber.findElement(By.id("btn-vorgang-speichern")));
 
         // Warten bis Vorgangsmaske geladen ist
         wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("view-vorgang")));
@@ -115,7 +139,7 @@ public final class WebHelfer {
         autoConfirmAktivieren(treiber);
 
         WebElement neuFallBtn = wait.until(ExpectedConditions.elementToBeClickable(By.id("btn-neu-fall")));
-        neuFallBtn.click();
+        klick(treiber, neuFallBtn);
 
         wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("fall-neu")));
 
@@ -128,15 +152,15 @@ public final class WebHelfer {
 
         WebElement chkG = treiber.findElement(By.id("neu-fall-g"));
         if (chkG.isSelected() != merkzeichenG) {
-            chkG.click();
+            klick(treiber, chkG);
         }
 
         WebElement chkWw = treiber.findElement(By.id("neu-fall-warmwasser"));
         if (chkWw.isSelected() != warmwasser) {
-            chkWw.click();
+            klick(treiber, chkWw);
         }
 
-        treiber.findElement(By.id("btn-fall-speichern")).click();
+        klick(treiber, treiber.findElement(By.id("btn-fall-speichern")));
 
         schliesseModalFallsOffen(treiber);
 
@@ -151,42 +175,63 @@ public final class WebHelfer {
         autoConfirmAktivieren(treiber);
 
         WebElement monatFeld = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("zahlungsmonat")));
-        monatFeld.clear();
-        monatFeld.sendKeys(monat);
+        // Monatsfeld per JavaScript setzen: Chrome nimmt Tastatureingaben (sendKeys)
+        // auf <input type="month"> nicht zuverlässig an, das Feld bliebe leer.
+        ((JavascriptExecutor) treiber).executeScript(
+                "arguments[0].value = arguments[1];"
+                + "arguments[0].dispatchEvent(new Event('input', {bubbles: true}));"
+                + "arguments[0].dispatchEvent(new Event('change', {bubbles: true}));",
+                monatFeld, monat);
 
-        treiber.findElement(By.id("btn-auszahlung")).click();
+        klickAufButton(treiber, By.id("btn-auszahlung"));
 
         schliesseModalFallsOffen(treiber);
 
-        wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("#tabelle-zahlungen tbody tr")));
+        // Erfolg beweisen: nur eine wirklich angeordnete Zahlung erzeugt die
+        // Aktionsknöpfe — die Platzhalterzeile «Noch keine Auszahlungen angeordnet»
+        // ist zwar auch eine Tabellenzeile, aber kein Beleg für eine Buchung.
+        wait.until(ExpectedConditions.presenceOfElementLocated(
+                By.cssSelector("#tabelle-zahlungen button.freigeben")));
         return "Monatliche Auszahlung für " + monat + " angeordnet (Vier-Augen-Warteschlange: ANGELEGT)";
     }
 
     public static String kollegenLogin(WebDriver treiber, Map<String, Object> ctx) {
+        String kollege = (String) ctx.getOrDefault("kollege", "sb-02");
+        String kollegePw = (String) ctx.getOrDefault("kollegePasswort", kollege);
+        meldeAnAls(treiber, kollege, kollegePw);
+        return "Vier-Augen-Wechsel: angemeldet als Kollege " + kollege;
+    }
+
+    /** Meldet die aktuelle Sitzung ab und als anderem Benutzer wieder an —
+     *  der Rollenwechsel im selben Fenster bildet Vier-Augen-Abläufe nach. */
+    private static void meldeAnAls(WebDriver treiber, String kennung, String passwort) {
         WebDriverWait wait = new WebDriverWait(treiber, TIMEOUT);
         autoConfirmAktivieren(treiber);
 
         WebElement abmelden = wait.until(ExpectedConditions.elementToBeClickable(By.id("btn-abmelden")));
-        abmelden.click();
+        klick(treiber, abmelden);
 
         WebElement loginKennung = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("login-kennung")));
         loginKennung.clear();
-        String kollege = (String) ctx.getOrDefault("kollege", "sb-02");
-        loginKennung.sendKeys(kollege);
+        loginKennung.sendKeys(kennung);
 
-        WebElement passwort = treiber.findElement(By.id("login-passwort"));
-        passwort.clear();
-        String kollegePw = (String) ctx.getOrDefault("kollegePasswort", kollege);
-        passwort.sendKeys(kollegePw);
+        WebElement passwortFeld = treiber.findElement(By.id("login-passwort"));
+        passwortFeld.clear();
+        passwortFeld.sendKeys(passwort);
 
-        treiber.findElement(By.id("btn-login")).click();
+        klick(treiber, treiber.findElement(By.id("btn-login")));
 
         wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("view-uebersicht")));
         autoConfirmAktivieren(treiber);
-        return "Vier-Augen-Wechsel: angemeldet als Kollege " + kollege;
     }
 
     public static String vorgangSuchen(WebDriver treiber, Map<String, Object> ctx, String aktenzeichen) {
+        oeffneUeberSuche(treiber, aktenzeichen);
+        return "Vorgang " + aktenzeichen + " über Suchfeld ermittelt und geöffnet";
+    }
+
+    /** Findet den Vorgang über das Suchfeld der Übersicht und öffnet ihn. */
+    private static void oeffneUeberSuche(WebDriver treiber, String aktenzeichen) {
         WebDriverWait wait = new WebDriverWait(treiber, TIMEOUT);
         autoConfirmAktivieren(treiber);
 
@@ -200,20 +245,17 @@ public final class WebHelfer {
 
         // Button "Öffnen" in dieser Zeile klicken
         WebElement oeffnenBtn = zeile.findElement(By.xpath(".//button[contains(text(), 'Öffnen')]"));
-        oeffnenBtn.click();
+        klick(treiber, oeffnenBtn);
 
         wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("view-vorgang")));
         schliesseModalFallsOffen(treiber);
-        return "Vorgang " + aktenzeichen + " über Suchfeld ermittelt und geöffnet";
     }
 
     public static String freigeben(WebDriver treiber, Map<String, Object> ctx) {
         WebDriverWait wait = new WebDriverWait(treiber, TIMEOUT);
         autoConfirmAktivieren(treiber);
 
-        WebElement freigebenBtn = wait.until(ExpectedConditions.elementToBeClickable(
-                By.cssSelector("#tabelle-zahlungen button.freigeben")));
-        freigebenBtn.click();
+        klickAufButton(treiber, By.cssSelector("#tabelle-zahlungen button.freigeben"));
 
         schliesseModalFallsOffen(treiber);
 
@@ -223,19 +265,28 @@ public final class WebHelfer {
         return "Zahlung rechnerisch festgestellt und freigegeben (Status BEREIT)";
     }
 
-    public static String stornoWechsel(WebDriver treiber, Map<String, Object> ctx) {
+    /**
+     * Storno einer freigegebenen (BEREIT) Zahlung: Die Oberfläche bietet den
+     * Storno-Knopf dafür nur der Admin-Rolle an — der Schritt wechselt daher
+     * erst auf ein Administrationskonto, öffnet den Vorgang erneut und bucht
+     * dann den Storno.
+     */
+    public static String stornoWechsel(WebDriver treiber, Map<String, Object> ctx,
+            String aktenzeichen) {
         WebDriverWait wait = new WebDriverWait(treiber, TIMEOUT);
-        autoConfirmAktivieren(treiber);
+        String admin = (String) ctx.getOrDefault("adminKonto", "admin-01");
+        String adminPw = (String) ctx.getOrDefault("adminPasswort", admin);
+        meldeAnAls(treiber, admin, adminPw);
+        oeffneUeberSuche(treiber, aktenzeichen);
 
-        WebElement stornoBtn = wait.until(ExpectedConditions.elementToBeClickable(
-                By.cssSelector("#tabelle-zahlungen button.storno")));
-        stornoBtn.click();
+        klickAufButton(treiber, By.cssSelector("#tabelle-zahlungen button.storno"));
 
         schliesseModalFallsOffen(treiber);
 
         wait.until(ExpectedConditions.presenceOfElementLocated(
                 By.cssSelector("#tabelle-zahlungen .chip.storniert")));
-        return "Zahlung storniert (Status STORNIERT, Restbudget zurückgebucht)";
+        return "Als " + admin + " (Admin-Rolle) Storno gebucht (Status STORNIERT, "
+                + "Restbudget zurückgebucht)";
     }
 
     // ------------------------------------------------------------------
@@ -261,7 +312,7 @@ public final class WebHelfer {
             WebDriverWait waitKurz = new WebDriverWait(treiber, Duration.ofMillis(800));
             WebElement okBtn = waitKurz.until(ExpectedConditions.elementToBeClickable(By.id("dialog-ok")));
             if (okBtn.isDisplayed()) {
-                okBtn.click();
+                klick(treiber, okBtn);
             }
         } catch (Exception ignored) {}
     }

@@ -72,13 +72,17 @@ final class WebMitarbeiter implements Runnable {
     /** Erzeugt das sichtbare Chrome-Fenster und platziert es im Raster. */
     private WebDriver erzeugeFenster() {
         ChromeOptions optionen = new ChromeOptions();
-        optionen.addArguments("--lang=de", "--window-size=900,700");
+        // Skalierungsfaktor verkleinert Schrift und Layout dauerhaft, damit die
+        // Seiteninhalte auch in den kleinen Rasterfenstern vollständig Platz finden
+        optionen.addArguments("--lang=de", "--window-size=900,700",
+                "--force-device-scale-factor=0.8");
         optionen.setExperimentalOption("excludeSwitches", List.of("enable-automation"));
         optionen.setExperimentalOption("useAutomationExtension", false);
         WebDriver d = new ChromeDriver(optionen);
         // Bildschirm-Raster: Spalten × Zeilen, Aufgabe unten 48 px für die Taskleiste
         java.awt.Dimension bild = java.awt.Toolkit.getDefaultToolkit().getScreenSize();
-        int spalten = (int) Math.ceil(Math.sqrt(fensterAnzahl));
+        int spalten = (int) Math.min(Math.ceil(Math.sqrt(fensterAnzahl)),
+                Math.max(1, bild.width / 440));
         int zeilen = (int) Math.ceil((double) fensterAnzahl / spalten);
         int breite = Math.max(320, bild.width / spalten);
         int hoehe = Math.max(240, (bild.height - 48) / zeilen);
@@ -101,6 +105,8 @@ final class WebMitarbeiter implements Runnable {
         String kollege = simulator.zufallsWebKollege(kuerzel);
         kontext.put("kollege", kollege);
         kontext.put("kollegePasswort", simulator.webPasswort(kollege));
+        kontext.put("adminKonto", simulator.webAdminKennung());
+        kontext.put("adminPasswort", simulator.webAdminPasswort());
 
         simulator.log().mitarbeiterEreignis(kuerzel, "nimmt Web-Auftrag " + auftrag.id + " ("
                 + auftrag.szenarioTyp + ", " + auftrag.aktenzeichen + ") — Kollege: " + kollege);
@@ -167,6 +173,36 @@ final class WebMitarbeiter implements Runnable {
             return name;
         } catch (IOException | RuntimeException e) {
             return null; // Screenshot darf den Lauf nie bremsen
+        }
+    }
+
+    /**
+     * Rämt verwaiste Selenium-Fenster auf: Nach einem Server-Neustart gehen die
+     * Treiber-Referenzen verloren und die Chrome-Fenster blieben offen — bevor
+     * ein neuer Lauf Fenster öffnet, werden alle chromedriver-Prozesse und deren
+     * Selenium-Chrome-Fenster (Erkennung über Automation-Parameter) beendet.
+     */
+    static void raeumeVerwaisteFensterAuf() {
+        try {
+            ProcessBuilder pb = new ProcessBuilder("powershell", "-NoProfile",
+                    "-ExecutionPolicy", "Bypass", "-Command",
+                    "Get-CimInstance Win32_Process | Where-Object { ($_.Name -eq 'chromedriver.exe') "
+                    + "-or ($_.Name -eq 'chrome.exe' -and ($_.CommandLine -like '*--remote-debugging-pipe*' "
+                    + "-or $_.CommandLine -like '*--test-type*')) } | "
+                    + "ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }");
+            pb.start().waitFor(20, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (Exception ignored) {
+            // Ohne PowerShell: wenigstens die chromedriver-Prozesse beenden
+            ProcessHandle.allProcesses()
+                    .filter(p -> p.info().command()
+                            .map(c -> c.toLowerCase().contains("chromedriver")).orElse(false))
+                    .forEach(p -> {
+                        try {
+                            p.destroy();
+                        } catch (Exception ignoredToo) {
+                            // nichts weiter zu tun
+                        }
+                    });
         }
     }
 
