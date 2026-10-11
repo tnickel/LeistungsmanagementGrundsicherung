@@ -284,6 +284,30 @@ Der integrierte JDK-HttpServer stellt alle Fach- und Systemfunktionen über eine
 
 ---
 
+## 🧪 Mitarbeiter-Simulator „testsweet" (Last- & Integrationstest)
+
+`testsweet/` ist ein eigenständiges Werkzeug (keine Unit-Tests): **N simulierte Sachbearbeiter**
+arbeiten parallel einen Auftragstopf über die Fachschicht ab — Vorgänge anlegen, Fälle ändern,
+Bescheide erteilen, Auszahlungen anordnen, freigeben (Vier-Augen), stornieren, Kassenlauf — bis
+der Pool leer ist. Danach wird je Auftrag die **Erwartungshaltung direkt per SQL gegen die
+Datenbank verifiziert**. Alles wird pro Lauf vollständig protokolliert.
+
+* **Modus 1 (implementiert):** Transaktionstest über die Fachschicht — Sperren, Deadlock-Wiederholung,
+  Budget-Führung, optimistisches Locking, Idempotenz unter echter Parallelität.
+* **Modus 2 (vorgesehen):** Weboberflächen-/Selenium-Test.
+* **Automatische Testdokumentation** je Lauf: ausführliches **PDF** (Deckblatt, Einleitung mit
+  Rechengrundlagen, Inhaltsverzeichnis, je Testfall einfache Beschreibung + Schritt-für-Schritt-
+  Rechenweg mit Norm-Hinweisen + Erwartung/Ist + Protokollausschnitt) und eine schlanke
+  **maschinenlesbare Markdown-Fassung** inkl. DB-IDs und Prüf-SQLs zum unabhängigen Nachprüfen
+  durch KI/Dritte.
+* **Start:** `testsweet\start.bat` (GUI auf http://127.0.0.1:8095) — Details: [testsweet/README.md](testsweet/README.md)
+
+Verwandt, aber Teil der regulären Testsuite: die **Szenario-Regression**
+(`SzenarioRegressionTest`, zehn Nutzer-Testfälle mit mehreren Sachbearbeitern, läuft mit `TX_URL`;
+Dokumentation: [doc/regressionstests.md](doc/regressionstests.md)).
+
+---
+
 ## 📚 Begleitende Dokumentation & Praxishandbuch
 
 Im Ordner [`doc/`](doc/) stehen ausführliche Architekturberichte und das offizielle Benutzerhandbuch bereit:

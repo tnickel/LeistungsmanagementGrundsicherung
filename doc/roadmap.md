@@ -207,6 +207,28 @@ app.js-Interpolationen als XSS) dokumentiert nicht umgesetzt:
 - [x] Gegen VirtualBox-Oracle verifiziert: Suite 10/10 grün; Gesamtlauf 136 Tests,
       0 Fehler; keine Test-Rückstände (Cleanup-Präfix `BG-REG-`)
 
+## Mitarbeiter-Simulator „testsweet" (2026-10-11, Modus 1)
+
+- [x] **Eigenständiges Werkzeug `testsweet/`** (keine Unit-Tests, eigenes Maven-Projekt auf dem
+      Hauptartefakt): N simulierte Sachbearbeiter (Threads mit Kürzel und Denkzeit) ziehen Aufträge
+      atomar aus einem Pool und spielen 10 Szenario-Arten über die Fachschicht (SozialLeistungsService
+      → TxManager → Oracle): Standardrente mit Vier-Augen-Freigabe, Paar, § 30-Mehrbedarfe, Familie,
+      § 82-Erwerbsfälle, § 90-Vermögensfälle inkl. erwartetem KEIN_ANSPRUCH, Doppelklick-Idempotenz,
+      Storno + korrigierte Neuauszahlung im selben Monat, Konkurrenz mit erwartetem KONKURRENZ-Fehler,
+      Kassenlauf parallel zu Freigaben
+- [x] **Erwartungshaltung in jedem Szenario** (vorab mit derselben reinen `Leistungsberechnung`
+      berechnet), Verifikation nach Laufende per SQL direkt auf den Tabellen; strukturierte Logfiles
+      je Lauf (simulation.log, je Auftrag, je Mitarbeiter, db-verifikation.log, fehler.log,
+      zusammenfassung.txt) für die manuelle Auswertung
+- [x] **Lokale GUI** (Port 8095): Modus-Auswahl, Laufkonfiguration, Kennzahlen, Auftragsliste mit
+      Doppelklick-Detail (Schritte + Prüfungen), Live-Log-Ticker
+- [x] **Automatische Testdokumentation**: PDF mit Deckblatt/Einleitung (Rechengrundlagen 2026)/
+      Inhaltsverzeichnis und je Testfall einfacher Beschreibung, nachrechenbarem Rechenweg
+      (Zwischenwerte mit §-Hinweisen), Erwartung vs. Ist und Protokollausschnitt; zusätzlich schlanke
+      maschinenlesbare Markdown-Fassung (DB-IDs + Prüf-SQLs + Ist-Werte) zum Nachprüfen durch KI
+- [x] Gegen Docker-Oracle verifiziert: 10 Mitarbeiter / 60 Aufträge, 60/60 verifiziert in ~3 s
+- [ ] **Modus 2: Weboberfläche per Selenium bedienen** (Schritt 2, GUI bereits vorbereitet)
+
 ## Etappe 4 — Betrieb & Weiterentwicklung
 
 - [x] Wiederanlauf beim Serverstart (recover wird beim Hochfahren ausgeführt und per Admin-Button)
