@@ -1,4 +1,4 @@
-// lib.js — Bausteine, Palette und Deckblatt für das SDN.sozial-Benutzerhandbuch
+// lib.js — Bausteine, Palette und Deckblatt für das SDN.Leistung-Benutzerhandbuch
 "use strict";
 const {
   Paragraph, TextRun, Table, TableRow, TableCell, ImageRun, PageBreak,

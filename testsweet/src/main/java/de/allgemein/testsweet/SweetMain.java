@@ -19,6 +19,19 @@ import java.net.URI;
 public final class SweetMain {
 
     public static void main(String[] args) throws Exception {
+        if (args.length > 0 && "run".equalsIgnoreCase(args[0])) {
+            int ma = args.length > 1 ? Integer.parseInt(args[1]) : 10;
+            int auf = args.length > 2 ? Integer.parseInt(args[2]) : 60;
+            int seed = args.length > 3 ? Integer.parseInt(args[3]) : 42;
+            int denkzeit = args.length > 4 ? Integer.parseInt(args[4]) : 20;
+            Simulator simulator = new Simulator();
+            System.out.println("testsweet — Starte Batch-Lauf (" + ma + " Mitarbeiter, " + auf + " Aufträge, Seed " + seed + ") auf " + simulator.dbUrl);
+            simulator.laufSynchron(new Simulator.LaufKonfiguration(ma, auf, seed, denkzeit, true));
+            System.out.println("Lauf beendet. PDF: " + simulator.letztesPdf());
+            System.out.println("Markdown: " + simulator.letztesMd());
+            return;
+        }
+
         int port = ganzeZahlAusUmgebung("SWEET_PORT", 8095);
         Simulator simulator = new Simulator();
         SweetServer server = new SweetServer(simulator, port);

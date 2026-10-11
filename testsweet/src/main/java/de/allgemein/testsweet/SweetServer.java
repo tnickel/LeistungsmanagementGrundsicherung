@@ -286,18 +286,34 @@ final class SweetServer {
         String typ = resource.endsWith(".html") ? "text/html; charset=utf-8"
                 : resource.endsWith(".js") ? "text/javascript; charset=utf-8"
                 : resource.endsWith(".css") ? "text/css; charset=utf-8"
+                : resource.endsWith(".png") ? "image/png"
+                : resource.endsWith(".jpg") || resource.endsWith(".jpeg") ? "image/jpeg"
+                : resource.endsWith(".svg") ? "image/svg+xml"
                 : "application/octet-stream";
+        byte[] bytes = null;
         try (InputStream in = getClass().getResourceAsStream(resource)) {
-            if (in == null) {
-                sendeFehler(exchange, 404, "nicht gefunden: " + pfad);
-                return;
+            if (in != null) {
+                bytes = in.readAllBytes();
             }
-            byte[] bytes = in.readAllBytes();
-            exchange.getResponseHeaders().set("Content-Type", typ);
-            exchange.sendResponseHeaders(200, bytes.length);
-            try (OutputStream out = exchange.getResponseBody()) {
-                out.write(bytes);
+        }
+        if (bytes == null) {
+            // Fallback auf Dateisystem (Entwicklungsumgebung)
+            java.nio.file.Path datei = java.nio.file.Path.of("testsweet/src/main/resources" + resource);
+            if (!java.nio.file.Files.exists(datei)) {
+                datei = java.nio.file.Path.of("testsweet" + pfad);
             }
+            if (java.nio.file.Files.exists(datei)) {
+                bytes = java.nio.file.Files.readAllBytes(datei);
+            }
+        }
+        if (bytes == null) {
+            sendeFehler(exchange, 404, "nicht gefunden: " + pfad);
+            return;
+        }
+        exchange.getResponseHeaders().set("Content-Type", typ);
+        exchange.sendResponseHeaders(200, bytes.length);
+        try (OutputStream out = exchange.getResponseBody()) {
+            out.write(bytes);
         }
     }
 }

@@ -41,7 +41,7 @@ final class MdBericht {
 
     private static void kopf(StringBuilder md, Simulator simulator) {
         md.append("# testsweet Lauf\n\n");
-        kv(md, "produkt", "SDN.sozial LMG");
+        kv(md, "produkt", "SDN.Leistung LMG");
         kv(md, "modus", "1-fachschicht (SozialLeistungsService direkt)");
         kv(md, "start", String.valueOf(simulator.laufStart()));
         kv(md, "ende", String.valueOf(simulator.laufEnde()));

@@ -1,7 +1,12 @@
 package de.allgemein.testsweet;
 
+import javax.imageio.ImageIO;
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
+import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -9,21 +14,27 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Minimaler PDF-Generator für die automatische Testdokumentation — bewusst als
- * eigene schlanke Umsetzung ohne Fremd-Bibliothek (Projektstil). Unterstützt
- * A4-Seiten, Helvetica/Fett, Textfarben, Trennlinien, erzwungene Seitenumbrüche
- * (für Deckblatt), Marken mit Trocken-Pagination (für das Inhaltsverzeichnis)
- * sowie Wortumbruch; Sonderzeichen werden nach Windows-1252 (WinAnsiEncoding)
- * abgebildet, damit deutsche Umlaute korrekt erscheinen.
+ * Minimaler, eigenständiger PDF-Generator für die automatische Testdokumentation —
+ * bewusst als schlanke Eigenentwicklung ohne Drittbibliotheken (Projektstil).
+ * Unterstützt:
+ * - A4-Seiten mit millimetergenauem Satz
+ * - Typografie in Helvetica / Helvetica-Bold (WinAnsiEncoding für deutsche Umlaute und Sonderzeichen)
+ * - Farbige Boxen, Karten, Trennlinien und Inhaltsverzeichnis mit gepunkteten Leitern
+ * - Trocken-Pagination mit Markenindex
+ * - Einbettung hochauflösender Rastergrafiken (JPEG / PNG / Diagramme) als PDF-1.4 XObjects
+ * - Automatische Seitenumbruchs-Optimierung gegen verwaiste Zeilen
  */
 final class SweetPdf {
 
-    private static final float SEITEN_BREITE = 595f;
-    private static final float SEITEN_HOEHE = 842f;
-    private static final float RAND = 48f;
+    static final float SEITEN_BREITE = 595f;
+    static final float SEITEN_HOEHE = 842f;
+    static final float RAND = 48f;
+    static final float NUTZBARE_BREITE = SEITEN_BREITE - 2 * RAND; // 499 pt
 
     private static final Charset CP1252 = Charset.forName("windows-1252");
 
@@ -36,7 +47,18 @@ final class SweetPdf {
     /** Inhaltsverzeichniszeile: Label links, gepunktete Leiste, Seitenzahl rechts. */
     record TocZeile(String label, int seite, int farbe) { }
 
+    /** Bildeintrag im Inhaltsstrom. */
+    record BildEintrag(String schluessel, BildDaten daten, float renderBreite, float renderHoehe,
+                       boolean zentriert, String titel) { }
+
+    /** Bilddaten im Speicher (JPEG-kodiert für /DCTDecode). */
+    record BildDaten(byte[] jpegDaten, int pixelBreite, int pixelHoehe) { }
+
+    /** PDF-Objekt im Ausgabestrom. */
+    private record PdfObjekt(int nummer, byte[] dictBytes, byte[] streamBytes) { }
+
     private static final Object SEITEN_UMBRUCH = new Object();
+    private static final Map<String, BildDaten> BILD_CACHE = new ConcurrentHashMap<>();
 
     public static final int SCHWARZ = 0;
     public static final int GRUEN = 1;
@@ -44,94 +66,110 @@ final class SweetPdf {
     public static final int BLAU = 3;
     public static final int GRAU = 4;
     public static final int WEISS = 5;
-    /** Füllfarben (heller) für Kästen. */
+    public static final int DUNKELBLAU = 6;
+    public static final int BERNSTEIN = 7;
+
+    /** Füllfarben (heller) für Kästen und Karten. */
     public static final int FUELL_BLAU = 10;
     public static final int FUELL_GRUEN = 11;
     public static final int FUELL_ROT = 12;
     public static final int FUELL_HELLBLAU = 13;
     public static final int FUELL_GRAU = 14;
+    public static final int FUELL_BERNSTEIN = 15;
+    public static final int FUELL_WEISS = 16;
 
     private final List<Object> eintraege = new ArrayList<>();
     private final Map<String, Integer> markenIndex = new LinkedHashMap<>();
     private String fusszeile = "";
+    private String kopfzeile = "";
 
     // ------------------------------------------------------------------
-    // Aufbau
+    // Aufbau: Texte, Titel & Trenner
     // ------------------------------------------------------------------
 
     void ueberschrift(String text) {
-        zeile("", SCHWARZ, 10);
-        zeile(text, true, BLAU, 14);
-        zeile("", SCHWARZ, 6);
+        zeile("", SCHWARZ, 8);
+        zeile(text, true, BLAU, 15);
+        zeile("", SCHWARZ, 5);
     }
 
     void abschnittsTitel(String text) {
         zeile("", SCHWARZ, 5);
-        zeile(text, true, SCHWARZ, 11);
+        zeile(text, true, SCHWARZ, 10.5f);
         linie();
     }
 
     void text(String text) {
-        text(text, SCHWARZ, 10);
+        text(text, SCHWARZ, 9.5f);
     }
 
     void text(String text, int farbe, float groesse) {
-        int maxZeichen = (int) ((SEITEN_BREITE - 2 * RAND) / (groesse * 0.52f));
+        int maxZeichen = (int) (NUTZBARE_BREITE / (groesse * 0.52f));
         for (String teil : brichUm(text, maxZeichen)) {
             zeile(teil, false, farbe, groesse);
         }
     }
 
-    /** Feste Zeile ohne Umbruch (z. B. Tabellenzeile des Inhaltsverzeichnisses). */
     void rohZeile(String text, int farbe, float groesse) {
         zeile(text, false, farbe, groesse);
     }
 
-    /** Feste fette Zeile ohne Umbruch (z. B. Blocktitel im Rechenweg). */
     void fettZeile(String text, int farbe, float groesse) {
         zeile(text, true, farbe, groesse);
     }
 
-    /** Farbige Titel-/Ergebnis-Leiste mit Text (einzeilig, einrückungsfrei).
-     *  Der Kürzfaktor ist bewusst konservativ (Helvetica-Bold Ø 0,6 em), damit
-     *  der Text sicher IN der Leiste bleibt. */
     void kasten(String text, boolean fett, int textfarbe, int fuellung, float groesse) {
-        int maxZeichen = (int) ((SEITEN_BREITE - 2 * RAND - 14) / (groesse * (fett ? 0.62f : 0.56f)));
-        String gekuerzt = text.length() > maxZeichen
-                ? text.substring(0, maxZeichen - 1) + "…" : text;
-        eintraege.add(new Kasten(gekuerzt, fett, textfarbe, fuellung, groesse));
+        float charBreite = groesse * (fett ? 0.58f : 0.52f);
+        float maxBreite = NUTZBARE_BREITE - 14;
+        float benoetigt = text.length() * charBreite;
+        float effGroesse = groesse;
+        if (benoetigt > maxBreite) {
+            float skaliert = maxBreite / (text.length() * (fett ? 0.55f : 0.50f));
+            if (skaliert >= 7.5f) {
+                effGroesse = skaliert;
+            } else {
+                int maxZeichen = (int) (maxBreite / (7.5f * (fett ? 0.55f : 0.50f)));
+                text = text.length() > maxZeichen ? text.substring(0, maxZeichen - 1) + "…" : text;
+                effGroesse = 7.5f;
+            }
+        }
+        eintraege.add(new Kasten(text, fett, textfarbe, fuellung, effGroesse));
     }
 
-    /** Inhaltsverzeichniszeile: Label links, gepunktete Leiste, Seitenzahl rechtsbündig. */
     void tocZeile(String label, int seite, int farbe) {
         int maxZeichen = 78;
         eintraege.add(new TocZeile(label.length() > maxZeichen
                 ? label.substring(0, maxZeichen - 1) + "…" : label, seite, farbe));
     }
 
-    /** Fußzeile auf jeder Seite (z. B. Dokumentname; Seitenzahl hängt der Generator an). */
     void setzeFusszeile(String text) {
         fusszeile = text == null ? "" : text;
     }
 
+    void setzeKopfzeile(String text) {
+        kopfzeile = text == null ? "" : text;
+    }
+
     void paar(String label, String wert) {
-        text(label + ": " + wert, GRAU, 9.5f);
+        text(label + ": " + wert, GRAU, 9.0f);
     }
 
     void leereZeile() {
-        zeile("", SCHWARZ, 8);
+        zeile("", SCHWARZ, 6);
+    }
+
+    void leereZeile(float hoehe) {
+        zeile("", SCHWARZ, hoehe);
     }
 
     void linie() {
         eintraege.add(new Zeile(null, false, GRAU, 0.5f, true));
     }
 
-    /** Erzwingt eine neue Seite (z. B. nach dem Deckblatt). */
     void seitenUmbruch() {
         eintraege.add(SEITEN_UMBRUCH);
     }
 
-    /** Merkt die aktuelle Position; {@link #seitenDerMarken()} liefert dazu die Seite. */
     void marke(String id) {
         markenIndex.put(id, eintraege.size());
     }
@@ -145,10 +183,111 @@ final class SweetPdf {
     }
 
     // ------------------------------------------------------------------
-    // Pagination (trocken) und Marken
+    // Bilder & Diagramme
     // ------------------------------------------------------------------
 
-    /** Seitennummer je Marke bei der jetzigen Belegung (ohne Verschiebung) — fürs TOC. */
+    /**
+     * Fügt ein Bild oder Diagramm zentriert ein.
+     * Erkennt Ressourcen im Classpath (/sweet/assets/...) oder Dateipfade.
+     * Ist die Renderhöhe <= 0, wird sie proportional aus den Pixelmaßen berechnet.
+     */
+    void bildZentriert(String pfadOderRessource, float renderBreite, float renderHoehe, String titel) {
+        BildDaten daten = ladeBildDaten(pfadOderRessource);
+        if (daten == null) {
+            zeile("[Grafik nicht geladen: " + pfadOderRessource + "]", false, ROT, 8.5f);
+            return;
+        }
+        float breite = Math.min(renderBreite, NUTZBARE_BREITE);
+        float hoehe = renderHoehe > 0 ? renderHoehe
+                : breite * ((float) daten.pixelHoehe() / daten.pixelBreite());
+        eintraege.add(new BildEintrag(pfadOderRessource, daten, breite, hoehe, true, titel));
+    }
+
+    void bildZentriert(String pfadOderRessource, float renderBreite) {
+        bildZentriert(pfadOderRessource, renderBreite, 0, null);
+    }
+
+    void bildZentriert(String pfadOderRessource, float renderBreite, String titel) {
+        bildZentriert(pfadOderRessource, renderBreite, 0, titel);
+    }
+
+    void bild(String pfadOderRessource, float renderBreite, float renderHoehe, String titel) {
+        BildDaten daten = ladeBildDaten(pfadOderRessource);
+        if (daten == null) {
+            zeile("[Grafik nicht geladen: " + pfadOderRessource + "]", false, ROT, 8.5f);
+            return;
+        }
+        float breite = Math.min(renderBreite, NUTZBARE_BREITE);
+        float hoehe = renderHoehe > 0 ? renderHoehe
+                : breite * ((float) daten.pixelHoehe() / daten.pixelBreite());
+        eintraege.add(new BildEintrag(pfadOderRessource, daten, breite, hoehe, false, titel));
+    }
+
+    private static BildDaten ladeBildDaten(String pfadOderRessource) {
+        if (pfadOderRessource == null || pfadOderRessource.isBlank()) {
+            return null;
+        }
+        return BILD_CACHE.computeIfAbsent(pfadOderRessource, key -> {
+            // 1. Classpath-Ressource versuchen
+            String[] resourcePfade = {
+                    key.startsWith("/") ? key : "/" + key,
+                    "/sweet/assets/" + key,
+                    "/sweet/" + key,
+                    "/assets/" + key
+            };
+            for (String rPfad : resourcePfade) {
+                try (InputStream in = SweetPdf.class.getResourceAsStream(rPfad)) {
+                    if (in != null) {
+                        return leseBildStream(in);
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+
+            // 2. Dateisystem versuchen
+            String[] dateiPfade = {
+                    key,
+                    "testsweet/src/main/resources/sweet/assets/" + key,
+                    "testsweet/assets/" + key,
+                    "doc/manual-bilder/" + key
+            };
+            for (String dPfad : dateiPfade) {
+                Path p = Path.of(dPfad);
+                if (Files.exists(p)) {
+                    try (InputStream in = Files.newInputStream(p)) {
+                        return leseBildStream(in);
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
+            return null;
+        });
+    }
+
+    private static BildDaten leseBildStream(InputStream in) throws IOException {
+        BufferedImage img = ImageIO.read(in);
+        if (img == null) {
+            throw new IOException("Bildformat nicht lesbar");
+        }
+        int w = img.getWidth();
+        int h = img.getHeight();
+        // Auf weißem Hintergrund rendern, um Transparenzen sauber in RGB abzubilden
+        BufferedImage rgb = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = rgb.createGraphics();
+        g.setColor(Color.WHITE);
+        g.fillRect(0, 0, w, h);
+        g.drawImage(img, 0, 0, null);
+        g.dispose();
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        ImageIO.write(rgb, "jpg", baos);
+        return new BildDaten(baos.toByteArray(), w, h);
+    }
+
+    // ------------------------------------------------------------------
+    // Pagination & Marken
+    // ------------------------------------------------------------------
+
     Map<String, Integer> seitenDerMarken() {
         Map<String, Integer> seiten = new LinkedHashMap<>();
         int seite = 1;
@@ -175,7 +314,6 @@ final class SweetPdf {
         return seiten;
     }
 
-    /** Trockene Seitenzahl der bisherigen Einträge (ohne Datei zu schreiben). */
     int seitenAnzahl() {
         int seite = 1;
         float rest = SEITEN_HOEHE - 2 * RAND;
@@ -195,12 +333,10 @@ final class SweetPdf {
         return seite;
     }
 
-    /** Interne Eintragsliste als Kopie (zum Zusammenbau mehrerer Teildokumente). */
     List<Object> eintraegeKopie() {
         return new ArrayList<>(eintraege);
     }
 
-    /** Übernimmt Einträge eines anderen Teildokuments vor die eigenen. */
     void uebernehmeVorn(List<Object> andere) {
         List<Object> bisher = new ArrayList<>(eintraege);
         eintraege.clear();
@@ -209,10 +345,9 @@ final class SweetPdf {
     }
 
     // ------------------------------------------------------------------
-    // Serialisierung
+    // Serialisierung: Vollständiges PDF-1.4 Schreiben
     // ------------------------------------------------------------------
 
-    /** Schreibt die PDF-Datei; Rückgabe: Anzahl Seiten. */
     int schreiben(Path datei) throws IOException {
         List<List<Object>> seiten = new ArrayList<>();
         List<Object> aktuell = new ArrayList<>();
@@ -239,83 +374,198 @@ final class SweetPdf {
         }
         int anzahlSeiten = seiten.size();
 
-        List<String> koerper = new ArrayList<>();
+        // 1. Alle eindeutigen Bilder sammeln und XObject-Nummern vergeben
+        Map<String, Integer> bildObjektNummern = new LinkedHashMap<>();
+        Map<String, String> bildAliases = new LinkedHashMap<>();
+        int bildZaehler = 1;
+        for (List<Object> s : seiten) {
+            for (Object obj : s) {
+                if (obj instanceof BildEintrag b) {
+                    if (!bildAliases.containsKey(b.schluessel())) {
+                        String alias = "Im" + bildZaehler++;
+                        bildAliases.put(b.schluessel(), alias);
+                    }
+                }
+            }
+        }
+
+        int naechsteNummer = 5; // 1 Catalog, 2 Pages, 3+4 Fonts
+        for (String schluessel : bildAliases.keySet()) {
+            bildObjektNummern.put(schluessel, naechsteNummer++);
+        }
+
         List<Integer> pageObjektNummern = new ArrayList<>();
-        int naechsteNummer = 5; // 1 Catalog, 2 Pages, 3+4 Fonts; ab 5 je Seite Page+Contents
         for (int s = 0; s < anzahlSeiten; s++) {
             pageObjektNummern.add(naechsteNummer);
-            naechsteNummer += 2;
+            naechsteNummer += 2; // Page + Content
         }
-        koerper.add("<< /Type /Catalog /Pages 2 0 R >>");
+
+        List<PdfObjekt> koerper = new ArrayList<>();
+
+        // Obj 1: Catalog
+        koerper.add(new PdfObjekt(1, "<< /Type /Catalog /Pages 2 0 R >>".getBytes(StandardCharsets.ISO_8859_1), null));
+
+        // Obj 2: Pages
         StringBuilder kids = new StringBuilder();
         for (int i = 0; i < pageObjektNummern.size(); i++) {
             kids.append(i == 0 ? "" : " ").append(pageObjektNummern.get(i)).append(" 0 R");
         }
-        koerper.add("<< /Type /Pages /Kids [" + kids + "] /Count " + anzahlSeiten + " >>");
-        koerper.add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
-        koerper.add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
+        koerper.add(new PdfObjekt(2, ("<< /Type /Pages /Kids [" + kids + "] /Count " + anzahlSeiten + " >>")
+                .getBytes(StandardCharsets.ISO_8859_1), null));
 
+        // Obj 3 + 4: Fonts
+        koerper.add(new PdfObjekt(3, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>"
+                .getBytes(StandardCharsets.ISO_8859_1), null));
+        koerper.add(new PdfObjekt(4, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>"
+                .getBytes(StandardCharsets.ISO_8859_1), null));
+
+        // Obj 5..K: Image XObjects
+        for (Map.Entry<String, Integer> entry : bildObjektNummern.entrySet()) {
+            String schluessel = entry.getKey();
+            int objNum = entry.getValue();
+            BildDaten daten = BILD_CACHE.get(schluessel);
+            String dict = "<< /Type /XObject /Subtype /Image /Width " + daten.pixelBreite()
+                    + " /Height " + daten.pixelHoehe()
+                    + " /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length "
+                    + daten.jpegDaten().length + " >>";
+            koerper.add(new PdfObjekt(objNum, dict.getBytes(StandardCharsets.ISO_8859_1), daten.jpegDaten()));
+        }
+
+        // XObject-Ressourcen-String für Pages bauen
+        StringBuilder xObjDict = new StringBuilder();
+        if (!bildAliases.isEmpty()) {
+            xObjDict.append(" /XObject << ");
+            for (Map.Entry<String, String> entry : bildAliases.entrySet()) {
+                int objNum = bildObjektNummern.get(entry.getKey());
+                xObjDict.append('/').append(entry.getValue()).append(' ').append(objNum).append(" 0 R ");
+            }
+            xObjDict.append(">> ");
+        }
+
+        // Seiten & Inhaltsströme
         for (int s = 0; s < anzahlSeiten; s++) {
             int pageNummer = pageObjektNummern.get(s);
             int inhaltNummer = pageNummer + 1;
-            koerper.add("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 "
+            String pageDict = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 "
                     + (int) SEITEN_BREITE + " " + (int) SEITEN_HOEHE + "] "
-                    + "/Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents "
-                    + inhaltNummer + " 0 R >>");
-            String stream = inhaltStream(seiten.get(s), s + 1, anzahlSeiten);
-            koerper.add("<< /Length " + stream.getBytes(StandardCharsets.ISO_8859_1).length
-                    + " >>\nstream\n" + stream + "\nendstream");
+                    + "/Resources << /Font << /F1 3 0 R /F2 4 0 R >>" + xObjDict + ">> /Contents "
+                    + inhaltNummer + " 0 R >>";
+            koerper.add(new PdfObjekt(pageNummer, pageDict.getBytes(StandardCharsets.ISO_8859_1), null));
+
+            String streamText = inhaltStream(seiten.get(s), s + 1, anzahlSeiten, bildAliases);
+            byte[] streamBytes = streamText.getBytes(CP1252);
+            String contentDict = "<< /Length " + streamBytes.length + " >>";
+            koerper.add(new PdfObjekt(inhaltNummer, contentDict.getBytes(StandardCharsets.ISO_8859_1), streamBytes));
         }
 
-        StringBuilder ausgabe = new StringBuilder("%PDF-1.4\n%\u00e2\u00e3\u00cf\u00d3\n");
+        // PDF als Byte-Array schreiben
+        ByteArrayOutputStream baos = new ByteArrayOutputStream(512 * 1024);
+        baos.write("%PDF-1.4\n%\u00e2\u00e3\u00cf\u00d3\n".getBytes(StandardCharsets.ISO_8859_1));
         List<Integer> offsets = new ArrayList<>();
-        for (int i = 0; i < koerper.size(); i++) {
-            offsets.add(ausgabe.toString().getBytes(StandardCharsets.ISO_8859_1).length);
-            ausgabe.append(i + 1).append(" 0 obj\n").append(koerper.get(i)).append("\nendobj\n");
-        }
-        int xrefStart = ausgabe.toString().getBytes(StandardCharsets.ISO_8859_1).length;
-        int objektAnzahl = koerper.size() + 1;
-        ausgabe.append("xref\n0 ").append(objektAnzahl).append("\n0000000000 65535 f \n");
-        for (int offset : offsets) {
-            ausgabe.append(String.format("%010d 00000 n \n", offset));
-        }
-        ausgabe.append("trailer\n<< /Size ").append(objektAnzahl)
-                .append(" /Root 1 0 R >>\nstartxref\n").append(xrefStart).append("\n%%EOF");
 
-        try (OutputStream out = Files.newOutputStream(datei)) {
-            out.write(ausgabe.toString().getBytes(CP1252));
+        for (PdfObjekt obj : koerper) {
+            offsets.add(baos.size());
+            baos.write((obj.nummer() + " 0 obj\n").getBytes(StandardCharsets.ISO_8859_1));
+            baos.write(obj.dictBytes());
+            if (obj.streamBytes() != null) {
+                baos.write("\nstream\n".getBytes(StandardCharsets.ISO_8859_1));
+                baos.write(obj.streamBytes());
+                baos.write("\nendstream".getBytes(StandardCharsets.ISO_8859_1));
+            }
+            baos.write("\nendobj\n".getBytes(StandardCharsets.ISO_8859_1));
         }
+
+        int xrefStart = baos.size();
+        int objektAnzahl = koerper.size() + 1;
+        baos.write(("xref\n0 " + objektAnzahl + "\n0000000000 65535 f \n").getBytes(StandardCharsets.ISO_8859_1));
+        for (int offset : offsets) {
+            baos.write(String.format(Locale.ROOT, "%010d 00000 n \n", offset).getBytes(StandardCharsets.ISO_8859_1));
+        }
+        baos.write(("trailer\n<< /Size " + objektAnzahl + " /Root 1 0 R >>\nstartxref\n"
+                + xrefStart + "\n%%EOF\n").getBytes(StandardCharsets.ISO_8859_1));
+
+        if (datei.getParent() != null) {
+            Files.createDirectories(datei.getParent());
+        }
+        Files.write(datei, baos.toByteArray());
         return anzahlSeiten;
     }
 
-    private String inhaltStream(List<Object> seitenEintraege, int seitenNr, int gesamt) {
+    private String inhaltStream(List<Object> seitenEintraege, int seitenNr, int gesamt,
+                                Map<String, String> bildAliases) {
         StringBuilder sb = new StringBuilder();
         float y = SEITEN_HOEHE - RAND;
         String aktFont = "";
         String aktFarbe = "";
+
+        // Kopfzeile auf Seiten > 1
+        if (seitenNr > 1 && !kopfzeile.isBlank()) {
+            sb.append("BT\n/F1 8 Tf\n").append(farbeAlsPdf(GRAU)).append('\n')
+                    .append("1 0 0 1 ").append(RAND).append(' ').append(SEITEN_HOEHE - 28)
+                    .append(" Tm (").append(escape(kopfzeile)).append(") Tj\nET\n");
+            sb.append("q 0.5 w 0.85 0.85 0.85 RG ")
+                    .append(RAND).append(' ').append(SEITEN_HOEHE - 32).append(" m ")
+                    .append(SEITEN_BREITE - RAND).append(' ').append(SEITEN_HOEHE - 32).append(" l S Q\n");
+        }
+
         for (Object eintrag : seitenEintraege) {
+            if (eintrag instanceof BildEintrag b) {
+                String alias = bildAliases.get(b.schluessel());
+                if (alias != null) {
+                    float w = b.renderBreite();
+                    float h = b.renderHoehe();
+                    float x = b.zentriert() ? (SEITEN_BREITE - w) / 2f : RAND;
+                    float bildY = y - h;
+
+                    sb.append("q ")
+                            .append(String.format(Locale.ROOT, "%.2f 0 0 %.2f %.2f %.2f cm\n", w, h, x, bildY))
+                            .append('/').append(alias).append(" Do\n")
+                            .append("Q\n");
+
+                    // Subtiler Rahmen um das Bild
+                    sb.append("q 0.5 w 0.80 0.83 0.88 RG ")
+                            .append(String.format(Locale.ROOT, "%.2f %.2f %.2f %.2f re S Q\n", x, bildY, w, h));
+
+                    if (b.titel() != null && !b.titel().isBlank()) {
+                        float groesse = 8.5f;
+                        float titelY = bildY - 12f;
+                        sb.append("BT\n/F1 ").append(groesse).append(" Tf\n")
+                                .append(farbeAlsPdf(GRAU)).append('\n')
+                                .append("1 0 0 1 ").append(x).append(' ').append(titelY)
+                                .append(" Tm (").append(escape(b.titel())).append(") Tj\nET\n");
+                        y = titelY - 14f;
+                    } else {
+                        y = bildY - 12f;
+                    }
+                    aktFont = "";
+                    aktFarbe = "";
+                }
+                continue;
+            }
+
             if (eintrag instanceof Kasten k) {
-                float hoehe = k.groesse() * 1.5f;
-                float kastenOben = y + 2;
+                float hoehe = k.groesse() * 1.4f;
+                float kastenOben = y + 1.5f;
                 sb.append("q ").append(farbeAlsPdf(k.fuellung()))
                         .append(' ').append(RAND).append(' ')
                         .append(kastenOben - hoehe).append(' ')
-                        .append(SEITEN_BREITE - 2 * RAND).append(' ').append(hoehe)
+                        .append(NUTZBARE_BREITE).append(' ').append(hoehe)
                         .append(" re f Q\n");
                 String font = "/" + (k.fett() ? "F2" : "F1") + " " + k.groesse() + " Tf";
                 sb.append("BT\n").append(font).append('\n')
                         .append(farbeAlsPdf(k.textfarbe())).append('\n')
-                        .append("1 0 0 1 ").append(RAND + 6).append(' ').append(kastenOben - hoehe + (hoehe - k.groesse()) / 2 + 1.5f)
+                        .append("1 0 0 1 ").append(RAND + 5).append(' ')
+                        .append(kastenOben - hoehe + (hoehe - k.groesse()) / 2 + 1.2f)
                         .append(" Tm (").append(escape(k.text())).append(") Tj\nET\n");
-                y -= hoehe + 8f;
+                y -= hoehe + 4.5f; // Kompakter als vorher (spart Platz)
                 aktFont = "";
                 aktFarbe = "";
                 continue;
             }
+
             if (eintrag instanceof TocZeile toc) {
-                float groesse = 9.5f;
+                float groesse = 9.0f;
                 String seitenText = String.valueOf(toc.seite());
-                // Ziffern in Helvetica sind 0,556 em breit → Rechtsbündigkeit reicht genau
                 float zahlBreite = 0.556f * groesse * seitenText.length();
                 float zahlX = SEITEN_BREITE - RAND - zahlBreite;
                 float labelBreite = toc.label().length() * groesse * 0.50f;
@@ -327,20 +577,21 @@ final class SweetPdf {
                         .append(" Tm (").append(escape(seitenText)).append(") Tj\nET\n");
                 float linkeGrenze = RAND + labelBreite + 6;
                 if (linkeGrenze < zahlX - 6) {
-                    sb.append("q [2 2] 0 d 0.5 w 0.55 0.55 0.55 RG ")
-                            .append(linkeGrenze).append(' ').append(y + 2.6f).append(" m ")
-                            .append(zahlX - 5).append(' ').append(y + 2.6f).append(" l S Q\n");
+                    sb.append("q [2 2] 0 d 0.5 w 0.60 0.60 0.60 RG ")
+                            .append(linkeGrenze).append(' ').append(y + 2.4f).append(" m ")
+                            .append(zahlX - 5).append(' ').append(y + 2.4f).append(" l S Q\n");
                 }
-                y -= 14f;
+                y -= 13f;
                 continue;
             }
+
             Zeile zeile = (Zeile) eintrag;
             sb.append("BT\n");
             if (zeile.linie()) {
-                sb.append("ET\nq 0.8 w 0.75 0.75 0.75 RG ")
-                        .append(RAND).append(' ').append(y + 3).append(" m ")
-                        .append(SEITEN_BREITE - RAND).append(' ').append(y + 3).append(" l S\nQ\n");
-                y -= 10f;
+                sb.append("ET\nq 0.7 w 0.80 0.80 0.80 RG ")
+                        .append(RAND).append(' ').append(y + 2).append(" m ")
+                        .append(SEITEN_BREITE - RAND).append(' ').append(y + 2).append(" l S\nQ\n");
+                y -= 8f;
                 continue;
             }
             String font = "/" + (zeile.fett() ? "F2" : "F1") + " " + zeile.groesse() + " Tf";
@@ -357,63 +608,65 @@ final class SweetPdf {
                     .append(escape(zeile.text())).append(") Tj\nET\n");
             y -= zeilenSchritt(zeile.groesse());
         }
+
         // Fußzeile: Dokumentname links, "Seite N von M" rechts
         if (!fusszeile.isBlank() || gesamt > 1) {
             String rechts = "Seite " + seitenNr + " von " + gesamt;
-            float groesse = 8.5f;
+            float groesse = 8.0f;
             float zahlBreite = 0.556f * groesse * rechts.length() + groesse * 0.28f * 3;
             sb.append("BT\n/F1 ").append(groesse).append(" Tf\n").append(farbeAlsPdf(GRAU)).append('\n')
-                    .append("1 0 0 1 ").append(RAND).append(" 26 Tm (")
+                    .append("1 0 0 1 ").append(RAND).append(" 24 Tm (")
                     .append(escape(fusszeile)).append(") Tj\n")
                     .append("1 0 0 1 ").append(SEITEN_BREITE - RAND - zahlBreite)
-                    .append(" 26 Tm (").append(escape(rechts)).append(") Tj\nET");
+                    .append(" 24 Tm (").append(escape(rechts)).append(") Tj\nET");
         }
         return sb.toString();
     }
 
     private static String farbeAlsPdf(int farbe) {
         return switch (farbe) {
-            case GRUEN -> "0.00 0.45 0.15 rg";
-            case ROT -> "0.75 0.10 0.10 rg";
-            case BLAU -> "0.12 0.31 0.47 rg";
-            case GRAU -> "0.40 0.40 0.40 rg";
+            case GRUEN -> "0.08 0.50 0.20 rg";
+            case ROT -> "0.78 0.12 0.12 rg";
+            case BLAU -> "0.12 0.31 0.58 rg";
+            case DUNKELBLAU -> "0.06 0.15 0.35 rg";
+            case BERNSTEIN -> "0.75 0.42 0.05 rg";
+            case GRAU -> "0.38 0.42 0.48 rg";
             case WEISS -> "1.00 1.00 1.00 rg";
-            case FUELL_BLAU -> "0.12 0.31 0.47 rg";
-            case FUELL_GRUEN -> "0.18 0.44 0.24 rg";
-            case FUELL_ROT -> "0.72 0.13 0.13 rg";
-            case FUELL_HELLBLAU -> "0.86 0.91 0.96 rg";
-            case FUELL_GRAU -> "0.93 0.93 0.93 rg";
-            default -> "0.00 0.00 0.00 rg";
+            case FUELL_BLAU -> "0.12 0.31 0.58 rg";
+            case FUELL_GRUEN -> "0.12 0.52 0.24 rg";
+            case FUELL_ROT -> "0.75 0.15 0.15 rg";
+            case FUELL_HELLBLAU -> "0.91 0.94 0.98 rg";
+            case FUELL_GRAU -> "0.94 0.95 0.96 rg";
+            case FUELL_BERNSTEIN -> "0.99 0.95 0.88 rg";
+            case FUELL_WEISS -> "1.00 1.00 1.00 rg";
+            default -> "0.05 0.09 0.16 rg";
         };
     }
 
-    /** Vertikaler Platzbedarf eines Eintrags (für die Pagination); große
-     *  Schriftgrade brauchen mehr Abstand nach oben (Auf-/Unterlängen). */
     private static float platzBedarf(Object eintrag) {
         if (eintrag == SEITEN_UMBRUCH) {
             return 0f;
         }
+        if (eintrag instanceof BildEintrag b) {
+            return b.renderHoehe() + (b.titel() != null && !b.titel().isBlank() ? 26f : 12f);
+        }
         if (eintrag instanceof Kasten k) {
-            return k.groesse() * 1.5f + 8f;
+            return k.groesse() * 1.4f + 4.5f;
         }
         if (eintrag instanceof TocZeile) {
-            return 14f;
+            return 13f;
         }
         Zeile zeile = (Zeile) eintrag;
         if (zeile.linie()) {
-            return 10f;
+            return 8f;
         }
         return zeilenSchritt(zeile.groesse());
     }
 
-    /** Zeilenabstand: Normalfall 1,25-fach; ab 16 pt deutlich luftiger (Titelseiten). */
     static float zeilenSchritt(float groesse) {
-        return groesse > 16f ? groesse * 1.55f : Math.max(groesse * 1.25f, 7f);
+        return groesse > 16f ? groesse * 1.40f : Math.max(groesse * 1.20f, 6.5f);
     }
 
-    /** Klammert PDF-Sonderzeichen; alle anderen Zeichen durchläuft unverändert —
-     *  die CP1252-Ausgabeabbildung regelt die Bytecodierung (— – „ “ … × sind
-     *  dort definiert, Unpassendes wird vom Charset zu '?' ). */
     private static String escape(String text) {
         StringBuilder sb = new StringBuilder();
         for (char c : normalisiere(text).toCharArray()) {
@@ -427,7 +680,6 @@ final class SweetPdf {
         return sb.toString();
     }
 
-    /** Ersetzt nur Zeichen, die CP1252 wirklich nicht kennt. */
     private static String normalisiere(String text) {
         return text
                 .replace("\u2264", "<=")

@@ -38,7 +38,7 @@ import java.util.concurrent.Executors;
 
 /**
  * Webschicht des Leistungsmanagements: stellt die JSON-API und die Oberfläche
- * (SDN.sozial-Stil) bereit. Jede API-Anfrage läuft als Task über die
+ * (SDN.Leistung-Stil) bereit. Jede API-Anfrage läuft als Task über die
  * {@link TaskController}-Steuerung — begrenzte Parallelität, Wachhund und
  * Statistik der Transaktionssteuerung gelten damit auch für den Webbetrieb.
  * Bewusst der in der JDK enthaltene HttpServer statt eines Servlet-Containers:

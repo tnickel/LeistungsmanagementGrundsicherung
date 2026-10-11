@@ -14,7 +14,7 @@ import de.allgemein.tx.saga.SagaJournal;
 import java.time.Instant;
 
 /**
- * Startpunkt des Leistungsmanagements (SDN.sozial LMG): baut Pool,
+ * Startpunkt des Leistungsmanagements (SDN.Leistung LMG): baut Pool,
  * Transaktionssteuerung und Fachdienste auf und startet die Weboberfläche.
  *
  * <p>Verbindung über die Umgebungsvariablen TX_URL, TX_USER, TX_PASS (wie beim
@@ -54,7 +54,7 @@ public final class LmgServerMain {
                         java.time.Duration.ofMinutes(config.sessionTimeoutMinuten()));
                 try (LmgServer server = new LmgServer(tasks, service, diagnose, sagas, benutzerverwaltung, config.port())) {
                     server.start();
-                    System.out.println("SDN.sozial — Leistungsmanagement Grundsicherung (v0.5.4)");
+                    System.out.println("SDN.Leistung — Leistungsmanagement Grundsicherung (v0.5.4)");
                     System.out.println("Oberfläche: http://localhost:" + config.port() + "/");
                     System.out.println("Verbindungspool: " + pool.getClass().getSimpleName() + " (Größe: " + config.poolSize() + ")");
                     System.out.println("JMX-Monitoring: aktiv (" + taskMbean + ", " + poolMbean + ")");

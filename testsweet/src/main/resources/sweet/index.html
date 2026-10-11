@@ -2,42 +2,94 @@
 <html lang="de">
 <head>
     <meta charset="utf-8">
-    <title>testsweet — Mitarbeiter-Simulator SDN.sozial LMG</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>testsweet — Mitarbeiter-Simulator SDN.Leistung LMG</title>
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <header>
-    <h1>testsweet — Mitarbeiter-Simulator</h1>
-    <span class="phase" id="phase">BEREIT</span>
-    <span class="db" id="db"></span>
+    <div class="header-marke">
+        <div class="logo-icon">⚡</div>
+        <div>
+            <h1>testsweet <span class="subtitel">Mitarbeiter-Simulator & Integrationstest</span></h1>
+            <div class="system-tag">SDN.Leistung · Leistungsmanagement Grundsicherung (SGB XII)</div>
+        </div>
+    </div>
+    <div class="header-status">
+        <span class="phase" id="phase"><span class="puls-punkt"></span><span id="phase-text">BEREIT</span></span>
+        <span class="db-pill" id="db" title="Oracle Datenbank-Verbindung">jdbc:oracle:thin:@//localhost:1521/FREEPDB1</span>
+    </div>
 </header>
 
+<nav class="sub-nav">
+    <a href="#lauf-konfig">Konfiguration</a>
+    <a href="#kpis-abschnitt">Kenndaten</a>
+    <a href="#architektur-abschnitt">Architektur & Diagramme</a>
+    <a href="#auftraege-abschnitt">Auftragsliste (<span id="nav-count">0</span>)</a>
+    <a href="#log-abschnitt">Live-Protokoll</a>
+</nav>
+
 <main>
+    <!-- PDF / Markdown Schnellzugriffs-Leiste -->
+    <div id="pdfleiste" class="hero-banner" style="display:none;">
+        <div class="banner-inhalt">
+            <div class="banner-icon">📑</div>
+            <div class="banner-text">
+                <h3>Testdokumentation erfolgreich generiert</h3>
+                <p id="pdfhinweistext">Umfassender Prüfbericht mit Deckblatt, Fachflussdiagrammen, Zwischenrechenwegen und SQL-Nachweisen.</p>
+            </div>
+            <div class="banner-aktionen">
+                <a id="pdfknopf" class="btn btn-primaer" href="/api/pdf" target="_blank">📄 PDF-Testdokumentation öffnen</a>
+                <a id="mdknopf" class="btn btn-sekundaer" href="/api/md" target="_blank">{ } Markdown für KI-Review</a>
+            </div>
+        </div>
+    </div>
+
     <!-- Modus-Auswahl -->
-    <section class="abschnitt">
-        <h2>Testmodus</h2>
+    <section class="abschnitt" id="modus-abschnitt">
+        <div class="abschnitt-kopf">
+            <h2>1. Testmodus wählen</h2>
+            <span class="abschnitt-badge">Automatisierte Last & Fachlogik</span>
+        </div>
         <div class="modi">
             <div class="modus ausgewaehlt" id="modus1" title="Transaktionstest über die Fachschicht">
-                <div class="nr">1)</div>
+                <div class="modus-header">
+                    <span class="nr">MODUS 1</span>
+                    <span class="badge badge-aktiv">Aktiv & verifiziert</span>
+                </div>
                 <div class="titel">Fachschicht / Transaktionstest</div>
-                <div class="text">N simulierte Sachbearbeiter arbeiten Aufträge direkt über die
-                    Fachschicht (SozialLeistungsService → TxManager → Oracle) ab: Sperren,
-                    Deadlock-Wiederholung, Budget-Führung, Vier-Augen unter Parallelität.</div>
+                <div class="text">
+                    N simulierte Sachbearbeiter-Threads arbeiten parallel einen gemeinsamen Pool von Anwenderszenarien
+                    direkt über die Fachschicht ab (<code>SozialLeistungsService → TxManager → Oracle</code>).
+                    Prüft Datenbanksperren, Deadlock-Retry (ORA-00054/60/8177), Budgetführung,
+                    Vier-Augen-Prinzip und Lost-Update-Schutz.
+                </div>
             </div>
-            <div class="modus gesperrt" id="modus2" title="Schritt 2 — noch nicht implementiert">
-                <span class="badge">Schritt 2 — folgt</span>
-                <div class="nr">2)</div>
+            <div class="modus gesperrt" id="modus2" title="Schritt 2 — folgt">
+                <div class="modus-header">
+                    <span class="nr">MODUS 2</span>
+                    <span class="badge badge-wartend">Etappe 4 (folgt)</span>
+                </div>
                 <div class="titel">Weboberfläche / Selenium</div>
-                <div class="text">Die simulierten Sachbearbeiter bedienen die echte Weboberfläche
-                    (Browserfenster werden per Selenium ausgefüllt). Noch nicht implementiert —
-                    zuerst Modus 1 auswerten.</div>
+                <div class="text">
+                    Die simulierten Sachbearbeiter bedienen automatisierte Headless-Browserfenster
+                    über Selenium. Zunächst wird die Fachschicht im Modus 1 stabil verifiziert.
+                </div>
             </div>
         </div>
     </section>
 
     <!-- Laufkonfiguration -->
-    <section class="abschnitt">
-        <h2>Lauf konfigurieren (Modus 1)</h2>
+    <section class="abschnitt" id="lauf-konfig">
+        <div class="abschnitt-kopf">
+            <h2>2. Simulationslauf konfigurieren</h2>
+            <div class="schnell-presets">
+                <span>Presets:</span>
+                <button type="button" class="btn-chip" id="preset-klein">Schnell (5 MA / 15 Fälle)</button>
+                <button type="button" class="btn-chip" id="preset-standard">Standard (10 MA / 60 Fälle)</button>
+                <button type="button" class="btn-chip" id="preset-gross">Lasttest (20 MA / 120 Fälle)</button>
+            </div>
+        </div>
         <div class="konfig">
             <label>Mitarbeiter
                 <input type="number" id="mitarbeiter" value="10" min="1" max="50">
@@ -49,43 +101,87 @@
                 <input type="number" id="seed" value="42" min="0" max="999999999">
             </label>
             <label>Denkzeit je Schritt (ms)
-                <input type="number" id="denkzeit" value="120" min="0" max="5000">
+                <input type="number" id="denkzeit" value="20" min="0" max="5000">
             </label>
             <label class="checkbox">
-                <input type="checkbox" id="aufraeumen" checked> Altdaten (SWEET-*) vorher aufräumen
+                <input type="checkbox" id="aufraeumen" checked> Altdaten (<code>SWEET-*</code>) vorab aufräumen
             </label>
-            <button id="start">Simulation starten</button>
-            <button id="stop" class="rot" disabled>Stoppen</button>
+            <div class="aktions-knöpfe">
+                <button id="start" class="btn btn-erfolg">Simulation starten</button>
+                <button id="stop" class="btn btn-gefahr" disabled>Stoppen</button>
+            </div>
         </div>
-        <div class="fortschritt"><div id="balken"></div></div>
+        <div class="fortschritt-wrap">
+            <div class="fortschritt-meta">
+                <span id="fortschritt-label">Bereit</span>
+                <span id="fortschritt-prozent">0 %</span>
+            </div>
+            <div class="fortschritt"><div id="balken"></div></div>
+        </div>
         <div class="hinweis" id="laufinfo" style="margin-top:8px"></div>
-        <div id="pdfleiste" style="display:none; margin-top:10px">
-            <a id="pdfknopf" class="pdfknopf" href="#">📄 Testdokumentation (PDF) öffnen — Zusammenfassung + alle Einzelfälle</a>
-            <span class="hinweis" style="margin-left:10px">(öffnet im gleichen Tab; mit „Zurück" wieder hierher)</span>
-            <a id="mdknopf" class="mdknopf" href="/api/md" style="margin-left:12px">{ } Maschinenlesbare Fassung (Markdown) — zum Nachprüfen</a>
-        </div>
     </section>
 
     <!-- Kennzahlen -->
-    <section class="abschnitt">
-        <h2>Kenndaten des Laufs</h2>
+    <section class="abschnitt" id="kpis-abschnitt">
+        <div class="abschnitt-kopf">
+            <h2>3. Kenndaten des Laufs</h2>
+            <span class="zeit-label" id="laufzeit-label">Laufzeit: 0 s</span>
+        </div>
         <div class="kpis">
             <div class="kpi"><div class="wert" id="k-gesamt">0</div><div class="label">Aufträge gesamt</div></div>
             <div class="kpi"><div class="wert" id="k-offen">0</div><div class="label">offen</div></div>
-            <div class="kpi"><div class="wert" id="k-arbeit">0</div><div class="label">in Bearbeitung</div></div>
-            <div class="kpi"><div class="wert" id="k-fertig">0</div><div class="label">fertig gespielt</div></div>
-            <div class="kpi"><div class="wert" id="k-verifiziert">0</div><div class="label">verifiziert (DB ok)</div></div>
-            <div class="kpi rot"><div class="wert" id="k-fehler">0</div><div class="label">fehlgeschlagen</div></div>
+            <div class="kpi blau"><div class="wert" id="k-arbeit">0</div><div class="label">in Bearbeitung</div></div>
+            <div class="kpi blau"><div class="wert" id="k-fertig">0</div><div class="label">fertig gespielt</div></div>
+            <div class="kpi gruen"><div class="wert" id="k-verifiziert">0</div><div class="label">verifiziert (DB Soll = Ist)</div></div>
+            <div class="kpi rot"><div class="wert" id="k-fehler">0</div><div class="label">beim Spielen fehlgeschlagen</div></div>
             <div class="kpi rot"><div class="wert" id="k-verifikation-nok">0</div><div class="label">Verifikation n.i.O.</div></div>
-            <div class="kpi"><div class="wert" id="k-dauer">0 s</div><div class="label">Laufzeit</div></div>
+            <div class="kpi"><div class="wert" id="k-dauer">0 s</div><div class="label">Dauer</div></div>
         </div>
-        <h2 style="margin-top:14px">Mitarbeiter</h2>
-        <div class="chips" id="mitarbeiter-chips"><span class="hinweis">noch kein Lauf</span></div>
+        <div class="mitarbeiter-bereich">
+            <h3>Simulierte Sachbearbeiter-Threads</h3>
+            <div class="chips" id="mitarbeiter-chips"><span class="hinweis">Noch kein Lauf gestartet</span></div>
+        </div>
+    </section>
+
+    <!-- Interaktive Systemarchitektur & Fachflussdiagramme -->
+    <section class="abschnitt" id="architektur-abschnitt">
+        <div class="abschnitt-kopf">
+            <h2>4. Systemarchitektur & Fachflussdiagramme</h2>
+            <span class="abschnitt-badge">Automatisch erzeugt</span>
+        </div>
+        <div class="diagramm-tabs">
+            <button type="button" class="d-tab aktiv" data-diag="simulator_zyklus">🔄 Simulator-Zyklus</button>
+            <button type="button" class="d-tab" data-diag="bedarfsberechnung_sgb12">📐 SGB XII Berechnung</button>
+            <button type="button" class="d-tab" data-diag="vier_augen_workflow">👁️👁️ Vier-Augen-Workflow</button>
+            <button type="button" class="d-tab" data-diag="transaktionsarchitektur">🏛️ Transaktionssteuerung</button>
+        </div>
+        <div class="diagramm-vorschau">
+            <div class="diagramm-bild-wrap">
+                <img id="diagramm-bild" src="/assets/simulator_zyklus.png" alt="Systemdiagramm" loading="lazy">
+            </div>
+            <div class="diagramm-legende" id="diagramm-legende">
+                Ablauf und Verifikationszyklus des Mitarbeitersimulators testsweet (N Worker-Threads auf Oracle DBMS).
+            </div>
+        </div>
     </section>
 
     <!-- Auftragsliste -->
-    <section class="abschnitt">
-        <h2>Aufträge — Doppelklick öffnet das Szenario im Detail</h2>
+    <section class="abschnitt" id="auftraege-abschnitt">
+        <div class="abschnitt-kopf">
+            <h2>5. Aufträge im Detail</h2>
+            <div class="tabelle-suche-wrap">
+                <input type="text" id="suche" placeholder="🔎 Suchen nach Aktenzeichen, Name oder Szenario …">
+                <div class="filter-pills" id="filter-pills">
+                    <button class="f-pill aktiv" data-filter="ALLE">Alle</button>
+                    <button class="f-pill" data-filter="VERIFIZIERT">Nur Verifiziert</button>
+                    <button class="f-pill" data-filter="FEHLER">Auffälligkeiten</button>
+                </div>
+            </div>
+        </div>
+        <div class="tabelle-meta">
+            <span>Doppelklick auf eine Zeile öffnet die vollständige Schritt- und Rechenchronologie.</span>
+            <span id="tabelle-filter-info"></span>
+        </div>
         <div class="tabelle-wrap">
             <table>
                 <thead>
@@ -97,18 +193,20 @@
                 <tbody id="auftraege-koerper"></tbody>
             </table>
         </div>
-        <div class="hinweis" id="logverzeichnis"></div>
+        <div class="hinweis" id="logverzeichnis" style="margin-top:8px"></div>
         <div class="hinweis" id="pdfhinweis"></div>
     </section>
 
     <!-- Log-Ticker -->
-    <section class="abschnitt">
-        <h2>Protokoll (Live)</h2>
-        <div id="log">…</div>
+    <section class="abschnitt" id="log-abschnitt">
+        <div class="abschnitt-kopf">
+            <h2>6. Live-Transaktionsprotokoll</h2>
+            <button type="button" class="btn-chip" id="log-auto-scroll">Auto-Scroll: Ein</button>
+        </div>
+        <div id="log">Warte auf Simulator-Start …</div>
         <div class="hinweis" style="margin-top:6px">
             Vollständige Logfiles je Lauf: <code>testsweet/logs/run-&lt;Zeitstempel&gt;/</code>
-            (simulation.log, je Auftrag, je Mitarbeiter, db-verifikation.log, fehler.log, zusammenfassung.txt) —
-            Auswertung gemeinsam manuell.
+            (simulation.log, je Auftrag, je Mitarbeiter, db-verifikation.log, fehler.log, zusammenfassung.txt).
         </div>
     </section>
 </main>
@@ -116,18 +214,22 @@
 <!-- Detail-Dialog (Doppelklick auf Auftrag) -->
 <div id="overlay">
     <div class="dialog">
-        <button class="schliessen" id="schliessen">Schließen</button>
-        <h3 id="d-titel">Auftrag</h3>
+        <div class="dialog-kopfzeile">
+            <h3 id="d-titel">Auftrag</h3>
+            <button class="schliessen" id="schliessen">✕ Schließen</button>
+        </div>
         <div class="kopf" id="d-kopf"></div>
         <div id="d-fehler"></div>
-        <h4>Arbeitsschritte</h4>
+        
+        <h4>Arbeitsschritte der Simulation</h4>
         <table>
             <thead><tr><th style="width:110px">Zeit</th><th style="width:110px">Mitarbeiter</th><th>Aktion</th><th>Ergebnis</th></tr></thead>
             <tbody id="d-schritte"></tbody>
         </table>
-        <h4>Datenbank-Verifikation (Erwartung vs. Ist)</h4>
+
+        <h4>Datenbank-Verifikation (Soll vs. Ist)</h4>
         <table>
-            <thead><tr><th>Erwartung</th><th style="width:130px">erwartet</th><th style="width:130px">Ist (DB)</th><th style="width:60px">OK</th></tr></thead>
+            <thead><tr><th>Erwartung</th><th style="width:130px">erwartet</th><th style="width:130px">Ist (DB)</th><th style="width:70px">Prüfung</th></tr></thead>
             <tbody id="d-pruefungen"></tbody>
         </table>
     </div>

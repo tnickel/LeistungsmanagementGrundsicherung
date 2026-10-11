@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Erzeugt die Flussdiagramme für das SDN.sozial-Benutzerhandbuch (PNG, 160 dpi).
+"""Erzeugt die Flussdiagramme für das SDN.Leistung-Benutzerhandbuch (PNG, 160 dpi).
 
 Aufruf:  python diagramme_erzeugen.py   (im Ordner doc/manual-bilder)
 Koordinatensystem: x 0-130, y individuell; 1 Einheit ≙ 6,4 pt.
@@ -83,7 +83,7 @@ def speichern(fig, name):
 # ---------------------------------------------------------------- 1 Architektur
 def d01():
     fig, ax = neue_fig("Bausteine und Schichten der Lösung", 7.6)   # ylim 85
-    box(ax, 35, 74, 60, 7, "Browser — SDN.sozial Oberfläche\n(HTML/CSS/JavaScript, Widget-Dashboard)", "web", 10)
+    box(ax, 35, 74, 60, 7, "Browser — SDN.Leistung Oberfläche\n(HTML/CSS/JavaScript, Widget-Dashboard)", "web", 10)
     pfeil(ax, 65, 74, 65, 68.5)
     label(ax, 78, 71.2, "HTTP/JSON · Bearer-Token je Anfrage")
 

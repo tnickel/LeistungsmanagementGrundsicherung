@@ -1,4 +1,4 @@
--- Seed-Datenbestand für die Demo der Leistungsverarbeitung (SDN.sozial LMG).
+-- Seed-Datenbestand für die Demo der Leistungsverarbeitung (SDN.Leistung LMG).
 -- Nach ddl/lmg_schema.sql einspielen. Beträge je Regelbedarfsstufe: siehe doc/leistungsmanagement.md.
 -- Alle IBANs sind Modulo-97-gültig (ISO 13616) — sonst scheitert die SEPA-Validierung
 -- der Standard-Auszahlung an der eigenen Prüfung.

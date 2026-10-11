@@ -1,4 +1,4 @@
-# Szenario-Regression: Testfälle (SDN.sozial LMG)
+# Szenario-Regression: Testfälle (SDN.Leistung LMG)
 
 *Stand: 2026-10-11. Umsetzung: `src/test/java/de/allgemein/lmg/db/SzenarioRegressionTest.java`*
 

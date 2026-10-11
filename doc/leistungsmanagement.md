@@ -1,4 +1,4 @@
-# Leistungsmanagement Grundsicherung (SDN.sozial LMG)
+# Leistungsmanagement Grundsicherung (SDN.Leistung LMG)
 
 *Stand: 2026-10-10, Version 0.5.2 (Fachrecht §§ 30/35/82/90 nachgeprüft, Rechtsgrundlagen-Tabelle, Bescheid mit § 84/87/88 SGG)*
 
@@ -6,11 +6,11 @@ Fachschicht auf der eigenen Transaktionssteuerung: Bearbeitung von Grundsicherun
 Leistungen im Alter und bei Erwerbsminderung nach **SGB XII** — von der Bedarfs-
 ermittlung über die Einkommensbereinigung bis zur angeordneten Auszahlung mit
 revisionssicherem Journal. Die Oberfläche ist eine Single-Page-Application im
-Widget-Dashboard-Stil unter der Produktbezeichnung **SDN.sozial**.
+Widget-Dashboard-Stil unter der Produktbezeichnung **SDN.Leistung**.
 
 ## Namenskonventionen (wichtig)
 
-- **SDN.sozial** ist die Produktbezeichnung der Oberfläche und des Moduls. Der Name
+- **SDN.Leistung** ist die Produktbezeichnung der Oberfläche und des Moduls. Der Name
   des Vorbild-Umfelds darf in keinem neuen Artefakt (Code, DDL, UI, Doku) auftauchen —
   das Blueprint-PDF wird hier nur als „Blueprint-Spec" referenziert.
 - **SozialFall** ist der zentrale Fachbegriff für einen Leistungsberechtigten
@@ -244,7 +244,7 @@ Fehler und Sperrkonflikte erscheinen als Dialoge.
    `getConnection`/`release` hängt (Tausch berührt keine Fachklasse).
 3. **JDK-HttpServer statt eingebettetem Tomcat**: gleiche Endpunkt-Semantik
    (POST/PUT/GET, HTTP 200/400/404), aber null Abhängigkeiten.
-4. **SozialFall statt „Leistungsfall"** und Produktname SDN.sozial (siehe oben).
+4. **SozialFall statt „Leistungsfall"** und Produktname SDN.Leistung (siehe oben).
 5. **KdU je SozialFall, Zahlbetrag je Bedarfsgemeinschaft**: bei Paaren wird der
    Zahlbetrag über die SozialFälle summiert; die Zahlung referenziert die
    Bedarfsgemeinschaft (FALL_ID nur bei genau einem SozialFall).
@@ -270,7 +270,7 @@ Fehler und Sperrkonflikte erscheinen als Dialoge.
    (Standard: deaktiviert).
 9. **Aktualisierter Blueprint (v0.5.2)**: Das ursprüngliche Blueprint-PDF (Google-Docs-Export)
    bleibt als Archiv unverändert; der fortgeschriebene Stand steht in
-   `doc/SDN-sozial-LMG-Blueprint-aktualisiert-v0.5.2.md` (und `.pdf`).
+   `doc/SDN-Leistung-LMG-Blueprint-aktualisiert-v0.5.2.md` (und `.pdf`).
 
 ## Bedienung
 

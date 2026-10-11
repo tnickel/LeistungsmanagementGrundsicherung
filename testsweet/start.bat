@@ -1,7 +1,7 @@
 @echo off
 setlocal
 rem =====================================================================
-rem  testsweet - Mitarbeiter-Simulator (SDN.sozial LMG)
+rem  testsweet - Mitarbeiter-Simulator (SDN.Leistung LMG)
 rem  Startet die Simulator-Oberflaeche auf http://127.0.0.1:8095/
 rem
 rem  Voraussetzung: Hauptprojekt mindestens einmal mit "mvn install"
@@ -18,6 +18,10 @@ if errorlevel 1 (
     exit /b 1
 )
 
-call mvn -q -f testsweet/pom.xml compile exec:java
+if "%~1"=="" (
+    call mvn -q -f testsweet/pom.xml compile exec:java
+) else (
+    call mvn -q -f testsweet/pom.xml compile exec:java -Dexec.args="%*"
+)
 if errorlevel 1 pause
 endlocal

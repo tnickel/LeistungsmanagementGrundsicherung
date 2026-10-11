@@ -1,4 +1,4 @@
-# Technischer Blueprint und Spezifikation: SDN.sozial LMG (Grundsicherung SGB XII)
+# Technischer Blueprint und Spezifikation: SDN.Leistung LMG (Grundsicherung SGB XII)
 
 *Aktualisierte Fassung, Stand 2026-10-10, Software-Version 0.5.2.
 Ersetzt fachlich und technisch die Abschnitte 2–5 des ursprünglichen Blueprint-PDFs (Google-Docs-Export, im selben Ordner unverändert als Archiv).
@@ -25,7 +25,7 @@ Nachgebaut wird das Modul **Leistungsmanagement (LMG)** für die **Grundsicherun
 Gründe: (1) die Geschäftslogik ist bundesgesetzlich normiert und deterministisch abbildbar, (2) das Modul verlangt zwingend eine
 eigene Transaktionssteuerung (Alles-oder-nichts bei Geldbewegungen), (3) es zeigt exemplarisch optimistisches und pessimistisches Locking.
 
-Produktbezeichnung in Oberfläche und Artefakten: **SDN.sozial**; zentraler Fachbegriff **SozialFall** (Leistungsberechtigter innerhalb einer Bedarfsgemeinschaft).
+Produktbezeichnung in Oberfläche und Artefakten: **SDN.Leistung**; zentraler Fachbegriff **SozialFall** (Leistungsberechtigter innerhalb einer Bedarfsgemeinschaft).
 
 ## 2. Fachliche Spezifikation (Referenzjahr 2026)
 

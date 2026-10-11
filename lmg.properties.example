@@ -1,5 +1,5 @@
 # ==============================================================================
-# SDN.sozial (LMG) — Vorlage für die Konfigurationsdatei
+# SDN.Leistung (LMG) — Vorlage für die Konfigurationsdatei
 # Nach lmg.properties kopieren und an die eigene Umgebung anpassen.
 # Priorität: System Properties (-D...) > Umgebungsvariablen (LMG_*) > lmg.properties
 # lmg.properties enthält Zugangsdaten und wird NICHT eingecheckt (.gitignore).

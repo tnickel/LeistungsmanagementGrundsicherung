@@ -13,7 +13,7 @@ Redo-Logging, Recovery) — wir programmieren nur die Steuerungsschicht darüber
 
 - `doc/projektbeschreibung.md` — Ausgangslage, Ziel, Leitprinzip, Scope
 - `doc/architektur.md` — Bausteine, Transaktions-/Saga-Abläufe, Datenmodell, Regeln
-- `doc/leistungsmanagement.md` — Fachschicht Leistungsmanagement (SDN.sozial LMG)
+- `doc/leistungsmanagement.md` — Fachschicht Leistungsmanagement (SDN.Leistung LMG)
 - `doc/rechtsgrundlagen.md` — Rechtsquellen-Verzeichnis mit Herkunftsnachweisen und
   Verifikationsprotokoll (maßgeblich für Fach-Reviews; Stand 2026-10-10)
 - `doc/regressionstests.md` — die zehn Testfälle der Szenario-Regression mit Akteuren,
@@ -26,7 +26,7 @@ Redo-Logging, Recovery) — wir programmieren nur die Steuerungsschicht darüber
 
 ## Namenskonventionen für die Fachschicht (wichtig)
 
-- Die Oberfläche und das Fachmodul tragen die Bezeichnung **SDN.sozial** (Leistungs-
+- Die Oberfläche und das Fachmodul tragen die Bezeichnung **SDN.Leistung** (Leistungs-
   management Grundsicherung). Der Name des Vorbild-Systems darf in neuen Artefakten
   (Code, DDL, UI, Doku) **nicht** auftauchen — nur als historischer Kontext in den
   älteren Dokumenten.
@@ -99,7 +99,7 @@ und auf echter Oracle 19c Enterprise Edition (VirtualBox, Port 1921/o19c1p1) sow
   idempotentem Release und Borrow-Timeout; JMX-Monitoring (`TxMonitoring`),
   externalisierte Konfiguration (`LmgConfig` inkl. `lmg.benutzer`-Kaskade — Datei wird
   jetzt genutzt), revisionssicheres Audit-Log (`TxAuditLog`).
-- **Fachschicht Leistungsmanagement (SDN.sozial LMG)**: SGB-XII-Bedarfsberechnung
+- **Fachschicht Leistungsmanagement (SDN.Leistung LMG)**: SGB-XII-Bedarfsberechnung
   vollständig (RBS 1–6, Mehrbedarfe § 30 Abs. 1/2/3/7 mit Obergrenze Abs. 6 und
   stufenabhängigem Warmwasser-Satz, KdU-Dreiteilung mit § 35-Angemessenheitsgrenze je Bedarfsgemeinschaft
   und Warmwasser-Abzug nur bei zentraler Erzeugung, Absetzbeträge § 82 Abs. 2, Erwerbsfreibetrag

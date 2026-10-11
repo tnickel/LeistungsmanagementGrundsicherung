@@ -1,4 +1,4 @@
-# SDN.sozial (LMG) — Leistungsmanagement Grundsicherung
+# SDN.Leistung (LMG) — Leistungsmanagement Grundsicherung
 ### Enterprise-Transaktionssteuerung & CICS-Ablösung auf Oracle 19c / 23ai
 
 <p align="center">
@@ -7,24 +7,26 @@
   <img src="https://img.shields.io/badge/Architektur-Zero--Framework-10b981?style=for-the-badge&logo=codeforces&logoColor=white" alt="Zero Framework" />
   <img src="https://img.shields.io/badge/CICS-Ablösung-0ea5e9?style=for-the-badge&logo=ibm&logoColor=white" alt="CICS Ablösung" />
   <img src="https://img.shields.io/badge/SGB_XII-Bedarfsrechner_2026-8b5cf6?style=for-the-badge&logo=legal&logoColor=white" alt="SGB XII 2026" />
+  <img src="https://img.shields.io/badge/Simulator-testsweet_Mitarbeiter-ff5722?style=for-the-badge&logo=speedtest&logoColor=white" alt="testsweet Simulator" />
+  <img src="https://img.shields.io/badge/PDF--Audit-Pure_Java_Engine-0284c7?style=for-the-badge&logo=adobeacrobatreader&logoColor=white" alt="Pure Java PDF Engine" />
   <img src="https://img.shields.io/badge/Build-Maven_Passing-success?style=for-the-badge&logo=apachemaven&logoColor=white" alt="Maven Build" />
 </p>
 
 <p align="center">
-  <img src="doc/manual-bilder/github_banner.jpg" alt="SDN.sozial Leistungsmanagement Grundsicherung Banner" width="100%" />
+  <img src="doc/manual-bilder/github_banner.jpg" alt="SDN.Leistung Leistungsmanagement Grundsicherung Banner" width="100%" />
 </p>
 
 ---
 
 ## 📌 Management Summary
 
-**SDN.sozial (LMG)** ist ein hochperformantes, lizenzfreies Referenzsystem für die kommunale Sozialverwaltung (SGB XII Grundsicherung im Alter und bei Erwerbsminderung). Es demonstriert, wie teure, proprietäre Großrechner-Transaktionsmonitore (**IBM CICS Transaction Server**) durch eine schlanke **Eigenentwicklung in modernem Java 21 auf Oracle Database 19c Enterprise Edition / 23ai Free** vollständig abgelöst werden können.
+**SDN.Leistung (LMG)** ist ein hochperformantes, lizenzfreies Referenzsystem für die kommunale Sozialverwaltung (SGB XII Grundsicherung im Alter und bei Erwerbsminderung). Es demonstriert, wie teure, proprietäre Großrechner-Transaktionsmonitore (**IBM CICS Transaction Server**) durch eine schlanke **Eigenentwicklung in modernem Java 21 auf Oracle Database 19c Enterprise Edition / 23ai Free** vollständig abgelöst werden können.
 
 ### Das architektonische Leitprinzip
 
 > 💡 **„Der schwere Teil ist die Datenbank – die Steuerung programmieren wir selbst.“**
 > 
-> ACID-Garantien, zeilenbasierte Sperrverwaltung (*Row-Level Locks*), Redo-Logging und Crash-Recovery beherrscht die relationale Oracle-Datenbank bereits exzellent. Was SDN.sozial liefert, ist die hochverfügbare Steuerung darüber: atomare Transaktionsklammern, automatischer Deadlock-Retry (`ORA-00060`, `ORA-00054`), Parallelitätsbegrenzung mit Watchdog-Timeouts und absturzsichere **Saga-Geschäftsvorgänge** mit automatischem Rollback und Kompensation.
+> ACID-Garantien, zeilenbasierte Sperrverwaltung (*Row-Level Locks*), Redo-Logging und Crash-Recovery beherrscht die relationale Oracle-Datenbank bereits exzellent. Was SDN.Leistung liefert, ist die hochverfügbare Steuerung darüber: atomare Transaktionsklammern, automatischer Deadlock-Retry (`ORA-00060`, `ORA-00054`), Parallelitätsbegrenzung mit Watchdog-Timeouts und absturzsichere **Saga-Geschäftsvorgänge** mit automatischem Rollback und Kompensation.
 
 ---
 
@@ -36,9 +38,9 @@
 
 ---
 
-## 🏛️ Gegenüberstellung: IBM CICS vs. SDN.sozial TxManager
+## 🏛️ Gegenüberstellung: IBM CICS vs. SDN.Leistung TxManager
 
-| CICS Transaction Server (Mainframe) | SDN.sozial TxManager (Java 21 + Oracle) | Implementierung |
+| CICS Transaction Server (Mainframe) | SDN.Leistung TxManager (Java 21 + Oracle) | Implementierung |
 |:---|:---|:---|
 | **Atomarität (`EXEC CICS SYNCPOINT`)** | Autonome Commit/Rollback-Klammern über JDBC-Transaktionen | `TxManager.execute(TxOptions, ...)` |
 | **Sperren-Konflikte & Deadlocks** | Automatischer Retry mit exponentiellem Backoff & Jitter bei `ORA-00054`, `ORA-00060`, `ORA-08177` | `de.allgemein.tx.RetryPolicy` |
@@ -64,7 +66,7 @@ LeistungsmanagementGrundsicherung/
 │   ├── architektur.md           # Detaillierte technische Architekturspezifikation
 │   ├── leistungsmanagement.md   # Fachmodell, Berechnungsformeln und REST-API
 │   ├── manual-bilder/           # Hochauflösende Screenshots & Architekturdiagramme
-│   └── SDN-sozial-LMG-Benutzerhandbuch.pdf # 42-seitiges Schulungs- & Praxishandbuch
+│   └── SDN-Leistung-LMG-Benutzerhandbuch.pdf # 42-seitiges Schulungs- & Praxishandbuch
 └── src/
     ├── main/java/de/allgemein/tx/   # Kern: Transaktionsmanager, Saga-Engine, Connection Pools
     ├── main/java/de/allgemein/lmg/  # Fachschicht: SGB XII Rechner, DAOs, Services, Webserver
@@ -72,7 +74,7 @@ LeistungsmanagementGrundsicherung/
 ```
 
 <p align="center">
-  <img src="doc/manual-bilder/d01_architektur.png" alt="SDN.sozial Gesamtarchitektur" width="90%" />
+  <img src="doc/manual-bilder/d01_architektur.png" alt="SDN.Leistung Gesamtarchitektur" width="90%" />
 </p>
 
 ### 1. Transaktionsmanager (`TxManager`)
@@ -144,7 +146,7 @@ Die Leistungsberechnung ist als seiteneffektfreie, deterministische Funktion in 
 
 ---
 
-## 🖥️ Einblick in die SDN.sozial Web-Oberfläche
+## 🖥️ Einblick in die SDN.Leistung Web-Oberfläche
 
 Die Web-Oberfläche (`src/main/resources/webapp/`) ist als reaktive Single-Page-Application konzipiert. Sie bietet modernste Behörden-Ergonomie im Dark-/Light-Glassmorphism-Stil.
 
@@ -284,27 +286,93 @@ Der integrierte JDK-HttpServer stellt alle Fach- und Systemfunktionen über eine
 
 ---
 
-## 🧪 Mitarbeiter-Simulator „testsweet" (Last- & Integrationstest)
+## 🧪 Mitarbeiter-Simulator „testsweet" — Multi-User Last- & Ende-zu-Ende-Test
 
-`testsweet/` ist ein eigenständiges Werkzeug (keine Unit-Tests): **N simulierte Sachbearbeiter**
-arbeiten parallel einen Auftragstopf über die Fachschicht ab — Vorgänge anlegen, Fälle ändern,
-Bescheide erteilen, Auszahlungen anordnen, freigeben (Vier-Augen), stornieren, Kassenlauf — bis
-der Pool leer ist. Danach wird je Auftrag die **Erwartungshaltung direkt per SQL gegen die
-Datenbank verifiziert**. Alles wird pro Lauf vollständig protokolliert.
+Reine Unit-Tests greifen bei Transaktionssteuerungen zu kurz: Ob Sperren sauber greifen, Deadlocks transparent wiederholt werden, Budgets cent-genau stimmen und das Vier-Augen-Prinzip unter echter Last standhält, zeigt sich erst bei gleichzeitigen Zugriffen.
 
-* **Modus 1 (implementiert):** Transaktionstest über die Fachschicht — Sperren, Deadlock-Wiederholung,
-  Budget-Führung, optimistisches Locking, Idempotenz unter echter Parallelität.
-* **Modus 2 (vorgesehen):** Weboberflächen-/Selenium-Test.
-* **Automatische Testdokumentation** je Lauf: ausführliches **PDF** (Deckblatt, Einleitung mit
-  Rechengrundlagen, Inhaltsverzeichnis, je Testfall einfache Beschreibung + Schritt-für-Schritt-
-  Rechenweg mit Norm-Hinweisen + Erwartung/Ist + Protokollausschnitt) und eine schlanke
-  **maschinenlesbare Markdown-Fassung** inkl. DB-IDs und Prüf-SQLs zum unabhängigen Nachprüfen
-  durch KI/Dritte.
-* **Start:** `testsweet\start.bat` (GUI auf http://127.0.0.1:8095) — Details: [testsweet/README.md](testsweet/README.md)
+Hierfür existiert mit **`testsweet/`** ein eigenständiger **Mitarbeiter-Simulator** (außerhalb von `mvn test`): **N simulierte Sachbearbeiter** greifen parallel auf einen gemeinsamen **Auftragstopf** zu, bearbeiten komplexe SGB-XII-Fälle über die echte Fachschicht (`SozialLeistungsService` &rarr; `TxManager` &rarr; Oracle Database) und verifizieren anschließend den **persistiere Endzustand direkt per SQL gegen die Datenbank**.
 
-Verwandt, aber Teil der regulären Testsuite: die **Szenario-Regression**
-(`SzenarioRegressionTest`, zehn Nutzer-Testfälle mit mehreren Sachbearbeitern, läuft mit `TX_URL`;
-Dokumentation: [doc/regressionstests.md](doc/regressionstests.md)).
+<p align="center">
+  <img src="testsweet/assets/simulator_zyklus.png" alt="Ablauf und Testzyklus des testsweet Simulators" width="90%" />
+</p>
+
+### 1. Reale Arbeitsabläufe unter echter Parallelität
+Die virtuellen Sachbearbeiter agieren wie ein echtes Amtsteam:
+* **Vorgangsanlage & Falländerungen:** Neuanlage von Bedarfsgemeinschaften (`SWEET-...`), Pflege von Personen, Mietkosten, Heizung und Einkünften.
+* **SGB-XII-Bedarfsberechnung 2026:** Dynamische Berechnung aller Regelbedarfe (RBS 1–6), Mehrbedarfe (§ 30), KdU-Angemessenheitsgrenzen (§ 42a), Einkommensfreibeträge (§ 82) und Schonvermögen (§ 90).
+* **Bescheiderteilung mit Snapshot:** Erzeugung von Bewilligungsbescheiden mit unveränderbarem JSON-Rechensnapshot zur Revisionssicherheit.
+* **Vier-Augen-Auszahlungsworkflow:** Erfassung mit ISO 13616 Modulo-97 SEPA-Validierung (`ANGELEGT`), Abwehr von Selbstfreigaben, Freigabe durch Zweitsachbearbeiter (`BEREIT`), Storno mit Budget-Rückbuchung und Kassenlauf (`UEBERGEBEN`).
+* **Optimistisches Locking & Idempotenz:** Erzielung und Auflösung von Versionskonflikten (`VERSION`-Spalte) sowie Idempotenzprüfung bei Doppelklicks (`VORGANGS_NR`).
+
+### 2. Das Szenarien-Portfolio (10 Fach-Archetypen)
+
+| Szenario-Typ | Fachlicher Gegenstand | Prüffokus in der Datenbank |
+|:---|:---|:---|
+| **`STANDARDRENTE`** | Regelaltersrente mit KdU & Rente | Vollständiger Lebenszyklus: Anlage &rarr; Bedarfsberechnung &rarr; Bescheid &rarr; Vier-Augen-Freigabe |
+| **`PAAR`** | Zwei Partner in Bedarfsgemeinschaft | Regelbedarfsstufe 2 (je 506 €), Aufteilung der Unterkunftskosten, Einkommensanrechnung |
+| **`MEHRBEDARF`** | Gehbehinderung + Warmwasser | § 30 Abs. 1 (17 % Merkzeichen G) + § 30 Abs. 7 (stufenabhängiger Warmwassersatz) |
+| **`FAMILIE`** | Alleinerziehende mit minderjährigen Kindern | § 30 Abs. 3 Mehrbedarf (36 % / 12 % je Kind), RBS 4–6 für Kinder, Freibeträge |
+| **`ERWERB`** | Aufstocker mit Erwerbseinkommen | § 82 Abs. 2 Absetzbeträge + § 82 Abs. 3 Erwerbstätigenfreibetrag ($\min(30\,\%\text{ Brutto}, 281{,}50\text{ €})$) |
+| **`VERMOEGEN`** | Sparvermögen über/unter Schonbetrag | § 90 Abs. 2 Nr. 9 i.V.m. BarbetragsVO (10.000 € / 500 €); Prüfung auf `KEIN_ANSPRUCH` bei Überhang |
+| **`DOPPELKLICK`** | Schneller Doppelaufruf der Auszahlung | Idempotenz unter Sperre: Exakt eine Buchung persistiert, Zweitaufruf liefert Duplikat-Antwort |
+| **`STORNO_KORREKTUR`** | Fehlzahlung stornieren & korrigieren | Stornierung einer `ANGELEGT`-Zahlung, automatische Wiederauffüllung des `BUDGET_REST`, Neuanweisung |
+| **`KONKURRENZ`** | Paralleles Speichern desselben Vorgangs | Optimistisches Sperren: Erster Schreibzugriff gewinnt, zweiter wird sauber abgewehrt (`VERSION`) |
+| **`KASSENLAUF`** | Massenübergabe an die Amtskasse | Parallele Übergabe aller `BEREIT`-Zahlungen in den Status `UEBERGEBEN` während laufender Freigaben |
+
+### 3. Direkte SQL-Verifikation gegen Oracle
+Nach Abarbeitung des Auftragstopfs verlässt sich der Simulator nicht auf Rückgabewerte der Anwendung, sondern validiert die **Erwartungshaltung direkt per SQL gegen die relationalen Oracle-Tabellen**:
+* Stimmt `BUDGET_REST` cent-genau mit der Summe der genehmigten Auszahlungen überein?
+* Wurde jede Auszahlung durch einen **anderen** Sachbearbeiter freigegeben (`FREIGEBER_ID != SACHBEARBEITER_ID`)?
+* Haben alle stornierten Zahlungen das Budget ordnungsgemäß restauriert?
+* Sind alle Journal-Einträge chronologisch lückenlos und unversehrt?
+
+<p align="center">
+  <img src="testsweet/assets/vier_augen_workflow.png" alt="Vier-Augen-Freigabeprozess und Zahlungs-Workflow" width="90%" />
+</p>
+
+### 4. Automatische Testdokumentation: Zero-Dependency PDF & maschinenlesbares Markdown
+Nach jedem Lauf generiert das System vollautomatisch zwei umfassende Testberichte in `testsweet/logs/run-<Zeitstempel>/`:
+
+1. **Revisionssichere PDF-Testdokumentation (`testdokumentation.pdf`)**:
+   * **Eigenentwickelter PDF-Generator (`SweetPdf`)**: 100 % Standard-Java 21 ohne iText, PDFBox oder externe Abhängigkeiten. Schreibt natives PDF-1.4 mit Vektor-Schriften, exakter XRef-Byte-Adressierung und PDF-Image-XObjects (`/Filter /DCTDecode`).
+   * **Repräsentatives Deckblatt**: Mit professionellem Titelbild (`titelbild.jpg`), Metadaten-Kasten und grünem 100 %-Verifikationsbanner.
+   * **Eingebettete Fach- & Architekturflussdiagramme (200 dpi)**:
+     * *Transaktionssteuerung & Oracle-ACID-Kern* (`transaktionsarchitektur.png`)
+     * *Gesetzliche Berechnungskaskade SGB XII* (`bedarfsberechnung_sgb12.png`)
+     * *Vier-Augen-Auszahlungsworkflow* (`vier_augen_workflow.png`)
+     * *Simulator-Ablauf & Testzyklus* (`simulator_zyklus.png`)
+   * **Paginiertes Inhaltsverzeichnis**: Exakte Seitenverweise über das gesamte Dokument.
+   * **Lückenloser Einzelnachweis je Testfall**: Jeder Testfall erhält eine eigene A4-Seite mit Sachverhaltsbeschreibung, schrittweiser mathematischer Bedarfsberechnung inklusive Paragraphennachweisen, SQL-Verifikationstabelle (Erwartung vs. Datenbank-Ist) und Auszug aus dem Revisionsprotokoll.
+2. **Maschinenlesbare Markdown-Dokumentation (`testdokumentation.md`)**:
+   * Vollständiger Prüfbericht inklusive aller generierten Datenbank-IDs, Aktenzeichen und **copy-paste-fähiger SQL-Prüfabfragen**.
+   * Dient dem unabhängigen, automatisierten Nachprüfen durch externe Auditoren oder KI-Modelle.
+
+<p align="center">
+  <img src="testsweet/assets/bedarfsberechnung_sgb12.png" alt="Gesetzliche SGB-XII-Berechnungskaskade" width="90%" />
+</p>
+
+### 5. Interaktives Web-Dashboard (Port 8095)
+Die mitgelieferte Weboberfläche bietet eine moderne Arbeitsumgebung für Last- und Abnahmetests:
+* **Echtzeit-Mitarbeiterkarten:** Visualisiert jeden simulierten Sachbearbeiter live mit aktuellem Auftrag, Status-Puls und Reaktionszeiten.
+* **Diagramm-Showcase:** Interaktive Galerie aller vier Fachflussdiagramme direkt im Browser.
+* **Filter & Volltextsuche:** Schnelle Filterung nach Verifikationsstatus (*Alle*, *Nur Verifiziert*, *Auffälligkeiten*) sowie Sofortsuche über Aktenzeichen, Personen und Szenario-Typen.
+* **1-Klick-Presets:** Vorkonfigurierte Profile für Schnelltests (5 SB / 15 Fälle), Standardläufe (10 SB / 60 Fälle) und Lasttests (20 SB / 120 Fälle).
+* **Sofort-Download:** Direkte Links zur generierten PDF- und Markdown-Dokumentation.
+
+### 6. Start & CI/CD Batch-Ausführung
+
+```bash
+# 1. Interaktives Dashboard starten (Port 8095):
+testsweet\start.bat
+
+# 2. Headless-Batchlauf für CI/CD (z. B. 10 Sachbearbeiter, 60 Aufträge):
+testsweet\start.bat run 10 60
+```
+
+> ⚡ **Performance:** Der Batchlauf von **60 komplexen Vorgängen mit 10 parallelen Sachbearbeitern** wird auf der lokalen Oracle-Datenbank in rund **1,5 Sekunden** vollständig abgearbeitet, zu 100 % per SQL verifiziert und in eine druckfertige 72-seitige PDF-Dokumentation überführt.
+
+*Detaillierte Dokumentation und Konfiguration: [testsweet/README.md](testsweet/README.md).*
+*Verwandt: Die deterministische Szenario-Regression [`SzenarioRegressionTest`](src/test/java/de/allgemein/lmg/SzenarioRegressionTest.java) ([doc/regressionstests.md](doc/regressionstests.md)).*
 
 ---
 
@@ -313,11 +381,11 @@ Dokumentation: [doc/regressionstests.md](doc/regressionstests.md)).
 Im Ordner [`doc/`](doc/) stehen ausführliche Architekturberichte und das offizielle Benutzerhandbuch bereit:
 
 <p align="center">
-  <a href="doc/SDN-sozial-LMG-Benutzerhandbuch.pdf">
-    <img src="doc/manual-bilder/handbuch_cover.jpg" alt="SDN.sozial Benutzerhandbuch Cover" width="300" style="border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);" />
+  <a href="doc/SDN-Leistung-LMG-Benutzerhandbuch.pdf">
+    <img src="doc/manual-bilder/handbuch_cover.jpg" alt="SDN.Leistung Benutzerhandbuch Cover" width="300" style="border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);" />
   </a>
   <br>
-  <strong><a href="doc/SDN-sozial-LMG-Benutzerhandbuch.pdf">📖 SDN-sozial-LMG-Benutzerhandbuch.pdf (42 Seiten, Vollständige Referenz)</a></strong>
+  <strong><a href="doc/SDN-Leistung-LMG-Benutzerhandbuch.pdf">📖 SDN-Leistung-LMG-Benutzerhandbuch.pdf (42 Seiten, Vollständige Referenz)</a></strong>
 </p>
 
 * [doc/architektur.md](doc/architektur.md) — Detaillierte Baustein-Architektur, Concurrency-Regeln und Datenfluss

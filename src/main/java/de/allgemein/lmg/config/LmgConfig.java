@@ -9,7 +9,7 @@ import java.util.Properties;
 import java.util.logging.Logger;
 
 /**
- * Externalisierte Konfiguration für das Leistungsmanagement (SDN.sozial LMG):
+ * Externalisierte Konfiguration für das Leistungsmanagement (SDN.Leistung LMG):
  * Lädt Einstellungen mit Prioritätskaskade (12-Factor-Prinzip):
  * <ol>
  *   <li>System-Properties (z. B. {@code -Dtx.url=...})</li>

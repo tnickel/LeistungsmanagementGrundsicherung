@@ -1,7 +1,7 @@
 @echo off
 setlocal
 rem =====================================================================
-rem  SDN.sozial - Leistungsmanagement Grundsicherung (LMG)
+rem  SDN.Leistung - Leistungsmanagement Grundsicherung (LMG)
 rem  Startet Weboberflaeche und JSON-API auf dem JDK-HttpServer.
 rem
 rem  Aufruf:  start.bat          -> Fachanwendung (Standard, Port 8080)
@@ -110,7 +110,7 @@ start "LMG-Browser" /min cmd /c "timeout /t 8 /nobreak >nul & start "" http://lo
 
 echo.
 echo =====================================================================
-echo   SDN.sozial - Leistungsmanagement Grundsicherung
+echo   SDN.Leistung - Leistungsmanagement Grundsicherung
 echo   Oberflaeche: http://localhost:%LMG_PORT%/
 echo   Stoppen: dieses Fenster schliessen oder Strg+C
 echo =====================================================================

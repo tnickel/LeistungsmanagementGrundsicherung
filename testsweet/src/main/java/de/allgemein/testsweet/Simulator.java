@@ -184,6 +184,14 @@ public final class Simulator {
     // Start / Stopp
     // ------------------------------------------------------------------
 
+    /** Startet einen Lauf synchron im aufrufenden Thread (für CLI/Batch-Betrieb). */
+    public void laufSynchron(LaufKonfiguration konfig) throws Exception {
+        this.konfiguration = konfig;
+        this.abgebrochen = false;
+        this.letzteFehlermeldung = null;
+        laufAusfuehren(konfig);
+    }
+
     /** Startet einen Lauf in einem Hintergrund-Thread; kehrt sofort zurück. */
     public synchronized void starte(LaufKonfiguration konfig) {
         if (phase == Phase.AUFRAEUMEN || phase == Phase.LAUF || phase == Phase.VERIFIKATION) {

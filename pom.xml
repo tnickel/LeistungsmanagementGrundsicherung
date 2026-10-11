@@ -10,7 +10,7 @@
   <packaging>jar</packaging>
 
   <name>Transaktionssteuerung</name>
-  <description>Eigene Transaktionssteuerung (TP-Monitor-Ersatz) für Java und Oracle, inkl. Leistungsmanagement Grundsicherung (SDN.sozial-LMG)</description>
+  <description>Eigene Transaktionssteuerung (TP-Monitor-Ersatz) für Java und Oracle, inkl. Leistungsmanagement Grundsicherung (SDN.Leistung-LMG)</description>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

@@ -174,7 +174,7 @@ public final class BescheidGenerator {
 
   <div class="briefkopf">
     <div class="behoerde">Amt für Soziales und Wohnen — Leistungsmanagement</div>
-    <div class="untertitel">SDN.sozial · Grundsicherung im Alter und bei Erwerbsminderung (SGB XII)</div>
+    <div class="untertitel">SDN.Leistung · Grundsicherung im Alter und bei Erwerbsminderung (SGB XII)</div>
     %s
   </div>
 

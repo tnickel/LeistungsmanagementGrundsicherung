@@ -29,7 +29,7 @@ wurden Norm für Norm gegen die amtlichen Texte verifiziert und bestätigt. Nach
 - [x] `TaskController` — begrenzte Parallelität, Timeout-Wachhund, `TaskStats`
 - [x] Saga-Engine + Journal (`TX_SAGA`, `TX_SAGA_STEP`) inkl. `recover()` (Wiederanlauf)
 - [x] Oracle-DDL, Demo (`DemoMain`: Erfolgsfall, Fehlerfall mit Kompensation, parallele Tasks)
-- [x] **Fachschicht Leistungsmanagement (SDN.sozial LMG)** — siehe [leistungsmanagement.md](leistungsmanagement.md):
+- [x] **Fachschicht Leistungsmanagement (SDN.Leistung LMG)** — siehe [leistungsmanagement.md](leistungsmanagement.md):
       SGB-XII-Berechnung, Zahlungs-Workflow (Idempotenz, FOR UPDATE, Budget-Check, Journal),
       optimistisches Locking für Masken, JSON-API + Widget-Oberfläche, Fach-DDL + Seed,
       Unit-Tests für Berechnung/JSON/Formats
@@ -207,7 +207,7 @@ app.js-Interpolationen als XSS) dokumentiert nicht umgesetzt:
 - [x] Gegen VirtualBox-Oracle verifiziert: Suite 10/10 grün; Gesamtlauf 136 Tests,
       0 Fehler; keine Test-Rückstände (Cleanup-Präfix `BG-REG-`)
 
-## Mitarbeiter-Simulator „testsweet" (2026-10-11, Modus 1)
+## Mitarbeiter-Simulator „testsweet" (2026-10-11, Modus 1 & Visualisierung)
 
 - [x] **Eigenständiges Werkzeug `testsweet/`** (keine Unit-Tests, eigenes Maven-Projekt auf dem
       Hauptartefakt): N simulierte Sachbearbeiter (Threads mit Kürzel und Denkzeit) ziehen Aufträge
@@ -220,13 +220,22 @@ app.js-Interpolationen als XSS) dokumentiert nicht umgesetzt:
       berechnet), Verifikation nach Laufende per SQL direkt auf den Tabellen; strukturierte Logfiles
       je Lauf (simulation.log, je Auftrag, je Mitarbeiter, db-verifikation.log, fehler.log,
       zusammenfassung.txt) für die manuelle Auswertung
-- [x] **Lokale GUI** (Port 8095): Modus-Auswahl, Laufkonfiguration, Kennzahlen, Auftragsliste mit
-      Doppelklick-Detail (Schritte + Prüfungen), Live-Log-Ticker
-- [x] **Automatische Testdokumentation**: PDF mit Deckblatt/Einleitung (Rechengrundlagen 2026)/
-      Inhaltsverzeichnis und je Testfall einfacher Beschreibung, nachrechenbarem Rechenweg
-      (Zwischenwerte mit §-Hinweisen), Erwartung vs. Ist und Protokollausschnitt; zusätzlich schlanke
-      maschinenlesbare Markdown-Fassung (DB-IDs + Prüf-SQLs + Ist-Werte) zum Nachprüfen durch KI
-- [x] Gegen Docker-Oracle verifiziert: 10 Mitarbeiter / 60 Aufträge, 60/60 verifiziert in ~3 s
+- [x] **Lokale GUI & Web-Dashboard** (Port 8095): Modernisiertes Behörden-Dashboard mit Live-Mitarbeiterkarten,
+      pulsierenden Status-Indikatoren, interaktiver Diagramm-Showcase-Galerie (4 Fachdiagramme),
+      Sofort-Volltextsuche, Statusfiltern (*Alle*, *Nur Verifiziert*, *Auffälligkeiten*) und 1-Klick-Presets
+      (15 / 60 / 120 Fälle)
+- [x] **Revisionssichere Testdokumentation & Pure Java PDF-Generator (`SweetPdf`)**:
+      Vollständige Eigenentwicklung ohne Fremdbibliotheken mit nativer Einbettung von PDF-1.4-XObjects
+      (`/Filter /DCTDecode`), repräsentativem Deckblatt mit Titelbild (`titelbild.jpg`), 4 hochauflösenden
+      Fachflussdiagrammen (Simulator-Zyklus, SGB-XII-Berechnungskaskade, Vier-Augen-Workflow, Transaktionsarchitektur),
+      paginiertem Inhaltsverzeichnis und seitenbündigen Einzelfallnachweisen (Schritt-für-Schritt-Rechenweg +
+      SQL-Erwartung/Ist-Vergleich + Protokollauszug) ohne Waisenüberläufe; zusätzlich schlanke maschinenlesbare
+      Markdown-Fassung (`testdokumentation.md`) mit DB-IDs und copy-paste-fähigen SQLs für KI-Audits
+- [x] **Automatisiertes Grafiksystem & CLI-Batchlauf**: `python testsweet/generate_diagrams.py` generiert
+      die Vektor-Diagramme (200 dpi); `testsweet\start.bat run <workers> <cases> [seed] [denkzeitMs]` ermöglicht
+      den autonomen Headless-Batchlauf für CI/CD-Pipelines
+- [x] Gegen Docker-Oracle verifiziert: 10 Mitarbeiter / 60 Aufträge, 60/60 verifiziert in ~1,5 s;
+      Batch-Lauf 5/10 verifiziert in < 1 s (100 % Erfolgsquote)
 - [ ] **Modus 2: Weboberfläche per Selenium bedienen** (Schritt 2, GUI bereits vorbereitet)
 
 ## Etappe 4 — Betrieb & Weiterentwicklung

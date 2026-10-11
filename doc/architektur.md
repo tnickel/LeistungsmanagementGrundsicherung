@@ -5,7 +5,7 @@
 ## Schichtenbild
 
 ```
-Fachschicht: Leistungsmanagement Grundsicherung (SDN.sozial LMG)
+Fachschicht: Leistungsmanagement Grundsicherung (SDN.Leistung LMG)
    Masken (SozialFall, Bedarfsermittlung, Zahlbarmachung) + JSON-API
         │  ordneAuszahlungAn / Masken-Speicherung / Abfragen
         ▼
@@ -65,7 +65,7 @@ Fachschicht: Leistungsmanagement Grundsicherung (SDN.sozial LMG)
 | `lmg.web.LmgServer/LmgServerMain` | JSON-API + Oberfläche auf dem JDK-HttpServer; jede Anfrage (auch der Bescheid-Druck) läuft als Task über den `TaskController`; CSP-Header, Body-Limit, Token nur aus dem Authorization-Header (Ausnahme: Druck-Link). |
 | `lmg.web.Benutzerverwaltung` | Anmeldung mit Rollen; Sitzungs-Token (SecureRandom/UUID) mit Idle-Timeout, Anmelde-Drosselung, constant-time-Passwortvergleich. |
 | `lmg.web.Json` | Schlanker JSON-Writer/Parser ohne externe Bibliothek (Tiefenlimit, vollständige Escape-Prüfung). |
-| `webapp/` (Ressourcen) | Single-Page-Oberfläche (SDN.sozial-Stil): Widget-Dashboard, Vorgangsmaske, Zahlbarmachung, Journal — HTML-Escaping für alle Serverdaten. |
+| `webapp/` (Ressourcen) | Single-Page-Oberfläche (SDN.Leistung-Stil): Widget-Dashboard, Vorgangsmaske, Zahlbarmachung, Journal — HTML-Escaping für alle Serverdaten. |
 
 ## Ablauf einer kurzen Transaktion (`TxManager.execute`)
 

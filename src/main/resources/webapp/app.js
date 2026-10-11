@@ -1,4 +1,4 @@
-/* SDN.sozial — Leistungsmanagement Grundsicherung
+/* SDN.Leistung — Leistungsmanagement Grundsicherung
    Bedienlogik der Oberfläche: Fallübersicht mit Widgets, Vorgangsmasken
    (Bedarfsermittlung, Einkommensbereinigung, Zahlbarmachung), Buchungsjournal.
    Bewusst Vanilla-JavaScript, Kommunikation über die JSON-API. */

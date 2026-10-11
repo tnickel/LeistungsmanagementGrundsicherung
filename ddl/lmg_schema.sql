@@ -1,5 +1,5 @@
 -- Fachschema für das Leistungsmanagement Grundsicherung (SGB XII)
--- Produkt: SDN.sozial — Leistungsmanagement (LMG)
+-- Produkt: SDN.Leistung — Leistungsmanagement (LMG)
 -- Ausführen als Schema-Owner, z. B. TX_DEMO in einer PDB (gleiche Umgebung wie ddl/oracle_schema.sql).
 --
 -- Konventionen:

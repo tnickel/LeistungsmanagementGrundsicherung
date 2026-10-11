@@ -1,4 +1,4 @@
-# Rechtsgrundlagen SDN.sozial LMG — Verzeichnis mit Herkunftsnachweisen
+# Rechtsgrundlagen SDN.Leistung LMG — Verzeichnis mit Herkunftsnachweisen
 
 **Zweck:** Dies ist das maßgebliche Verzeichnis aller im Projekt umgesetzten Fach- und
 Verfahrensnormen. Jeder Eintrag nennt die Norm, ihren Inhalt nach amtlichem Wortlaut,

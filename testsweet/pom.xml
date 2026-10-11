@@ -9,7 +9,7 @@
   <version>0.1.0</version>
   <packaging>jar</packaging>
 
-  <name>testsweet — Mitarbeiter-Simulator für SDN.sozial LMG</name>
+  <name>testsweet — Mitarbeiter-Simulator für SDN.Leistung LMG</name>
   <description>
     Eigenständiger Simulator (keine Unit-Tests): N Sachbearbeiter arbeiten parallel einen
     Pool von Anwenderszenarien über die Fachschicht des Leistungsmanagements ab.
