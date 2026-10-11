@@ -310,6 +310,17 @@ public final class WebHelfer {
         treiber.get(url);
         WebDriverWait wait = new WebDriverWait(treiber, TIMEOUT);
         autoConfirmAktivieren(treiber);
+        // Das Fenster kann aus einem früheren Auftrag noch angemeldet sein (Token im
+        // localStorage) — dann zeigt die Seite die Fallübersicht statt der Anmeldemaske.
+        // Erst abmelden, sonst läuft der WarteTimer auf login-kennung ins Leere.
+        try {
+            WebElement abmelden = treiber.findElement(By.id("btn-abmelden"));
+            if (abmelden.isDisplayed()) {
+                klick(treiber, abmelden);
+            }
+        } catch (Exception nochAbgemeldet) {
+            // gut: Login-Maske ist bereits sichtbar
+        }
         WebElement kennung = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("login-kennung")));
         kennung.clear();
         kennung.sendKeys((String) ctx.getOrDefault("mitarbeiter", "sb-01"));
