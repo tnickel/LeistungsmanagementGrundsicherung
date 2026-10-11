@@ -26,3 +26,6 @@ lmg_audit.log
 
 # Node-Abhängigkeiten des Handbuch-Werkzeugs
 node_modules/
+
+# Simulator-Laufdaten (Logfiles, PDF/MD-Berichte je Lauf)
+testsweet/logs/

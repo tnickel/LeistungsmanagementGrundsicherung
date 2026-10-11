@@ -5,8 +5,10 @@
 # lmg.properties enthält Zugangsdaten und wird NICHT eingecheckt (.gitignore).
 # ==============================================================================
 
-# Datenbankverbindung (Oracle 19c / 23ai)
-tx.url=jdbc:oracle:thin:@//localhost:1921/o19c1p1
+# Datenbankverbindung: Standard ist die Entwickler-DB im Docker-Container
+# "lmg-oracle" (Oracle Free; start.bat fährt ihn bei Bedarf hoch).
+# Alternativ Oracle 19c EE in VirtualBox: jdbc:oracle:thin:@//localhost:1921/o19c1p1
+tx.url=jdbc:oracle:thin:@//localhost:1521/FREEPDB1
 tx.user=tx_demo
 tx.pass=tx_demo
 

@@ -8,13 +8,16 @@ rem  Aufruf:  start.bat          -> Fachanwendung (Standard, Port 8080)
 rem           start.bat demo     -> DemoMain (Saga-Beispiel mit Kompensation)
 rem
 rem  Konfiguration: die Umgebungsvariablen TX_URL, TX_USER, TX_PASS und
-rem  LMG_PORT uebersteuern die unten gesetzten Vorgaben (Oracle 19c
-rem  in VirtualBox-VM "oracle-19c-adminwkshop", PDB o19c1p1 auf Port 1921).
+rem  LMG_PORT uebersteuern die unten gesetzten Vorgaben. Standard ist die
+rem  Entwickler-DB im Docker-Container "lmg-oracle" (Oracle Free, PDB
+rem  FREEPDB1, Port 1521) — sie wird bei Bedarf automatisch gestartet.
+rem  Alternativ Oracle 19c EE in der VirtualBox-VM "oracle-19c-adminwkshop":
+rem  set TX_URL=jdbc:oracle:thin:@//localhost:1921/o19c1p1
 rem =====================================================================
 
 cd /d "%~dp0"
 
-if "%TX_URL%"==""   set "TX_URL=jdbc:oracle:thin:@//localhost:1921/o19c1p1"
+if "%TX_URL%"==""   set "TX_URL=jdbc:oracle:thin:@//localhost:1521/FREEPDB1"
 if "%TX_USER%"==""  set "TX_USER=tx_demo"
 if "%TX_PASS%"==""  set "TX_PASS=tx_demo"
 if "%LMG_PORT%"=="" set "LMG_PORT=8080"
@@ -27,25 +30,10 @@ if errorlevel 1 (
 )
 
 rem ---------------------------------------------------------------------
-rem  Oracle 19c in VirtualBox pruefen (Port 1921)
-rem ---------------------------------------------------------------------
-echo %TX_URL% | findstr /c:"localhost:1921" >nul
-if not errorlevel 1 (
-    powershell -NoProfile -Command "if (!(Test-NetConnection -ComputerName 127.0.0.1 -Port 1921 -InformationLevel Quiet)) { exit 1 }" >nul 2>nul
-    if errorlevel 1 (
-        echo [Warnung] VirtualBox Oracle-DB auf Port 1921 antwortet nicht.
-        echo Bitte VM "oracle-19c-adminwkshop" in VirtualBox starten.
-    ) else (
-        echo Oracle 19c Datenbank ^(VirtualBox, Port 1921^) ist erreichbar.
-    )
-    goto db_ok
-)
-
-rem ---------------------------------------------------------------------
-rem  Entwickler-DB im Docker hochfahren, falls sie aus ist
+rem  Standard: Entwickler-DB im Docker hochfahren, falls sie aus ist
 rem ---------------------------------------------------------------------
 echo %TX_URL% | findstr /c:"localhost:1521" >nul
-if errorlevel 1 goto db_ok
+if errorlevel 1 goto vm_check
 
 where docker >nul 2>nul
 if errorlevel 1 (
@@ -63,19 +51,11 @@ if errorlevel 1 (
     goto db_ok
 )
 docker ps --format "{{.Names}}" | findstr /x "lmg-oracle" >nul
-if not errorlevel 1 goto db_bereit
+if not errorlevel 1 goto db_warten
 
 echo Starte Entwickler-DB ^(Container lmg-oracle^) ...
 docker start lmg-oracle >nul
 
-docker inspect --format "{{.State.Health.Status}}" lmg-oracle 2>nul | findstr /r "." >nul
-if errorlevel 1 (
-    echo Kein Healthcheck verfuegbar - warte 30 Sekunden ...
-    timeout /t 30 /nobreak >nul
-    goto db_ok
-)
-
-set /a warte=0
 :db_warten
 docker inspect --format "{{.State.Health.Status}}" lmg-oracle 2>nul | findstr /x "healthy" >nul && goto db_bereit
 set /a warte+=5
@@ -89,6 +69,23 @@ goto db_warten
 
 :db_bereit
 echo Datenbank ist bereit.
+goto db_ok
+
+rem ---------------------------------------------------------------------
+rem  Alternative: Oracle 19c in VirtualBox (Port 1921) nur erreichbar
+rem  pruefen — die VM muss von Hand in VirtualBox gestartet werden.
+rem ---------------------------------------------------------------------
+:vm_check
+echo %TX_URL% | findstr /c:"localhost:1921" >nul
+if errorlevel 1 goto db_ok
+powershell -NoProfile -Command "if (!(Test-NetConnection -ComputerName 127.0.0.1 -Port 1921 -InformationLevel Quiet)) { exit 1 }" >nul 2>nul
+if errorlevel 1 (
+    echo [Warnung] VirtualBox Oracle-DB auf Port 1921 antwortet nicht.
+    echo Bitte VM "oracle-19c-adminwkshop" in VirtualBox starten.
+) else (
+    echo Oracle 19c Datenbank ^(VirtualBox, Port 1921^) ist erreichbar.
+)
+
 :db_ok
 
 rem ---------------------------------------------------------------------

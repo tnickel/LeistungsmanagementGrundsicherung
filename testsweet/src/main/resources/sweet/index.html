@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <title>testsweet — Mitarbeiter-Simulator SDN.sozial LMG</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+    <h1>testsweet — Mitarbeiter-Simulator</h1>
+    <span class="phase" id="phase">BEREIT</span>
+    <span class="db" id="db"></span>
+</header>
+
+<main>
+    <!-- Modus-Auswahl -->
+    <section class="abschnitt">
+        <h2>Testmodus</h2>
+        <div class="modi">
+            <div class="modus ausgewaehlt" id="modus1" title="Transaktionstest über die Fachschicht">
+                <div class="nr">1)</div>
+                <div class="titel">Fachschicht / Transaktionstest</div>
+                <div class="text">N simulierte Sachbearbeiter arbeiten Aufträge direkt über die
+                    Fachschicht (SozialLeistungsService → TxManager → Oracle) ab: Sperren,
+                    Deadlock-Wiederholung, Budget-Führung, Vier-Augen unter Parallelität.</div>
+            </div>
+            <div class="modus gesperrt" id="modus2" title="Schritt 2 — noch nicht implementiert">
+                <span class="badge">Schritt 2 — folgt</span>
+                <div class="nr">2)</div>
+                <div class="titel">Weboberfläche / Selenium</div>
+                <div class="text">Die simulierten Sachbearbeiter bedienen die echte Weboberfläche
+                    (Browserfenster werden per Selenium ausgefüllt). Noch nicht implementiert —
+                    zuerst Modus 1 auswerten.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Laufkonfiguration -->
+    <section class="abschnitt">
+        <h2>Lauf konfigurieren (Modus 1)</h2>
+        <div class="konfig">
+            <label>Mitarbeiter
+                <input type="number" id="mitarbeiter" value="10" min="1" max="50">
+            </label>
+            <label>Aufträge
+                <input type="number" id="auftraege" value="60" min="1" max="500">
+            </label>
+            <label>Seed (0 = zufällig)
+                <input type="number" id="seed" value="42" min="0" max="999999999">
+            </label>
+            <label>Denkzeit je Schritt (ms)
+                <input type="number" id="denkzeit" value="120" min="0" max="5000">
+            </label>
+            <label class="checkbox">
+                <input type="checkbox" id="aufraeumen" checked> Altdaten (SWEET-*) vorher aufräumen
+            </label>
+            <button id="start">Simulation starten</button>
+            <button id="stop" class="rot" disabled>Stoppen</button>
+        </div>
+        <div class="fortschritt"><div id="balken"></div></div>
+        <div class="hinweis" id="laufinfo" style="margin-top:8px"></div>
+        <div id="pdfleiste" style="display:none; margin-top:10px">
+            <a id="pdfknopf" class="pdfknopf" href="#">📄 Testdokumentation (PDF) öffnen — Zusammenfassung + alle Einzelfälle</a>
+            <span class="hinweis" style="margin-left:10px">(öffnet im gleichen Tab; mit „Zurück" wieder hierher)</span>
+            <a id="mdknopf" class="mdknopf" href="/api/md" style="margin-left:12px">{ } Maschinenlesbare Fassung (Markdown) — zum Nachprüfen</a>
+        </div>
+    </section>
+
+    <!-- Kennzahlen -->
+    <section class="abschnitt">
+        <h2>Kenndaten des Laufs</h2>
+        <div class="kpis">
+            <div class="kpi"><div class="wert" id="k-gesamt">0</div><div class="label">Aufträge gesamt</div></div>
+            <div class="kpi"><div class="wert" id="k-offen">0</div><div class="label">offen</div></div>
+            <div class="kpi"><div class="wert" id="k-arbeit">0</div><div class="label">in Bearbeitung</div></div>
+            <div class="kpi"><div class="wert" id="k-fertig">0</div><div class="label">fertig gespielt</div></div>
+            <div class="kpi"><div class="wert" id="k-verifiziert">0</div><div class="label">verifiziert (DB ok)</div></div>
+            <div class="kpi rot"><div class="wert" id="k-fehler">0</div><div class="label">fehlgeschlagen</div></div>
+            <div class="kpi rot"><div class="wert" id="k-verifikation-nok">0</div><div class="label">Verifikation n.i.O.</div></div>
+            <div class="kpi"><div class="wert" id="k-dauer">0 s</div><div class="label">Laufzeit</div></div>
+        </div>
+        <h2 style="margin-top:14px">Mitarbeiter</h2>
+        <div class="chips" id="mitarbeiter-chips"><span class="hinweis">noch kein Lauf</span></div>
+    </section>
+
+    <!-- Auftragsliste -->
+    <section class="abschnitt">
+        <h2>Aufträge — Doppelklick öffnet das Szenario im Detail</h2>
+        <div class="tabelle-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>Nr</th><th>Szenario</th><th>Aktenzeichen</th><th>Hauptperson</th>
+                    <th>Bearbeiter</th><th>Status</th><th>Dauer</th>
+                </tr>
+                </thead>
+                <tbody id="auftraege-koerper"></tbody>
+            </table>
+        </div>
+        <div class="hinweis" id="logverzeichnis"></div>
+        <div class="hinweis" id="pdfhinweis"></div>
+    </section>
+
+    <!-- Log-Ticker -->
+    <section class="abschnitt">
+        <h2>Protokoll (Live)</h2>
+        <div id="log">…</div>
+        <div class="hinweis" style="margin-top:6px">
+            Vollständige Logfiles je Lauf: <code>testsweet/logs/run-&lt;Zeitstempel&gt;/</code>
+            (simulation.log, je Auftrag, je Mitarbeiter, db-verifikation.log, fehler.log, zusammenfassung.txt) —
+            Auswertung gemeinsam manuell.
+        </div>
+    </section>
+</main>
+
+<!-- Detail-Dialog (Doppelklick auf Auftrag) -->
+<div id="overlay">
+    <div class="dialog">
+        <button class="schliessen" id="schliessen">Schließen</button>
+        <h3 id="d-titel">Auftrag</h3>
+        <div class="kopf" id="d-kopf"></div>
+        <div id="d-fehler"></div>
+        <h4>Arbeitsschritte</h4>
+        <table>
+            <thead><tr><th style="width:110px">Zeit</th><th style="width:110px">Mitarbeiter</th><th>Aktion</th><th>Ergebnis</th></tr></thead>
+            <tbody id="d-schritte"></tbody>
+        </table>
+        <h4>Datenbank-Verifikation (Erwartung vs. Ist)</h4>
+        <table>
+            <thead><tr><th>Erwartung</th><th style="width:130px">erwartet</th><th style="width:130px">Ist (DB)</th><th style="width:60px">OK</th></tr></thead>
+            <tbody id="d-pruefungen"></tbody>
+        </table>
+    </div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>

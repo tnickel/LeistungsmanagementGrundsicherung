@@ -18,6 +18,10 @@ Redo-Logging, Recovery) — wir programmieren nur die Steuerungsschicht darüber
   Verifikationsprotokoll (maßgeblich für Fach-Reviews; Stand 2026-10-10)
 - `doc/regressionstests.md` — die zehn Testfälle der Szenario-Regression mit Akteuren,
   Abläufen und erwartetem Datenbank-Endzustand (Stand 2026-10-11)
+- `testsweet/` — Mitarbeiter-Simulator (keine Unit-Tests): N Sachbearbeiter arbeiten
+  parallel einen Auftragstopf über die Fachschicht ab; GUI auf Port 8095, Logfiles je
+  Lauf, automatische Testdokumentation als PDF (lesbar) und Markdown (KI-nachprüfbar);
+  Modus 2 (Selenium/Weboberfläche) vorgesehen (Details: testsweet/README.md)
 - `doc/roadmap.md` — aktueller Stand und geplante Etappen
 
 ## Namenskonventionen für die Fachschicht (wichtig)
@@ -35,6 +39,11 @@ Redo-Logging, Recovery) — wir programmieren nur die Steuerungsschicht darüber
 - Java 21 (`--release 21`), Maven, bewusst **keine** Frameworks; Oracle-Treiber
   (ojdbc11) ist Laufzeit-Abhängigkeit. Webschicht auf dem JDK-HttpServer, JSON über
   `de.allgemein.lmg.web.Json` (eigene, schlanke Umsetzung).
+- **Entwickler-/Test-Datenbank ist der Docker-Container `lmg-oracle`** (Oracle Free,
+  `jdbc:oracle:thin:@//localhost:1521/FREEPDB1`, tx_demo/tx_demo; `start.bat` startet
+  ihn bei Bedarf). Die VirtualBox-VM mit Oracle 19c EE (`localhost:1921/o19c1p1`)
+  bleibt als Zweitumgebung für EE-spezifische Verifikation — Testläufe sind dort
+  rund 30–90× langsamer (Kaltstart des Verbindungsaufbaus in der VM).
 - Build + Tests: `mvn test`
 - Start (bequem): `start.bat` — DB-Container bei Bedarf hochfahren, kompilieren,
   Server auf Port 8080 starten, Browser öffnen; `start.bat demo` läuft die Saga-Demo.

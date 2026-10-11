@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>de.allgemein</groupId>
+  <artifactId>testsweet</artifactId>
+  <version>0.1.0</version>
+  <packaging>jar</packaging>
+
+  <name>testsweet — Mitarbeiter-Simulator für SDN.sozial LMG</name>
+  <description>
+    Eigenständiger Simulator (keine Unit-Tests): N Sachbearbeiter arbeiten parallel einen
+    Pool von Anwenderszenarien über die Fachschicht des Leistungsmanagements ab.
+    Modus 1 = Transaktionstest über die Fachschicht; Modus 2 = Weboberfläche/Selenium
+    (vorgesehen, Schritt 2). Alles wird für die manuelle Auswertung mitgeloggt.
+  </description>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.release>21</maven.compiler.release>
+    <exec.mainClass>de.allgemein.testsweet.SweetMain</exec.mainClass>
+  </properties>
+
+  <dependencies>
+    <!-- Fachschicht + Transaktionskern des Hauptprojekts (inkl. ojdbc11/ucp transitiv).
+         Voraussetzung: einmalig `mvn install` im Hauptprojekt (Version muss übereinstimmen). -->
+    <dependency>
+      <groupId>de.allgemein</groupId>
+      <artifactId>transaktionssteuerung</artifactId>
+      <version>0.5.4</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>3.2.0</version>
+        <configuration>
+          <mainClass>${exec.mainClass}</mainClass>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>
