@@ -74,6 +74,17 @@ public final class SozialLeistungsService implements LeistungsService {
     // ------------------------------------------------------------------
 
     @Override
+    public java.util.Optional<de.allgemein.lmg.model.Bedarfsgemeinschaft>
+            findeBedarfsgemeinschaftNachAktenzeichen(String aktenzeichen) {
+        if (aktenzeichen == null || aktenzeichen.isBlank()) {
+            throw new FachlicheException(FachlicheException.VALIDATION,
+                    "Aktenzeichen darf nicht leer sein");
+        }
+        return txManager.execute(TxOptions.DEFAULT,
+                ctx -> bgDao.findeNachAktenzeichen(ctx, aktenzeichen.trim()));
+    }
+
+    @Override
     public List<VorgangslisteEintrag> listeBedarfsgemeinschaften() {
         return txManager.execute(TxOptions.DEFAULT, ctx -> {
             List<VorgangslisteEintrag> eintraege = new ArrayList<>();

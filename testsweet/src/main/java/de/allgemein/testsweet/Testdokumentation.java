@@ -98,6 +98,8 @@ final class Testdokumentation {
         pdf.paar("Simulationslauf", simulator.laufStart().format(TAG) + " bis "
                 + (simulator.laufEnde() == null ? "—" : simulator.laufEnde().format(TAG))
                 + " (" + simulator.laufdauerSekunden() + " s)");
+        pdf.paar("Modus", (istWeb ? "Weboberfläche (Selenium, Modus 2)" : "Fachschicht (Modus 1)")
+                + " — Testfallkategorie " + simulator.letzteKategorie());
         pdf.paar("Datenbank", simulator.dbUrl + " (Benutzer: " + simulator.dbUser + ")");
         if (simulator.konfiguration() != null) {
             pdf.paar("Konfiguration", simulator.konfiguration().mitarbeiter() + " simulierte "

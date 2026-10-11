@@ -123,6 +123,7 @@ final class WebMitarbeiter implements Runnable {
             String bild = null;
             try {
                 String detail = aktion.funktion().ausfuehren(treiber, kontext);
+                auftrag.kontext = Map.copyOf(kontext); // je Schritt spiegeln: Marker überlebt auch einen Worker-Tod
                 bild = screenshot(auftrag, schrittNr);
                 protokolliere(auftrag, schrittNr, aktion.name(),
                         "OK" + (detail == null || detail.isBlank() ? "" : " — " + detail), bild);

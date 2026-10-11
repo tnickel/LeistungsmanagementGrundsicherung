@@ -106,15 +106,22 @@ public final class WebHelfer {
         return "Erfolgreich angemeldet als " + user;
     }
 
+    /** Öffnet die Neuanlage-Karte nur, wenn sie noch zu ist — der Knopf ist ein
+     *  Toggle: Nach einem abgewehrten Versuch bleibt die Karte offen, ein zweiter
+     *  Klick würde sie einklappen und der Sichtbarkeits-Wartetimmer liefe ins Leere. */
+    private static void oeffneNeuVorgangKarte(WebDriver treiber, WebDriverWait wait) {
+        if (!treiber.findElement(By.id("karte-neu-vorgang")).isDisplayed()) {
+            klick(treiber, wait.until(ExpectedConditions.elementToBeClickable(By.id("btn-neu-vorgang"))));
+            wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("karte-neu-vorgang")));
+        }
+    }
+
     public static String vorgangAnlegen(WebDriver treiber, Map<String, Object> ctx,
             String aktenzeichen, String name, BigDecimal budget) {
         WebDriverWait wait = new WebDriverWait(treiber, TIMEOUT);
         autoConfirmAktivieren(treiber);
 
-        WebElement neuBtn = wait.until(ExpectedConditions.elementToBeClickable(By.id("btn-neu-vorgang")));
-        klick(treiber, neuBtn);
-
-        wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("karte-neu-vorgang")));
+        oeffneNeuVorgangKarte(treiber, wait);
 
         setzeWert(treiber, By.id("neu-aktenzeichen"), aktenzeichen);
         setzeWert(treiber, By.id("neu-name"), name);
@@ -128,6 +135,7 @@ public final class WebHelfer {
         // Warten bis Vorgangsmaske geladen ist
         wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("view-vorgang")));
         schliesseModalFallsOffen(treiber);
+        ctx.put("vorgangErstellt", true); // Marker für den globalen Konsistenzcheck
         return "Vorgang " + aktenzeichen + " (" + name + ") mit Startbudget "
                 + budget.toPlainString() + " EUR angelegt";
     }
@@ -287,6 +295,178 @@ public final class WebHelfer {
                 By.cssSelector("#tabelle-zahlungen .chip.storniert")));
         return "Als " + admin + " (Admin-Rolle) Storno gebucht (Status STORNIERT, "
                 + "Restbudget zurückgebucht)";
+    }
+
+    // ------------------------------------------------------------------
+    // Negativ-Schritte: die ABWEHR eines Fehlers ist das erwartete Ergebnis.
+    // Der Beweis steht zweifach: Fehlerdialog/Fehlerzeile mit erwartetem Text
+    // UND (per Erwartung des Auftrags) der unveränderte Datenbank-Endzustand.
+    // ------------------------------------------------------------------
+
+    /** Meldet sich mit einem bewusst FALSCHEN Passwort an und prüft, dass die
+     *  Oberfläche die Anmeldung abwehrt (Fehlerzeile gefüllt, keine Übersicht). */
+    public static String anmeldungFehlschlag(WebDriver treiber, Map<String, Object> ctx) {
+        String url = (String) ctx.getOrDefault("baseUrl", basisUrl);
+        treiber.get(url);
+        WebDriverWait wait = new WebDriverWait(treiber, TIMEOUT);
+        autoConfirmAktivieren(treiber);
+        WebElement kennung = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("login-kennung")));
+        kennung.clear();
+        kennung.sendKeys((String) ctx.getOrDefault("mitarbeiter", "sb-01"));
+        WebElement passwort = treiber.findElement(By.id("login-passwort"));
+        passwort.clear();
+        passwort.sendKeys((String) ctx.getOrDefault("falschesPasswort", "total-falsch"));
+        klick(treiber, treiber.findElement(By.id("btn-login")));
+
+        WebElement fehlerzeile = wait.until(d -> {
+            WebElement el = d.findElement(By.id("login-fehler"));
+            return el.getText() != null && !el.getText().isBlank() ? el : null;
+        });
+        if (treiber.findElements(By.id("view-uebersicht")).stream().anyMatch(WebElement::isDisplayed)) {
+            throw new IllegalStateException("Anmeldung mit falschem Passwort war erfolgreich — "
+                    + "Anmeldeprüfung verletzt");
+        }
+        return "Anmeldung abgewehrt — Oberfläche meldet: " + fehlerzeile.getText();
+    }
+
+    /** Legt einen Vorgang mit FEHLERHAFTEN Bankverbindungsdaten an und prüft, dass
+     *  die Neuanlage mit Fehlerdialog abgewehrt wird. */
+    public static String vorgangAnlegenFehlschlag(WebDriver treiber, Map<String, Object> ctx,
+            String aktenzeichen, String name, BigDecimal budget, String iban, String bic,
+            String... erwarteteTeiltexte) {
+        WebDriverWait wait = new WebDriverWait(treiber, TIMEOUT);
+        autoConfirmAktivieren(treiber);
+        oeffneNeuVorgangKarte(treiber, wait);
+        setzeWert(treiber, By.id("neu-aktenzeichen"), aktenzeichen);
+        setzeWert(treiber, By.id("neu-name"), name);
+        setzeWert(treiber, By.id("neu-budget"), budget.toPlainString());
+        setzeWert(treiber, By.id("neu-iban"), iban);
+        setzeWert(treiber, By.id("neu-bic"), bic);
+        setzeWert(treiber, By.id("neu-kontoinhaber"), name);
+        klick(treiber, treiber.findElement(By.id("btn-vorgang-speichern")));
+
+        String text = fehlerDialogPruefen(treiber, erwarteteTeiltexte);
+        if (treiber.findElements(By.id("view-vorgang")).stream().anyMatch(WebElement::isDisplayed)) {
+            throw new IllegalStateException("Vorgang wurde trotz ungültiger Bankverbindung angelegt");
+        }
+        return "Neuanlage abgewehrt — Fehlerdialog: " + text;
+    }
+
+    /** Klickt „Auszahlung anordnen“ OHNE Zahlungsmonat — die Oberfläche muss das
+     *  mit einem Fehlerdialog abwehren. */
+    public static String auszahlungOhneMonat(WebDriver treiber, Map<String, Object> ctx) {
+        autoConfirmAktivieren(treiber);
+        // Das Monatsfeld ist mit dem aktuellen Monat vorbelegt (app.js) — für den
+        // Negativfall bewusst leeren, damit die UI-Prüfung "Bitte den Zahlungsmonat
+        // wählen" überhaupt anspringen kann.
+        WebElement monatFeld = treiber.findElement(By.id("zahlungsmonat"));
+        ((JavascriptExecutor) treiber).executeScript(
+                "arguments[0].value = '';"
+                + "arguments[0].dispatchEvent(new Event('input', {bubbles: true}));"
+                + "arguments[0].dispatchEvent(new Event('change', {bubbles: true}));",
+                monatFeld);
+        klickAufButton(treiber, By.id("btn-auszahlung"));
+        String text = fehlerDialogPruefen(treiber, "Zahlungsmonat");
+        beweiseKeineZahlung(treiber, true);
+        return "Anordnung ohne Zahlungsmonat abgewehrt — Fehlerdialog: " + text;
+    }
+
+    /** Setzt den Zahlungsmonat, ordnet an und erwartet den ABGEWEHRTEN Fachfehler
+     *  (z. B. KEIN_ANSPRUCH, BUDGET_ERSCHOEPFT, doppelte Anordnung). */
+    public static String auszahlungFehlschlag(WebDriver treiber, Map<String, Object> ctx,
+            String monat, boolean keineZahlungErwartet, String... erwarteteTeiltexte) {
+        WebDriverWait wait = new WebDriverWait(treiber, TIMEOUT);
+        autoConfirmAktivieren(treiber);
+        WebElement monatFeld = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("zahlungsmonat")));
+        ((JavascriptExecutor) treiber).executeScript(
+                "arguments[0].value = arguments[1];"
+                + "arguments[0].dispatchEvent(new Event('input', {bubbles: true}));"
+                + "arguments[0].dispatchEvent(new Event('change', {bubbles: true}));",
+                monatFeld, monat);
+        klickAufButton(treiber, By.id("btn-auszahlung"));
+        String text = fehlerDialogPruefen(treiber, erwarteteTeiltexte);
+        beweiseKeineZahlung(treiber, keineZahlungErwartet);
+        return "Anordnung abgewehrt — Fehlerdialog: " + text;
+    }
+
+    /** Beweist, dass einem Sachbearbeiter der Storno-Knopf für eine freigegebene
+     *  (BEREIT-)Zahlung NICHT angeboten wird — die Admin-Beschränkung. */
+    public static String pruefeKeinStornoFuerSachbearbeiter(WebDriver treiber, Map<String, Object> ctx) {
+        WebDriverWait wait = new WebDriverWait(treiber, TIMEOUT);
+        wait.until(ExpectedConditions.presenceOfElementLocated(
+                By.cssSelector("#tabelle-zahlungen .chip.bereit")));
+        int storno = treiber.findElements(By.cssSelector("#tabelle-zahlungen button.storno")).size();
+        if (storno > 0) {
+            throw new IllegalStateException("Storno-Knopf für Sachbearbeiter sichtbar — "
+                    + "Admin-Beschränkung für freigegebene Zahlungen verletzt");
+        }
+        return "Storno-Knopf für Sachbearbeiter korrekt ausgeblendet (nur Admin-Rolle)";
+    }
+
+    /** SozialFall mit Renteneinkommen erfassen (für KEIN_ANSPRUCH-Varianten):
+     *  die Rente wird bewusst VOR dem Speichern in die Maske geschrieben. */
+    public static String fallAnlegenMitRente(WebDriver treiber, Map<String, Object> ctx,
+            int rbs, boolean merkzeichenG, boolean warmwasser,
+            BigDecimal miete, BigDecimal betrieb, BigDecimal heizung, BigDecimal rente) {
+        WebDriverWait wait = new WebDriverWait(treiber, TIMEOUT);
+        autoConfirmAktivieren(treiber);
+        klick(treiber, wait.until(ExpectedConditions.elementToBeClickable(By.id("btn-neu-fall"))));
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("fall-neu")));
+        new Select(treiber.findElement(By.id("neu-fall-rbs"))).selectByValue(String.valueOf(rbs));
+        setzeWert(treiber, By.id("neu-fall-miete"), miete.toPlainString());
+        setzeWert(treiber, By.id("neu-fall-betriebskosten"), betrieb.toPlainString());
+        setzeWert(treiber, By.id("neu-fall-heizung"), heizung.toPlainString());
+        setzeWert(treiber, By.id("neu-fall-rente"), rente.toPlainString());
+        WebElement chkG = treiber.findElement(By.id("neu-fall-g"));
+        if (chkG.isSelected() != merkzeichenG) {
+            klick(treiber, chkG);
+        }
+        WebElement chkWw = treiber.findElement(By.id("neu-fall-warmwasser"));
+        if (chkWw.isSelected() != warmwasser) {
+            klick(treiber, chkWw);
+        }
+        klick(treiber, treiber.findElement(By.id("btn-fall-speichern")));
+        schliesseModalFallsOffen(treiber);
+        wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("#tabelle-bedarf tbody tr")));
+        return "SozialFall (RBS " + rbs + ", KdU " + miete.add(betrieb).add(heizung).toPlainString()
+                + " EUR, Rente " + rente.toPlainString() + " EUR) gespeichert";
+    }
+
+    /** Zusatzbeweis nach abgewehrter Anordnung: kein Freigabe-Knopf = keine Zahlung.
+     *  Nur fahren, wenn keine Zahlung existieren darf (bei NEG-DOPPELMONAT existiert
+     *  die erste Zahlung legitim — dort ist der Beweis false). */
+    private static void beweiseKeineZahlung(WebDriver treiber, boolean keineZahlungErwartet) {
+        if (!keineZahlungErwartet) {
+            return;
+        }
+        WebDriverWait waitKurz = new WebDriverWait(treiber, Duration.ofMillis(1500));
+        try {
+            waitKurz.until(ExpectedConditions.presenceOfElementLocated(
+                    By.cssSelector("#tabelle-zahlungen button.freigeben")));
+            throw new IllegalStateException("Trotz abgewehrter Anordnung existiert eine Zahlung "
+                    + "(Freigabe-Knopf ist sichtbar)");
+        } catch (org.openqa.selenium.TimeoutException erwartet) {
+            // gut: kein Freigabe-Knopf, also keine Zahlung
+        }
+    }
+
+    /** Liest den Fehlerdialog, prüft ihn auf einen der erwarteten Teilausschnitte
+     *  und schließt ihn. Ohne Treffer: IllegalStateException — der Schritt scheitert. */
+    private static String fehlerDialogPruefen(WebDriver treiber, String... erwarteteTeiltexte) {
+        WebDriverWait wait = new WebDriverWait(treiber, Duration.ofSeconds(5));
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("dialog-rahmen")));
+        String text = treiber.findElement(By.id("dialog-text")).getText();
+        boolean passt = erwarteteTeiltexte.length == 0;
+        for (String teil : erwarteteTeiltexte) {
+            passt |= text != null && text.contains(teil);
+        }
+        if (!passt) {
+            throw new IllegalStateException("Fehlerdialog erwartet, aber Text war: «" + text
+                    + "» — erwartet wurde einer der Teilausschnitte "
+                    + java.util.Arrays.toString(erwarteteTeiltexte));
+        }
+        klick(treiber, treiber.findElement(By.id("dialog-ok")));
+        return text;
     }
 
     // ------------------------------------------------------------------

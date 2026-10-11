@@ -95,12 +95,25 @@ final class SweetServer {
             sendeFehler(exchange, 400, "Unbekannter Modus: " + modus);
             return;
         }
+        Simulator.Kategorie kategorie;
+        try {
+            kategorie = Simulator.Kategorie.valueOf(text(wunsch, "kategorie", "POSITIV"));
+        } catch (IllegalArgumentException e) {
+            sendeFehler(exchange, 400, "Unbekannte Kategorie: " + text(wunsch, "kategorie", ""));
+            return;
+        }
+        if ("WEB".equals(modus) && kategorie == Simulator.Kategorie.STRESS) {
+            sendeFehler(exchange, 400, "Der Stresstest (User anlegen + nachbearbeiten) ist für "
+                    + "den Fachschicht-Modus vorgesehen — bitte Modus 1 wählen");
+            return;
+        }
         Simulator.LaufKonfiguration konfig = new Simulator.LaufKonfiguration(
                 zahl(wunsch, "mitarbeiter", 10),
                 zahl(wunsch, "auftraege", 60),
                 zahl(wunsch, "seed", 42),
                 zahl(wunsch, "denkzeitMs", 120),
-                Boolean.TRUE.equals(wunsch.get("aufraeumen")));
+                Boolean.TRUE.equals(wunsch.get("aufraeumen")),
+                kategorie);
         try {
             if ("WEB".equals(modus)) {
                 simulator.starteWeb(konfig);

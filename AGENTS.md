@@ -19,9 +19,13 @@ Redo-Logging, Recovery) — wir programmieren nur die Steuerungsschicht darüber
 - `doc/regressionstests.md` — die zehn Testfälle der Szenario-Regression mit Akteuren,
   Abläufen und erwartetem Datenbank-Endzustand (Stand 2026-10-11)
 - `testsweet/` — Mitarbeiter-Simulator (keine Unit-Tests): N Sachbearbeiter arbeiten
-  parallel einen Auftragstopf über die Fachschicht ab; GUI auf Port 8095, Logfiles je
-  Lauf, automatische Testdokumentation als PDF (lesbar) und Markdown (KI-nachprüfbar);
-  Modus 2 (Selenium/Weboberfläche) vorgesehen (Details: testsweet/README.md)
+  parallel einen Auftragstopf ab, je Lauf in **Modus 1 (Fachschicht)** oder
+  **Modus 2 (Weboberfläche/Selenium)** und je **Testfallkategorie** (Positivfälle,
+  Negativfälle = erwartete Fachfehler mit unverändertem DB-Endzustand, Lasttest =
+  schlanke Massendurchläufe mit gekürztem Gesamtreport, Stresstest = zwei Wellen über
+  dieselben User mit Phasenbarriere, nur Fachschicht); GUI auf Port 8095, Logfiles
+  je Lauf, Testdokumentation als PDF (lesbar) und Markdown (KI-nachprüfbar)
+  (Details: testsweet/README.md)
 - `doc/roadmap.md` — aktueller Stand und geplante Etappen
 
 ## Namenskonventionen für die Fachschicht (wichtig)

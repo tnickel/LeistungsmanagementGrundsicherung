@@ -23,6 +23,10 @@ public interface LeistungsService {
     /** Vorgangsmaske: Kopfdaten, SozialFälle, Berechnung, Zahlungen, Journal. */
     Vorgangsdetail ladeDetail(long bgId);
 
+    /** Findet einen Vorgang über sein eindeutiges Aktenzeichen (lesend). */
+    java.util.Optional<de.allgemein.lmg.model.Bedarfsgemeinschaft>
+            findeBedarfsgemeinschaftNachAktenzeichen(String aktenzeichen);
+
     /** Auszahlung anordnen (idempotent über die Vorgangsnummer). */
     Auszahlungsergebnis ordneAuszahlungAn(Auszahlungsauftrag auftrag);
 

@@ -24,9 +24,11 @@ public final class SweetMain {
             int auf = args.length > 2 ? Integer.parseInt(args[2]) : 60;
             int seed = args.length > 3 ? Integer.parseInt(args[3]) : 42;
             int denkzeit = args.length > 4 ? Integer.parseInt(args[4]) : 20;
+            Simulator.Kategorie kategorie = liesKategorie(args);
             Simulator simulator = new Simulator();
-            System.out.println("testsweet — Starte Batch-Lauf (" + ma + " Mitarbeiter, " + auf + " Aufträge, Seed " + seed + ") auf " + simulator.dbUrl);
-            simulator.laufSynchron(new Simulator.LaufKonfiguration(ma, auf, seed, denkzeit, true));
+            System.out.println("testsweet — Starte Batch-Lauf (" + ma + " Mitarbeiter, " + auf
+                    + " Aufträge, Seed " + seed + ", Kategorie " + kategorie + ") auf " + simulator.dbUrl);
+            simulator.laufSynchron(new Simulator.LaufKonfiguration(ma, auf, seed, denkzeit, true, kategorie));
             System.out.println("Lauf beendet. PDF: " + simulator.letztesPdf());
             System.out.println("Markdown: " + simulator.letztesMd());
             return;
@@ -36,10 +38,12 @@ public final class SweetMain {
             int auf = args.length > 2 ? Integer.parseInt(args[2]) : 4;
             int seed = args.length > 3 ? Integer.parseInt(args[3]) : 42;
             int denkzeit = args.length > 4 ? Integer.parseInt(args[4]) : 200;
+            Simulator.Kategorie kategorie = liesKategorie(args);
             Simulator simulator = new Simulator();
             System.out.println("testsweet — Starte Weboberflächen-Lauf (Selenium) mit " + ma
-                    + " Browserfenstern, " + auf + " Aufträgen (Seed " + seed + ") auf " + simulator.dbUrl);
-            simulator.laufWebSynchron(new Simulator.LaufKonfiguration(ma, auf, seed, denkzeit, true));
+                    + " Browserfenstern, " + auf + " Aufträgen (Seed " + seed + ", Kategorie "
+                    + kategorie + ") auf " + simulator.dbUrl);
+            simulator.laufWebSynchron(new Simulator.LaufKonfiguration(ma, auf, seed, denkzeit, true, kategorie));
             System.out.println("Web-Lauf beendet. PDF: " + simulator.letztesPdf());
             System.out.println("Markdown: " + simulator.letztesMd());
             return;
@@ -69,6 +73,21 @@ public final class SweetMain {
         // Hauptschlange halten; Server-Threads sind Daemon-los, aber der
         // Executor hält die JVM ohnehin am Leben.
         Thread.currentThread().join();
+    }
+
+    /** Optionaler 6. CLI-Parameter: Testfallkategorie (POSITIV/NEGATIV/LAST). */
+    private static Simulator.Kategorie liesKategorie(String[] args) {
+        if (args.length <= 5) {
+            return Simulator.Kategorie.POSITIV;
+        }
+        try {
+            return Simulator.Kategorie.valueOf(args[5].toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            System.err.println("Unbekannte Testfallkategorie '" + args[5]
+                    + "' — zulaessig: POSITIV, NEGATIV, LAST");
+            System.exit(2);
+            return Simulator.Kategorie.POSITIV; // nicht erreichbar
+        }
     }
 
     private static int ganzeZahlAusUmgebung(String name, int standard) {

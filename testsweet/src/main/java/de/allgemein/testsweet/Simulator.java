@@ -44,9 +44,25 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public final class Simulator {
 
-    /** Laufparameter aus der GUI. */
+    /** Testfallkategorie des Laufs: positive Standardszenarien, abgewehrte
+     *  Fachfehler (NEGATIV) oder schlanker Massenbetrieb für den Lasttest. */
+    public enum Kategorie { POSITIV, NEGATIV, LAST, STRESS }
+
+    /** Laufparameter aus der GUI; Kategorie standardmäßig POSITIV. */
     public record LaufKonfiguration(
-            int mitarbeiter, int auftraege, long seed, long denkzeitMs, boolean aufraeumen) { }
+            int mitarbeiter, int auftraege, long seed, long denkzeitMs, boolean aufraeumen,
+            Kategorie kategorie) {
+        /** Bequemer Konstruktor: Positivfälle (bisheriges Verhalten). */
+        public LaufKonfiguration(int mitarbeiter, int auftraege, long seed,
+                long denkzeitMs, boolean aufraeumen) {
+            this(mitarbeiter, auftraege, seed, denkzeitMs, aufraeumen, Kategorie.POSITIV);
+        }
+        public LaufKonfiguration {
+            if (kategorie == null) {
+                kategorie = Kategorie.POSITIV;
+            }
+        }
+    }
 
     public enum Phase { BEREIT, AUFRAEUMEN, LAUF, VERIFIKATION, FERTIG, ABGEBROCHEN }
 
@@ -71,6 +87,15 @@ public final class Simulator {
     private volatile String letztesPdf;
     private volatile String letztesMd;
     private volatile String modusLetzter = "FACHSCHICHT";
+    private volatile Kategorie kategorieLetzter = Kategorie.POSITIV;
+    /** Harte Laufsperre: zuschlagen VOR dem Thread-Start — die Phase wird im Lauf
+     *  erst Sekunden später gesetzt, das Fenster ließ einen zweiten Lauf zu. */
+    private final java.util.concurrent.atomic.AtomicBoolean laufAktiv =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
+    /** STRESS-Phasenbarriere: Index des ersten BEARBEITEN-Auftrags (-1 = kein
+     *  Stresstest); Welle 2 wartet, bis alle ANLEGEN-Aufträge abgeschlossen sind. */
+    private volatile int stressPhase1Ende = -1;
+    private volatile java.util.concurrent.atomic.AtomicInteger stressPhase1Offen;
     private volatile List<WebMitarbeiter> webMitarbeiter = List.of();
     private final java.util.concurrent.ConcurrentHashMap<String, String> webKonten =
             new java.util.concurrent.ConcurrentHashMap<>();
@@ -209,16 +234,24 @@ public final class Simulator {
 
     /** Startet einen Lauf synchron im aufrufenden Thread (für CLI/Batch-Betrieb). */
     public void laufSynchron(LaufKonfiguration konfig) throws Exception {
-        this.konfiguration = konfig;
-        this.abgebrochen = false;
-        this.letzteFehlermeldung = null;
-        laufAusfuehren(konfig);
+        if (!laufAktiv.compareAndSet(false, true)) {
+            throw new IllegalStateException("Es läuft bereits ein Simulator-Lauf");
+        }
+        try {
+            this.konfiguration = konfig;
+            this.abgebrochen = false;
+            this.letzteFehlermeldung = null;
+            laufAusfuehren(konfig);
+        } finally {
+            laufAktiv.set(false);
+        }
     }
 
     /** Startet einen Lauf in einem Hintergrund-Thread; kehrt sofort zurück. */
     public synchronized void starte(LaufKonfiguration konfig) {
-        if (phase == Phase.AUFRAEUMEN || phase == Phase.LAUF || phase == Phase.VERIFIKATION) {
-            throw new IllegalStateException("Es läuft bereits ein Simulator-Lauf (Phase " + phase + ")");
+        if (!laufAktiv.compareAndSet(false, true)) {
+            throw new IllegalStateException("Es läuft bereits ein Simulator-Lauf (Phase "
+                    + phase + ") — bitte das Ende abwarten");
         }
         this.konfiguration = konfig;
         this.abgebrochen = false;
@@ -233,6 +266,8 @@ public final class Simulator {
                     log.fehler("SIMULATOR", "Lauf abgebrochen: " + letzteFehlermeldung);
                 }
                 schliesseRessourcen();
+            } finally {
+                laufAktiv.set(false);
             }
         }, "testsweet-lauf");
         laufThread.setDaemon(true);
@@ -250,6 +285,11 @@ public final class Simulator {
 
     public String letzterModus() {
         return modusLetzter;
+    }
+
+    /** Kategorie des letzten/aktuellen Laufs (POSITIV, NEGATIV, LAST). */
+    public Kategorie letzteKategorie() {
+        return kategorieLetzter;
     }
 
     public List<WebMitarbeiter> webMitarbeiterListe() {
@@ -286,16 +326,24 @@ public final class Simulator {
 
     /** Startet einen Weboberflächen-Lauf synchron im aufrufenden Thread (für CLI). */
     public void laufWebSynchron(LaufKonfiguration konfig) throws Exception {
-        this.konfiguration = konfig;
-        this.abgebrochen = false;
-        this.letzteFehlermeldung = null;
-        laufWebAusfuehren(konfig);
+        if (!laufAktiv.compareAndSet(false, true)) {
+            throw new IllegalStateException("Es läuft bereits ein Simulator-Lauf");
+        }
+        try {
+            this.konfiguration = konfig;
+            this.abgebrochen = false;
+            this.letzteFehlermeldung = null;
+            laufWebAusfuehren(konfig);
+        } finally {
+            laufAktiv.set(false);
+        }
     }
 
     /** Startet einen Weboberflächen-Lauf in einem Hintergrund-Thread. */
     public synchronized void starteWeb(LaufKonfiguration konfig) {
-        if (phase == Phase.AUFRAEUMEN || phase == Phase.LAUF || phase == Phase.VERIFIKATION) {
-            throw new IllegalStateException("Es läuft bereits ein Simulator-Lauf (Phase " + phase + ")");
+        if (!laufAktiv.compareAndSet(false, true)) {
+            throw new IllegalStateException("Es läuft bereits ein Simulator-Lauf (Phase "
+                    + phase + ") — bitte das Ende abwarten");
         }
         this.konfiguration = konfig;
         this.abgebrochen = false;
@@ -310,6 +358,8 @@ public final class Simulator {
                     log.fehler("SIMULATOR", "Web-Lauf abgebrochen: " + letzteFehlermeldung);
                 }
                 schliesseWebServer();
+            } finally {
+                laufAktiv.set(false);
             }
         }, "testsweet-web-lauf");
         laufThread.setDaemon(true);
@@ -318,6 +368,7 @@ public final class Simulator {
 
     private void laufWebAusfuehren(LaufKonfiguration konfig) throws Exception {
         modusLetzter = "WEB";
+        kategorieLetzter = konfig.kategorie();
         laufStart = LocalDateTime.now();
         laufEnde = null;
         log = new SweetLog(PathLogBasis());
@@ -352,8 +403,8 @@ public final class Simulator {
 
         WebMitarbeiter.bereiteTreiberVor();
         long seed = konfig.seed() != 0 ? konfig.seed() : ThreadLocalRandom.current().nextLong();
-        auftraege = new WebSzenarioBibliothek(seed).erzeuge(konfig.auftraege(),
-                SzenarioBibliothek.PREFIX + "W-");
+        auftraege = erzeugeTopf(konfig, seed, true);
+        initialisiereStressBarriere();
         naechsterAuftrag.set(0);
 
         webMitarbeiter = new ArrayList<>();
@@ -489,6 +540,7 @@ public final class Simulator {
 
     private void laufAusfuehren(LaufKonfiguration konfig) throws Exception {
         modusLetzter = "FACHSCHICHT";
+        kategorieLetzter = konfig.kategorie();
         laufStart = LocalDateTime.now();
         laufEnde = null;
         log = new SweetLog(PathLogBasis());
@@ -513,7 +565,8 @@ public final class Simulator {
             log.ereignis("SIMULATOR", "", "Zufälliger Seed gewählt: " + seed
                     + " (für Reproduktion ins nächste Laufkonfig-Feld übernehmen)");
         }
-        auftraege = new SzenarioBibliothek(seed).erzeuge(konfig.auftraege());
+        auftraege = erzeugeTopf(konfig, seed, false);
+        initialisiereStressBarriere();
         naechsterAuftrag.set(0);
 
         pool = new SimpleConnectionPool(dbUrl, dbUser, dbPass, konfig.mitarbeiter() + 2);
@@ -568,9 +621,47 @@ public final class Simulator {
         log = null;
     }
 
-    /** PDF-Testdokumentation (Zusammenfassung + Einzelfälle) — Fehler brechen den Lauf nicht. */
+    /** Auftragstopf je Modus und Kategorie; das Aktenzeichen-Präfix unterscheidet
+     *  die Kategorien (POSITIV: SWEET- / SWEET-W-, NEGATIV: SWEET-N- / SWEET-NW-,
+     *  LAST: SWEET-L- / SWEET-LW-) und wird im Bericht ausgewiesen. */
+    private List<Auftrag> erzeugeTopf(LaufKonfiguration konfig, long seed, boolean web) {
+        String praefix = SzenarioBibliothek.PREFIX + switch (konfig.kategorie()) {
+            case POSITIV -> web ? "W-" : "";
+            case NEGATIV -> web ? "NW-" : "N-";
+            case LAST -> web ? "LW-" : "L-";
+            case STRESS -> "S-"; // nur Fachschicht (siehe Guard unten)
+        };
+        if (konfig.kategorie() == Kategorie.STRESS && web) {
+            throw new IllegalStateException("Der Stresstest (User anlegen + nachbearbeiten) "
+                    + "ist für den Fachschicht-Modus vorgesehen — für die Weboberfläche die "
+                    + "Kategorie LAST nutzen");
+        }
+        return switch (konfig.kategorie()) {
+            case POSITIV -> !web
+                    ? new SzenarioBibliothek(seed).erzeuge(konfig.auftraege(), praefix)
+                    : new WebSzenarioBibliothek(seed).erzeuge(konfig.auftraege(), praefix);
+            case NEGATIV -> !web
+                    ? new SzenarioBibliothek(seed).erzeugeNegativ(konfig.auftraege(), praefix)
+                    : new WebSzenarioBibliothek(seed).erzeugeNegativ(konfig.auftraege(), praefix);
+            case LAST -> !web
+                    ? new SzenarioBibliothek(seed).erzeugeLast(konfig.auftraege(), praefix)
+                    : new WebSzenarioBibliothek(seed).erzeugeLast(konfig.auftraege(), praefix);
+            case STRESS -> new SzenarioBibliothek(seed).erzeugeStress(konfig.auftraege(), praefix);
+        };
+    }
+
+    /** PDF/MD-Testdokumentation — Fehler brechen den Lauf nicht. LAST-Läufe
+     *  erhalten bewusst nur einen gekürzten Gesamtreport statt Einzelfall-Seiten. */
     private void schreibeTestdokumentation() {
         try {
+            if (kategorieLetzter == Kategorie.LAST || kategorieLetzter == Kategorie.STRESS) {
+                java.nio.file.Path pdfPfad = log.runVerzeichnis.resolve("lastreport.pdf");
+                java.nio.file.Path mdPfad = log.runVerzeichnis.resolve("lastreport.md");
+                LastBericht.schreibe(pdfPfad, mdPfad, this);
+                letztesPdf = pdfPfad.toString();
+                letztesMd = mdPfad.toString();
+                return;
+            }
             java.nio.file.Path pdfPfad = log.runVerzeichnis.resolve("testdokumentation.pdf");
             Testdokumentation.schreibe(pdfPfad, this);
             letztesPdf = pdfPfad.toString();
@@ -620,7 +711,10 @@ public final class Simulator {
         }
     }
 
-    /** Globale Zusatzprüfung: Anzahl SWEET-Vorgänge passt zu den Aufträgen mit bgId. */
+    /** Globale Zusatzprüfung: Anzahl SWEET-Vorgänge passt zu den erzeugten
+     *  Bedarfsgemeinschaften — Fachschicht: Aufträge mit bgId (KEIN_ANSPRUCH erzeugt
+     *  keine); Web: Auftraege mit Vorgangs-Marker aus WebHelfer.vorgangAnlegen
+     *  (Negativszenarien wehren die Anlage bewusst ab). */
     private void globalerKonsistenzcheck() {
         try (Connection c = DriverManager.getConnection(dbUrl, dbUser, dbPass);
              Statement st = c.createStatement();
@@ -628,7 +722,20 @@ public final class Simulator {
                      + "WHERE AKTENZEICHEN LIKE '" + SzenarioBibliothek.PREFIX + "%'")) {
             rs.next();
             long vorhandene = rs.getLong(1);
-            long erwartete = auftraege.stream().filter(a -> a.bgId != null).count();
+            // Web: zählt jeder Auftrag, dessen Vorgang über die Oberfläche wirklich
+            // angelegt wurde (NEGATIV-Szenarien wehren die Anlage bewusst ab — der
+            // Marker "vorgangErstellt" kommt aus WebHelfer.vorgangAnlegen).
+            // Fachschicht: Aufträge mit bgId (KEIN_ANSPRUCH erzeugt keine BG).
+            long erwartete;
+            if (kategorieLetzter == Kategorie.STRESS) {
+                // Stresstest: zwei Aufträge (ANLEGEN + BEARBEITEN) teilen sich je einen User
+                erwartete = (int) Math.ceil(auftraege.size() / 2.0);
+            } else if ("WEB".equals(modusLetzter)) {
+                erwartete = auftraege.stream().filter(a -> Boolean.TRUE.equals(
+                        a.kontext.get("vorgangErstellt"))).count();
+            } else {
+                erwartete = auftraege.stream().filter(a -> a.bgId != null).count();
+            }
             String text = "Globaler Konsistenzcheck: " + vorhandene + " SWEET-Vorgänge in der DB, "
                     + erwartete + " erwartet";
             log.ereignis("VERIFIKATION", "", text + (vorhandene == erwartete ? " — OK" : " — ABWEICHUNG!"));
@@ -657,6 +764,7 @@ public final class Simulator {
         sb.append("Datenbank       : ").append(dbUrl).append('\n');
         sb.append("Modus           : ").append("WEB".equals(modusLetzter)
                 ? "Weboberfläche (Selenium)" : "Fachschicht").append('\n');
+        sb.append("Kategorie       : ").append(kategorieLetzter).append('\n');
         sb.append("Mitarbeiter     : ").append("WEB".equals(modusLetzter)
                 ? webMitarbeiter.size() : mitarbeiter.size()).append('\n');
         sb.append("Aufträge        : ").append(auftraege.size()).append('\n');
@@ -679,16 +787,50 @@ public final class Simulator {
     // Aufrufe aus den Mitarbeiter-Threads
     // ------------------------------------------------------------------
 
-    /** Nächsten offenen Auftrag atomar entnehmen (Pool-Prinzip); null = leer. */
+    /** Nächsten offenen Auftrag atomar entnehmen (Pool-Prinzip); null = leer.
+     *  STRESS-Phasenbarriere: Aufträge hinter dem Phasenende (Nachbearbeitungen)
+     *  werden erst ausgegeben, wenn alle Anlagen der Welle 1 abgeschlossen sind. */
     Auftrag nimmAuftrag() {
         while (true) {
             int index = naechsterAuftrag.get();
             if (index >= auftraege.size()) {
                 return null;
             }
+            if (index >= stressPhase1Ende && stressPhase1Offen != null
+                    && stressPhase1Offen.get() > 0) {
+                if (abgebrochen) {
+                    return null;
+                }
+                try {
+                    Thread.sleep(25);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return null;
+                }
+                continue;
+            }
             if (naechsterAuftrag.compareAndSet(index, index + 1)) {
                 return auftraege.get(index);
             }
+        }
+    }
+
+    /** Setzt die Phasenbarriere für STRESS-Läufe (halbe Liste = Welle 1). */
+    private void initialisiereStressBarriere() {
+        if (kategorieLetzter == Kategorie.STRESS && auftraege.size() >= 2) {
+            stressPhase1Ende = auftraege.size() / 2;
+            stressPhase1Offen = new java.util.concurrent.atomic.AtomicInteger(stressPhase1Ende);
+        } else {
+            stressPhase1Ende = -1;
+            stressPhase1Offen = null;
+        }
+    }
+
+    /** Meldet den Abschluss eines Spiel-Auftrags (Hook für die STRESS-Barriere). */
+    void auftragSpielenBeendet(Auftrag auftrag) {
+        java.util.concurrent.atomic.AtomicInteger offen = stressPhase1Offen;
+        if (offen != null && auftrag.id <= stressPhase1Ende) {
+            offen.decrementAndGet();
         }
     }
 

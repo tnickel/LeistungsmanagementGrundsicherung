@@ -237,6 +237,28 @@ app.js-Interpolationen als XSS) dokumentiert nicht umgesetzt:
 - [x] Gegen Docker-Oracle verifiziert: 10 Mitarbeiter / 60 Aufträge, 60/60 verifiziert in ~1,5 s;
       Batch-Lauf 5/10 verifiziert in < 1 s (100 % Erfolgsquote)
 - [x] **Modus 2: Weboberfläche per Selenium bedienen** (Selenium WebDriver steuert parallele Chrome-Fenster im Bildschirmraster; bedient SDN.Leistung interaktiv mit Screenshot-Erfassung und vollständiger SQL-Verifikation; in GUI und CLI `testsweet\start.bat web` integriert)
+- [x] **Testfallkategorien Positiv/Negativ/Lasttest** (2026-10-11 abends): GUI-Reiter
+      zwischen Moduswahl und Laufkonfiguration; Negativfälle als erwartete Fachfehler
+      (Fachschicht 9 Arten, Web 7 Arten inkl. Fehlerdialog-Beweis) mit Prüfung des
+      unveränderten DB-Endzustands; Lasttest mit schlanken Massendurchläufen und
+      gekürztem Gesamtreport (`lastreport.pdf`/`.md`) statt Einzelfall-Seiten.
+      Aktenzeichen-Präfixe je Kategorie: SWEET-/SWEET-W- (Positiv), SWEET-N-/SWEET-NW-
+      (Negativ), SWEET-L-/SWEET-LW- (Last). Verifiziert: Fachschicht 60/60 Positiv,
+      18/18 Negativ (zwei Seeds, alle 9 Arten), 600/600 Last in 3 s (12.000 Aufträge/min,
+      Aggregate-Report); Web 6/6 Negativ, 4/4 Last, 2/2 Positiv. Dazu harte Laufsperre
+      gegen doppelte Starts (AtomicBoolean vor Thread-Start, API antwortet 409).
+- [x] **Stresstest-Kategorie (2026-10-11 spät, 4. GUI-Reiter)**: zwei Wellen über
+      dieselben User — Welle 1 legt N User an (Vorgang + SozialFall), Welle 2 findet
+      sie per Aktenzeichen wieder (neue Service-Methode
+      `findeBedarfsgemeinschaftNachAktenzeichen`), ändert die Miete (optimistisches
+      Locking) und ordnet die Auszahlung an; Phasenbarriere im Simulator gibt Welle 2
+      erst nach Abschluss von Welle 1 frei. Nur Fachschicht (API/GUI wehren Modus 2 ab);
+      Report als gekürzter `lastreport`. Referenzlauf 20 MA / 2000 User × 2 =
+      **4000/4000 verifiziert in 13 s** (18.461 Aufträge/min, max. 1,19 s Sperrwarte,
+      0 Retries); unabhängige SQL-Endprüfung: 2000 Vorgänge aktiv, alle Fälle exakt
+      Version 2, 2000 Zahlungen ANGELEGT für 2026-10, Summe 2.266.017,00 EUR
+      deckungsgleich, 8000 Journaleinträge (4 je User), 0 negative Budgets.
+      Hauptprojekt-Testsuite danach 136/136 grün.
 
 ## Etappe 4 — Betrieb & Weiterentwicklung
 

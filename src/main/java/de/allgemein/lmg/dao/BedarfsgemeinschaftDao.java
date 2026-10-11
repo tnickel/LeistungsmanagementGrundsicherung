@@ -40,6 +40,16 @@ public final class BedarfsgemeinschaftDao {
         }
     }
 
+    /** Lookup über das eindeutige Aktenzeichen (Unique-Index UQ_BG_AKTENZEICHEN). */
+    public Optional<Bedarfsgemeinschaft> findeNachAktenzeichen(TxContext ctx,
+            String aktenzeichen) throws SQLException {
+        try (PreparedStatement stmt = ctx.connection().prepareStatement(
+                "SELECT " + COLUMNS + " FROM BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN = ?")) {
+            stmt.setString(1, aktenzeichen);
+            return leseEinzeln(stmt.executeQuery());
+        }
+    }
+
     /**
      * Pessimistisches Locking für den Buchungsweg: exclusive Zeilensperre, damit
      * parallele Sachbearbeiter nacheinander buchen statt sich gegenseitig

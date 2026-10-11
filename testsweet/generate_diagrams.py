@@ -287,6 +287,57 @@ def gen_transaktionsarchitektur(zielordner):
     speichern(fig, "transaktionsarchitektur", zielordner)
 
 
+
+
+# -------------------------------------------------------------------------
+# 5. Stresstest: zwei Wellen über dieselben User
+# -------------------------------------------------------------------------
+def gen_stresstest_zwei_wellen(zielordner):
+    fig, ax = neue_fig("Stresstest-Szenario: Zwei Wellen über dieselben User",
+                       "2000 User anlegen → Phasenbarriere → 2000 Nachbearbeitungen = 4000 Transaktionsblöcke unter Parallelität", 10.2)
+    # y-Reichweite: 0 .. 102; Titel/Untertitel belegen oben ~101..94
+
+    # ---------------- Welle 1 (oben links) ----------------
+    container(ax, 4, 66, 58, 25, "WELLE 1 — STRESS-ANLEGEN (2000 User)")
+    box(ax, 8, 73.5, 25, 10, "Vorgang anlegen\nAktenzeichen + Budget\n+ SEPA-Daten", "web", 7.9)
+    box(ax, 36, 73.5, 22, 10, "SozialFall erfassen\nRBS + KdU + Miete\nFall-Version 1", "fach", 7.9)
+    pfeil(ax, 33, 78.5, 36, 78.5)
+    label(ax, 33, 69.5, "20 Stränge parallel · Commit je Schritt · noch keine Zahlung", size=7.4)
+
+    # ---------------- Phasenbarriere (Mitte) ----------------
+    ax.plot([2, 64], [62, 62], color="#4338ca", lw=1.4, ls=(0, (6, 4)), zorder=2)
+    box(ax, 6, 53, 54, 7, "PHASENBARRIERE\nWelle 2 erst, wenn ALLE 2000 Anlagen committet sind", "tx", 8.0, True)
+    label(ax, 33, 50, "Referenzlauf: letzte Anlage 22:02:36,892 · erste Nacharbeit 22:02:36,894", size=7.2)
+
+    # ---------------- Welle 2 (unten links) ----------------
+    container(ax, 4, 19, 58, 26, "WELLE 2 — STRESS-BEARBEITEN (2000 Nacharbeiten)")
+    box(ax, 6.5, 23, 16.5, 11.5, "Wiederfinden\nper Aktenzeichen\n(Index-Lookup)", "neutral", 7.6)
+    box(ax, 25.5, 23, 16.5, 11.5, "Miete ändern\noptimist. Locking\nVERSION 1 → 2", "tx", 7.6, True)
+    box(ax, 44, 23, 16, 11.5, "Auszahlung\nanordnen\n(neue Miete)\n→ ANGELEGT", "fach", 7.6, True)
+    pfeil(ax, 23, 28.7, 25.5, 28.7)
+    pfeil(ax, 42, 28.7, 44, 28.7)
+    label(ax, 33, 21.3, "zweiter Transaktionsblock je User", size=7.2)
+
+    # ---------------- Oracle-Kern (rechts durchgehend) ----------------
+    container(ax, 66, 19, 60, 72, "Oracle Database — der transaktionale Kern unter Stress")
+    box(ax, 70, 76, 52, 9, "2000 Vorgangs- und Fallzeilen entstehen (Welle 1)\nACID-Commit je Schritt · Rollback im Fehlerfall", "db", 7.8)
+    box(ax, 70, 60, 52, 12, "Zeilensperren FOR UPDATE — 20 Threads buchen parallel:\nWartezeit statt Chaos: max. Sperrwarte 1,19 s\nim Referenzlauf, 0 Deadlock-Retries nötig", "db", 7.7)
+    box(ax, 70, 44, 52, 12.5, "VERSION-Spalte + Trigger — genau EINE Nachbearbeitung\nje User: alle 2000 Fälle am Ende in Version 2\n(kein Lost Update, keine Doppelanordnung)", "db", 7.7)
+    box(ax, 70, 28, 52, 11, "Vier-Augen-Warteschlange — 2000 Zahlungen\nim Status ANGELEGT: keine Auszahlung ohne\nzweite Kraft", "db", 7.8)
+    pfeil(ax, 62, 79, 70, 80)
+    pfeil(ax, 62, 28.7, 70, 49)
+
+    # ---------------- SQL-Verifikation (unten, volle Breite) ----------------
+    box(ax, 4, 4, 122, 11.5,
+        "SQL-ENDPRÜFUNG NACH DEM LAUF (je Auftrag + Aggregate im Gesamtreport)\n"
+        "2000 Vorgänge aktiv · alle 2000 Fälle exakt Version 2 · 2000 Zahlungen ANGELEGT für 2026-10\n"
+        "Beträge nach neuer Miete · Restbudget je User exakt gemindert · 4 Journaleinträge je User",
+        "ok", 8.2, True)
+    pfeil(ax, 95, 19, 95, 15.7)
+    pfeil(ax, 33, 19, 33, 15.7)
+
+    speichern(fig, "stresstest_zwei_wellen", zielordner)
+
 if __name__ == "__main__":
     ziel = os.path.join(os.path.dirname(__file__), "src", "main", "resources", "sweet", "assets")
     print(f"Erzeuge Diagramme in: {ziel}")
@@ -294,4 +345,5 @@ if __name__ == "__main__":
     gen_bedarfsberechnung(ziel)
     gen_vier_augen_workflow(ziel)
     gen_transaktionsarchitektur(ziel)
-    print("Alle 4 Diagramme erfolgreich generiert.")
+    gen_stresstest_zwei_wellen(ziel)
+    print("Alle 5 Diagramme erfolgreich generiert.")

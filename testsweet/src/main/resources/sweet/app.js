@@ -35,6 +35,10 @@ const DIAGRAMME = {
     transaktionsarchitektur: {
         src: "/assets/transaktionsarchitektur.png",
         legende: "Schichtenarchitektur der Transaktionssteuerung (TaskController, TxManager, RetryPolicy bei ORA-54/60/8177, Oracle ACID-Kern)."
+    },
+    stresstest_zwei_wellen: {
+        src: "/assets/stresstest_zwei_wellen.png",
+        legende: "Stresstest-Szenario: Welle 1 (2000 User anlegen), Phasenbarriere, Welle 2 (wiederfinden, Miete ändern, Auszahlung anordnen) — Oracle-Kern und SQL-Endprüfung."
     }
 };
 
@@ -49,10 +53,23 @@ let autoScroll = true;
 // ------------------------------------------------------------------
 
 window.addEventListener("DOMContentLoaded", () => {
-    // Presets
-    $("preset-klein").addEventListener("click", () => setzePreset(5, 15, 42, 20));
-    $("preset-standard").addEventListener("click", () => setzePreset(10, 60, 42, 20));
-    $("preset-gross").addEventListener("click", () => setzePreset(20, 120, 42, 10));
+    // Presets (je Testfallkategorie unterschiedliche Vorgaben)
+    renderePresets();
+    $("preset-klein").addEventListener("click", () => wendePresetAn("klein"));
+    $("preset-standard").addEventListener("click", () => wendePresetAn("standard"));
+    $("preset-gross").addEventListener("click", () => wendePresetAn("gross"));
+
+    // Testfallkategorie-Reiter (zwischen Moduswahl und Laufkonfiguration)
+    document.querySelectorAll("#kategorie-abschnitt .d-tab").forEach(tab => {
+        tab.addEventListener("click", () => {
+            document.querySelectorAll("#kategorie-abschnitt .d-tab").forEach(t => t.classList.remove("aktiv"));
+            tab.classList.add("aktiv");
+            gewaehlteKategorie = tab.dataset.kategorie;
+            renderePresets();
+            const defaults = KATEGORIE_PRESETS[gewaehlteKategorie].standard;
+            setzePreset(defaults.ma, defaults.auf, defaults.seed, defaults.denkzeit);
+        });
+    });
 
     // Start / Stop
     $("start").addEventListener("click", starteSimulation);
@@ -117,6 +134,52 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 let gewaehlterModus = "FACHSCHICHT";
+let gewaehlteKategorie = "POSITIV";
+
+const KATEGORIE_HINWEISE = {
+    POSITIV: "Positivfälle: Erfolgswege mit vollständiger Prüfung",
+    NEGATIV: "Negativfälle: abgewehrte Fachfehler mit unverändertem Datenbank-Endzustand",
+    LAST: "Lasttest: schlanke Massendurchläufe — Report nur als Gesamtreport",
+    STRESS: "Stresstest: Aufträge = User-Zahl; je User 2 Tests (anlegen + nachbearbeiten) — nur Fachschicht-Modus, Gesamtreport"
+};
+
+const KATEGORIE_PRESETS = {
+    POSITIV: {
+        klein: { label: "Schnell (5 MA / 15 Fälle)", ma: 5, auf: 15, seed: 42, denkzeit: 20 },
+        standard: { label: "Standard (10 MA / 60 Fälle)", ma: 10, auf: 60, seed: 42, denkzeit: 20 },
+        gross: { label: "Erweitert (20 MA / 120 Fälle)", ma: 20, auf: 120, seed: 42, denkzeit: 10 }
+    },
+    NEGATIV: {
+        klein: { label: "Schnell (5 MA / 15 Fälle)", ma: 5, auf: 15, seed: 42, denkzeit: 20 },
+        standard: { label: "Standard (10 MA / 60 Fälle)", ma: 10, auf: 60, seed: 42, denkzeit: 20 },
+        gross: { label: "Erweitert (20 MA / 120 Fälle)", ma: 20, auf: 120, seed: 42, denkzeit: 10 }
+    },
+    LAST: {
+        klein: { label: "Lasttest klein (10 MA / 120 Fälle)", ma: 10, auf: 120, seed: 42, denkzeit: 0 },
+        standard: { label: "Lasttest (20 MA / 600 Fälle)", ma: 20, auf: 600, seed: 42, denkzeit: 0 },
+        gross: { label: "Dauerlast (30 MA / 1200 Fälle)", ma: 30, auf: 1200, seed: 42, denkzeit: 0 }
+    },
+    STRESS: {
+        klein: { label: "Stress klein (10 MA / 500 User)", ma: 10, auf: 500, seed: 42, denkzeit: 0 },
+        standard: { label: "Stresstest (20 MA / 2000 User × 2)", ma: 20, auf: 2000, seed: 42, denkzeit: 0 },
+        gross: { label: "Dauerstress (30 MA / 3000 User × 2)", ma: 30, auf: 3000, seed: 42, denkzeit: 0 }
+    }
+};
+
+function wendePresetAn(name) {
+    const p = KATEGORIE_PRESETS[gewaehlteKategorie][name];
+    setzePreset(p.ma, p.auf, p.seed, p.denkzeit);
+}
+
+/** Preset-Knöpfe je Kategorie beschriften (klein/standard/gross). */
+function renderePresets() {
+    const defs = KATEGORIE_PRESETS[gewaehlteKategorie];
+    $("preset-klein").textContent = defs.klein.label;
+    $("preset-standard").textContent = defs.standard.label;
+    $("preset-gross").textContent = defs.gross.label;
+    const hinweis = $("kategorie-hinweis");
+    if (hinweis) hinweis.textContent = KATEGORIE_HINWEISE[gewaehlteKategorie];
+}
 
 function setzePreset(ma, auf, seed, denkzeit) {
     $("mitarbeiter").value = ma;
@@ -130,8 +193,14 @@ function setzePreset(ma, auf, seed, denkzeit) {
 // ------------------------------------------------------------------
 
 async function starteSimulation() {
+    if (gewaehlteKategorie === "STRESS" && gewaehlterModus === "WEB") {
+        alert("Der Stresstest (User anlegen + nachbearbeiten) ist für den Fachschicht-Modus "
+            + "vorgesehen — bitte Modus 1 (Fachschicht) wählen.");
+        return;
+    }
     const body = {
         modus: gewaehlterModus,
+        kategorie: gewaehlteKategorie,
         mitarbeiter: Number($("mitarbeiter").value),
         auftraege: Number($("auftraege").value),
         seed: Number($("seed").value),

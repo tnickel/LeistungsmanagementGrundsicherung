@@ -111,6 +111,7 @@ final class Mitarbeiter implements Runnable {
         if (!fehlgeschlagen) {
             erledigt++;
         }
+        simulator.auftragSpielenBeendet(auftrag); // STRESS-Phasenbarriere
         aktuellerAuftrag = null;
         simulator.log().mitarbeiterEreignis(kuerzel,
                 "Auftrag " + auftrag.id + " abgeschlossen: " + auftrag.status

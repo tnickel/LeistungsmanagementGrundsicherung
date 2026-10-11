@@ -290,7 +290,7 @@ Der integrierte JDK-HttpServer stellt alle Fach- und Systemfunktionen über eine
 
 Reine Unit-Tests greifen bei Transaktionssteuerungen zu kurz: Ob Sperren sauber greifen, Deadlocks transparent wiederholt werden, Budgets cent-genau stimmen und das Vier-Augen-Prinzip unter echter Last standhält, zeigt sich erst bei gleichzeitigen Zugriffen.
 
-Hierfür existiert mit **`testsweet/`** ein eigenständiger **Mitarbeiter-Simulator** (außerhalb von `mvn test`): **N simulierte Sachbearbeiter** greifen parallel auf einen gemeinsamen **Auftragstopf** zu, bearbeiten komplexe SGB-XII-Fälle über die echte Fachschicht (`SozialLeistungsService` &rarr; `TxManager` &rarr; Oracle Database) und verifizieren anschließend den **persistiere Endzustand direkt per SQL gegen die Datenbank**.
+Hierfür existiert mit **`testsweet/`** ein eigenständiger **Mitarbeiter-Simulator** (außerhalb von `mvn test`): **N simulierte Sachbearbeiter** greifen parallel auf einen gemeinsamen **Auftragstopf** zu, bearbeiten komplexe SGB-XII-Fälle über die echte Fachschicht (`SozialLeistungsService` &rarr; `TxManager` &rarr; Oracle Database) und verifizieren anschließend den **persistierte Endzustände direkt per SQL gegen die Datenbank**. Je Lauf werden **Modus** (Fachschicht oder Weboberfläche/Selenium) und **Testfallkategorie** gewählt: **Positivfälle** (Erfolgswege), **Negativfälle** (abgewehrte Fachfehler — z. B. Selbstfreigabe, Doppelzahlung, ungültige SEPA-Daten — mit Prüfung des unveränderten Datenbank-Endzustands) und **Lasttest** (600+ schlanke Durchläufe mit gekürztem Gesamtreport statt Einzeldokumentation).
 
 <p align="center">
   <img src="testsweet/assets/simulator_zyklus.png" alt="Ablauf und Testzyklus des testsweet Simulators" width="90%" />
