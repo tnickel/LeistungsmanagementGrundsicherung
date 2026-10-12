@@ -58,7 +58,7 @@ inhalt.push(abs("Die Grundsicherung im Alter und bei Erwerbsminderung ist in den
 inhalt.push(abs("SDN.Leistung LMG bildet genau diese Prüfung rechnerisch ab: Die Anwendung ermittelt je Leistungsberechtigtem (SozialFall) den Bedarf, summiert ihn auf die Bedarfsgemeinschaft, rechnet das zu berücksichtigende Einkommen gegen und weist den verbleibenden Zahlbetrag aus. Die rechtliche Verbindlichkeit erhält das Ergebnis durch den Bewilligungsbescheid nach § 37 SGB X (Kapitel 8)."));
 
 inhalt.push(h2("2.2  Regelbedarfe und Mehrbedarfe"));
-inhalt.push(abs("Der Regelbedarf deckt den Lebensunterhalt mit Nahrung, Kleidung, Körperpflege, Hausrat, Haushaltsenergie (ohne Heizung) und persönlichen Bedürfnissen des Tages. Er ist nach Regelbedarfsstufen (RBS) gestaffelt, die sich nach dem Personenkreis richten. Für das Referenzjahr 2026 sind in der Anwendung alle sechs Stufen hinterlegt:"));
+inhalt.push(abs("Der Regelbedarf deckt den Lebensunterhalt mit Nahrung, Kleidung, Körperpflege, Hausrat, Haushaltsenergie (ohne Heizung) und persönlichen Bedürfnissen des Tages. Er ist nach Regelbedarfsstufen (RBS) gestaffelt, die sich nach dem Personenkreis richten. Die Stufen stehen je Jahr in der Satztabelle der Datenbank (Start 2026: alle sechs Stufen hinterlegt); zum 1. Januar wird der neue Stand als neue Tabellenzeile gepflegt — der Jahreswechsel erfordert keine Programmänderung:"));
 inhalt.push(tabellenTitel("Regelbedarfsstufen 2026 (hinterlegte Werte der Anwendung)"));
 inhalt.push(tabelle(
   ["Stufe", "Betrag 2026", "Typischer Personenkreis"],
@@ -72,8 +72,9 @@ inhalt.push(tabelle(
   ],
   [12, 20, 68],
 ));
-inhalt.push(abs("Zu dem Regelbedarf treten Mehrbedarfe nach § 30 SGB XII. Die Anwendung unterstützt die beiden automatisierbaren Fallgruppen:"));
+inhalt.push(abs("Zu dem Regelbedarf treten Mehrbedarfe nach § 30 SGB XII. Die Anwendung unterstützt die automatisierbaren Fallgruppen:"));
 inhalt.push(punkt([{ t: "Merkzeichen G (§ 30 Abs. 1 SGB XII): ", fett: true }, { t: "17 % des Regelbedarfs für behinderungsbedingte Mehrkosten bei gehinderter Fortbewegung — bei RBS 1 genau 95,71 EUR, bei RBS 2 genau 86,02 EUR." }]));
+inhalt.push(punkt([{ t: "Schwangerschaft (§ 30 Abs. 2 SGB XII): ", fett: true }, { t: "17 % des Regelbedarfs ab der 13. Schwangerschaftswoche. Das Feld „Entbindungsmonat“ (Format JJJJ-MM, optional) beendet den Mehrbedarf fachlich: Für Monate nach dem Entbindungsmonat werden Auszahlungen und Bescheide abgewiesen, bis das Häkchen „Schwanger“ zurückgenommen wird. Bleibt das Feld leer, liegt die Einhaltung des Endzeitpunkts in der Verantwortung der Sachbearbeitung (Wiedervorlage nutzen)." }]));
 inhalt.push(punkt([{ t: "Dezentrale Warmwassererzeugung (§ 30 Abs. 7 SGB XII): ", fett: true }, { t: "stufenabhängig 2,3 % (RBS 1/2), 1,4 % (RBS 4), 1,2 % (RBS 5) oder 0,8 % (RBS 6) des Regelbedarfs, wenn Warmwasser nicht zentral bereitgestellt wird — bei RBS 1 genau 12,95 EUR, bei RBS 6 genau 2,86 EUR; für RBS 3 sieht das Gesetz keinen Satz vor." }]));
 inhalt.push(hinweis("Fachliche Sorgfalt", "Die Anwendung berechnet Mehrbedarfe nur, wenn sie in der SozialFall-Maske ausdrücklich angekreuzt sind. Die Prüfung, ob ein Merkzeichen nachweislich vorliegt oder Warmwasser tatsächlich dezentral erzeugt wird, bleibt Aufgabe der Sachbearbeitung — das System verhindert keine Überprüfung, es rechnet korrekt."));
 
@@ -165,10 +166,10 @@ inhalt.push(schritt(1, [{ t: "Idempotenz: ", fett: true }, { t: "Die Vorgangsnum
 inhalt.push(schritt(2, [{ t: "Sperre: ", fett: true }, { t: "Der Vorgang wird für die Dauer der Buchung exklusiv gesperrt; parallele Anordnungen zweier Sachbearbeiter laufen nacheinander ab." }]));
 inhalt.push(schritt(3, [{ t: "Anspruchsprüfung: ", fett: true }, { t: "Der Zahlbetrag wird frisch berechnet. Er muss größer null sein (sonst KEIN_ANSPRUCH) und darf das Restbudget nicht übersteigen (sonst BUDGET_ERSCHOEPFT)." }]));
 inhalt.push(schritt(4, [{ t: "SEPA-Prüfung: ", fett: true }, { t: "IBAN und BIC werden nach ISO 13616 (Modulo-97-Prüfziffer) geprüft; ungültige Verbindungen brechen mit VALIDATION ab." }]));
-inhalt.push(schritt(5, [{ t: "Buchung: ", fett: true }, { t: "Die Zahlung entsteht im Status ANGELEGT (mit Vier-Augen) oder BEREIT (ohne), das Restbudget mindert sich, und der Journaleintrag entsteht unter der eigenen Kennung." }]));
+inhalt.push(schritt(5, [{ t: "Buchung: ", fett: true }, { t: "Die Zahlung entsteht immer im Status ANGELEGT und wartet auf die Vier-Augen-Freigabe, das Restbudget mindert sich, und der Journaleintrag entsteht unter der eigenen Kennung." }]));
 
-inhalt.push(h2("6.3  Die Vier-Augen-Checkbox"));
-inhalt.push(abs("Standardmäßig ist „Vier-Augen-Prüfung erforderlich“ angekreuzt. Die Zahlung entsteht dann im Status ANGELEGT und wartet auf die Freigabe durch eine zweite Person (Kapitel 7). Nur wer die Checkbox bewusst entfernt, ordnet sofort im Status BEREIT an — der Erfasser erscheint dann zugleich als Freigebender, was nur für die Sonderkennung „admin“ zulässig ist, wenn später doch eine zweite Freigabe erforderlich wird."));
+inhalt.push(h2("6.3  Vier-Augen immer aktiv"));
+inhalt.push(abs("Das Vier-Augen-Prinzip ist serverseitig erzwungen: Jede Zahlung entsteht im Status ANGELEGT und wird erst durch die Freigabe einer zweiten Person (Kapitel 7) für die Kasse bereitgestellt. Eine Option, die Freigabe zu überspringen, gibt es bewusst nicht — auch nicht für die Administration."));
 inhalt.push(...abbild("07_auszahlung_dialog.png", "Bestätigungsdialog nach der Anordnung — Status „angelegt“, neues Restbudget"));
 
 // ================================================================ 7 Vier Augen
@@ -200,7 +201,7 @@ inhalt.push(...abbild("10_bescheid_erteilt.png", "Erteilter Bewilligungsbescheid
 inhalt.push(h2("8.2  Aufbau und Druck des Bescheids"));
 inhalt.push(abs("Der amtliche Bescheid enthält alle Pflichtelemente des § 37 SGB X: den Verfügungssatz (was wird für welchen Zeitraum in welcher Höhe bewilligt), die Berechnung des monatlichen Leistungsanspruchs je Person, die Zahlungsanweisung mit der hinterlegten SEPA-Verbindung, die Begründung nach § 35 SGB X (Verweis auf die Anspruchsgrundlagen der §§ 41 ff. SGB XII, die KdU-Berücksichtigung nach § 35 SGB XII und die Einkommensanrechnung nach § 82 SGB XII) sowie die Rechtsbehelfsbelehrung nach § 36 SGB X (Widerspruch binnen eines Monats nach Bekanntgabe)."));
 inhalt.push(...abbild("11_bescheid_druck.png", "Amtliche Druckansicht des Bewilligungsbescheids — Briefkopf, Verfügungssatz, Berechnung, Begründung, Rechtsbehelfsbelehrung"));
-inhalt.push(abs("Über „Amtlichen Bescheid drucken (PDF)“ öffnet sich die Druckansicht in einem eigenen Browserfenster; der Druckdialog des Browsers erzeugt daraus das PDF für die Akte. Ein Vorgang trägt jeweils den letzten erteilten Bescheid; Aufhebung (etwa durch eine Saga-Kompensation, Kapitel 10) setzt den Status auf AUFGEHOBEN."));
+inhalt.push(abs("Über „Amtlichen Bescheid drucken (PDF)“ öffnet sich die Druckansicht in einem eigenen Browserfenster; der Druckdialog des Browsers erzeugt daraus das PDF für die Akte. Vor dem Öffnen holt die Oberfläche automatisch ein nur 60 Sekunden gültiges Einmal-Token für den Druck — das Sitzungs-Token selbst erscheint nicht in der Adresse des Druckfensters. Ein Vorgang trägt jeweils den letzten erteilten Bescheid; Aufhebung (etwa durch eine Saga-Kompensation, Kapitel 10) setzt den Status auf AUFGEHOBEN."));
 
 // ================================================================ 9 Journal
 inhalt.push(h1("9  Das Buchungsjournal"));
@@ -263,6 +264,6 @@ inhalt.push(tabelle(
   [33, 36, 31],
 ));
 inhalt.push(h2("12.4  Was die Anwendung bewusst nicht tut"));
-inhalt.push(abs("Die Abgrenzung gehört zu einem ehrlichen Handbuch: Die Anwendung kennt keine ortsspezifische Mietobergrenze (nur eine konfigurierbare Gesamtgrenze) und berücksichtigt Vermögen nur pauschal als Summe je Bedarfsgemeinschaft nach Abzug des Schonvermögens (§ 90 Abs. 2 Nr. 9 SGB XII); sie archiviert keine Belege und versendet keinen echten SEPA-Zahlungsstrom — der Kassenlauf ist die fachliche Übergabe an das nachgelagerte Zahlungssystem. Merkzeichen-G-Einträge und Warmwasser-Mehrbedarf werden nicht gegen Nachweise validiert. Diese Prüfungen bleiben der Fachkraft; die Anwendung stellt sicher, dass alles Erfaßte rechnerisch korrekt, revisionssicher und im Vier-Augen-Wege zur Auszahlung gelangt."));
+inhalt.push(abs("Die Abgrenzung gehört zu einem ehrlichen Handbuch: Die Anwendung kennt keine ortsspezifische Mietobergrenze (nur eine konfigurierbare Gesamtgrenze) und berücksichtigt Vermögen als Summe je Bedarfsgemeinschaft nach Abzug des Schonvermögens (§ 90 Abs. 2 Nr. 9 SGB XII) — der über dem Schonvermögen liegende Anteil verbraucht sich mit der ersten Auszahlung (Verbrauchsfortschreibung), ab dem Folgemonat wird nichts mehr abgezogen; sie archiviert keine Belege und versendet keinen echten SEPA-Zahlungsstrom — der Kassenlauf ist die fachliche Übergabe an das nachgelagerte Zahlungssystem. Merkzeichen-G-Einträge und Warmwasser-Mehrbedarf werden nicht gegen Nachweise validiert. Diese Prüfungen bleiben der Fachkraft; die Anwendung stellt sicher, dass alles Erfaßte rechnerisch korrekt, revisionssicher und im Vier-Augen-Wege zur Auszahlung gelangt."));
 
 module.exports = inhalt;

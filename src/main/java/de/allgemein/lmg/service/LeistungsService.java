@@ -23,6 +23,13 @@ public interface LeistungsService {
     /** Vorgangsmaske: Kopfdaten, SozialFälle, Berechnung, Zahlungen, Journal. */
     Vorgangsdetail ladeDetail(long bgId);
 
+    /**
+     * Vorgangsmaske mit Zugriffsprotokoll (CR-035/Option D): Der Webserver ruft
+     * diese Variante mit der Kennung der Sitzung — jede Einsicht in die
+     * vollständigen Falldaten wird journalisiert (60-s-Zusammenfassung).
+     */
+    Vorgangsdetail ladeDetail(long bgId, String sachbearbeiterId);
+
     /** Findet einen Vorgang über sein eindeutiges Aktenzeichen (lesend). */
     java.util.Optional<de.allgemein.lmg.model.Bedarfsgemeinschaft>
             findeBedarfsgemeinschaftNachAktenzeichen(String aktenzeichen);
@@ -99,6 +106,12 @@ public interface LeistungsService {
     /** Liefert den aktuellen/letzten Bescheid der Bedarfsgemeinschaft, falls vorhanden. */
     java.util.Optional<de.allgemein.lmg.model.Bescheid> letzterBescheid(long bgId);
 
+    /** Bescheid-Abruf mit Zugriffsprotokoll (CR-035/Option D). */
+    java.util.Optional<de.allgemein.lmg.model.Bescheid> letzterBescheid(long bgId, String sachbearbeiterId);
+
     /** Generiert das amtliche, druckfertige Bescheid-Dokument (HTML, Bewilligungsbescheid nach § 44 SGB XII). */
     String generiereBescheidHtml(long bgId);
+
+    /** Bescheid-Druck mit Zugriffsprotokoll (CR-035/Option D). */
+    String generiereBescheidHtml(long bgId, String sachbearbeiterId);
 }

@@ -20,7 +20,7 @@ function kopfzeile() {
       border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: P.accent, space: 4 } },
       spacing: { after: 0 },
       children: [new TextRun({
-        text: "SDN.Leistung LMG — Benutzerhandbuch · Version 0.5.3",
+        text: "SDN.Leistung LMG — Benutzerhandbuch · Version 0.5.7",
         size: 16, color: P.secondary, font: FONT,
       })],
     })],

@@ -13,9 +13,9 @@ import java.util.function.Function;
  * Erwartung mit den konkreten, erst zur Laufzeit vergebenen IDs arbeiten kann.</p>
  *
  * <p>Vergleichsarten: TEXT (exakt), BETRAG (scale-unabhängig, Oracle NUMBER ohne
- * Nachkomma-Nullen), GANZZAHL (exakt), GANZZAHL_MIN (mind.), TEXT_IN (eins aus
- * Alternativen, '|' getrennt — z. B. BEREIT|UEBERGEBEN, weil ein Kassenlauf-Auftrag
- * einer bereits freigegebenen Zahlung dazwischenfunken kann).</p>
+ * Nachkomma-Nullen), GANZZAHL (exakt), TEXT_IN (eins aus Alternativen, '|'
+ * getrennt — z. B. BEREIT|UEBERGEBEN, weil ein Kassenlauf-Auftrag einer bereits
+ * freigegebenen Zahlung dazwischenfunken kann).</p>
  */
 public record Erwartung(
         String beschreibung,
@@ -24,7 +24,7 @@ public record Erwartung(
         Art art,
         String erwartet) {
 
-    public enum Art { TEXT, BETRAG, GANZZAHL, GANZZAHL_MIN, TEXT_IN }
+    public enum Art { TEXT, BETRAG, GANZZAHL, TEXT_IN }
 
     public static Erwartung text(String beschreibung, String sql,
             Function<Map<String, Object>, List<Object>> parameter, String erwartet) {
@@ -39,11 +39,6 @@ public record Erwartung(
     public static Erwartung ganzeZahl(String beschreibung, String sql,
             Function<Map<String, Object>, List<Object>> parameter, long erwartet) {
         return new Erwartung(beschreibung, sql, parameter, Art.GANZZAHL, String.valueOf(erwartet));
-    }
-
-    public static Erwartung ganzeZahlMindestens(String beschreibung, String sql,
-            Function<Map<String, Object>, List<Object>> parameter, long minimum) {
-        return new Erwartung(beschreibung, sql, parameter, Art.GANZZAHL_MIN, String.valueOf(minimum));
     }
 
     public static Erwartung einsVon(String beschreibung, String sql,

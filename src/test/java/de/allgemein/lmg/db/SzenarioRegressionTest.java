@@ -347,8 +347,9 @@ class SzenarioRegressionTest {
     /**
      * Berger erfasst einen Vermögensfall: Einzelperson (RBS 1) mit 10.500 EUR
      * Vermögen — 10.000 EUR Schonvermögen bleiben frei, 500 EUR werden
-     * angerechnet. In der DB: VERMOEGEN-Spalte 10.500,00 und Zahlbetrag
-     * 363,00 (863,00 Bedarf − 500,00 verwertbares Vermögen).
+     * angerechnet. Zahlbetrag 363,00 (863,00 Bedarf − 500,00 verwertbares
+     * Vermögen); die Verbrauchsfortschreibung (§ 90, seit v0.5.6) senkt den
+     * Bestand auf das Schonvermögen und dokumentiert den Einsatz an der Zahlung.
      */
     @Test
     void szenario06VermoegenUeberSchonvermoegen() throws Exception {
@@ -364,8 +365,11 @@ class SzenarioRegressionTest {
                 .zahlung();
 
         try (Connection c = verbindung()) {
-            assertBetrag("Vermögen persistiert", "10500.00", betrag(c,
-                    "SELECT VERMOEGEN FROM BEDARFSGEMEINSCHAFT WHERE ID = ?", bg.id()));
+            assertBetrag("Vermögen nach Verbrauchsfortschreibung = Schonvermögen",
+                    "10000.00", betrag(c,
+                            "SELECT VERMOEGEN FROM BEDARFSGEMEINSCHAFT WHERE ID = ?", bg.id()));
+            assertBetrag("Dokumentierter Vermögenseinsatz der Zahlung", "500.00", betrag(c,
+                    "SELECT VERMOEGENSEINSATZ FROM ZAHLUNG WHERE ID = ?", zahlung.id()));
             assertBetrag("10.000 EUR Schonvermögen abgezogen, 500 EUR verwertbar angerechnet",
                     "363.00", betrag(c,
                             "SELECT AUSZAHLUNGSBETRAG FROM ZAHLUNG WHERE ID = ?", zahlung.id()));

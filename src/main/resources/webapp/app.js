@@ -11,7 +11,7 @@ const euro = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR"
 let eintraege = [];
 let detail = null;
 let suchbegriff = "";
-let token = localStorage.getItem("lmgToken") || null;
+let token = sessionStorage.getItem("lmgToken") || null;
 let angemeldet = null;
 
 // ---------------------------------------------------------------- Hilfsfunktionen
@@ -35,7 +35,7 @@ async function api(pfad, optionen) {
   try { koerper = await antwort.json(); } catch (e) { /* leerer Körper zulassen */ }
   if (antwort.status === 401) {
     token = null;
-    localStorage.removeItem("lmgToken");
+    sessionStorage.removeItem("lmgToken");
     angemeldet = null;
     aktualisiereSidebar();
     zeigeView("login");
@@ -136,7 +136,7 @@ $("btn-login").addEventListener("click", async () => {
       body: JSON.stringify({ kennung, passwort }),
     });
     token = ergebnis.token;
-    localStorage.setItem("lmgToken", token);
+    sessionStorage.setItem("lmgToken", token);
     angemeldet = { kennung: ergebnis.kennung, rolle: ergebnis.rolle };
     aktualisiereSidebar();
     $("login-fehler").textContent = "";
@@ -149,7 +149,7 @@ $("btn-login").addEventListener("click", async () => {
 $("btn-abmelden").addEventListener("click", async () => {
   try { await api("/api/abmeldung", { method: "POST" }); } catch (e) { /* Sitzung ist eh weg */ }
   token = null;
-  localStorage.removeItem("lmgToken");
+  sessionStorage.removeItem("lmgToken");
   angemeldet = null;
   aktualisiereSidebar();
   zeigeAnmeldung();
@@ -433,10 +433,10 @@ function rendereBerechnung() {
     const mbTitel = esc(`Merkzeichen G: ${betrag(fall.mehrbedarfG)} | Schwangerschaft: ${betrag(fall.mehrbedarfSchwangere)} | Alleinerziehend: ${betrag(fall.mehrbedarfAlleinerziehend)} | Dezentrales Warmwasser: ${betrag(fall.mehrbedarfWarmwasser)}`);
     const kduTitel = esc(`Kaltmiete: ${betrag(fall.kduMiete)} | Kalte Betriebskosten: ${betrag(fall.kduBetriebskosten)} | Heizung: ${betrag(fall.kduHeizung)}${fall.kduUnangemessen ? " | UNANGEMESSEN — Übernahme unter Vorbehalt (§ 42a SGB XII)" : ""}`);
     zeile.innerHTML = `
-      <td>SozialFall #${fall.id}</td>
+      <td>SozialFall #${esc(fall.id)}</td>
       <td class="zahl">${betrag(fall.regelbedarf)}</td>
       <td class="zahl" title="${mbTitel}">${betrag(fall.mehrbedarf)}</td>
-      <td class="zahl" title="${kduTitel}">${betrag(fall.kdu)}${fall.kduUnangemessen ? " *" : ""}</td>
+      <td class="zahl" title="${esc(kduTitel)}">${betrag(fall.kdu)}${fall.kduUnangemessen ? " *" : ""}</td>
       <td class="zahl">${betrag(fall.gesamtbedarfFall)}</td>
       <td class="zahl">${betrag(fall.freibetragErwerb)}</td>
       <td class="zahl">${betrag(fall.anrechenbaresEinkommenFall)}</td>
@@ -453,7 +453,7 @@ function rendereFallMasken() {
     maske.className = "fall-maske";
     maske.id = "fall-" + fall.id;
     maske.innerHTML = `
-      <h3>SozialFall #${fall.id} <span class="fall-version">Version ${fall.version}</span></h3>
+      <h3>SozialFall #${esc(fall.id)} <span class="fall-version">Version ${esc(fall.version)}</span></h3>
       <div class="maske-gitter">
         <label>Regelbedarfsstufe
           <select data-feld="regelbedarfsstufe">
@@ -462,42 +462,42 @@ function rendereFallMasken() {
           </select>
         </label>
         <label>Kinder unter 7 im Haushalt (§ 30 Abs. 3)
-          <input data-feld="anzKinderUnter7" type="number" step="1" min="0" max="99" value="${fall.anzKinderUnter7}">
+          <input data-feld="anzKinderUnter7" type="number" step="1" min="0" max="99" value="${esc(fall.anzKinderUnter7)}">
         </label>
         <label>Kinder unter 16 im Haushalt (§ 30 Abs. 3)
-          <input data-feld="anzKinderUnter16" type="number" step="1" min="0" max="99" value="${fall.anzKinderUnter16}">
+          <input data-feld="anzKinderUnter16" type="number" step="1" min="0" max="99" value="${esc(fall.anzKinderUnter16)}">
         </label>
         <label>Minderjährige Kinder insgesamt (§ 30 Abs. 3 Nr. 2)
-          <input data-feld="anzKinderMinderjaehrig" type="number" step="1" min="0" max="99" value="${fall.anzKinderMinderjaehrig}">
+          <input data-feld="anzKinderMinderjaehrig" type="number" step="1" min="0" max="99" value="${esc(fall.anzKinderMinderjaehrig)}">
         </label>
         <label>Kaltmiete (EUR)
-          <input data-feld="kduMiete" type="number" step="0.01" min="0" value="${fall.kduMiete}">
+          <input data-feld="kduMiete" type="number" step="0.01" min="0" value="${esc(fall.kduMiete)}">
         </label>
         <label>Kalte Betriebskosten (EUR)
-          <input data-feld="kduBetriebskosten" type="number" step="0.01" min="0" value="${fall.kduBetriebskosten}">
+          <input data-feld="kduBetriebskosten" type="number" step="0.01" min="0" value="${esc(fall.kduBetriebskosten)}">
         </label>
         <label>Heizkosten (EUR)
-          <input data-feld="kduHeizung" type="number" step="0.01" min="0" value="${fall.kduHeizung}">
+          <input data-feld="kduHeizung" type="number" step="0.01" min="0" value="${esc(fall.kduHeizung)}">
         </label>
         <label>Renteneinkünfte (EUR, § 82 Abs. 1)
-          <input data-feld="einkommenRente" type="number" step="0.01" min="0" value="${fall.einkommenRente}">
+          <input data-feld="einkommenRente" type="number" step="0.01" min="0" value="${esc(fall.einkommenRente)}">
         </label>
         <label>Brutto-Erwerbseinkommen (EUR)
-          <input data-feld="einkommenErwerb" type="number" step="0.01" min="0" value="${fall.einkommenErwerb}">
+          <input data-feld="einkommenErwerb" type="number" step="0.01" min="0" value="${esc(fall.einkommenErwerb)}">
         </label>
       </div>
       <div class="maske-gitter">
         <label>Absetzung Steuern (§ 82 Abs. 2)
-          <input data-feld="abzSteuern" type="number" step="0.01" min="0" value="${fall.abzSteuern ?? 0}">
+          <input data-feld="abzSteuern" type="number" step="0.01" min="0" value="${esc(fall.abzSteuern ?? 0)}">
         </label>
         <label>Absetzung Sozialversicherung (§ 82 Abs. 2)
-          <input data-feld="abzSozialversicherung" type="number" step="0.01" min="0" value="${fall.abzSozialversicherung ?? 0}">
+          <input data-feld="abzSozialversicherung" type="number" step="0.01" min="0" value="${esc(fall.abzSozialversicherung ?? 0)}">
         </label>
         <label>Absetzung Versicherungen (§ 82 Abs. 2)
-          <input data-feld="abzVersicherungen" type="number" step="0.01" min="0" value="${fall.abzVersicherungen ?? 0}">
+          <input data-feld="abzVersicherungen" type="number" step="0.01" min="0" value="${esc(fall.abzVersicherungen ?? 0)}">
         </label>
         <label>Absetzung Erwerbsaufwendungen (§ 82 Abs. 2)
-          <input data-feld="abzErwerbsaufwendungen" type="number" step="0.01" min="0" value="${fall.abzErwerbsaufwendungen ?? 0}">
+          <input data-feld="abzErwerbsaufwendungen" type="number" step="0.01" min="0" value="${esc(fall.abzErwerbsaufwendungen ?? 0)}">
         </label>
       </div>
       <label class="checkbox-zeile">
@@ -507,6 +507,10 @@ function rendereFallMasken() {
       <label class="checkbox-zeile">
         <input data-feld="schwanger" type="checkbox" ${fall.schwanger ? "checked" : ""}>
         <span>Schwanger ab der 13. SSW (nach Vollendung der 12. Woche) — Mehrbedarf 17&nbsp;% (§ 30 Abs. 2 SGB XII)</span>
+      </label>
+      <label>
+        Entbindungsmonat (§ 30 Abs. 2 — Mehrbedarf endet mit diesem Monat, leer = offen)
+        <input data-feld="entbindungsmonat" type="month" value="${esc(fall.entbindungsmonat || "")}">
       </label>
       <label class="checkbox-zeile">
         <input data-feld="warmwasser" type="checkbox" ${fall.warmwasser ? "checked" : ""}>
@@ -540,6 +544,7 @@ async function speichereFall(fall, maske) {
     abzSozialversicherung: Number(wert("abzSozialversicherung").value || 0),
     abzVersicherungen: Number(wert("abzVersicherungen").value || 0),
     abzErwerbsaufwendungen: Number(wert("abzErwerbsaufwendungen").value || 0),
+    entbindungsmonat: wert("entbindungsmonat").value || null,
     version: fall.version,
   };
   const knopf = maske.querySelector("button");
@@ -669,10 +674,17 @@ $("btn-bescheid-erteilen").addEventListener("click", async () => {
   }
 });
 
-$("btn-bescheid-drucken").addEventListener("click", () => {
+$("btn-bescheid-drucken").addEventListener("click", async () => {
   if (!detail || !detail.bedarfsgemeinschaft) return;
-  const url = `/api/bedarfsgemeinschaften/${detail.bedarfsgemeinschaft.id}/bescheid/druck?token=${encodeURIComponent(token || "")}`;
-  window.open(url, "_blank");
+  try {
+    // Einmal-Token für den Druck-Link (CR-027): Das Sitzungs-Token bleibt im
+    // Authorization-Header und landet nicht mehr in URL/Historie/Bookmarks.
+    const antwort = await api("/api/drucktoken", { method: "POST" });
+    const url = `/api/bedarfsgemeinschaften/${detail.bedarfsgemeinschaft.id}/bescheid/druck?token=${encodeURIComponent(antwort.drucktoken)}`;
+    window.open(url, "_blank");
+  } catch (fehler) {
+    zeigeDialog("Druck fehlgeschlagen", fehler.message, true);
+  }
 });
 
 function rendereZahlungen(zahlungen) {
@@ -681,7 +693,7 @@ function rendereZahlungen(zahlungen) {
   for (const z of zahlungen) {
     const zeile = document.createElement("tr");
     const freigabeMoeglich = z.status === "ANGELEGT";
-    const stornoMoeglich = (istAdmin() && z.status === "BEREIT") || z.status === "ANGELEGT";
+    const stornoMoeglich = istAdmin() && (z.status === "BEREIT" || z.status === "ANGELEGT");
     const empfText = esc(z.empfaengerName || "–")
       + (z.empfaengerIban ? `<br><small style="color:var(--farbe-text-leise)">${esc(z.empfaengerIban)}</small>` : "");
     zeile.innerHTML = `

@@ -130,7 +130,7 @@ public final class BerechnungsSnapshot {
                     false, false, 0, 0, 0, false,
                     nullBetrag, nullBetrag, nullBetrag,
                     betrag(e.get("einkommenRente")), betrag(e.get("einkommenErwerb")),
-                    nullBetrag, nullBetrag, nullBetrag, nullBetrag, 1L));
+                    nullBetrag, nullBetrag, nullBetrag, nullBetrag, null, 1L));
         }
         Leistungsberechnung.Berechnungsergebnis ergebnis = new Leistungsberechnung.Berechnungsergebnis(
                 bgId, List.copyOf(fallBerechnungen),

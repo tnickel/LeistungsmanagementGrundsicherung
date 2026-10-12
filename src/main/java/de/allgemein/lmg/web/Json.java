@@ -287,29 +287,51 @@ public final class Json {
                 pos++;
             }
             boolean ziffernGefunden = false;
+            int ziffern = 0;
             while (!amEnde() && Character.isDigit(text.charAt(pos))) {
                 pos++;
                 ziffernGefunden = true;
+                ziffern++;
             }
             if (!amEnde() && text.charAt(pos) == '.') {
                 pos++;
                 while (!amEnde() && Character.isDigit(text.charAt(pos))) {
                     pos++;
                     ziffernGefunden = true;
+                    ziffern++;
                 }
             }
+            long exponent = 0;
             if (!amEnde() && (text.charAt(pos) == 'e' || text.charAt(pos) == 'E')) {
                 pos++;
+                boolean negativ = false;
                 if (!amEnde() && (text.charAt(pos) == '+' || text.charAt(pos) == '-')) {
+                    negativ = text.charAt(pos) == '-';
                     pos++;
                 }
                 while (!amEnde() && Character.isDigit(text.charAt(pos))) {
+                    exponent = Math.min(exponent * 10 + (text.charAt(pos) - '0'), 10_000L);
                     pos++;
+                }
+                if (negativ) {
+                    exponent = -exponent;
                 }
             }
             if (!ziffernGefunden) {
                 pos = start;
                 throw fehler("Zahl erwartet");
+            }
+            // Begrenzung gegen Exponenten-/Scale-Bomben: Riesen-Exponenten (z. B. 1e2000000000)
+            // expandieren erst bei setScale/toPlainString zu Gigabyte-Strings (OutOfMemoryError,
+            // der vom HTTP-Fehlerpfad nicht mehr gefangen wird). Geldbeträge brauchen weit
+            // weniger Spielraum.
+            if (ziffern > 64) {
+                pos = start;
+                throw fehler("Zahl mit mehr als 64 Ziffern abgewiesen");
+            }
+            if (Math.abs(exponent) > 999) {
+                pos = start;
+                throw fehler("Exponent außerhalb des erlaubten Bereichs ±999");
             }
             return new BigDecimal(text.substring(start, pos));
         }

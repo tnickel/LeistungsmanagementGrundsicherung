@@ -73,12 +73,62 @@ Redo-Logging, Recovery) — wir programmieren nur die Steuerungsschicht darüber
 5. Der Task-Wachhund unterbricht Tasks nach `TxOptions.timeout`; der Interrupt
    lässt den JDBC-Aufruf fehlschlagen, wodurch die DB zurückrollt.
 
-## Stand (Stand: 2026-10-10, Version 0.5.4)
+## Stand (Stand: 2026-10-12, Version 0.5.7)
 
 Kernbibliothek und Fachschicht vollständig umgesetzt, umfassendem Codereview unterzogen
-und auf echter Oracle 19c Enterprise Edition (VirtualBox, Port 1921/o19c1p1) sowie
-23ai Free verifiziert:
+(Bericht: `doc/codereview/codereview-bericht-2026-10-12.md`) und auf echter Oracle 19c
+Enterprise Edition (VirtualBox, Port 1921/o19c1p1) sowie 23ai Free verifiziert:
 
+- **v0.5.7 — CR-035/Option D: Zugriffsprotokoll + entschärfte Übersichten**: Jede
+  Einsicht in vollständige Falldaten (Vorgangsdetail, Bescheiddaten, Druckansicht) wird
+  über die Web-Sitzung mit Kennung im Journal protokolliert („Einsicht: … durch sb-xx",
+  § 35 SGB I / Art. 32 DSGVO); Wiederholungen derselben Kennung bündelt der Service
+  binnen 60 s zu einem Eintrag (Masken-Reloads fluten nicht; Dedup-Zwischenspeicher
+  gedeckelt). Batch-/Testpfade ohne Kennung bleiben unprotokolliert (parameterlose
+  Überladungen). Sammel-Übersichten (`/api/bedarfsgemeinschaften`, `/api/zahlungen`)
+  liefern keine IBAN/BIC mehr — Bankverbindungsdaten erscheinen nur im protokollierten
+  Einzel-Kontext. Neue Tests: `EinsichtsprotokollDbTest` (4), `LmgServerHttpTest`
+  erweitert (Listen ohne Bankdaten, Kennung-Weitergabe). Damit ist Option D vollständig
+  umgesetzt; Option B/C (Zuständigkeits-/Teammodell) bleiben als Ausbaustufe offen.
+- **v0.5.6 — Fachentscheidungen aus dem Codereview umgesetzt (CR-015/CR-016)**:
+  **Verbrauchsfortschreibung des Vermögens** (§ 90 SGB XII): Der über dem Schonvermögen
+  liegende Anteil verbraucht sich mit der ersten Auszahlung (Bestand sinkt in derselben
+  Transaktion unter BG-Sperre, Einsatz je Zahlung dokumentiert in
+  `ZAHLUNG.VERMOEGENSEINSATZ`); ab dem Folgemonat wird nichts mehr abgezogen; Storno
+  bucht genau den dokumentierten Einsatz zurück (Service und Saga).
+  **Satztabelle `SATZSTAND`**: Die Regelbedarfsstufen stehen je Jahr in der Datenbank
+  (Seed 2026-01); Service und Saga rechnen mit dem zum Bezugsmonat gültigen Stand
+  (`SatzstandDao`), der Jahreswechsel ist ein INSERT, keine Codeänderung; ohne
+  passenden Stand fachliche Abweisung. Neue Tests: `VermoegensfortschriebDbTest`,
+  `SatzstandDbTest`; bestehende Vermögens-Erwartungen (Szenario-Regression, testsweet)
+  auf die Fortschreibung umgestellt. Verbleibend offen: Bescheid↔Zahlung-Abstimmung
+  bei Satzwechsel im laufenden Bewilligungszeitraum (§ 48 SGB X — Verfahrensfrage,
+  rechtsgrundlagen.md Abschnitt 4 Nr. 7) und der Need-to-know-Filter (CR-035).
+- **v0.5.5 — Umsetzung des allumfassenden Codereviews**: Alle 3 BLOCKER und 9
+  KRITISCH-Funde behoben — Audit-Log ohne Sozialdaten (Payload-Redaktion,
+  10-MB-Rotation, dauerhaft offener Writer), testsweet-Passwörter aus der
+  Testdokumentation entfernt (MD-Reports nachweislich passwortfrei), Saga rechnet
+  auf dem Datenbestand inkl. Vermögen (§ 90) und konfigurierter KdU-Grenze
+  (§ 35 Abs. 7) statt aus dem Payload; 12-Monate-Prüfung § 44 Abs. 3 jetzt auf
+  allen Bescheid-Pfaden. Weiter: Loopback-Bindung (`lmg.host`; Demo-Konten bei
+  Nicht-Loopback verweigert), UTF-8-Konfigurationslesung (Umlaut-Fix),
+  JSON-Exponenten-Begrenzung gegen OOM-DoS, ENTBINDUNGSMONAT-Feld (§ 30 Abs. 2 —
+  Mehrbedarf endet fachlich), Historisierungs-Guards (Freigabe/Kassenlauf/
+  Reaktivierung gesperrt), Einmal-Druck-Token + sessionStorage, geordneter
+  Shutdown-Hook, JDBC-Connect-/Read-Timeouts in beiden Pools, 405 statt 404,
+  Cache-Control no-store, wasNull-Mapping-Fix, Bescheiderteilung unter BG-Sperre,
+  DDL-Format-CHECKs + FK-Index TX_SAGA_STEP (Schema-Migration lief auf Docker-Oracle).
+  Testumfang 136 → **195 Tests** (+59): GoldWerteTest (handgerechnete Werte aus
+  doc/regressionstests.md — Gegenmaßnahme zum Zirkelschluss), TxManagerTest
+  (Retry/Error/manuelle API), LmgServerHttpTest (erste HTTP-Integration:
+  401/403/404/405/400-Matrix, Grenzen, Header, Druck-Token), JsonGrenzenTest,
+  BenutzerverwaltungZeitTest (stellbare Uhr), TxAuditLogRedaktionTest,
+  AntragsSagaValidationTest, CodereviewRegressionDbTest (DB). testsweet: SweetServer-
+  Statuscodes echt, Path-Traversal zu, asynchrones SweetLog, Treiber-Neustart,
+  FREIGEBEN_VON-/Journal-Erwartungen ergänzt, AZ-Duplikat-Schutz, globale Prüfung
+  „keine Übergabe ohne Freigabe", CP1252-Zeichen ersetzt, Aufräumen auf eigene
+  Prozesskette begrenzt. Bewiesen: 195/195 Haupttests grün (Docker-Oracle),
+  testsweet 24/24 Positiv, 12/12 Negativ, 120/120 Last, 40/40 Stress.
 - **v0.5.4 — Rechtsquellen & revisionssicherer Bescheid-Druck**: neues maßgebliches
   Rechtsquellen-Verzeichnis `doc/rechtsgrundlagen.md` (alle Normen mit Herkunfts-
   nachweisen, amtlich verifiziert gegen gesetze-im-internet.de am 2026-10-10; u. a.

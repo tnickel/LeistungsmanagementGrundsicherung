@@ -129,9 +129,9 @@ final class LastBericht {
                     + "Aktenzeichen, Startbudget und SEPA-Bankverbindung an und erfasst den "
                     + "SozialFall mit Regelbedarfsstufe und Wohnkosten (Kaltmiete, "
                     + "Betriebskosten, Heizung). Jeder Schritt ist eine eigene kurze "
-                    + "Transaktion über den TxManager: Der Commit macht die Zeilen dauerhaft "
-                    + "sichtbar, ein Fehler rollt den Schritt sauber zurück, ohne halbfertige "
-                    + "User zu hinterlassen. Bewusst wird noch KEINE Zahlung angeordnet — die "
+                    + "Transaktion über den TxManager: Fachschritte laufen in eigenen "
+                    + "Transaktionen; die SQL-Endverifikation prüft die Endzustände der "
+                    + "erfolgreichen Aufträge. Bewusst wird noch KEINE Zahlung angeordnet — die "
                     + "angelegten Daten stehen als unveränderter Ausgangszustand für die "
                     + "zweite Welle bereit.", SweetPdf.SCHWARZ, 9.5f);
             inhalt.leereZeile(2f);
@@ -260,8 +260,7 @@ final class LastBericht {
                         + "  —  verifiziert (DB Soll = Ist): " + agg.verifiziert()
                         + "  —  Verifikation n.i.O.: " + agg.verifikationNio()
                         + "  —  beim Spielen fehlgeschlagen: " + agg.fehlgeschlagen(),
-                false, agg.verifikationNio() + agg.fehlgeschlagen() > 0
-                        ? SweetPdf.WEISS : SweetPdf.WEISS,
+                false, SweetPdf.WEISS,
                 agg.verifikationNio() + agg.fehlgeschlagen() > 0
                         ? SweetPdf.FUELL_ROT : SweetPdf.FUELL_GRUEN,
                 10f);

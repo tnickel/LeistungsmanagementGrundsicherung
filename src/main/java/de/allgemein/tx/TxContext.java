@@ -72,7 +72,15 @@ public final class TxContext implements AutoCloseable {
         status = TxStatus.ROLLED_BACK;
     }
 
-    /** Sicherheitsnetz: eine vergessene offene Transaktion wird zurückgerollt. */
+    /**
+     * Sicherheitsnetz: eine vergessene offene Transaktion wird zurückgerollt.
+     *
+     * <p><b>Achtung (CR-018):</b> {@code close()} gibt die Verbindung NICHT an den Pool
+     * zurück — das leistet ausschließlich {@link TxManager#finish(TxContext)}. Wer
+     * try-with-resources auf dem Kontext nutzt, MUSS zusätzlich {@code finish()} aufrufen,
+     * sonst bleibt die Verbindung dauerhaft ausgeliehen (der Pool läuft ohne
+     * Leak-Erkennung leer).</p>
+     */
     @Override
     public void close() {
         if (status == TxStatus.ACTIVE) {

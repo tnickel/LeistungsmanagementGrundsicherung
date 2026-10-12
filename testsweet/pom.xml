@@ -29,7 +29,7 @@
     <dependency>
       <groupId>de.allgemein</groupId>
       <artifactId>transaktionssteuerung</artifactId>
-      <version>0.5.4</version>
+      <version>0.5.7</version>
     </dependency>
 
     <!-- Modus 2: Selenium steuert sichtbare Chrome-Fenster, die die echte
@@ -44,10 +44,23 @@
       <artifactId>webdrivermanager</artifactId>
       <version>5.9.0</version>
     </dependency>
+
+    <!-- Unit-Tests des Simulators selbst (gleiche Version wie im Hauptprojekt). -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.10.2</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.2.5</version>
+      </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>

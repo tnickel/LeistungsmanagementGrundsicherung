@@ -60,12 +60,21 @@ public final class LmgServer implements AutoCloseable {
 
     public LmgServer(TaskController tasks, LeistungsService service, Systemdiagnose diagnose,
                      SagaEngine sagas, Benutzerverwaltung benutzerverwaltung, int port) throws IOException {
+        // Default-Bindung Loopback (CR-004): kein Lauschen auf allen Netzwerk-Interfaces;
+        // eine andere Bindung ist nur über den expliziten InetAddress-Konstruktor möglich.
+        this(tasks, service, diagnose, sagas, benutzerverwaltung,
+                java.net.InetAddress.getLoopbackAddress(), port);
+    }
+
+    public LmgServer(TaskController tasks, LeistungsService service, Systemdiagnose diagnose,
+                     SagaEngine sagas, Benutzerverwaltung benutzerverwaltung,
+                     java.net.InetAddress bindAdresse, int port) throws IOException {
         this.tasks = tasks;
         this.service = service;
         this.diagnose = diagnose;
         this.sagas = sagas;
         this.benutzerverwaltung = benutzerverwaltung;
-        this.server = HttpServer.create(new InetSocketAddress(port), 0);
+        this.server = HttpServer.create(new InetSocketAddress(bindAdresse, port), 0);
         this.server.createContext("/", this::verarbeite);
         this.server.setExecutor(Executors.newFixedThreadPool(16, this::neuerHttpThread));
     }
@@ -133,7 +142,7 @@ public final class LmgServer implements AutoCloseable {
         long bgId = Long.parseLong(teile[3]);
         try {
             // Auch der Druck läuft als Task: Wachhund + begrenzte Parallelität greifen
-            String html = tasks.submit("GET " + pfad, TxOptions.DEFAULT, ctx -> service.generiereBescheidHtml(bgId))
+            String html = tasks.submit("GET " + pfad, TxOptions.DEFAULT, ctx -> service.generiereBescheidHtml(bgId, benutzer.kennung()))
                     .result();
             byte[] bytes = html.getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "text/html; charset=utf-8");
@@ -189,14 +198,24 @@ public final class LmgServer implements AutoCloseable {
             final Benutzer angemeldet = benutzer;
             // Jede Anfrage ist ein Task der Transaktionssteuerung: begrenzte
             // Parallelität + Zeitlimit-Wachhund decken die Last von Tausenden
-            // gleichzeitiger Sachbearbeiter ab.
+            // gleichzeitiger Sachbearbeiter ab. IllegalArgumentException aus dem
+            // Body-Parsing (Müll-JSON, Daten, limit) wird am Task-Rand in einen
+            // Fachfehler übersetzt — das TaskHandle reicht sie sonst als TxException
+            // durch und der Client bekäme 500 statt 400 (CR-023/024).
             TaskHandle<Map<String, Object>> handle = tasks.submit(
                     methode + " " + pfad, TxOptions.DEFAULT,
-                    ctx -> bearbeiteApi(exchange, methode, pfad, angemeldet));
+                    ctx -> {
+                        try {
+                            return bearbeiteApi(exchange, methode, pfad, angemeldet);
+                        } catch (IllegalArgumentException e) {
+                            throw new FachlicheException(FachlicheException.VALIDATION, String.valueOf(e.getMessage()));
+                        }
+                    });
             antworte(exchange, 200, handle.result());
         } catch (FachlicheException e) {
             int status = FachlicheException.NICHT_GEFUNDEN.equals(e.code()) ? 404
-                    : FachlicheException.BERECHTIGUNG.equals(e.code()) ? 403 : 400;
+                    : FachlicheException.BERECHTIGUNG.equals(e.code()) ? 403
+                    : FachlicheException.METHODE_NICHT_UNTERSTUETZT.equals(e.code()) ? 405 : 400;
             antworte(exchange, status, Map.of("code", e.code(), "message", String.valueOf(e.getMessage())));
         } catch (TxException e) {
             // Oracle-/Infrastrukturdetails nicht nach außen geben, nur ins Log
@@ -220,15 +239,21 @@ public final class LmgServer implements AutoCloseable {
     /** Header vor Query-String (nur für den Druck-Link, s. bescheidDruck). */
     private Benutzer benutzerAusHeaderOderQuery(HttpExchange exchange) {
         String token = tokenAus(exchange.getRequestHeaders().getFirst("Authorization"));
-        if (token == null && exchange.getRequestURI().getQuery() != null) {
+        if (token != null) {
+            return benutzerverwaltung.zuToken(token).orElse(null);
+        }
+        if (exchange.getRequestURI().getQuery() != null) {
             for (String part : exchange.getRequestURI().getQuery().split("&")) {
                 if (part.startsWith("token=")) {
-                    token = part.substring("token=".length());
-                    break;
+                    // Query-Token nur noch als EINMALIGES Druck-Token (60 s, verbraucht
+                    // sich beim Abruf — CR-027): Das Sitzungs-Token selbst landet damit
+                    // nicht mehr in URLs, Browser-Historie oder Bookmarks.
+                    return benutzerverwaltung.verbraucheDruckToken(part.substring("token=".length()))
+                            .orElse(null);
                 }
             }
         }
-        return benutzerverwaltung.zuToken(token).orElse(null);
+        return null;
     }
 
     private static String tokenAus(String header) {
@@ -265,6 +290,12 @@ public final class LmgServer implements AutoCloseable {
         if (pfad.equals("/api/werbin") && "GET".equals(methode)) {
             return Map.of("kennung", angemeldet.kennung(), "rolle", angemeldet.rolle());
         }
+        if (pfad.equals("/api/drucktoken") && "POST".equals(methode)) {
+            // Einmal-Token für den Bescheid-Druck (CR-027): window.open kann keinen
+            // Authorization-Header setzen; das Kurzzeit-Token ersetzt das Sitzungs-
+            // Token in der URL und verbraucht sich beim ersten Abruf.
+            return Map.of("drucktoken", benutzerverwaltung.erzeugeDruckToken(angemeldet));
+        }
         if (pfad.equals("/api/bedarfsgemeinschaften") && "GET".equals(methode)) {
             return Map.of("eintraege", listeMap(service.listeBedarfsgemeinschaften()));
         }
@@ -283,7 +314,7 @@ public final class LmgServer implements AutoCloseable {
             return Map.of("bedarfsgemeinschaft", bgMap(bg));
         }
         if (teile.length == 4 && teile[2].equals("bedarfsgemeinschaften") && "GET".equals(methode)) {
-            return detailMap(service.ladeDetail(Long.parseLong(teile[3])));
+            return detailMap(service.ladeDetail(Long.parseLong(teile[3]), angemeldet.kennung()));
         }
         if (teile.length == 4 && teile[2].equals("bedarfsgemeinschaften") && "PUT".equals(methode)) {
             Map<String, Object> body = leseKoerper(exchange);
@@ -302,7 +333,7 @@ public final class LmgServer implements AutoCloseable {
         if (teile.length == 5 && teile[2].equals("bedarfsgemeinschaften")
                 && teile[4].equals("bescheid") && "GET".equals(methode)) {
             long bgId = Long.parseLong(teile[3]);
-            Bescheid b = service.letzterBescheid(bgId).orElse(null);
+            Bescheid b = service.letzterBescheid(bgId, angemeldet.kennung()).orElse(null);
             return Map.of("bescheid", b != null ? bescheidMap(b) : Map.of());
         }
         if (teile.length == 5 && teile[2].equals("bedarfsgemeinschaften")
@@ -336,6 +367,7 @@ public final class LmgServer implements AutoCloseable {
                     betragWert(body.get("abzSozialversicherung")),
                     betragWert(body.get("abzVersicherungen")),
                     betragWert(body.get("abzErwerbsaufwendungen")),
+                    textWertOptional(body.get("entbindungsmonat")),
                     1);
             SozialFall gespeichert = service.legeSozialFallAn(bgId, entwurf, angemeldet.kennung());
             return Map.of("sozialfall", fallMap(gespeichert, null));
@@ -362,6 +394,7 @@ public final class LmgServer implements AutoCloseable {
                     betragWert(body.get("abzSozialversicherung")),
                     betragWert(body.get("abzVersicherungen")),
                     betragWert(body.get("abzErwerbsaufwendungen")),
+                    textWertOptional(body.get("entbindungsmonat")),
                     zahlWert(body.get("version"), "version"));
             SozialFall gespeichert = service.aktualisiereSozialFall(
                     geaendert, geaendert.version(), angemeldet.kennung());
@@ -375,7 +408,10 @@ public final class LmgServer implements AutoCloseable {
                     textWert(body.get("vorgangsNr"), "Vorgangsnummer"),
                     textWert(body.get("zahlungsmonat"), "Zahlungsmonat"),
                     angemeldet.kennung(),
-                    boolWertDefensiv(body.get("vierAugenErforderlich")),
+                    // Vier-Augen ist serverseitig IMMER erzwungen (Zahlung startet als
+                    // ANGELEGT) — ein Feld "vierAugenErforderlich" wird bewusst nicht
+                    // mehr ausgelesen (CR-036, toter Parameter entfernt).
+                    false,
                     textWertOptional(body.get("empfaengerIban")),
                     textWertOptional(body.get("empfaengerBic")),
                     textWertOptional(body.get("empfaengerName"))));
@@ -420,8 +456,11 @@ public final class LmgServer implements AutoCloseable {
                     "hinweis", "Zahlung storniert, Restbudget erhöht.");
         }
         if (pfad.equals("/api/zahlungen") && "GET".equals(methode)) {
+            // CR-035/Option D: Sammelübersicht ohne Bankverbindungsdaten — IBAN/BIC
+            // erscheinen nur im Einzel-Kontext (Vorgangsdetail = protokollierte
+            // Einsicht) bzw. bei der eigenen Auszahlungsantwort.
             return Map.of("zahlungen", service.letzteZahlungen(limit(exchange, 20))
-                    .stream().map(LmgServer::zahlungMap).toList());
+                    .stream().map(LmgServer::zahlungMapKompakt).toList());
         }
         if (pfad.equals("/api/journal") && "GET".equals(methode)) {
             return Map.of("eintraege", service.letztesJournal(limit(exchange, 20))
@@ -437,9 +476,40 @@ public final class LmgServer implements AutoCloseable {
                             ? "Keine halbfertigen Vorgänge der Demo-Antragsverarbeitung vorhanden."
                             : kompensiert + " halbfertige Vorgänge beendet.");
         }
-        throw new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
-                "Unbekannter Endpunkt oder nicht unterstützte Methode: " + methode + " " + pfad);
+        throw routeFehler(methode, pfad);
     }
+
+    /**
+     * Trennt 405 von 404 (CR-051): Ist der Pfad bekannt, aber die Methode falsch,
+     * erhält der Client „Methode nicht unterstützt" mit den erlaubten Methoden —
+     * statt eines irreführenden „nicht gefunden".
+     */
+    private static FachlicheException routeFehler(String methode, String pfad) {
+        for (Route route : ROUTEN) {
+            if (pfad.matches(route.muster())) {
+                return new FachlicheException(FachlicheException.METHODE_NICHT_UNTERSTUETZT,
+                        "Methode " + methode + " für " + pfad + " nicht unterstützt "
+                                + "(erlaubt: " + String.join(", ", route.methoden()) + ")");
+            }
+        }
+        return new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
+                "Unbekannter Endpunkt: " + pfad);
+    }
+
+    private record Route(String muster, List<String> methoden) {
+    }
+
+    private static final List<Route> ROUTEN = List.of(
+            new Route("/api/anmeldung|/api/abmeldung|/api/auszahlung|/api/kassenlauf|/api/saga/antrag|/api/drucktoken|/api/system/wiederanlauf",
+                    List.of("POST")),
+            new Route("/api/werbin|/api/bedarfsgemeinschaften|/api/zahlungen|/api/journal|/api/system/status",
+                    List.of("GET")),
+            new Route("/api/bedarfsgemeinschaften/\\d+", List.of("GET", "PUT")),
+            new Route("/api/bedarfsgemeinschaften/\\d+/bescheid", List.of("GET", "POST")),
+            new Route("/api/bedarfsgemeinschaften/\\d+/bescheid/druck", List.of("GET")),
+            new Route("/api/bedarfsgemeinschaften/\\d+/sozialfaelle", List.of("POST")),
+            new Route("/api/sozialfaelle/\\d+", List.of("PUT")),
+            new Route("/api/zahlungen/\\d+/(freigabe|storno)", List.of("POST")));
 
     // ------------------------------------------------------------------
     // Statische Oberfläche (Single-Page-Application aus dem Klassenpfad)
@@ -456,6 +526,8 @@ public final class LmgServer implements AutoCloseable {
         if (resource == null || getClass().getResource(resource) == null) {
             byte[] text = "Nicht gefunden".getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=utf-8");
+            exchange.getResponseHeaders().set("Content-Security-Policy", "default-src 'none'");
+            exchange.getResponseHeaders().set("X-Content-Type-Options", "nosniff");
             exchange.sendResponseHeaders(404, text.length);
             try (OutputStream out = exchange.getResponseBody()) {
                 out.write(text);
@@ -565,6 +637,7 @@ public final class LmgServer implements AutoCloseable {
         map.put("abzSozialversicherung", fall.abzSozialversicherung());
         map.put("abzVersicherungen", fall.abzVersicherungen());
         map.put("abzErwerbsaufwendungen", fall.abzErwerbsaufwendungen());
+        map.put("entbindungsmonat", fall.entbindungsmonat());
         map.put("version", fall.version());
         if (berechnung != null) {
             map.put("regelbedarf", berechnung.regelbedarf());
@@ -609,6 +682,14 @@ public final class LmgServer implements AutoCloseable {
         return map;
     }
 
+    /** Kompakte Zahlungsabbildung für Sammelübersichten (ohne IBAN/BIC). */
+    private static Map<String, Object> zahlungMapKompakt(Zahlung z) {
+        Map<String, Object> map = zahlungMap(z);
+        map.remove("empfaengerIban");
+        map.remove("empfaengerBic");
+        return map;
+    }
+
     private static Map<String, Object> zahlungMap(Zahlung z) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("id", z.id());
@@ -624,6 +705,7 @@ public final class LmgServer implements AutoCloseable {
         map.put("empfaengerIban", z.empfaengerIban());
         map.put("empfaengerBic", z.empfaengerBic());
         map.put("empfaengerName", z.empfaengerName());
+        map.put("vermoegenseinsatz", z.vermoegenseinsatz());
         return map;
     }
 
@@ -737,7 +819,13 @@ public final class LmgServer implements AutoCloseable {
         if (wert == null || String.valueOf(wert).isBlank()) {
             return null;
         }
-        return LocalDate.parse(String.valueOf(wert));
+        try {
+            return LocalDate.parse(String.valueOf(wert));
+        } catch (java.time.format.DateTimeParseException e) {
+            // Nutzereingabe-Fehler → 400 (VALIDATION), nicht 500 (CR-023)
+            throw new IllegalArgumentException(
+                    "Datum muss im Format JJJJ-MM-TT angegeben sein (erhalten: '" + wert + "')");
+        }
     }
 
     private static int limit(HttpExchange exchange, int standard) {
@@ -748,7 +836,16 @@ public final class LmgServer implements AutoCloseable {
         for (String paar : query.split("&")) {
             String[] teile = paar.split("=", 2);
             if (teile.length == 2 && teile[0].equals("limit")) {
-                return Integer.parseInt(URLDecoder.decode(teile[1], StandardCharsets.UTF_8));
+                int wert;
+                try {
+                    wert = Integer.parseInt(URLDecoder.decode(teile[1], StandardCharsets.UTF_8));
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException("limit muss eine ganze Zahl sein");
+                }
+                if (wert < 1 || wert > 500) {
+                    throw new IllegalArgumentException("limit muss zwischen 1 und 500 liegen");
+                }
+                return wert;
             }
         }
         return standard;
@@ -759,6 +856,8 @@ public final class LmgServer implements AutoCloseable {
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
         exchange.getResponseHeaders().set("Content-Security-Policy", "default-src 'self'");
         exchange.getResponseHeaders().set("X-Content-Type-Options", "nosniff");
+        // API-Antworten (insbesondere Anmelde-Tokens) dürfen nicht im Browser-Cache landen (CR-052)
+        exchange.getResponseHeaders().set("Cache-Control", "no-store");
         exchange.sendResponseHeaders(status, inhalt.length);
         try (OutputStream out = exchange.getResponseBody()) {
             out.write(inhalt);

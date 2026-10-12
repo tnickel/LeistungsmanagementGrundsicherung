@@ -9,9 +9,15 @@ import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Strukturiertes Protokoll eines Simulator-Laufs — die Rohlage für die manuelle
@@ -26,11 +32,21 @@ import java.util.concurrent.ConcurrentHashMap;
  *   <li>{@code zusammenfassung.txt} — Kenndaten des Laufs</li>
  * </ul>
  * Zusätzlich hält {@link SweetLog} einen Ringpuffer für den Live-Ticker der GUI.
+ *
+ * <p>Alle Schreibaufrufe sind <b>asynchron</b>: Sie legen die fertige Zeile nur in
+ * eine Queue und kehren sofort zurück — die Mitarbeiter-Threads blockieren also
+ * nie auf der Festplatte. Ein Daemon-Thread ({@code sweet-log-writer}) nimmt die
+ * Einträge gebündelt ab (bis zu 200 Zeilen oder 100-ms-Takt), schreibt und flusht
+ * sie. {@link #close()} leert die Queue, schreibt den Rest synchron, schließt alle
+ * Dateien und beendet den Thread; danach sind weitere Aufrufe bewusst no-op.</p>
  */
 public final class SweetLog implements AutoCloseable {
 
     private static final DateTimeFormatter ZEIT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+
+    /** Schreibauftrag: Ziel-Datei + vollständige, bereits formatierte Zeile. */
+    private record Eintrag(BufferedWriter datei, String zeile) { }
 
     public final Path runVerzeichnis;
 
@@ -40,6 +56,10 @@ public final class SweetLog implements AutoCloseable {
     private final Map<String, BufferedWriter> dateien = new ConcurrentHashMap<>();
     private final Deque<String> ring = new ArrayDeque<>();
     private final Object ringSchloss = new Object();
+    private final Object dateiSchloss = new Object();
+    private final LinkedBlockingQueue<Eintrag> queue = new LinkedBlockingQueue<>();
+    private final Thread writerThread;
+    private volatile boolean geschlossen = false;
 
     public SweetLog(Path basisVerzeichnis) throws IOException {
         this.runVerzeichnis = basisVerzeichnis.resolve("run-" +
@@ -48,75 +68,61 @@ public final class SweetLog implements AutoCloseable {
         simulation = oeffne("simulation.log");
         verifikation = oeffne("db-verifikation.log");
         fehler = oeffne("fehler.log");
+        writerThread = new Thread(this::schreibeSchleife, "sweet-log-writer");
+        writerThread.setDaemon(true);
+        writerThread.start();
     }
 
+    // ------------------------------------------------------------------
+    // Asynchrone Schreib-API
+    // ------------------------------------------------------------------
+
     /** Allgemeines Ereignis (Kanal z. B. SIMULATOR, MITARBEITER, VERIFIKATION). */
-    public synchronized void ereignis(String kanal, String mitarbeiter, String meldung) {
-        schreibe(simulation, kanal, mitarbeiter, meldung);
-        inRing(kanal, mitarbeiter, meldung);
+    public void ereignis(String kanal, String mitarbeiter, String meldung) {
+        reiheEin(simulation, kanal, mitarbeiter, meldung);
     }
 
     /** Schrittprotokoll eines Auftrags: landet in simulation.log UND der Auftragsdatei. */
-    public synchronized void auftragSchritt(Auftrag auftrag, Auftrag.Schritt schritt) {
+    public void auftragSchritt(Auftrag auftrag, Auftrag.Schritt schritt) {
         String kanal = "AUFTRAG " + auftrag.id;
-        schreibe(simulation, kanal, schritt.mitarbeiter(),
-                schritt.aktion() + " :: " + schritt.ergebnis());
-        inRing(kanal, schritt.mitarbeiter(), schritt.aktion() + " :: " + schritt.ergebnis());
-        BufferedWriter datei = dateien.computeIfAbsent(
-                "auftrag-" + auftrag.id + "-" + dateisicher(auftrag.aktenzeichen) + ".log",
-                name -> {
-                    try {
-                        return oeffne(name);
-                    } catch (IOException e) {
-                        throw new UncheckedIOException2(e);
-                    }
-                });
-        schreibe(datei, "SCHRITT", schritt.mitarbeiter(),
-                schritt.aktion() + " :: " + schritt.ergebnis());
+        String text = schritt.aktion() + " :: " + schritt.ergebnis();
+        reiheEin(simulation, kanal, schritt.mitarbeiter(), text);
+        BufferedWriter datei = dateiFuer("auftrag-" + auftrag.id + "-"
+                + dateisicher(auftrag.aktenzeichen) + ".log");
+        reiheEin(datei, "SCHRITT", schritt.mitarbeiter(), text);
     }
 
     /** Ereignis eines Mitarbeiters: simulation.log UND mitarbeiter-<kürzel>.log. */
-    public synchronized void mitarbeiterEreignis(String kuerzel, String meldung) {
-        schreibe(simulation, "MITARBEITER", kuerzel, meldung);
-        inRing("MITARBEITER", kuerzel, meldung);
-        BufferedWriter datei = dateien.computeIfAbsent(
-                "mitarbeiter-" + dateisicher(kuerzel) + ".log",
-                name -> {
-                    try {
-                        return oeffne(name);
-                    } catch (IOException e) {
-                        throw new UncheckedIOException2(e);
-                    }
-                });
-        schreibe(datei, "MITARBEITER", kuerzel, meldung);
+    public void mitarbeiterEreignis(String kuerzel, String meldung) {
+        reiheEin(simulation, "MITARBEITER", kuerzel, meldung);
+        BufferedWriter datei = dateiFuer("mitarbeiter-" + dateisicher(kuerzel) + ".log");
+        reiheEin(datei, "MITARBEITER", kuerzel, meldung);
     }
 
     /** Ergebnis einer Datenbank-Erwartung. */
-    public synchronized void pruefung(Auftrag auftrag, Auftrag.Pruefung pruefung) {
+    public void pruefung(Auftrag auftrag, Auftrag.Pruefung pruefung) {
         String zeile = (pruefung.ok() ? "OK   " : "ABW  ")
                 + " Auftrag " + auftrag.id + " (" + auftrag.aktenzeichen + "): "
                 + pruefung.beschreibung() + " — erwartet [" + pruefung.erwartet()
                 + "], ist [" + pruefung.ist() + "]"
                 + (pruefung.hinweis() != null ? " — " + pruefung.hinweis() : "");
-        schreibeRoher(verifikation, LocalDateTime.now(), "VERIFIKATION", "", zeile);
-        inRing("VERIFIKATION", "", zeile);
+        reiheRoherEin(verifikation, LocalDateTime.now(), "VERIFIKATION", "", zeile);
         if (!pruefung.ok()) {
-            schreibeRoher(fehler, LocalDateTime.now(), "ABWEICHUNG", "", zeile);
+            reiheRoherEin(fehler, LocalDateTime.now(), "ABWEICHUNG", "", zeile);
         }
     }
 
-    public synchronized void fehler(String kanal, String meldung) {
-        schreibeRoher(fehler, LocalDateTime.now(), kanal, "", meldung);
-        schreibe(simulation, kanal, "", meldung);
-        inRing(kanal, "", meldung);
+    public void fehler(String kanal, String meldung) {
+        reiheRoherEin(fehler, LocalDateTime.now(), kanal, "", meldung);
+        reiheEin(simulation, kanal, "", meldung);
     }
 
     /** Schreibt die Laufzusammenfassung (Kenndaten) in zusammenfassung.txt. */
-    public synchronized void zusammenfassung(String text) throws IOException {
+    public void zusammenfassung(String text) throws IOException {
         Path datei = runVerzeichnis.resolve("zusammenfassung.txt");
         Files.writeString(datei, text, StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-        schreibe(simulation, "SIMULATOR", "", "Zusammenfassung geschrieben: " + datei);
+        reiheEin(simulation, "SIMULATOR", "", "Zusammenfassung geschrieben: " + datei);
     }
 
     /** Letzte Logzeilen für den Live-Ticker der GUI. */
@@ -129,28 +135,101 @@ public final class SweetLog implements AutoCloseable {
     }
 
     // ------------------------------------------------------------------
+    // Intern: Queue, Writer-Thread, close
+    // ------------------------------------------------------------------
+
+    /** Formatiert die Zeile mit Aufruf-Zeitstempel, spiegelt sie in den Ringpuffer
+     *  und legt sie für den Writer-Thread in die Queue. Nach close: no-op. */
+    private void reiheEin(BufferedWriter datei, String kanal, String mitarbeiter, String meldung) {
+        if (geschlossen) {
+            return;
+        }
+        reiheRoherEin(datei, LocalDateTime.now(), kanal, mitarbeiter, meldung);
+    }
+
+    private void reiheRoherEin(BufferedWriter datei, LocalDateTime zeit,
+            String kanal, String mitarbeiter, String meldung) {
+        if (geschlossen) {
+            return;
+        }
+        String zeile = ZEIT.format(zeit) + " [" + kanal + "] "
+                + (mitarbeiter == null || mitarbeiter.isEmpty() ? "" : mitarbeiter + ": ")
+                + meldung;
+        inRing(kanal, mitarbeiter, meldung);
+        if (!queue.offer(new Eintrag(datei, zeile))) {
+            // Queue ohne Grenze — offer schlägt praktisch nie fehl; zur Sicherheit
+            // direkt schreiben, damit kein Logverlust entsteht.
+            schreibeDirekt(datei, zeile);
+        }
+    }
+
+    /** Öffnet (once) und liefert die Protokolldatei zum Namen. */
+    private BufferedWriter dateiFuer(String name) {
+        BufferedWriter datei = dateien.get(name);
+        if (datei != null) {
+            return datei;
+        }
+        synchronized (dateiSchloss) {
+            return dateien.computeIfAbsent(name, n -> {
+                try {
+                    return oeffne(n);
+                } catch (IOException e) {
+                    throw new UncheckedIOException2(e);
+                }
+            });
+        }
+    }
+
+    /** Writer-Schleife: nimmt Einträge gebündelt ab (bis 200 Zeilen je Takt,
+     *  sonst 100-ms-Wartetakt) und schreibt+flusht die berührten Dateien. */
+    private void schreibeSchleife() {
+        List<Eintrag> batch = new ArrayList<>(200);
+        while (!geschlossen || !queue.isEmpty()) {
+            try {
+                Eintrag erstes = queue.poll(100, TimeUnit.MILLISECONDS);
+                if (erstes == null) {
+                    continue;
+                }
+                batch.add(erstes);
+                queue.drainTo(batch, 199);
+                schreibeBatch(batch);
+                batch.clear();
+            } catch (InterruptedException erwartetBeiClose) {
+                // close() kann den Thread wecken — der Rest gehört close() selbst
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+    }
+
+    private void schreibeBatch(List<Eintrag> batch) {
+        Set<BufferedWriter> beruehrt = new HashSet<>();
+        for (Eintrag eintrag : batch) {
+            schreibeDirekt(eintrag.datei(), eintrag.zeile());
+            beruehrt.add(eintrag.datei());
+        }
+        for (BufferedWriter datei : beruehrt) {
+            try {
+                datei.flush();
+            } catch (IOException e) {
+                System.err.println("Logfehler (flush): " + e);
+            }
+        }
+    }
+
+    /** Synchroner Fallback/Schluss-Schreibweg — Logverlust darf den Lauf nicht brechen. */
+    private void schreibeDirekt(BufferedWriter datei, String zeile) {
+        try {
+            datei.write(zeile);
+            datei.newLine();
+        } catch (IOException e) {
+            System.err.println("Logfehler: " + e);
+        }
+    }
 
     private BufferedWriter oeffne(String name) throws IOException {
         return Files.newBufferedWriter(runVerzeichnis.resolve(name), StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-    }
-
-    private void schreibe(BufferedWriter datei, String kanal, String mitarbeiter, String meldung) {
-        schreibeRoher(datei, LocalDateTime.now(), kanal, mitarbeiter, meldung);
-    }
-
-    private void schreibeRoher(BufferedWriter datei, LocalDateTime zeit,
-            String kanal, String mitarbeiter, String meldung) {
-        try {
-            datei.write(ZEIT.format(zeit) + " [" + kanal + "] "
-                    + (mitarbeiter == null || mitarbeiter.isEmpty() ? "" : mitarbeiter + ": ")
-                    + meldung);
-            datei.newLine();
-            datei.flush();
-        } catch (IOException e) {
-            // Logverlust darf den Simulator nicht abreißen lassen; auf stderr melden
-            System.err.println("Logfehler: " + e);
-        }
     }
 
     private void inRing(String kanal, String mitarbeiter, String meldung) {
@@ -168,21 +247,46 @@ public final class SweetLog implements AutoCloseable {
         return text.replaceAll("[^A-Za-z0-9._-]", "_");
     }
 
+    /**
+     * Schließt das Protokoll in jedem Fall sauber: Die Queue wird komplett
+     * geleert (der Writer-Thread darf noch laufende Batches beenden), der Rest
+     * wird synchron geschrieben und geflusht, dann werden alle Dateien
+     * geschlossen und der Thread beendet. Weitere Aufrufe nach close sind
+     * bewusst no-op (dasselbe Verhalten wie vorher: schreiben auf geschlossenem
+     * Writer würde still verworfen).
+     */
     @Override
-    public synchronized void close() {
-        for (BufferedWriter datei : dateien.values()) {
-            try {
-                datei.close();
-            } catch (IOException ignored) {
-                // beim Aufräumen egal
-            }
+    public void close() {
+        if (geschlossen) {
+            return;
         }
-        dateien.clear();
-        for (BufferedWriter datei : new BufferedWriter[]{simulation, verifikation, fehler}) {
-            try {
-                datei.close();
-            } catch (IOException ignored) {
-                // beim Aufräumen egal
+        geschlossen = true;
+        try {
+            writerThread.join(2000); // laufenden Batch und Reste abholen lassen
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        // Was (bei Timeout/Interrupt) noch in der Queue liegt, synchron wegschreiben
+        List<Eintrag> rest = new ArrayList<>(queue.size());
+        queue.drainTo(rest);
+        if (!rest.isEmpty()) {
+            schreibeBatch(rest);
+        }
+        synchronized (dateiSchloss) {
+            for (BufferedWriter datei : dateien.values()) {
+                try {
+                    datei.close();
+                } catch (IOException ignored) {
+                    // beim Aufräumen egal
+                }
+            }
+            dateien.clear();
+            for (BufferedWriter datei : new BufferedWriter[]{simulation, verifikation, fehler}) {
+                try {
+                    datei.close();
+                } catch (IOException ignored) {
+                    // beim Aufräumen egal
+                }
             }
         }
     }

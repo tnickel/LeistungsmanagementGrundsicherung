@@ -21,18 +21,10 @@ public final class ZahlungDao {
 
     private static final String COLUMNS =
             "ID, BG_ID, FALL_ID, VORGANGS_NR, ZAHLUNGSMONAT, AUSZAHLUNGSBETRAG, ZAHLUNGSSTATUS, ERSTELLT_AM, "
-                    + "SACHBEARBEITER_ID, FREIGEGEBEN_VON, EMPFAENGER_IBAN, EMPFAENGER_BIC, EMPFAENGER_NAME";
+                    + "SACHBEARBEITER_ID, FREIGEGEBEN_VON, EMPFAENGER_IBAN, EMPFAENGER_BIC, EMPFAENGER_NAME, "
+                    + "VERMOEGENSEINSATZ";
 
-    public boolean existiertVorgangsNr(TxContext ctx, String vorgangsNr) throws SQLException {
-        try (PreparedStatement stmt = ctx.connection().prepareStatement(
-                "SELECT COUNT(*) FROM ZAHLUNG WHERE VORGANGS_NR = ?")) {
-            stmt.setString(1, vorgangsNr);
-            try (ResultSet rs = stmt.executeQuery()) {
-                rs.next();
-                return rs.getLong(1) > 0;
-            }
-        }
-    }
+
 
     /** Gibt es für die Bedarfsgemeinschaft und den Monat schon eine nicht stornierte Zahlung? */
     public boolean existiertAktiveFuerMonat(TxContext ctx, long bgId, String zahlungsmonat) throws SQLException {
@@ -71,20 +63,17 @@ public final class ZahlungDao {
         }
     }
 
-    /** Alle bereitgestellten Zahlungen mit Zeilensperre — der Kassenlauf übergibt sie gesammelt. */
+    /** Alle bereitgestellten Zahlungen aktiver Vorgänge mit Zeilensperre — der Kassenlauf übergibt sie gesammelt. */
     public List<Zahlung> bereiteZahlungenGesperrt(TxContext ctx) throws SQLException {
         try (PreparedStatement stmt = ctx.connection().prepareStatement(
-                "SELECT " + COLUMNS + " FROM ZAHLUNG WHERE ZAHLUNGSSTATUS = 'BEREIT' FOR UPDATE "
-                        + "ORDER BY ID")) {
+                "SELECT z.ID, z.BG_ID, z.FALL_ID, z.VORGANGS_NR, z.ZAHLUNGSMONAT, z.AUSZAHLUNGSBETRAG, "
+                        + "z.ZAHLUNGSSTATUS, z.ERSTELLT_AM, z.SACHBEARBEITER_ID, z.FREIGEGEBEN_VON, "
+                        + "z.EMPFAENGER_IBAN, z.EMPFAENGER_BIC, z.EMPFAENGER_NAME, z.VERMOEGENSEINSATZ "
+                        + "FROM ZAHLUNG z WHERE z.ZAHLUNGSSTATUS = 'BEREIT' "
+                        + "AND EXISTS (SELECT 1 FROM BEDARFSGEMEINSCHAFT b "
+                        + "WHERE b.ID = z.BG_ID AND b.STATUS_AKTIV = 1) "
+                        + "FOR UPDATE ORDER BY z.ID")) {
             return leseListe(stmt.executeQuery());
-        }
-    }
-
-    /** Setzt alle BEREIT-Zahlungen auf UEBERGEBEN; liefert die Anzahl betroffener Zeilen. */
-    public int uebergebeBereite(TxContext ctx) throws SQLException {
-        try (PreparedStatement stmt = ctx.connection().prepareStatement(
-                "UPDATE ZAHLUNG SET ZAHLUNGSSTATUS = 'UEBERGEBEN' WHERE ZAHLUNGSSTATUS = 'BEREIT'")) {
-            return stmt.executeUpdate();
         }
     }
 
@@ -152,10 +141,26 @@ public final class ZahlungDao {
                              String zahlungsmonat, BigDecimal betrag, String status,
                              String sachbearbeiterId, String freigegebenVon,
                              String iban, String bic, String empfaengerName) throws SQLException {
+        return einfuegen(ctx, id, bgId, fallId, vorgangsNr, zahlungsmonat, betrag, status,
+                sachbearbeiterId, freigegebenVon, iban, bic, empfaengerName, BigDecimal.ZERO);
+    }
+
+    /**
+     * Fügt die Zahlung einschließlich des bei der Anordnung verbrauchten verwertbaren
+     * Vermögens ein (§ 90 SGB XII Verbrauchsfortschreibung — der Storno bucht genau
+     * diesen Betrag ins Vermögen zurück).
+     */
+    public Zahlung einfuegen(TxContext ctx, long id, long bgId, Long fallId, String vorgangsNr,
+                             String zahlungsmonat, BigDecimal betrag, String status,
+                             String sachbearbeiterId, String freigegebenVon,
+                             String iban, String bic, String empfaengerName,
+                             BigDecimal vermoegenseinsatz) throws SQLException {
+        BigDecimal einsatz = vermoegenseinsatz == null ? BigDecimal.ZERO : vermoegenseinsatz;
         try (PreparedStatement stmt = ctx.connection().prepareStatement(
                 "INSERT INTO ZAHLUNG (ID, BG_ID, FALL_ID, VORGANGS_NR, ZAHLUNGSMONAT, AUSZAHLUNGSBETRAG, ZAHLUNGSSTATUS, "
-                        + "SACHBEARBEITER_ID, FREIGEGEBEN_VON, EMPFAENGER_IBAN, EMPFAENGER_BIC, EMPFAENGER_NAME) "
-                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+                        + "SACHBEARBEITER_ID, FREIGEGEBEN_VON, EMPFAENGER_IBAN, EMPFAENGER_BIC, EMPFAENGER_NAME, "
+                        + "VERMOEGENSEINSATZ) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
             stmt.setLong(1, id);
             stmt.setLong(2, bgId);
             if (fallId != null) {
@@ -172,11 +177,12 @@ public final class ZahlungDao {
             stmt.setString(10, iban);
             stmt.setString(11, bic);
             stmt.setString(12, empfaengerName);
+            stmt.setBigDecimal(13, einsatz);
             stmt.executeUpdate();
         }
         return new Zahlung(id, bgId, fallId, vorgangsNr, zahlungsmonat, betrag,
                 status != null ? status : "BEREIT", Instant.now(),
-                sachbearbeiterId, freigegebenVon, iban, bic, empfaengerName);
+                sachbearbeiterId, freigegebenVon, iban, bic, empfaengerName, einsatz);
     }
 
     public Zahlung einfuegen(TxContext ctx, long id, long bgId, Long fallId, String vorgangsNr,
@@ -225,11 +231,12 @@ public final class ZahlungDao {
 
     private Zahlung mappe(ResultSet rs) throws SQLException {
         long fallId = rs.getLong(3);
+        boolean fallIstNull = rs.wasNull(); // unmittelbar nach dem zugehörigen getLong auswerten
         Timestamp erstellt = rs.getTimestamp(8);
         return new Zahlung(
                 rs.getLong(1),
                 rs.getLong(2),
-                rs.wasNull() ? null : fallId,
+                fallIstNull ? null : fallId,
                 rs.getString(4),
                 rs.getString(5),
                 rs.getBigDecimal(6),
@@ -239,6 +246,7 @@ public final class ZahlungDao {
                 rs.getString(10),
                 rs.getString(11),
                 rs.getString(12),
-                rs.getString(13));
+                rs.getString(13),
+                rs.getBigDecimal(14));
     }
 }

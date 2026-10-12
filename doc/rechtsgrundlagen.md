@@ -11,9 +11,10 @@ amtliche Bekanntmachung auf <https://www.gesetze-im-internet.de> im Live-Abruf g
 zusätzlich gegen den buzer.de-Spiegel samt BGBl-Fundstelle verifiziert; die
 Regelbedarfsstufen 2026 zusätzlich gegen die Verlautbarung der Bundesregierung.
 
-**Gültigkeit der Jahreswerte:** Die Beträge der Regelbedarfsstufen gelten für das
-Referenzjahr 2026 (`REGELBEDARF_2026` in `Leistungsberechnung`). Sie sind jährlich zum
-1. Januar per Verordnung fortzuschreiben (Abschnitt 6 Änderungsdienst).
+**Gültigkeit der Jahreswerte:** Die Beträge der Regelbedarfsstufen gelten je
+Gültigkeitszeitraum ab dem 1. Januar eines Jahres und stehen in der Tabelle
+`SATZSTAND` (seit v0.5.6; Start 2026-01). Sie sind jährlich per Verordnung
+fortzuschreiben — als neue Tabellenzeile (Abschnitt 6 Änderungsdienst).
 
 ---
 
@@ -39,15 +40,18 @@ hoch- bzw. abgerundeten Summenbeträge die Regelbedarfsstufen ergeben (**Anlage*
   bei Bürgergeld und Sozialhilfe unverändert") und die Tabelle der Regelbedarfe auf
   sozialpolitik-aktuell.de. Die frühere Prüflücke „Abgleich Bundesanzeiger" (Blueprint
   v0.5.2) gilt damit als geschlossen.
-- **Umsetzung:** `REGELBEDARF_2026` in
-  `src/main/java/de/allgemein/lmg/calc/Leistungsberechnung.java` (Map, RBS 1–6 vollständig).
+- **Umsetzung:** Tabelle `SATZSTAND` (eine Zeile je Gültigkeitsmonat, Startwert
+  2026-01: 563/506/451/471/390/357 EUR in `ddl/lmg_seed.sql`); der Produktionspfad
+  (Service und Saga) liest den zum Bezugsmonat gültigen Stand über `SatzstandDao`
+  — die jährliche Fortschreibung ist ein INSERT, keine Codeänderung. Die
+  Seed-Referenz `Satzstand.REFERENZ_2026` dient nur Übergangs-/Testpfaden.
 
 ### 1.2 Mehrbedarfe (§ 30 SGB XII)
 
 | Norm | Amtlicher Inhalt (Kurzfassung, verifiziert) | Umsetzung |
 |---|---|---|
 | § 30 Abs. 1 | Personen, die die Altersgrenze erreicht haben oder vor Erreichen voll erwerbsgemindert sind (Nachweis des **Merkzeichens G** durch Bescheid/Ausweis): Mehrbedarf **17 %** der maßgebenden Regelbedarfsstufe | `FLAG_MERKZEICHEN_G` in `SOZIAL_FALL` |
-| § 30 Abs. 2 | **Schwangere ab der 13. Schwangerschaftswoche** (Gesetz: „nach der zwölften Schwangerschaftswoche") bis zum Ende des Entbindungsmonats: **17 %** | `FLAG_SCHWANGER` (Erfassung als Flag; UI/Seed/Kommentare nennen seit der Review-Umsetzung die 13. SSW) |
+| § 30 Abs. 2 | **Schwangere ab der 13. Schwangerschaftswoche** (Gesetz: „nach der zwölften Schwangerschaftswoche") bis zum Ende des Entbindungsmonats: **17 %** | `FLAG_SCHWANGER` mit optionalem `ENTBINDUNGSMONAT` (YYYY-MM, seit v0.5.5): Auszahlungen und Bescheide für Monate nach dem Entbindungsmonat werden abgewiesen, bis das Flag zurückgenommen ist; ohne erfassten Monat liegt die Einhaltung in der Erfassungsverantwortung |
 | § 30 Abs. 3 | **Alleinerziehende**, bezogen auf die **Regelbedarfsstufe 1**: 36 % bei einem Kind unter 7 oder zwei/drei Kindern unter 16; sonst 12 % je minderjährigem Kind; **maximal 60 %** der RBS 1 | `MEHRBEDARF_*`-Logik in `Leistungsberechnung` |
 | § 30 Abs. 6 | Deckel: Die Summe des nach **Abs. 1 bis 5** anzuerkennenden Mehrbedarfs darf die maßgebende Regelbedarfsstufe nicht übersteigen | umgesetzt; Abs. 7 bewusst außerhalb des Deckels (Wortlaut: „Absätze 1 bis 5") |
 | § 30 Abs. 7 | **Dezentrale Warmwassererzeugung**, je Regelbedarfsstufe der Person: **2,3 % (Stufe 1), 2,3 % (Stufe 2), – (Stufe 3), 1,4 % (Stufe 4), 1,2 % (Stufe 5), 0,8 % (Stufe 6)**; Höheres nur mit separatem Messnachweis | `MEHRBEDARF_WARMWASSER_*` in `Leistungsberechnung` |
@@ -90,7 +94,7 @@ Alter/bei Erwerbsminderung) verweist für die Einzelheiten auf § 35 SGB XII
 | Norm | Amtlicher Inhalt (Kurzfassung, verifiziert) | Umsetzung |
 |---|---|---|
 | § 90 Abs. 2 Nr. 9 SGB XII | Schonung **kleinerer Barbeträge oder sonstiger Geldwerte** unter Berücksichtigung einer besonderen Notlage; die Beträge bestimmt die Rechtsverordnung (unten) | i.V.m. DVO § 1 umgesetzt |
-| **DVO zu § 90 Abs. 2 Nr. 9 SGB XII** (Verordnung zur Durchführung des § 90 Abs. 2 Nr. 9 des Zwölften Buches Sozialgesetzbuch vom 11.02.1988, BGBl. I S. 150, zuletzt geändert durch Art. 9 Bürgergeld-Gesetz vom 16.12.2022, BGBl. I S. 2328, in Kraft seit 01.01.2023) — **§ 1** | Verschont: **10.000 EUR** für Personen nach § 19 Abs. 3, § 27 Abs. 1–2, **§ 41** (Grundsicherung im Alter/bei Erwerbsminderung) und § 43 Abs. 1 S. 2 SGB XII sowie für jede alleinstehende minderjährige Person; **zusätzlich 500 EUR für jede überwiegend unterhaltene Person** | umgesetzt: `SCHONVERMOEGEN_GRUNDBETRAG` (10.000) und `SCHONVERMOEGEN_UNTERHALTENE_PERSON` (500); Projekt-Vereinfachung: Zuordnung über RBS (10.000 je Person RBS 1–3, 500 je unterhaltener Person RBS 4–6), kein Verbrauchsfortschrieb |
+| DVO zu § 90 Abs. 2 Nr. 9 SGB XII (Verordnung zur Durchführung des § 90 Abs. 2 Nr. 9 des Zwölften Buches Sozialgesetzbuch vom 11.02.1988, BGBl. I S. 150, zuletzt geändert durch Art. 9 Bürgergeld-Gesetz vom 16.12.2022, BGBl. I S. 2328, in Kraft seit 01.01.2023) — **§ 1** | Verschont: **10.000 EUR** für Personen nach § 19 Abs. 3, § 27 Abs. 1–2, **§ 41** (Grundsicherung im Alter/bei Erwerbsminderung) und § 43 Abs. 1 S. 2 SGB XII sowie für jede alleinstehende minderjährige Person; **zusätzlich 500 EUR für jede überwiegend unterhaltene Person** | umgesetzt: `SCHONVERMOEGEN_GRUNDBETRAG` (10.000) und `SCHONVERMOEGEN_UNTERHALTENE_PERSON` (500) **mit Verbrauchsfortschreibung** (seit v0.5.6): Der über dem Schonvermögen liegende Anteil verbraucht sich mit der ersten Auszahlung (Bestand sinkt in derselben Transaktion, Einsatz an der Zahlung dokumentiert — `ZAHLUNG.VERMOEGENSEINSATZ`); Storno bucht genau den dokumentierten Einsatz zurück. Ab dem Folgemonat liegt der Rest im Schonvermögen und mindert die Leistung nicht mehr. Projekt-Vereinfachung bleibt die Zuordnung über RBS (10.000 je Person RBS 1–3, 500 je unterhaltener Person RBS 4–6) |
 | DVO § 2 | Erhöhung bei besonderer Notlage; Herabsetzung in Fällen der §§ 103, 94 SGB XII | **nicht modelliert** |
 | § 43 Abs. 1 SGB XII („Einsatz von Einkommen und Vermögen") | §§ 82–84 (Einkommen) und §§ 90, 91 (Vermögen) gelten entsprechend; Einkommen/Vermögen des nicht getrennt lebenden Ehegatten/Lebenspartners einbezogen | umgesetzt (Vermögen mindert den Zahlbetrag) |
 | § 43 Abs. 2 SGB XII | Anrechnungsfrei bleiben **Einnahmen aus Kapitalvermögen bis 26 EUR im Kalenderjahr** | **nicht modelliert**. *Hinweis:* Die frühere Doku-Zeile „§ 43 Abs. 2: Einkommensgrenze 100.000 EUR" war falsch — die 100.000-EUR-Grenze steht heute in **§ 94 Abs. 1a SGB XII** (Unterhaltsansprüche gegen Kinder/Eltern nur oberhalb 100.000 EUR Jahresgesamteinkommen, eingefügt durch das Angehörigen-Entlastungsgesetz zum 01.01.2020) und betrifft den Unterhaltsrückgriff, nicht die Bedarfsberechnung; **nicht modelliert** |
@@ -113,7 +117,7 @@ Alter/bei Erwerbsminderung) verweist für die Einzelheiten auf § 35 SGB XII
 | § 84 SGG („Einlegung des Widerspruchs") | Widerspruch **binnen eines Monats** ab Bekanntgabe (im Ausland: 3 Monate); fristwahrend auch bei **anderer inländischer Behörde, Versicherungsträger oder deutscher Konsularbehörde** (Abs. 2) | Belehrung |
 | § 87 SGG („Klagefrist") | Klage binnen eines Monats — ohne Widerspruch ab Bekanntgabe des Verwaltungsakts, **nach Vorverfahren ab Bekanntgabe des Widerspruchsbescheids** (Abs. 2) | Belehrung (`modus`) |
 | § 88 SGG („Untätigkeitsklage") | **Abs. 1:** Klage gegen nicht beschiedenen **Antrag** frühestens nach **sechs Monaten**. **Abs. 2:** Über einen **Widerspruch** soll binnen **drei Monaten** entschieden sein — danach Untätigkeitsklage möglich | Belehrung korrekt auf den Widerspruchsfall bezogen („Nach Ablauf von drei Monaten ohne Entscheidung über den Widerspruch …"); Doku-Kurzform „nach 3 Monaten" ist nur mit diesem Bezug zulässig |
-| § 73 Abs. 2 SGG | Vertretungsbefugnis vor Sozial-/Landessozialgericht (Rechtsanwälte, EU-Hochschullehrer, Steuerberater, Wirtschaftsprüfer, Gewerkschaften/Verbände u. a.) | Belehrung |
+| § 73 Abs. 1 SGG | Vor den Gerichten der Sozialgerichtsbarkeit besteht kein Vertretungszwang (Beklagtenvertretung abweichend) | Belehrung („Einer Vertretung … bedarf es nicht", korrekt zitiert als Abs. 1; die Vertretungs<b>befugnisse</b> des Abs. 2 sind nicht Teil der Belehrung) |
 
 - **Herkunft:** [§ 35 SGB X](https://www.gesetze-im-internet.de/sgb_10/__35.html),
   [§ 36 SGB X](https://www.gesetze-im-internet.de/sgb_10/__36.html),
@@ -127,7 +131,7 @@ Alter/bei Erwerbsminderung) verweist für die Einzelheiten auf § 35 SGB XII
 
 | Wert | Betrag/Satz | Normherkunft | Code-Fundstelle |
 |---|---|---|---|
-| RBS 1–6 (2026) | 563,00 / 506,00 / 451,00 / 471,00 / 390,00 / 357,00 EUR | Anlage zu § 28 SGB XII (s. o.) | `Leistungsberechnung.REGELBEDARF_2026` |
+| RBS 1–6 (je Jahr) | 2026: 563,00 / 506,00 / 451,00 / 471,00 / 390,00 / 357,00 EUR | Anlage zu § 28 SGB XII (s. o.) | Tabelle `SATZSTAND` (Seed 2026-01) |
 | Mehrbedarf Merkzeichen G | 17 % der maßgebenden RBS | § 30 Abs. 1 SGB XII | `Leistungsberechnung` |
 | Mehrbedarf Schwangerschaft | 17 % | § 30 Abs. 2 SGB XII | `Leistungsberechnung` |
 | Mehrbedarf Alleinerziehende | 36 % / 12 %, Deckel 60 % der RBS 1 | § 30 Abs. 3 SGB XII | `MEHRBEDARF_ALLEINERZIEHEND_*` |
@@ -149,10 +153,19 @@ Krisenfeste Dokumentation heißt auch festzuhalten, was bewusst **nicht** gilt:
    Abs. 3 S. 2 (WfbM-Sonderregel), Abs. 4, Abs. 5 SGB XII.
 3. § 43 Abs. 2 SGB XII (Kapitalerträge 26 EUR/Jahr); § 43 Abs. 3–5.
 4. § 94 Abs. 1a SGB XII (100.000-EUR-Grenze beim Unterhaltsrückgriff gegen Eltern/Kinder).
-5. DVO § 2 zu § 90 Abs. 2 Nr. 9 SGB XII (Erhöhung/Herabsetzung des Schonvermögens);
-   kein Verbrauchsfortschrieb des Vermögens über Monate.
+5. DVO § 2 zu § 90 Abs. 2 Nr. 9 SGB XII (Erhöhung/Herabsetzung des Schonvermögens).
+   Die Verbrauchsfortschreibung ist seit v0.5.6 umgesetzt (s. Abschnitt 1.5); die
+   Maske darf den Bestand weiterhin fortschreiben (Deklaration ersetzt die
+   automatische Fortschreibung).
 6. § 44a SGB XII (vorläufige Entscheidung, verkürzter Bewilligungszeitraum);
    Nachzahlungen/Aufrechnung nach § 43a SGB XII.
+7. Abstimmung laufender Bescheide mit dem Satzstand: Zahlungen und Bescheide
+   rechnen mit dem zum jeweiligen Bezugsmonat gültigen Satzstand (Tabelle
+   SATZSTAND, seit v0.5.6). Läuft ein Bewilligungszeitraum über einen
+   Satzwechsel hinaus, folgt die Folgezahlung dem NEUEN Stand, ohne dass
+   automatisch ein Änderungsbescheid (§ 48 SGB X) ergeht; der Nachdruck zeigt
+   weiterhin den erteilten Snapshot. Die Verfahrensfrage (Zahlung folgt dem
+   Bescheid bis zum Änderungsbescheid) bleibt bewusst offen.
 
 ## 5. Verifikationsprotokoll (2026-10-10)
 
@@ -185,10 +198,11 @@ Abschnitt 4.
 ## 6. Änderungsdienst
 
 - **Jährlich (Dezember/Januar):** Fortschreibung der Regelbedarfsstufen prüfen
-  (Verordnung zum Folgearzt); bei Änderung `REGELBEDARF_2026`-Nachfolger, Tests
-  (`LeistungsberechnungTest`), Seed und dieses Verzeichnis (Abschnitte 1.1 und 3)
-  aktualisieren. Der Kappungsbetrag (50 % RBS 1) und der RBS-1-Bezug des
-  Alleinerziehenden-Mehrbedarfs hängen an derselben Anpassung.
+  (Verordnung zum Folgejahr). Bei Änderung genügt seit v0.5.6 eine neue Zeile in
+  der Tabelle `SATZSTAND` (GUELTIG_AB = Januar des Folgejahres) — Code, Tests und
+  Seed bleiben unberührt; `SatzstandDbTest` deckt die Auswahl je Bezugsmonat ab.
+  Die abgeleiteten Werte (Kappung 50 % RBS 1, RBS-1-Bezug des
+  Alleinerziehenden-Mehrbedarfs) folgen automatisch aus der Tabelle.
 - **Bei Gesetzesänderungen:** betroffene Norm gegen gesetze-im-internet.de prüfen,
   Abschnitt 5 um eine Zeile ergänzen (Datum, Ergebnis), Code/Doku nachziehen.
 - **Verantwortlich:** wechselndes Fach-Review; jede Änderung dieses Dokuments mit

@@ -2,6 +2,9 @@ package de.allgemein.lmg.config;
 
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -40,12 +43,20 @@ public final class LmgConfig {
     private final String behoerdeOrt;
     private final String behoerdeAnschrift;
     private final int sessionTimeoutMinuten;
+    private final String host;
+    private final int dbConnectTimeoutMs;
+    private final int dbReadTimeoutMs;
 
     private LmgConfig(Properties props) {
         this.url = resolve(props, "tx.url", "TX_URL", "jdbc:oracle:thin:@//localhost:1921/o19c1p1");
         this.user = resolve(props, "tx.user", "TX_USER", "tx_demo");
         this.password = resolve(props, "tx.pass", "TX_PASS", "tx_demo");
         this.port = Integer.parseInt(resolve(props, "lmg.port", "LMG_PORT", "8080"));
+        this.host = resolve(props, "lmg.host", "LMG_HOST", "127.0.0.1");
+        this.dbConnectTimeoutMs = Integer.parseInt(
+                resolve(props, "lmg.db.connectTimeoutMs", "LMG_DB_CONNECT_TIMEOUT_MS", "15000"));
+        this.dbReadTimeoutMs = Integer.parseInt(
+                resolve(props, "lmg.db.readTimeoutMs", "LMG_DB_READ_TIMEOUT_MS", "120000"));
         this.poolType = resolve(props, "lmg.pool.type", "LMG_POOL_TYP", "ucp");
         this.poolSize = Integer.parseInt(resolve(props, "lmg.pool.size", "LMG_POOL_GROESSE", "8"));
         this.maxTasks = Integer.parseInt(resolve(props, "lmg.tasks.max", "LMG_TASKS", "8"));
@@ -72,8 +83,10 @@ public final class LmgConfig {
         Properties fileProps = new Properties();
         Path p = Paths.get(fileName);
         if (Files.exists(p)) {
-            try (InputStream in = new FileInputStream(p.toFile())) {
-                fileProps.load(in);
+            try (Reader reader = new InputStreamReader(new FileInputStream(p.toFile()), StandardCharsets.UTF_8)) {
+                // Properties.load(InputStream) dekodiert fest ISO-8859-1 und würde Umlaute der
+                // Behördenanschrift verstümmeln — daher explizit UTF-8 über einen Reader.
+                fileProps.load(reader);
                 LOG.info(() -> "Konfiguration geladen aus Datei: " + p.toAbsolutePath());
             } catch (Exception e) {
                 LOG.warning(() -> "Konnte Konfigurationsdatei nicht lesen: " + fileName + " (" + e.getMessage() + ")");
@@ -81,7 +94,9 @@ public final class LmgConfig {
         } else {
             try (InputStream in = LmgConfig.class.getClassLoader().getResourceAsStream(fileName)) {
                 if (in != null) {
-                    fileProps.load(in);
+                    try (Reader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
+                        fileProps.load(reader);
+                    }
                     LOG.info(() -> "Konfiguration geladen aus Klassenpfad: " + fileName);
                 }
             } catch (Exception e) {
@@ -106,6 +121,15 @@ public final class LmgConfig {
         }
         if (sessionTimeoutMinuten < 1) {
             throw new IllegalArgumentException("Session-Timeout muss mindestens 1 Minute sein: " + sessionTimeoutMinuten);
+        }
+        if (!"WIDERSPRUCH".equals(rechtsbehelfModus) && !"KLAGE".equals(rechtsbehelfModus)) {
+            throw new IllegalArgumentException(
+                    "Ungültiger Rechtsbehelf-Modus '" + rechtsbehelfModus + "' — zulaessig: WIDERSPRUCH, KLAGE "
+                            + "(Konfiguration lmg.rechtsbehelf.modus / LMG_RECHTSBEHELFSMODUS). Eine falsche "
+                            + "Belehrung (§ 36 SGB X) darf nicht still durch einen Tippfehler entstehen.");
+        }
+        if (dbConnectTimeoutMs < 100 || dbReadTimeoutMs < 100) {
+            throw new IllegalArgumentException("DB-Timeouts müssen mindestens 100 ms betragen");
         }
     }
 
@@ -157,4 +181,13 @@ public final class LmgConfig {
 
     /** Idle-Timeout angemeldeter Sitzungen in Minuten (0 ist ungültig, Minimum 1). */
     public int sessionTimeoutMinuten() { return sessionTimeoutMinuten; }
+
+    /** Bind-Adresse des HTTP-Servers (Default Loopback — kein Lauschen auf allen Interfaces). */
+    public String host() { return host; }
+
+    /** TCP-Verbindungsaufbau-Timeout zur Oracle-DB in Millisekunden (Default 15.000). */
+    public int dbConnectTimeoutMs() { return dbConnectTimeoutMs; }
+
+    /** Lese-Timeout für JDBC-Aufrufe in Millisekunden (Default 120.000) — begrenzt hängende Calls. */
+    public int dbReadTimeoutMs() { return dbReadTimeoutMs; }
 }

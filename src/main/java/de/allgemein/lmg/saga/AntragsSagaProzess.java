@@ -2,8 +2,10 @@ package de.allgemein.lmg.saga;
 
 import de.allgemein.lmg.calc.BerechnungsSnapshot;
 import de.allgemein.lmg.calc.Leistungsberechnung;
+import de.allgemein.lmg.config.LmgConfig;
 import de.allgemein.lmg.model.SozialFall;
 import de.allgemein.lmg.service.FachlicheException;
+import de.allgemein.lmg.service.SozialLeistungsService;
 import de.allgemein.lmg.service.Zahlungsmonat;
 import de.allgemein.lmg.web.Json;
 import de.allgemein.tx.saga.SagaDefinition;
@@ -14,9 +16,11 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
 
 /**
  * Vollständige fachliche End-to-End-Saga für das Leistungsmanagement Grundsicherung:
@@ -29,6 +33,13 @@ import java.util.Map;
  *   <li><b>Erstauszahlung anweisen:</b> Zahlung im Status ANGELEGT (wartet auf die
  *       Vier-Augen-Freigabe durch einen zweiten Sachbearbeiter), Minderung des Restbudgets</li>
  * </ol>
+ *
+ * <p><b>Berechnungsbasis (Codereview CR-003):</b> Die Schritte 2–4 rechnen ausschließlich
+ * auf dem Datenbestand, den Schritt 1 geschrieben hat (SozialFälle, Vermögen) — nicht auf
+ * dem Payload. Damit sind manuelle Korrekturen zwischen den Schritten wirksam, und Bescheid
+ * wie Erstauszahlung verwenden dieselbe Basis wie der manuelle Buchungsweg, inklusive der
+ * konfigurierten KdU-Parameter (§ 35 Abs. 7 SGB XII) und der Vermögensanrechnung
+ * (§ 43 Abs. 1, § 90 SGB XII; optionales Payload-Feld {@code vermoegen}).</p>
  *
  * <p>Konventionen für die Kompensationen (Voraussetzung für den Wiederanlauf, der
  * IN_FLIGHT-Schritte konservativ als „möglicherweise committet" mit kompensiert):</p>
@@ -43,10 +54,18 @@ import java.util.Map;
  */
 public final class AntragsSagaProzess {
 
+    private static final Logger LOG = Logger.getLogger(AntragsSagaProzess.class.getName());
+
     public static final String SAGA_TYPE = "SGB_XII_ANTRAGSVERARBEITUNG";
 
     /** Präfix der VORGANGS_NR für Saga-Zahlungen: deterministisch aus der sagaId ableitbar. */
     public static final String VORGANGS_NR_PRAEFIX = "SAGA-";
+
+    /** Konfigurierte KdU-Parameter, einmalig lazy geladen (Injektion für Tests möglich). */
+    private static volatile Leistungsberechnung.KduParameter kduParameterCache = null;
+
+    /** Liest die je Jahr gepflegten Regelbedarfsstufen (Tabelle SATZSTAND) je Bezugsmonat. */
+    private static final de.allgemein.lmg.dao.SatzstandDao SATZSTAND_DAO = new de.allgemein.lmg.dao.SatzstandDao();
 
     private AntragsSagaProzess() {
     }
@@ -65,6 +84,28 @@ public final class AntragsSagaProzess {
         return VORGANGS_NR_PRAEFIX + sagaId;
     }
 
+    /** KdU-Parameter der Konfiguration (lazy, einmalig); Tests können injizieren. */
+    static Leistungsberechnung.KduParameter kduParameter() {
+        Leistungsberechnung.KduParameter parameter = kduParameterCache;
+        if (parameter != null) {
+            return parameter;
+        }
+        try {
+            parameter = LmgConfig.load().kduParameter();
+        } catch (RuntimeException e) {
+            LOG.warning("KdU-Parameter nicht konfigurierbar — Berechnung ohne Angemessenheitsgrenze: "
+                    + e.getMessage());
+            parameter = Leistungsberechnung.KduParameter.AUS;
+        }
+        kduParameterCache = parameter;
+        return parameter;
+    }
+
+    /** Injiziert die KdU-Parameter (Aufruf durch LmgServerMain beim Start bzw. Tests). */
+    public static void setzeKduParameter(Leistungsberechnung.KduParameter parameter) {
+        kduParameterCache = parameter;
+    }
+
     // ------------------------------------------------------------------
     // Schritt 1: Vorgang erfassen
     // ------------------------------------------------------------------
@@ -74,6 +115,7 @@ public final class AntragsSagaProzess {
         String aktenzeichen = (String) data.get("aktenzeichen");
         String name = (String) data.get("hauptpersonName");
         BigDecimal budget = getBigDecimal(data.get("startBudget"));
+        BigDecimal vermoegen = getBigDecimal(data.get("vermoegen"));
         String iban = (String) data.get("iban");
         String bic = (String) data.get("bic");
         int rbs = ((Number) data.get("regelbedarfsstufe")).intValue();
@@ -85,15 +127,17 @@ public final class AntragsSagaProzess {
 
         long bgId = nextVal(c, "SEQ_BG");
         try (PreparedStatement stmt = c.prepareStatement(
-                "INSERT INTO BEDARFSGEMEINSCHAFT (ID, AKTENZEICHEN, HAUPTPERSON_NAME, STATUS_AKTIV, BUDGET_REST, IBAN, BIC, KONTOINHABER) "
-                        + "VALUES (?, ?, ?, 1, ?, ?, ?, ?)")) {
+                "INSERT INTO BEDARFSGEMEINSCHAFT (ID, AKTENZEICHEN, HAUPTPERSON_NAME, STATUS_AKTIV, BUDGET_REST, "
+                        + "VERMOEGEN, IBAN, BIC, KONTOINHABER) "
+                        + "VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)")) {
             stmt.setLong(1, bgId);
             stmt.setString(2, aktenzeichen);
             stmt.setString(3, name);
             stmt.setBigDecimal(4, budget);
-            stmt.setString(5, iban);
-            stmt.setString(6, bic);
-            stmt.setString(7, name);
+            stmt.setBigDecimal(5, vermoegen);
+            stmt.setString(6, iban);
+            stmt.setString(7, bic);
+            stmt.setString(8, name);
             stmt.executeUpdate();
         }
 
@@ -155,19 +199,19 @@ public final class AntragsSagaProzess {
 
     public static void bedarfspruefung(Connection c, String payload, String sagaId) throws SQLException {
         Map<String, Object> data = parsePayload(payload);
-        int rbs = ((Number) data.get("regelbedarfsstufe")).intValue();
-        BigDecimal miete = getBigDecimal(data.get("kduMiete"));
-        BigDecimal betrieb = getBigDecimal(data.get("kduBetriebskosten"));
-        BigDecimal heizung = getBigDecimal(data.get("kduHeizung"));
-        BigDecimal rente = getBigDecimal(data.get("einkommenRente"));
-        BigDecimal erwerb = getBigDecimal(data.get("einkommenErwerb"));
+        Long bgId = findeBgIdOderFehler(c, (String) data.get("aktenzeichen"));
+        List<SozialFall> faelle = leseFaelle(c, bgId);
+        BigDecimal vermoegen = leseVermoegen(c, bgId);
+        de.allgemein.lmg.calc.Satzstand satzstand =
+                SATZSTAND_DAO.findeFuerMonat(c, (String) data.get("zahlungsmonat"));
 
-        SozialFall fall = new SozialFall(1L, 1L, rbs, false, false, miete, betrieb, heizung, rente, erwerb, 1L);
-        Leistungsberechnung.Berechnungsergebnis ergebnis = Leistungsberechnung.berechne(1L, List.of(fall));
+        Leistungsberechnung.Berechnungsergebnis ergebnis =
+                Leistungsberechnung.berechne(bgId, faelle, kduParameter(), vermoegen, satzstand);
 
         if (ergebnis.zahlbetrag().signum() <= 0) {
-            throw new IllegalStateException("Kein Leistungsanspruch nach SGB XII: Einkommen übersteigt Gesamtbedarf "
-                    + "(Zahlbetrag: " + ergebnis.zahlbetrag() + " EUR)");
+            throw new FachlicheException(FachlicheException.KEIN_ANSPRUCH,
+                    "Kein Leistungsanspruch nach SGB XII: Einkommen/Vermögen übersteigt Gesamtbedarf "
+                            + "(Zahlbetrag: " + ergebnis.zahlbetrag() + " EUR)");
         }
     }
 
@@ -193,39 +237,36 @@ public final class AntragsSagaProzess {
     public static void bescheidErteilen(Connection c, String payload, String sagaId) throws SQLException {
         Map<String, Object> data = parsePayload(payload);
         String aktenzeichen = (String) data.get("aktenzeichen");
-        Long bgId = findBgId(c, aktenzeichen);
-        if (bgId == null) {
-            throw new IllegalStateException("Bedarfsgemeinschaft nicht gefunden: " + aktenzeichen);
-        }
+        Long bgId = findeBgIdOderFehler(c, aktenzeichen);
 
-        int rbs = ((Number) data.get("regelbedarfsstufe")).intValue();
-        BigDecimal miete = getBigDecimal(data.get("kduMiete"));
-        BigDecimal betrieb = getBigDecimal(data.get("kduBetriebskosten"));
-        BigDecimal heizung = getBigDecimal(data.get("kduHeizung"));
-        BigDecimal rente = getBigDecimal(data.get("einkommenRente"));
-        BigDecimal erwerb = getBigDecimal(data.get("einkommenErwerb"));
-
-        SozialFall fall = new SozialFall(1L, bgId, rbs, false, false, miete, betrieb, heizung, rente, erwerb, 1L);
-        Leistungsberechnung.Berechnungsergebnis ergebnis = Leistungsberechnung.berechne(bgId, List.of(fall));
-
-        long bescheidId = nextVal(c, "SEQ_BESCHEID");
-        String bescheidNr = "BESCH-" + aktenzeichen;
+        List<SozialFall> faelle = leseFaelle(c, bgId);
+        BigDecimal vermoegen = leseVermoegen(c, bgId);
         String monatVon = (String) data.get("zahlungsmonat");
         String monatBis = data.containsKey("bewilligungBis") ? (String) data.get("bewilligungBis") : monatVon;
+        // § 44 Abs. 3 SGB XII: zwölf Monate — dieselbe Prüfung wie auf dem Service-Weg.
+        SozialLeistungsService.pruefeBewilligungszeitraum(monatVon, monatBis);
+        de.allgemein.lmg.calc.Satzstand satzstand = SATZSTAND_DAO.findeFuerMonat(c, monatVon);
+        Leistungsberechnung.Berechnungsergebnis ergebnis =
+                Leistungsberechnung.berechne(bgId, faelle, kduParameter(), vermoegen, satzstand);
+
+        long bescheidId = nextVal(c, "SEQ_BESCHEID");
         String sb = data.containsKey("sachbearbeiterId") ? (String) data.get("sachbearbeiterId") : "saga-engine";
+        LocalDate bescheidDatum = LocalDate.now();
+        String bescheidNr = "BESCH-" + aktenzeichen + "-" + bescheidDatum.getYear() + "-" + bescheidId;
 
         try (PreparedStatement stmt = c.prepareStatement(
                 "INSERT INTO BESCHEID (ID, BG_ID, BESCHEID_NR, BESCHEID_DATUM, BEWILLIGUNG_VON, BEWILLIGUNG_BIS, "
                         + "ZAHLBETRAG, STATUS, ERSTELLT_VON, ERSTELLT_AM, BERECHNUNG) "
-                        + "VALUES (?, ?, ?, SYSDATE, ?, ?, ?, 'ERTEILT', ?, SYSTIMESTAMP, ?)")) {
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, 'ERTEILT', ?, SYSTIMESTAMP, ?)")) {
             stmt.setLong(1, bescheidId);
             stmt.setLong(2, bgId);
             stmt.setString(3, bescheidNr);
-            stmt.setString(4, monatVon);
-            stmt.setString(5, monatBis);
-            stmt.setBigDecimal(6, ergebnis.zahlbetrag());
-            stmt.setString(7, sb);
-            stmt.setString(8, BerechnungsSnapshot.schreibe(ergebnis, List.of(fall), BigDecimal.ZERO));
+            stmt.setDate(4, java.sql.Date.valueOf(bescheidDatum));
+            stmt.setString(5, monatVon);
+            stmt.setString(6, monatBis);
+            stmt.setBigDecimal(7, ergebnis.zahlbetrag());
+            stmt.setString(8, sb);
+            stmt.setString(9, BerechnungsSnapshot.schreibe(ergebnis, faelle, vermoegen));
             stmt.executeUpdate();
         }
         schreibeJournal(c, bgId, "Bescheid " + bescheidNr + " ueber " + ergebnis.zahlbetrag() + " EUR erteilt", sb);
@@ -270,10 +311,8 @@ public final class AntragsSagaProzess {
     public static void erstauszahlungAnweisen(Connection c, String payload, String sagaId) throws SQLException {
         Map<String, Object> data = parsePayload(payload);
         String aktenzeichen = (String) data.get("aktenzeichen");
-        Long bgId = findBgId(c, aktenzeichen);
-        if (bgId == null) {
-            throw new IllegalStateException("Bedarfsgemeinschaft nicht gefunden: " + aktenzeichen);
-        }
+        Long bgId = findeBgIdOderFehler(c, aktenzeichen);
+        String monat = (String) data.get("zahlungsmonat");
 
         // Budget prüfen und sperren
         BigDecimal budgetRest;
@@ -286,40 +325,63 @@ public final class AntragsSagaProzess {
             }
         }
 
-        int rbs = ((Number) data.get("regelbedarfsstufe")).intValue();
-        BigDecimal miete = getBigDecimal(data.get("kduMiete"));
-        BigDecimal betrieb = getBigDecimal(data.get("kduBetriebskosten"));
-        BigDecimal heizung = getBigDecimal(data.get("kduHeizung"));
-        BigDecimal rente = getBigDecimal(data.get("einkommenRente"));
-        BigDecimal erwerb = getBigDecimal(data.get("einkommenErwerb"));
-        SozialFall fall = new SozialFall(1L, bgId, rbs, false, false, miete, betrieb, heizung, rente, erwerb, 1L);
-        BigDecimal zahlbetrag = Leistungsberechnung.berechne(bgId, List.of(fall)).zahlbetrag();
+        List<SozialFall> faelle = leseFaelle(c, bgId);
+        BigDecimal vermoegen = leseVermoegen(c, bgId);
+        de.allgemein.lmg.calc.Satzstand satzstand = SATZSTAND_DAO.findeFuerMonat(c, monat);
+        Leistungsberechnung.Berechnungsergebnis ergebnis =
+                Leistungsberechnung.berechne(bgId, faelle, kduParameter(), vermoegen, satzstand);
+        BigDecimal zahlbetrag = ergebnis.zahlbetrag();
+        BigDecimal vermoegenseinsatz = ergebnis.verwertbaresVermoegen().max(BigDecimal.ZERO);
 
         if (zahlbetrag.compareTo(budgetRest) > 0) {
-            throw new IllegalStateException("Zahlbetrag " + zahlbetrag + " EUR uebersteigt Restbudget " + budgetRest + " EUR");
+            throw new FachlicheException(FachlicheException.BUDGET_ERSCHOEPFT,
+                    "Zahlbetrag " + zahlbetrag + " EUR uebersteigt Restbudget " + budgetRest + " EUR");
+        }
+
+        // Fachregel als Vorprüfung (die Unique-Indizes UQ_ZAHLUNG_BG_MONAT_AKTIV und
+        // UQ_ZAHLUNG_VORGANG bleiben die letzte Verteidigungslinie): keine zweite wirksame
+        // Zahlung für dieselbe BG im selben Monat — als Fachfehler statt ORA-00001/500er.
+        try (PreparedStatement stmt = c.prepareStatement(
+                "SELECT COUNT(*) FROM ZAHLUNG WHERE BG_ID = ? AND ZAHLUNGSMONAT = ? "
+                        + "AND ZAHLUNGSSTATUS <> 'STORNIERT'")) {
+            stmt.setLong(1, bgId);
+            stmt.setString(2, monat);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next() && rs.getInt(1) > 0) {
+                    throw new FachlicheException(FachlicheException.VALIDATION,
+                            "Für diesen Monat existiert bereits eine wirksame Zahlung dieser Bedarfsgemeinschaft");
+                }
+            }
         }
 
         long zahlungId = nextVal(c, "SEQ_ZAHLUNG");
-        String monat = (String) data.get("zahlungsmonat");
         String sb = data.containsKey("sachbearbeiterId") ? (String) data.get("sachbearbeiterId") : "saga-engine";
         String vorgangsNr = vorgangsNrFuer(sagaId);
         String iban = (String) data.get("iban");
         String bic = (String) data.get("bic");
         String name = (String) data.get("hauptpersonName");
+        Long fallId = faelle.size() == 1 ? faelle.get(0).id() : null;
 
         try (PreparedStatement stmt = c.prepareStatement(
-                "INSERT INTO ZAHLUNG (ID, BG_ID, VORGANGS_NR, ZAHLUNGSMONAT, AUSZAHLUNGSBETRAG, ZAHLUNGSSTATUS, "
-                        + "SACHBEARBEITER_ID, FREIGEGEBEN_VON, EMPFAENGER_IBAN, EMPFAENGER_BIC, EMPFAENGER_NAME) "
-                        + "VALUES (?, ?, ?, ?, ?, 'ANGELEGT', ?, NULL, ?, ?, ?)")) {
+                "INSERT INTO ZAHLUNG (ID, BG_ID, FALL_ID, VORGANGS_NR, ZAHLUNGSMONAT, AUSZAHLUNGSBETRAG, "
+                        + "ZAHLUNGSSTATUS, SACHBEARBEITER_ID, FREIGEGEBEN_VON, EMPFAENGER_IBAN, EMPFAENGER_BIC, "
+                        + "EMPFAENGER_NAME, VERMOEGENSEINSATZ) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, 'ANGELEGT', ?, NULL, ?, ?, ?, ?)")) {
             stmt.setLong(1, zahlungId);
             stmt.setLong(2, bgId);
-            stmt.setString(3, vorgangsNr);
-            stmt.setString(4, monat);
-            stmt.setBigDecimal(5, zahlbetrag);
-            stmt.setString(6, sb);
-            stmt.setString(7, iban);
-            stmt.setString(8, bic);
-            stmt.setString(9, name);
+            if (fallId != null) {
+                stmt.setLong(3, fallId);
+            } else {
+                stmt.setNull(3, java.sql.Types.NUMERIC);
+            }
+            stmt.setString(4, vorgangsNr);
+            stmt.setString(5, monat);
+            stmt.setBigDecimal(6, zahlbetrag);
+            stmt.setString(7, sb);
+            stmt.setString(8, iban);
+            stmt.setString(9, bic);
+            stmt.setString(10, name);
+            stmt.setBigDecimal(11, vermoegenseinsatz);
             stmt.executeUpdate();
         }
 
@@ -330,8 +392,26 @@ public final class AntragsSagaProzess {
             stmt.executeUpdate();
         }
 
+        // Verbrauchsfortschreibung (§ 90 SGB XII): der eingesetzte verwertbare
+        // Vermögensanteil verbraucht sich mit dieser Zahlung.
+        if (vermoegenseinsatz.signum() > 0) {
+            try (PreparedStatement stmt = c.prepareStatement(
+                    "UPDATE BEDARFSGEMEINSCHAFT SET VERMOEGEN = VERMOEGEN - ? "
+                            + "WHERE ID = ? AND VERMOEGEN >= ?")) {
+                stmt.setBigDecimal(1, vermoegenseinsatz);
+                stmt.setLong(2, bgId);
+                stmt.setBigDecimal(3, vermoegenseinsatz);
+                if (stmt.executeUpdate() != 1) {
+                    throw new IllegalStateException("Vermögensfortschreibung fehlgeschlagen für BG " + bgId);
+                }
+            }
+        }
+
         schreibeJournal(c, bgId, "Erstauszahlung ueber " + zahlbetrag + " EUR fuer " + monat
-                + " erfasst (Status: ANGELEGT, wartet auf Freigabe)", sb);
+                + " erfasst (Status: ANGELEGT, wartet auf Freigabe)"
+                + (vermoegenseinsatz.signum() > 0
+                        ? "; Vermögenseinsatz " + vermoegenseinsatz + " EUR verbucht (§ 90 SGB XII)" : ""),
+                sb);
     }
 
     /**
@@ -359,9 +439,10 @@ public final class AntragsSagaProzess {
         //    WHERE BG_ID = ?, sonst träfen fremde Zahlungen derselben BG).
         List<Long> ids = new ArrayList<>();
         List<BigDecimal> betraege = new ArrayList<>();
+        List<BigDecimal> einsaetze = new ArrayList<>();
         List<String> statusse = new ArrayList<>();
         try (PreparedStatement stmt = c.prepareStatement(
-                "SELECT ID, ZAHLUNGSSTATUS, AUSZAHLUNGSBETRAG FROM ZAHLUNG "
+                "SELECT ID, ZAHLUNGSSTATUS, AUSZAHLUNGSBETRAG, VERMOEGENSEINSATZ FROM ZAHLUNG "
                         + "WHERE VORGANGS_NR = ? AND ZAHLUNGSSTATUS IN ('ANGELEGT', 'BEREIT', 'UEBERGEBEN') "
                         + "FOR UPDATE")) {
             stmt.setString(1, vorgangsNr);
@@ -370,13 +451,15 @@ public final class AntragsSagaProzess {
                     ids.add(rs.getLong(1));
                     statusse.add(rs.getString(2));
                     betraege.add(rs.getBigDecimal(3));
+                    einsaetze.add(rs.getBigDecimal(4));
                 }
             }
         }
 
         // 2. Bedingtes Storno je Zeile (Guard über den gelesenen Status) — nur tatsächlich
-        //    gewandelte Zeilen gehen in die Gutschrift ein.
+        //    gewandelte Zeilen gehen in die Gutschrift ein (Budget UND Vermögenseinsatz).
         BigDecimal gutzuschreiben = BigDecimal.ZERO;
+        BigDecimal vermoegenZurueck = BigDecimal.ZERO;
         boolean warUebergeben = false;
         try (PreparedStatement storno = c.prepareStatement(
                 "UPDATE ZAHLUNG SET ZAHLUNGSSTATUS = 'STORNIERT' WHERE ID = ? AND ZAHLUNGSSTATUS = ?")) {
@@ -389,6 +472,8 @@ public final class AntragsSagaProzess {
                 storno.setString(2, statusse.get(i));
                 if (storno.executeUpdate() == 1) {
                     gutzuschreiben = gutzuschreiben.add(betraege.get(i));
+                    vermoegenZurueck = vermoegenZurueck.add(
+                            einsaetze.get(i) == null ? BigDecimal.ZERO : einsaetze.get(i));
                 }
             }
         }
@@ -422,9 +507,20 @@ public final class AntragsSagaProzess {
             stmt.setLong(2, bgId);
             stmt.executeUpdate();
         }
+        if (vermoegenZurueck.signum() > 0) {
+            try (PreparedStatement stmt = c.prepareStatement(
+                    "UPDATE BEDARFSGEMEINSCHAFT SET VERMOEGEN = VERMOEGEN + ? WHERE ID = ?")) {
+                stmt.setBigDecimal(1, vermoegenZurueck);
+                stmt.setLong(2, bgId);
+                stmt.executeUpdate();
+            }
+        }
 
         schreibeJournal(c, bgId, "Erstauszahlung storniert (Saga-Kompensation), Restbudget um "
-                + gutzuschreiben + " EUR erhoeht", "saga-engine");
+                + gutzuschreiben + " EUR erhoeht"
+                + (vermoegenZurueck.signum() > 0
+                        ? ", Vermögenseinsatz " + vermoegenZurueck + " EUR zurueckgebucht" : ""),
+                "saga-engine");
     }
 
     // ------------------------------------------------------------------
@@ -443,6 +539,8 @@ public final class AntragsSagaProzess {
     /**
      * Prüft die Eingabedaten vor dem Start der Saga, damit fehlerhafte Anträge als
      * Fachfehler (HTTP 400) abgewiesen werden statt als halb ausgeführte, kompensierte Saga.
+     * Einschließlich Feldlängen passend zu ddl/lmg_schema.sql und der Zwölf-Monate-Prüfung
+     * des § 44 Abs. 3 SGB XII.
      */
     public static void validierePayload(Map<String, Object> data) {
         for (String feld : List.of("aktenzeichen", "hauptpersonName")) {
@@ -450,6 +548,11 @@ public final class AntragsSagaProzess {
                 throw new FachlicheException(FachlicheException.VALIDATION, "Pflichtfeld fehlt: " + feld);
             }
         }
+        pruefeLaenge(data, "aktenzeichen", 50);
+        pruefeLaenge(data, "hauptpersonName", 100);
+        pruefeLaenge(data, "iban", 34);
+        pruefeLaenge(data, "bic", 11);
+        pruefeLaenge(data, "sachbearbeiterId", 50);
         for (String feld : List.of("iban", "bic")) {
             if (data.get(feld) != null && !(data.get(feld) instanceof String)) {
                 throw new FachlicheException(FachlicheException.VALIDATION, feld + " muss ein Text sein");
@@ -471,13 +574,23 @@ public final class AntragsSagaProzess {
             throw new FachlicheException(FachlicheException.VALIDATION,
                     "Bewilligung bis muss im Format YYYY-MM angegeben sein und darf nicht vor dem Zahlungsmonat liegen");
         }
-        for (String feld : List.of("startBudget", "kduMiete", "kduBetriebskosten", "kduHeizung",
+        // § 44 Abs. 3 SGB XII — zwölf Monate, auf allen Bescheid-Pfaden erzwungen.
+        String bisText = bis instanceof String s ? s : vonText;
+        SozialLeistungsService.pruefeBewilligungszeitraum(vonText, bisText);
+        for (String feld : List.of("startBudget", "vermoegen", "kduMiete", "kduBetriebskosten", "kduHeizung",
                 "einkommenRente", "einkommenErwerb")) {
             try {
                 getBigDecimal(data.get(feld));
             } catch (IllegalArgumentException e) {
                 throw new FachlicheException(FachlicheException.VALIDATION, feld + ": " + e.getMessage());
             }
+        }
+    }
+
+    private static void pruefeLaenge(Map<String, Object> data, String feld, int maxZeichen) {
+        if (data.get(feld) instanceof String text && text.length() > maxZeichen) {
+            throw new FachlicheException(FachlicheException.VALIDATION,
+                    feld + " ist mit " + text.length() + " Zeichen zu lang (maximal " + maxZeichen + ")");
         }
     }
 
@@ -513,6 +626,59 @@ public final class AntragsSagaProzess {
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) return rs.getLong(1);
                 return null;
+            }
+        }
+    }
+
+    private static Long findeBgIdOderFehler(Connection c, String aktenzeichen) throws SQLException {
+        Long bgId = findBgId(c, aktenzeichen);
+        if (bgId == null) {
+            throw new IllegalStateException("Bedarfsgemeinschaft nicht gefunden: " + aktenzeichen);
+        }
+        return bgId;
+    }
+
+    /** Liest alle SozialFälle der BG aus dem Datenbestand (Berechnungsbasis der Schritte 2–4). */
+    private static List<SozialFall> leseFaelle(Connection c, long bgId) throws SQLException {
+        List<SozialFall> faelle = new ArrayList<>();
+        try (PreparedStatement stmt = c.prepareStatement(
+                "SELECT ID, BG_ID, REGELBEDARFSSTUFE, FLAG_MERKZEICHEN_G, FLAG_SCHWANGER, ANZ_KINDER_U7, "
+                        + "ANZ_KINDER_U16, ANZ_KINDER_MINDERJ, FLAG_WARMWASSER, KDU_MIETE, KDU_BETRIEBSKOSTEN, "
+                        + "KDU_HEIZUNG, EINKOMMEN_RENTE, EINKOMMEN_ERWERB, ABZ_STEUERN, ABZ_SV, ABZ_VERSICHERUNGEN, "
+                        + "ABZ_ERWERBSAUSGABEN, ENTBINDUNGSMONAT, VERSION FROM SOZIAL_FALL WHERE BG_ID = ? ORDER BY ID")) {
+            stmt.setLong(1, bgId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    faelle.add(new SozialFall(
+                            rs.getLong(1), rs.getLong(2), rs.getInt(3),
+                            rs.getInt(4) == 1, rs.getInt(5) == 1,
+                            rs.getInt(6), rs.getInt(7), rs.getInt(8), rs.getInt(9) == 1,
+                            rs.getBigDecimal(10), rs.getBigDecimal(11), rs.getBigDecimal(12),
+                            rs.getBigDecimal(13), rs.getBigDecimal(14),
+                            rs.getBigDecimal(15), rs.getBigDecimal(16), rs.getBigDecimal(17), rs.getBigDecimal(18),
+                            rs.getString(19),
+                            rs.getLong(20)));
+                }
+            }
+        }
+        if (faelle.isEmpty()) {
+            throw new FachlicheException(FachlicheException.VALIDATION,
+                    "Die Bedarfsgemeinschaft " + bgId + " hat keinen SozialFall");
+        }
+        return faelle;
+    }
+
+    /** Liest das Gesamtvermögen der BG aus dem Datenbestand (§ 43 Abs. 1, § 90 SGB XII). */
+    private static BigDecimal leseVermoegen(Connection c, long bgId) throws SQLException {
+        try (PreparedStatement stmt = c.prepareStatement(
+                "SELECT VERMOEGEN FROM BEDARFSGEMEINSCHAFT WHERE ID = ?")) {
+            stmt.setLong(1, bgId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    BigDecimal wert = rs.getBigDecimal(1);
+                    return wert == null ? BigDecimal.ZERO : wert;
+                }
+                return BigDecimal.ZERO;
             }
         }
     }

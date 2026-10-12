@@ -64,6 +64,13 @@ final class Verifikator {
             }
             try (ResultSet rs = stmt.executeQuery()) {
                 String ist = rs.next() ? stringVon(rs.getObject(1)) : "<keine Zeile>";
+                if (ist == null) {
+                    // DB-NULL ist eine Aussage: Prüfung sauber als false werten
+                    // (mit deutlichem Kennzeichen) statt in einer NPE zu enden.
+                    return new Auftrag.Pruefung(erwartung.beschreibung(),
+                            erwartung.erwartet(), "<NULL>", false,
+                            "Datenbank-NULL statt eines Werts");
+                }
                 return new Auftrag.Pruefung(erwartung.beschreibung(),
                         erwartung.erwartet(), ist,
                         vergleiche(erwartung, ist), null);
@@ -87,13 +94,6 @@ final class Verifikator {
                 }
             }
             case GANZZAHL -> erwartung.erwartet().equals(ist.replaceAll("\\..*$", ""));
-            case GANZZAHL_MIN -> {
-                try {
-                    yield Long.parseLong(ist.replaceAll("\\..*$", "")) >= Long.parseLong(erwartung.erwartet());
-                } catch (NumberFormatException e) {
-                    yield false;
-                }
-            }
             case TEXT_IN -> {
                 boolean treffer = false;
                 for (String alternative : erwartung.erwartet().split("\\|")) {

@@ -1,0 +1,773 @@
+================================================================================
+CODEREVIEW-PROMPT — SDN.Leistung LMG / Transaktionssteuerung / testsweet
+Stand: 2026-10-12, Projektversion 0.5.4
+Ziel: ein einziger, allumfassender, intensiver Codereview des GESAMTEN Projekts
+      einschließlich des Testwerkzeugs testsweet/
+================================================================================
+
+
+0. ROLLE UND AUFTRAG
+--------------------------------------------------------------------------------
+
+Du bist ein erfahrenes Review-Team aus vier Rollen in einer Person:
+
+  1. Senior-Java-Entwickler (Java 21, JDBC, Oracle, Concurrency, ohne Frameworks)
+  2. Datenbank-/Oracle-Spezialist (Transaktionen, Sperren, Constraints, UCP)
+  3. Sozialverwaltungs-Fachprüfer (SGB XII / SGB X / SGG, Bescheidwesen)
+  4. Test-Qualitätsprüfer (Unit-, Integrations-, Last- und GUI-Teststrategie)
+
+Dein Auftrag: Führe einen intensiven, lückenlosen Codereview des Projekts
+„Leistungsmanagement Grundsicherung" durch. Du prüfst
+  - die Transaktionssteuerung (eigener TP-Monitor-Ersatz, Paket de.allgemein.tx),
+  - die Fachschicht Leistungsmanagement (de.allgemein.lmg: Berechnung, Services,
+    DAOs, Saga, Web, DDL),
+  - die Unit-/DB-Tests des Hauptprojekts (src/test/java) und
+  - das Testwerkzeug testsweet/ (Mitarbeiter-Simulator, Modus 1 Fachschicht und
+    Modus 2 Selenium, Kategorien Positiv/Negativ/Last/Stress, Reportwesen).
+
+Du änderst KEINEN Code und KEINE Datei. Du lieferst ausschließlich einen
+Review-Bericht nach dem Format in Abschnitt 16. Jede Aussage belegst du mit
+Datei:Zeile bzw. Datei+Methode. Vermutungen kennzeichnest du ausdrücklich als
+Vermutung. Eine widerlegte Spur ist ein Ergebnis wie ein bestätigter Befund —
+schreibe beides auf.
+
+
+1. WAS DU REVIEWST — PROJEKTKARTE
+--------------------------------------------------------------------------------
+
+- Build: Maven, Java 21 (--release 21), keine Frameworks; Laufzeit-Abhängig-
+  keitkeiten nur ojdbc11 + Oracle UCP; Tests JUnit 5. pom.xml Version 0.5.4.
+- Kernbibliothek de.allgemein.tx:
+    TxManager (execute + manuelle API begin/commit/rollback/finish),
+    TxContext (Deadline, Savepoints), TxOptions, TxException,
+    RetryPolicy (ORA-00054/00060/08177, SQLState 40001/61000, Backoff+Jitter),
+    TaskController (fester Pool, Wachhund, settle-Gate), TaskHandle,
+    SimpleConnectionPool (Demo) und UcpConnectionPool (Produktion),
+    saga.SagaEngine + SagaJournal (TX_SAGA/TX_SAGA_STEP, Write-Ahead,
+    FOR UPDATE SKIP LOCKED), audit.TxAuditLog, monitoring.TxMonitoring (JMX).
+- Fachschicht de.allgemein.lmg:
+    calc.Leistungsberechnung (reine SGB-XII-Berechnung, RBS 2026, § 30, § 35,
+    § 82, § 90), calc.BerechnungsSnapshot (JSON-Snapshot BESCHEID.BERECHNUNG),
+    service.SozialLeistungsService (Buchungsweg, Freigabe, Kassenlauf, Storno,
+    Bescheid), service.BescheidGenerator (HTML-Bescheid), service.SepaValidator
+    (IBAN/BIC Modulo-97), service.Zahlungsmonat, service.Systemdiagnose,
+    saga.AntragsSagaProzess (4 Schritte + idempotente Kompensationen),
+    dao.* (Bedarfsgemeinschaft/Zahlung/SozialFall/Bescheid/Journal),
+    web.LmgServer (JDK-HttpServer, JSON-API), web.Json (eigener Parser,
+    Tiefenlimit), web.Benutzerverwaltung (Rollen, Token, Drosselung),
+    config.LmgConfig (Kaskade System-Property > Env > Datei > Default).
+- DDL: ddl/oracle_schema.sql (TX-Tabellen), ddl/lmg_schema.sql (5 Fachtabellen,
+  CHECKs, VERSION-Trigger, function-based Unique-Index UQ_ZAHLUNG_BG_MONAT_AKTIV),
+  ddl/lmg_seed.sql (7 Demo-BGs).
+- Web-Frontend: src/main/resources/webapp (index.html, app.js mit zentraler
+  esc()-Funktion, druck.js, style.css).
+- Tests Hauptprojekt: Unit-Tests ohne DB (mvn test) + DB-gated Suites
+  (EchteDbVerifikationTest, DeadlockRetryEchtTest, SzenarioRegressionTest mit
+  10 Szenarien, laufen nur mit gesetzter TX_URL).
+- testsweet/ (eigenes Maven-Projekt auf dem Hauptartefakt): Simulator
+  (Auftragstopf, N Mitarbeiter-Threads, Phasenbarriere für Stresstest),
+  SzenarioBibliothek (10 positive Fachschicht-Arten, 9 Negativ-Arten, Last,
+  Stress 2 Wellen), WebMitarbeiter/WebHelfer/WebSzenarioBibliothek (Selenium,
+  Chrome-Fensterraster), Verifikator (SQL-Endzustandsprüfung), SweetServer
+  (GUI Port 8095, Laufsperre), SweetPdf/Testdokumentation/MdBericht/LastBericht
+  (Reports), SweetLog, generate_diagrams.py, raeume-fenster.ps1.
+
+Umgebung für dynamische Prüfungen (falls verfügbar; sonst statisch reviewen
+und kenntlich machen):
+  - Dev-/Test-DB ist der Docker-Container lmg-oracle:
+    jdbc:oracle:thin:@//localhost:1521/FREEPDB1, User tx_demo/tx_demo.
+  - Unit-Tests ohne DB:        mvn test
+  - Alle Tests inkl. DB-Suiten (Git Bash):
+    TX_URL=jdbc:oracle:thin:@//localhost:1521/FREEPDB1 \
+    TX_USER=tx_demo TX_PASS=tx_demo mvn test
+  - testsweet-Batchläufe: siehe testsweet/README.md (start.bat run|web,
+    Parameter Mitarbeiter/Aufträge/Seed/Denkzeit/Kategorie; vor Web-Läufen
+    raeume-fenster.ps1 ausführen). Web-Läufe brauchen Windows + Chrome.
+  - Zweitumgebung VirtualBox Oracle 19c EE (localhost:1921/o19c1p1) — nur bei
+    Bedarf und bewusst (deutlich langsamer).
+
+
+2. MAßSTAB — WOGEGEN DU PRÜFST (Rangfolge)
+--------------------------------------------------------------------------------
+
+1. doc/rechtsgrundlagen.md — das maßgebliche Rechtsquellen-Verzeichnis mit
+   Herkunftsnachweisen (Stand 2026-10-10, gegen gesetze-im-internet.de
+   verifiziert). Fachprüfungen laufen GEGEN DIESES VERZEICHNIS, nicht gegen
+   freie Auslegung. Prüfe außerdem abschnittsweise, ob Code und Verzeichnis
+   zusammenpassen (Umsetzungsspalten wahr?).
+2. AGENTS.md, Abschnitt „Architekturregeln" (5 Regeln: TxManager/Saga-Teilung,
+   Retry nur bei ORA-00054/60/8177, Pool-Austauschbarkeit, kein XA, Wachhund).
+3. doc/architektur.md (Bausteine, Abläufe, Datenmodell, Regeln, Grenzen).
+4. doc/regressionstests.md (die 10 Szenarien und ihre SQL-Endzustände) und
+   testsweet/README.md (Verhalten des Simulators).
+5. doc/leistungsmanagement.md, doc/projektbeschreibung.md, doc/roadmap.md.
+
+Bewusste Vereinfachungen und bekannte Grenzen sind KEINE Befunde, solange sie
+dokumentiert sind und die Doku stimmt:
+  - doc/rechtsgrundlagen.md Abschnitt 4 (nicht modellierte Normen: § 35 Abs. 1
+    S. 2–9 und Abs. 3 Karenz-/Absenkungsfristen, § 82 Abs. 3 S. 2 WfbM,
+    § 82 Abs. 4/5, § 43 Abs. 2 (26 EUR), § 94 Abs. 1a, DVO § 2,
+    § 44a/§ 43a, Rückwirkung § 44 Abs. 2).
+  - doc/architektur.md „Bekannte Grenzen" (Watchdog-Commit-Fenster,
+    Klartext-Passwörter für Demo, in-memory Sessions, Audit ohne Rotation).
+  - AGENTS.md-Regel 3 zum bewusst minimalen SimpleConnectionPool.
+Ein Befund ist es genau dann, wenn (a) eine dokumentierte Grenze im Code
+gravierender ist als dokumentiert, (b) die Doku etwas als umgesetzt
+beansprucht, was der Code nicht hält, oder (c) die Doku selbst falsch ist.
+
+
+3. ARBEITSWEISE UND REGELN
+--------------------------------------------------------------------------------
+
+R1  Lies zuerst AGENTS.md, danach die Maßstab-Dokumente aus Abschnitt 2, dann
+    den Code. Bearbeite die Prüffelder A–J in dieser Reihenfolge; sie ist nach
+    Risikogewicht sortiert (Fachrecht und Geldfluss zuerst).
+R2  Führe die Tests aus (Abschnitt 1) und protokolliere die Zahlen
+    (Unit-Anzahl, DB-Suiten, testsweet-Läufe mit Kategorie und Ergebnis).
+R3  Arbeite den Spurenkatalog (Abschnitt 14) vollständig ab: jede Spur S-xx
+    bekommt eines von drei Ergebnissen: BESTÄTIGT (mit Datei:Zeile-Evidenz),
+    WIDERLEGT (mit Begründung) oder UNKLAR (was fehlt zur Entscheidung).
+    Prüfe die Spuren als Hypothesen — sie stammen aus einer Voranalyse und
+    können falsch liegen.
+R4  Suche über die Spuren hinaus selbst nach weiteren Befunden; ein
+    intensiver Review hört nicht beim Katalog auf.
+R5  Bewertung der Schweregrade:
+      BLOCKER   – falsche Geldbeträge/Datenkorruption möglich, Socialdaten-
+                  oder Passwort-Leak, Sicherheitslücke mit Fernwirkung,
+                  Transaktions-/Konsistenzverlust.
+      KRITISCH  – falsches Verhalten in wichtigen Pfaden, Race-Conditions,
+                  Lücken, die Regressionen unbemerkt durchgehen lassen.
+      MAJOR     – Robustheits-, Korrektheits- oder Wartbarkeitsmängel mit
+                  realistischer Auswirkung.
+      MINOR     – Stil, Inkonsistenzen, tote Pfade, Doku-Abweichungen.
+      INFO      – dokumentierte Grenzen, bewusste Entscheidungen, Beobachtungen.
+R6  Sprache des Berichts: Deutsch; Code-Bezeichner, Dateien und SQL in
+    Originalform. Keine Namensnennung des Vorbild-Systems (Projektregel:
+    Produktname ist SDN.Leistung).
+R7  Du bewertest auch die TEST-QUALITÄT selbst: Decken die Assertions das ab,
+    was der Testname verspricht? Sind erwartete Werte unabhängig gerechnet
+    oder im Zirkelschluss mit dem Produktionscode erzeugt? Werden Fehlerpfade
+    oder nur Happy Paths getestet?
+R8  Mache vor jedem Befund transparent, ob du die Stelle statisch gelesen oder
+    dynamisch verifiziert hast (Testlauf, SQL-Nachweis).
+
+
+4. PRÜFFELD A — TRANSITIONSKERN (de.allgemein.tx)
+--------------------------------------------------------------------------------
+
+A1  TxManager.execute: Rollback-Garantien. Prüfe: Rollback bei Exception UND
+    bei Error (OOM/StackOverflow) — wird wirklich nie implizit committet?
+    Commit-freie Fehlerpfade? Wird die Verbindung in jedem Pfad genau einmal
+    an den Pool zurückgegeben (auch nach Error)?
+A2  TxManager manuelle API begin/commit/rollback/finish: Entsorgt finish() die
+    Verbindung in jedem Fall? Was passiert bei commit() nach Timeout
+    (Deadline)? Bei doppeltem finish()? Bei rollback nach commit?
+A3  TxContext: checkDeadline() wird nur an ausgewählten Stellen gerufen —
+    ist die Deadline durchsetzbar oder nur kooperativ? Welche Konsequenz hat
+    ein hängender JDBC-Call ohne TaskController-Interrupt? Ist das
+    dokumentiert (vergleiche architektur.md)?
+A4  RetryPolicy: Klassifikation über die GESAMTE NextException-Kette? Werden
+    fachliche Fehler (FachlicheException) garantiert nicht wiederholt?
+    Backoff-Verlauf (Exponent, Jitter, Kappe) und Interrupt-Verhalten im
+    sleep. Bewusst nur ORA-00054/60/8177 — bewerte, ob ORA-30006/04020 hier
+    HEREIN gehören oder die Enge korrekt ist (AGENTS-Regel 2 vs. Praxis).
+A5  TaskController: Wachhund misst ab Ausführungsbeginn (Queue-Warte zählt
+    nicht) — stimmt das? Rennen zwischen Wachhund-Abbruch, Handle-cancel und
+    Wrapper-finally: garantiert das settle()-Gate (AtomicBoolean-CAS) exakt
+    einmalige Statistikpflege? Bleibt das Interrupt-Flag geräumt? Ist der
+    geordnete Shutdown wirklich geordnet (Drain-Phasen, Timeout-Verhalten)?
+A6  TaskHandle.result()/resultOrCancelAfter()/cancel(): Abbruch wird als
+    TxException typisiert — geht dabei Information verloren (echte Ursache)?
+    Verhält sich result() bei Fachfehlern fachlich und bei technischen
+    Fehlern technisch?
+A7  SagaEngine.run: Write-Ahead pro Schritt (IN_FLIGHT eigener Commit,
+    Fachschritt+DONE atomar). Fehler bei COMPLETED-Markierung darf NICHT
+    kompensieren — stimmt das? IN_FLIGHT wird im Wiederanlauf konservativ als
+    „möglicherweise committet" behandelt — prüfe die Folgen für jede
+    Kompensation der AntragsSaga (muss doppelt ausführbar sein).
+A8  SagaEngine.recover/recoverWithReport: fehlertolerant je Saga; Claim über
+    claimUnfinished mit FOR UPDATE SKIP LOCKED. Prüfe: Was passiert bei zwei
+    GLEICHZEITIGEN recover-Läufen (Server startet doppelt, Admin-Button
+    parallel zum Startrecover)? Was, wenn die Journalzeile mehr Schritte hat
+    als die aktuelle Definition (Deploy-Stand)?
+A9  SKIP LOCKED ist erst ab Oracle 21c verfügbar. Die Default-URL in LmgConfig
+    zielt auf 19c — prüfe die Konsequenz für recover() auf der 19c-Zweit-
+    umgebung (ORA-00933?) und wie damit umgegangen werden soll. (Spur S-05.)
+A10 TxAuditLog: Ringpuffer-Trim, Listener-Exception-Schutz, Dateiausschrieb
+    unter globalem Lock mit JEDEM Event einem neuen Writer — bewerte Latenz
+    und Kontention im Transaktionspfad, Robustheit bei vollem Datenträger,
+    klarem Test-Hook (clearForTests) im Produktionscode und Thread-Sicherheit
+    von setAuditFilePath.
+
+
+5. PRÜFFELD B — POOLS, RESSOURCEN, BETRIEB
+--------------------------------------------------------------------------------
+
+B1  SimpleConnectionPool: Validierung beim Borrow (isValid, Exception-Fang),
+    idempotentes Release (Doppel-Release protokolliert), Rollback vor
+    setAutoCommit(true) in BEIDEN Pools, Permit-Haushalt genau einmal pro
+    Borrow in jedem Pfad. Grenzen bewusst (AGENTS-Regel 3): kein Leak-Detect,
+    keine Idle-Eviction, close() schließt nur Idle-Verbindungen — bewerte,
+    ob das für Demo/Tests reicht und ob die Doku es so sagt.
+B2  UcpConnectionPool: validateConnectionOnBorrow gesetzt; PRÜFE fehlende
+    connectionWaitTimeout/borrow-Timeout und ob der Klassenkommentar
+    (Fast Connection Failover/RAC-Load-Balancing) mehr verspricht als
+    konfiguriert ist. destroyConnectionPool über den Singleton-Manager —
+    Nebeneffekte bei mehreren Pools/JVMs?
+B3  Pool-Austauschbarkeit (AGENTS-Regel 3): hängt wirklich alles nur an
+    getConnection/release? Suche Verstöße.
+B4  LmgConfig-Kaskade (Property > Env > Datei > Default): Reihenfolge
+    korrekt umgesetzt? PROPERTIES-LADEN: Properties.load(InputStream)
+    decodiert ISO-8859-1 — Umlaute in lmg.properties (Behördenanschrift!)
+    werden verstümmelt? (Spur S-08.) Prüfe auch lmg.properties.example.
+B5  LmgServerMain/Bootstrap: Reihenfolge Pool→Recover→Server, Fehlerverhalten
+    bei nicht erreichter DB, Shutdown-Hook vorhanden und vollständig
+    (Server, TaskController, Pool, Audit-Datei schließen)?
+B6  JMX (TxMonitoring): Registrierung/Deregistrierung idempotent? Was
+    exponieren die MBeans (URL, User — Info-Disclosure)? Fehlerpfad
+    register→null: wer konsumiert null?
+B7  Betriebsverhalten: Log-Stummheit bei Pool-Erschöpfung, Thread-Benennung
+    (Diagnosefähigkeit), Zeitquellen (nur nanoTime/Instant im Kern?).
+
+
+6. PRÜFFELD C — FACHRECHT: NORM FÜR NORM GEGEN DEN CODE
+--------------------------------------------------------------------------------
+
+Grundlage: doc/rechtsgrundlagen.md (Abschnitte 1–3). Prüfe JEDE Zeile der
+Tabellen dort gegen die Code-Fundstelle. Erwartete Struktur deines Ergebnisses:
+Norm → Verzeichnis-Behauptung → Code-Realität → Urteil (stimmt/abweichend/falsch).
+
+C1  § 28 SGB XII Anlage — RBS 1–6 (563/506/451/471/390/357) gegen
+    Leistungsberechnung.REGELBEDARF_2026. Jahreswechsel-Prozess (Abschnitt 6
+    des Verzeichnisses): hart kodierte Konstanten + abhängige Werte
+    (Kappung 50 % RBS 1, Alleinerziehenden-Basis RBS 1, Schwangeren-/G-Sätze
+    als Prozente ok). Bewerte: Ist die Härte vertretbar oder braucht es eine
+    versionierbare Satztabelle (Gültig-ab-Datum), insbesondere für
+    Bescheid-Snapshots über Jahresgrenzen?
+C2  § 30 Abs. 1 (Merkzeichen G, 17 %): Betragsbasis = maßgebende RBS der
+    Person? Nur bei Zuständigkeit des Vierten Kapitels (§ 30 gilt für
+    Grundsicherung im Alter/bei Erwerbsminderung) — wird der Personenkreis
+    irgendwie unterschieden oder pauschal für alle gerechnet? (Auslegung
+    dokumentieren bzw. als Lücke melden.)
+C3  § 30 Abs. 2 (Schwangere ab 13. SSW, 17 %, bis Ende des Entbindungsmonats):
+    Das Modell hat nur FLAG_SCHWANGER, kein SSW-/Entbindungsfeld. Folge: Die
+    13.-SSW-Schwelle ist NICHT erzwingbar, das Ende des Entbindungsmonats
+    ebensowenig — der Mehrbedarf läuft, bis jemand das Flag manuell löscht.
+    Bewerte Schwere und nenne Lösungsoptionen (Feld erfassen vs. wenigstens
+    Doku/UI-Warnung). (Spur S-15.)
+C4  § 30 Abs. 3 (Alleinerziehende: 36 % bei 1 Kind <7 oder 2–3 Kindern <16,
+    sonst 12 % je minderjährigem Kind, Deckel 60 % der RBS 1, Basis IMMER
+    RBS 1): prüfe mehrbedarfAlleinerziehend() Zeile für Zeile, inkl. der
+    Frage, was bei mehr als 3 Kindern unter 16 geschieht und ob die
+    Kind-Zählfelder (ANZ_KINDER_U16/MINDERJ) die Norm abbilden.
+C5  § 30 Abs. 6 (Summe Abs. 1–5 ≤ Regelbedarfsstufe; Abs. 7 außerhalb):
+    Kappungslogik — WIE wird gekappt (einfach min? anteilig?) und ist das
+    fachlich unschädlich? Prüfe, dass Warmwasser (Abs. 7) wirklich außerhalb
+    bleibt, und zwar unabhängig von der Flag-Kombination.
+C6  § 30 Abs. 7 (Warmwasser stufenabhängig 2,3/2,3/–/1,4/1,2/0,8 % nur bei
+    DEZENTRALER Erzeugung): Feldsemantik! Prüfe die Bedeutung von
+    FLAG_WARMWASSER in DDL, UI, Berechnung UND Bescheid konsistent: heißt 1
+    „dezentral" oder „zentral"? Gibt es eine Stelle, wo die Semantik kippt?
+    (Klassische Fehlquelle: zwei Lesarten im selben Projekt.)
+C7  §§ 35/42a (KdU): Dreiteilung Miete/Betriebskosten/Heizung je Fall,
+    BG-weite Summierung, Angemessenheitsgrenze je BG mit Rest-Verbrauch über
+    Fälle (Reihenfolge: Wer wird zuerst gekappt, wenn die Grenze nur für
+    einen Teil reicht?), Kennzeichnung im Bescheid (Vorbehalt), Warmwasser-
+    Abzug von den Heizkosten NUR bei zentraler Erzeugung (Interaktion mit
+    C6!). Grenzwerte: Grenze == Ist, Grenze knapp über/unter Ist.
+C8  § 82 Abs. 2 (Absetzpositionen Steuern/SV/Versicherungen/Erwerbsaufw.):
+    Reihenfolge der Abzüge. Prüfe die exakte Rechenreihenfolge im Code gegen
+    der Norm (erst Abs. 2 vollständig, dann Abs. 3?) und gegen die
+    dokumentierte Auslegung (Fall 5 in doc/regressionstests.md: 1200 − 350
+    Absetz − 281,50 gekappter Freibetrag = 568,50). Ist die im Verzeichnis
+    dokumentierte Brutto-Lesart des § 82 Abs. 3 im Code so umgesetzt?
+C9  § 82 Abs. 3 (30 % Erwerbsfreibetrag, Kappung 50 % RBS 1): Grenzfälle
+    (Einkommen so klein, dass Freibetrag > Einkommen; genau 281,50;
+    0-Einkommen).
+C10 § 90 Abs. 2 Nr. 9 i.V.m. DVO § 1 (10.000/500 EUR): Projekt-Zuordnung über
+    RBS (1–3 = Erwachsener). Prüfe gegen die Norm: eine alleinstehende
+    minderjährige Person hätte Anspruch auf 10.000 — wird sie hier auf 500
+    reduziert? Ist die Vereinfachung im Verzeichnis SO dokumentiert?
+    Vermögen je BG statt je Person — verträglich mit § 43 Abs. 1 (Ehegatte)?
+    Kein Verbrauchsfortschrieb über Monate (dokumentiert) — welche Folgen
+    für Folgemonate?
+C11 § 44 SGB XII (Bewilligungszeitraum 12 Monate): pruefeBewilligungszeitraum
+    — prüfe Grenzfälle: genau 12 Monate, 12 Monate + 1 Tag über Jahresgrenze,
+    Schaltjahre, von==bis. Wird die Prüfung auf ALLEN Bescheid-Pfaden
+    erzwungen (Service-Weg UND Saga-Weg)? (Spur S-20.)
+C12 Bescheid-Inhalt (§ 35 SGB X Begründung, § 36 SGB X Rechtsbehelf, § 37
+    Abs. 2 SGB X Vier-Tage-Fiktion, §§ 84/87/88 SGG Fristen, § 73 SGG
+    Vertretung): lies den generierten Text END-ZU-ENDE (Beispiel-BG aus dem
+    Seed, BescheidGenerator) und prüfe jeden Satz gegen das Verzeichnis.
+    Konfigurierbare Belehrung (Widerspruchs- vs. Klagemodus): sind BEIDE
+    Texte normgerecht? Fristen korrekt benannt (Monat ab Bekanntgabe)?
+C13 Bescheid-Snapshot-Prinzip: Druck zeigt ausschließlich den versionierten
+    JSON-Snapshot aus BESCHEID.BERECHNUNG (Erteilungszeitpunkt), Fallback
+    Neuberechnung MIT Hinweiskasten. Prüfe: Ist der Snapshot wirklich
+    unveränderlich? Rechnet der Fallback mit GLEICHEN Parametern (KdU-Grenze,
+    Warmwasser)? Kann ein Bescheid mit geänderten Sätzen (Jahreswechsel)
+    nachgedruckt werden, ohne den Hinweis zu zeigen?
+C14 Zahlenformate: BigDecimal mit Skala 2 und HALF_UP durchgängig? Ordnung
+    der Rundungen (pro Position vs. am Ende)? Gibt es einen Pfad, in dem
+    double/float oder String-Arithmetik auftaucht? NUMBER(10,2)-Grenzen über
+    normiereBetrag abgesichert (rund DANN prüfen)? Beträge in Reports/PDF
+    (Locale.GERMAN-Formatierung) treu?
+
+
+7. PRÜFFELD D — ZAHLUNGSWEG, KONSISTENZ, SAGA
+--------------------------------------------------------------------------------
+
+D1  Buchungsweg ordneAuszahlungAn: Reihenfolge (1) Idempotenz-Vorschau ohne
+    Sperre, (2) lockForUpdate der BG, (2b) Idempotenz-Recheck unter Sperre,
+    (2c) Monats-Einzigkeit, (3) Neuberechnung + KEIN_ANSPRUCH/BUDGET_ERSCHOEPFT,
+    (5) Insert ANGELEGT, (6) Budgetminderung, (7) Journal. Prüfe: Ist die
+    Reihenfolge sperrkorrekt und zeitlich dicht? Kann Budget negativ werden?
+    Was passiert bei Budget == Bedarf exakt? Bei gleichzeitiger zweiter
+    Anordnung auf dieselbe BG vor der Sperre?
+D2  Vier-Augen: Zahlung immer ANGELEGT; Selbstfreigabe abgewehrt (außer
+    Admin). Bewerte die Admin-Ausnahme fachlich (dokumentiert?). Freigabe
+    guarded (ANGELEGT→BEREIT). Prüfe die Sperr-Reihenfolge Freigabe vs.
+    Storno vs. Kassenlauf auf Deadlock-Potenzial (zwei Ressourcen in
+    unterschiedlicher Reihenfolge gesperrt?).
+D3  Kassenlauf: sperrt BEREIT-Menge FOR UPDATE und übergibt exakt die
+    gesperrte Menge — prüfe Anzahl==Summen-Konsistenz und das Verhalten,
+    wenn zwischen Sperre und Update ein anderer Prozess eine Zeile storniert.
+D4  Storno: Sperre auf Zahlung UND BG, guarded Statuswechsel, Budget-
+    Rückbuchung genau einmal, Zahlungssperre danach (kann eine stornierte
+    Zahlung erneut freigegeben/übergeben werden?). Monatsfreigabe: neue
+    Anordnung für denselben Monat zulässig (Fall 8 der Regression) — prüfe
+    den function-based Unique-Index als zweite Verteidigungslinie: schließt
+    der wirklich nur aktive Zahlungen ein (CASE auf STORNIERT → NULL)?
+D5  erteileBescheid: läuft OHNE BG-Sperre (liest Vermögen/Fälle ungesperrt)
+    — anders als der Buchungsweg. Bewerte die Race-Konsistenz (Bescheid-
+    Snapshot vs. parallel geänderter Fall). (Spur S-19.)
+D6  AntragsSagaProzess: bedarfspruefung() und bescheidErteilen() konstruieren
+    den SozialFall für die Berechnung aus dem PAYLOAD (älterer Konstruktor,
+    Absetzbeträge/Schwanger-Flag = 0) statt aus der DB, und die Saga rechnet
+    immer mit KduParameter.AUS und Vermögen 0. Folge: Saga-Bescheid und
+    Saga-Zahlbetrag können vom Service-Weg abweichen. Prüfe und bewerte
+    (Spur S-16/S-17). Außerdem: 12-Monate-Prüfung in der Saga nur als
+    bis>=von? (S-20.) Bescheidnummer-Format im Saga-Weg vs. Service-Weg
+    inkonsistent („BESCH-AZ-Jahr-ID" vs. „BESCH-AZ") — UQ_BESCHEID_NR-Kollision
+    bei Wiederholung nach Commit von Schritt 3 möglich? (S-21.)
+D7  Historisierung statt Löschen (STATUS_AKTIV=0): sind alle Lesepfade
+    (Liste, Suche, Bescheid, Zahlung, Journal-Zuordnung) historienbewusst?
+    Kann eine historisierte BG weiter bearbeitet werden?
+D8  Journal: Vollständigkeit der Ereignisse (Anlegen/Ändern/Bescheid/
+    Auszahlung/Freigabe/Storno/Kassenlauf/Historisierung/Saga-ALARM),
+    Chronologie (Zeitstempel-Quelle: DB SYSTIMESTAMP oder JVM?), BG_ID
+    nullable bewusst. Prüfe, dass die Journal-Identität wirklich aus der
+    Session kommt und nicht aus dem Body.
+D9  Deadlock-/Retry-Verhalten des Gesamtsystems: welche ORA-Fehler können in
+    den Fach-DAOs realistisch auftreten (mehrere FOR UPDATE in verschiedener
+    Reihenfolge)? Werden alle Schreibpfade über TxManager.execute geführt
+    (kein direktes autocommit-Schreiben in DAOs/Services)?
+D10 Zeitstempel-Konsistenz: ZahlungDao/BescheidDao setzen Rückgabeobjekte mit
+    Instant.now()/LocalDate.now() (JVM-Zeit), während die DB SYSTIMESTAMP
+    schreibt — In-Memory-Objekt vs. DB-Zeile können abweichen (auch zwei
+    LocalDate.now()-Aufrufe im selben Insert bei Mitternachtsgrenze).
+    Bewerte Auswirkung auf Journal-Chronologie und Berichte.
+
+
+8. PRÜFFELD E — WEB-API UND SICHERHEIT
+--------------------------------------------------------------------------------
+
+E1  Baue die vollständige Endpunkt-Matrix auf (Methode, Pfad, Auth, Admin,
+    Quelle im Code) und prüfe auf: fehlende Auth, falsche Rollenprüfung,
+    fehlende Methoden-Validierung (405 vs. 404 vs. 500), IDOR (Zugriff auf
+    fremde BG durch Ratung von IDs — gibt es eine Besitz-/Mandantenprüfung
+    überhaupt, und ist das für die Behörden-Einmandantenumgebung vertretbar?).
+E2  Fehlertyp→HTTP-Mapping: IllegalArgumentException→400 ist geregelt; prüfe
+    DateTimeParseException (datumWert) → läuft die als 500? Integer.parseInt
+    in limit() ungeprüft? Negatives limit → ORA → 500? Jede Stelle, an der
+    Client-Müll einen 500 statt 400 erzeugt, ist ein Befund.
+E3  Token-Handling: nur Authorization-Header, EINE Ausnahme Druck-Link mit
+    ?token= im Query — Token landet in URLs/Proxys/Serverlogs. Bewerte
+    Schwere und Alternativen (Short-lived one-time Druck-Token, POST-Form).
+    Frontend: Token in localStorage (persistente XSS-Kette) vs.
+    sessionStorage. Idle-Timeout mit Sliding-Refresh, Drosselung je Kennung:
+    bypassbar (verschiedene Kennungen, verteilte Versuche)?
+E4  Eingabehärtung: Body-Limit 1 MB und JSON-Tiefenlimit 128 — verifiziere
+    beides im Code und ihre Tests. Eigener Json-Parser: Fuzzing-Würdigung
+    (unterminierte Strings, doppelte Keys, Zahlengrenzen, Unicode-Escapes,
+    sehr große Arrays auf einer Ebene). Zahlen als BigDecimal — Präzision.
+E5  XSS/Ausgabe: serverseitiges escapeHtml im BescheidGenerator (inkl.
+    <title>!), clientseitige zentrale esc() in app.js — prüfe JEDE
+    Interpolation von Serverdaten in app.js/druck.js darauf, ob sie esc()
+    nutzt (bekannte frühere Bugs: Berechnungsgate, interpolierte Zahlen).
+    CSP-Header auf ALLEN Antwortpfaden (inkl. Fehler, Druck 401)? Ist die
+    unsafe-inline-Style im Bescheid-CSP vertretbar?
+E6  SQL-Injection: durchgängig PreparedStatements? String-Konkatenation nur
+    für Platzhalter-Listen und Sequence-Namen — woher kommen die Sequence-
+    Namen (Konstante/Konfig/Benutzereingabe)? Statische Dateiauslieferung:
+    Pfad-Traversal geprüft (../)? Vergleiche auch SweetServer (testsweet).
+E7  Passwörter/Credentials: Klartext in Konfig ist dokumentierte Demo-Grenze.
+    ABER: Prüfe, dass Passwörter NIEMALS geloggt, in Reports, Kontext-Maps,
+    Fehlermeldungen oder sonstwo persistiert werden (Spur S-30: testsweet
+    legt Passwörter in auftrag.kontext ab, und MdBericht schreibt den Kontext
+    in den MD-Report!). Hartkodierte Demo-Konten (admin-01 u. a.) bewerten.
+E8  Sitzungen: serverseitige Begrenzung/Invalidierung, gleichzeitige Logins
+    derselben Kennung (Session-Kollision), Token-Zufälligkeit (UUID v4 —
+    ausreichend?), Logout invalidiert wirklich. Anmelde-Drosselung:
+    Kontosperre vs. IP — DoS durch Fremd-Fehlversuche möglich?
+E9  HttpServer-Betrieb: fixer 16-Thread-Executor vs. TaskController-Pool —
+    Interaktion (Thread wartet auf Thread?), Bindung localhost vs. 0.0.0.0
+    (Lauscht der Server nur lokal?), fehlende Header (Cache-Control auf
+    Token-Responses?).
+
+
+9. PRÜFFELD F — AUDIT, SOZIALDATEN, DATENSCHUTZ
+--------------------------------------------------------------------------------
+
+F1  TxAuditLog schreibt Saga-Events MIT payload in JUL + optionale Datei +
+    Ringpuffer; der Antrags-Payload enthält Name, IBAN, BIC, Einkommen.
+    Bewerte gegen Sozialgeheimnis (§ 35 SGB I)/DSGVO: Aufbewahrung,
+    Zugriffsschutz der Datei, Exposition über JMX/Logs. (Spur S-07.)
+F2  Fehler- und Fachmeldungen: enthalten sie Sozialdaten (Aktenzeichen,
+    Namen) und werden sie ungefiltert an Clients/API-Responses gegeben?
+F3  testsweet: Screenshots je Schritt (Sozialdaten in logs/run-*), Reports
+    (PDF/MD) mit Namen/IBAN, Speicherdauer, Löschkonzept — bewerte als
+    Testwerkzeug auf Behörden-Workstations.
+F4  Audit-Rotation/Archivierung ist als offen dokumentiert — prüfe, ob der
+    aktuelle Zustand (eine wachsende Datei, Ringpuffer 1000) die
+    Revisionsanforderungen (Nachvollziehbarkeit, § 67 SGB X Historisierung
+    im Fachteil) inkonsistent macht.
+
+
+10. PRÜFFELD G — DDL UND DATENMODELL
+--------------------------------------------------------------------------------
+
+G1  ddl/lmg_schema.sql: CHECK-Constraints vollständig und korrekt (Status-
+    mengen, NICHT NULL, Betragsspalten NUMBER(10,2))? Fehlende Constraints,
+    die Fachregeln erzwingen könnten (z. B. BUDGET >= 0)? FK-Kaskaden und
+    Historisierungs-Verträglichkeit (FK auf BG verhindert Löschen — wird
+    überall historisiert statt gelöscht?).
+G2  VERSION-Trigger: erhöhen nur, wenn der Aufrufer nicht selbst hochsetzt —
+    nebenwirkungsfrei bei Concurrent Updates? Optimistisches Locking:
+    prüfe JEDES UPDATE auf SOZIAL_FALL/BEDARFSGEMEINSCHAFT auf WHERE
+    VERSION=? und geprüfte Zählung; gibt es Schreibpfade OHNE Versions-Guard?
+G3  Unique-Index UQ_ZAHLUNG_BG_MONAT_AKTIV (CASE auf STORNIERT → NULL):
+    korrekt für Oracle (function-based, NULL mehrfach erlaubt)? Deckt er
+    auch Saga-Schreibpfade? Was ist mit historisierten BGs?
+G4  DAO-Disziplin: Spalten werden über POSITION gelesen (rs.getInt(19) etc.)
+    statt über Namen — Fragilität bei Schema-Änderungen bewerten.
+    CLOB-Handling BERECHNUNG (Streaming, Zeichensatz). Sequence-Besorgung
+    ohne Race (vorab SELECT nextval vs. RETURNING).
+G5  ddl/oracle_schema.sql (TX_SAGA/TX_SAGA_STEP): CHECKs auf STATE, Index auf
+    Status für recover-Selects, SAGA_ID-Korrelation, Zeitstempelquellen.
+    Stimmen Journal-Guards (geprüfte Update-Zähler) mit den DDL-CHECKs überein?
+
+
+11. PRÜFFELD H — TESTLANDSCHAFT HAUPTPROJEKT
+--------------------------------------------------------------------------------
+
+H1  Bestandsaufnahme: Welche Klassen/Wege sind durch Tests abgedeckt, welche
+    nicht (Nennung je Klasse: gut/teilweise/nicht getestet). Prüfe
+    insbesondere: LmgServer (größte Klasse des Projekts, keine HTTP-
+    Integrationstests), SozialLeistungsService (Workflow nur über echte DB,
+    CI ohne Oracle blind), TxManager selbst (keine dedizierte Klasse; manuelle
+    API und Error-Pfad ungetestet), AntragsSagaProzess.validierePayload
+    (pure static, ungetestet), Benutzerverwaltung-Drosselung/Idle-Timeout,
+    Json-Grenzen.
+H2  Qualität der vorhandenen Tests: Assertions scharf (genau der erwartete
+    Wert, nicht „irgendwas > 0")? Testname vs. Inhalt? Setup/Teardown-
+    Hygiene (BG-REG--Präfix-Räumung zuverlässig auch bei Fehlern)?
+H3  DB-Suiten (EchteDbVerifikationTest, SzenarioRegressionTest,
+    DeadlockRetryEchtTest): Sind die SQL-Nachweise wirklich direkt auf den
+    Tabellen (nicht über DAO-Rücklesen)? Sind die erwarteten Beträge
+    unabhängig gerechnet (regressionstests.md: „handgerechnet") — also frei
+    vom Zirkelschluss?
+H4  Lückenliste Tests (bekannt — prüfe, bestätige, ergänze, priorisiere):
+    siehe Abschnitt 15.
+
+
+12. PRÜFFELD I — TESTSWEET (REVIEW DES TESTWERKZEUGS)
+--------------------------------------------------------------------------------
+
+I1  Verifikator-Korrektheit: Vergleichsarten TEXT/BETRAG/GANZZAHL/
+    GANZZAHL_MIN/TEXT_IN — BETRAG scale-unabhängig (compareTo) gut;
+    GANZZAHL per String-Vergleich nach Regex-Strip — robust gegen Oracle-
+    Number-Formate? TEXT_IN „BEREIT|UEBERGEBEN" (Kassenlauf darf dazwischen-
+    funken): verdeckt das Fälle, in denen ein Kassenlauf FALSCH übergeben hat?
+I2  ZIRKELSCHLUSS-RISIKO (strukturell wichtig): testsweet berechnet erwartete
+    Zahlbeträge mit derselben Leistungsberechnung wie das Produkt. Wenn die
+    Berechnung falsch ist, sind Erwartung und Ist identisch falsch — der
+    Lauf bleibt grün. Bewerte dieses Muster gegen regressionstests.md
+    (handgerechnete Werte!) und schlage eine risikoarme Ergänzung vor (z. B.
+    goldene Master-Werte je Szenario-Art). (Spur S-48.)
+I3  Weitere testsweet-Prüfpunkte (mit Spurenbezug):
+    - GUI/Laufsteuerung: Laufsperre (AtomicBoolean, 409) wirklich dicht
+      (auch CLI vs. GUI gleichzeitig)? Status-Polling 700 ms — kann die GUI
+      einen fertigen Lauf falsch anzeigen? Kenndaten „nur letzter Lauf der
+      Session" — macht die Anzeige das transparent?
+    - Simulator: Phasenbarriere als Busy-Wait (Thread.sleep(25)-Schleife) —
+      CPU-Last bei großen Wellen; Abbruchverhalten; Dekrement auch bei
+      FEHLGESCHLAGEN (Barriere hängt nie)? (S-41.)
+    - Mitarbeiter/Threads: Auftragstopf-Entnahme atomar? Kontext-Spiegelung
+      je Schritt (Allokationsflut)? SweetLog global synchronized + flush je
+      Zeile — Engstelle bei 4000+ Aufträgen. (S-42.)
+    - Selenium: Fensterverwaltung (Raster, Skalierungsfaktor), JS-Klick-
+      Fallbacks, type=month-Handling, Rollenwechsel zum Admin-Storno,
+      Login-/Logout-Hygiene (vorher abmelden, Confirm-Override), toter
+      Renderer ohne Neustart — Robustheitsbewertung und Konsequenzen für
+      die Aussagekraft der Läufe. (S-36.)
+    - Reports: PDF (CP1252!) und MD vollständig/korrekt; Passwort-Leck über
+      auftrag.kontext in testdokumentation.md. (S-30, S-32.)
+    - SweetServer: sendeFehler sendet immer HTTP 200 (S-31); statischeDatei
+      Path-Traversal (S-43); Fehlercodes in der Meldung vs. Verhalten.
+    - Umgebungs-Restrisiken: raeume-fenster.ps1 killt Chrome nach CommandLine-
+      Muster (kann fremde Chrome treffen) (S-43); externe-Server-Modus teilt
+      Konten über Fenster — Session-Kollisionen (S-46).
+    - Konsistenz Behauptung vs. Code: dokumentierter Freigabevermerk-Check
+      existiert nicht als SQL-Erwartung (S-37); Journal nur im Kassenlauf-
+      Szenario verifiziert (S-38); Rollback-Sauberkeit FEHLGESCHLAGENER
+      Aufträge ungeprüft (S-39); Aktenzeichen-Mehfachfunde bei Wieder-
+      holungsläufen ohne Aufräumen (S-40); NumberFormatException in
+      Report-Aggregation bei „<keine Zeile>" (S-44); toter Code
+      (mitarbeiterLatch, Altsignaturen) (S-45); Kategorie-Fehlermeldung nennt
+      STRESS nicht (S-47); log.close() nur im Happy Path (S-34); STRESS+WEB
+      über CLI ohne Guard vor Laufstart (S-35); LocalDateTime.now für
+      Laufdauern, nicht monoton — Zeitumstellung Ende Oktober 2026! (S-33.)
+I4  Report-Inhalt: PDF/MD vollständig und korrekt (Deckblatt, Inhaltsverzeich-
+    nis-Seiten, Rechenwege nachvollziehbar, SQL+Parameter im MD copy-paste-
+    fähig)? Diagrammgenerierung (generate_diagrams.py) deterministisch?
+I5  Bewertung als Werkzeug: Ist testsweet für seinen Zweck (Mitarbeiter-
+    Simulation + revisionssichere Testdokumentation) richtig gebaut — oder
+    gibt es konzeptionelle Schwächen (keine Wiederholungsfahrpläne, kein
+    automatischer Vergleich gegen frühere Läufe, keine Selbsttests des
+    Werkzeugs)?
+
+
+13. PRÜFFELD J — DOKU-KONSISTENZ UND NAMENSREGEL
+--------------------------------------------------------------------------------
+
+J1  Versionen/Stände synchron? pom 0.5.4, AGENTS.md 0.5.4, architektur.md
+    sagt „Stand v0.5.2", Blueprint heißt „-v0.5.2" — Liste ALLER Doku-Stände
+    vs. Code-Realität erstellen (Spur S-01).
+J2  Namensregel: Der Produktname ist SDN.Leistung; der Name des Vorbild-
+    Systems darf in NEUEN Artefakten nicht auftauchen. Durchsuche ALLES
+    (Code, DDL, UI, Reports, testsweet, doc/) nach Verstößen; bewerte die
+    historischen Alt-Dokumente (z. B. das alte Blueprint-PDF im doc/-Ordner
+    mit Vorbild-Namen im DATEINAMEN) nach der Regel „nur historischer
+    Kontext". (Spur S-02.)
+J3  AGENTS.md-Beschreibungen (testsweet-Verhalten, Testzahlen, Stand der
+    136 Tests), README.md und testsweet/README.md gegen den Code prüfen
+    (Beispielhypothesen: Fenster bleiben nach Lauf offen — dokumentiert?;
+    Stresstest nur Fachschicht — an ALLEN Eingängen erzwungen? S-35.)
+J4  doc/regressionstests.md: Stimmen die dokumentierten Endzustände (Beträge,
+    Budget-Rests, Journal-Zuordnungen) mit dem aktuellen Code? (Nachrechnen!)
+J5  Benutzerhandbuch/Blueprint: nur stichprobenartig auf offensichtliche
+    Widersprüche zum Code prüfen (Umfang begrenzen, als Anhang berichten).
+
+
+14. SPURENKATALOG (VOLLSTÄNDIG ABARBEITEN: BESTÄTIGT/WIDERLEGT/UNKLAR)
+--------------------------------------------------------------------------------
+
+Herkunft: Voranalyse. Zeilenangaben können gedriftet sein — verifizieren.
+
+ Kern & Infrastruktur:
+  S-01  Doku-Stände inkonsistent (architektur.md v0.5.2 vs. pom 0.5.4).
+  S-02  Vorbild-Systemname noch in Dateinamen im doc/-Ordner (historisch?).
+  S-03  TxManager: keine dedizierte Testklasse; manuelle API + Error-Pfad
+        (Rollback bei OOM) ungetestet.
+  S-04  RetryPolicy.sleepBeforeAttempt (Backoff/Jitter/Interrupt) ungetestet;
+        Kappung erst ab Versuch ~11 wirksam.
+  S-05  FOR UPDATE SKIP LOCKED braucht Oracle >=21c; Default-URL zeigt auf
+        19c — recover() auf Zweitumgebung möglicherweise ORA-00933.
+  S-06  TaskHandle.resultOrCancelAfter ungetestet; paralleler recover
+        (SKIP-LOCKED-Rennen) nirgends getestet.
+  S-07  TxAuditLog protokolliert Saga-PAYLOAD (Name, IBAN, Einkommen) in
+        JUL/Datei/Ringpuffer — Sozialdaten im Techniklog.
+  S-08  LmgConfig lädt Properties als ISO-8859-1 (Properties.load(InputStream))
+        — Umlaute (Behördenanschrift) verstümmelt.
+  S-09  UcpConnectionPool: kein connectionWaitTimeout konfiguriert; Kommentar
+        verspricht FCF/RAC, ist aber nicht konfiguriert.
+  S-10  TxAuditLog: Datei-I/O synchron unter globalem Lock im Commit-Pfad;
+        clearForTests (Test-Hook) im Produktionscode.
+  S-11  Deadline nur kooperativ (checkDeadline nach work()); ohne TaskController
+        kein Interrupt — hängende JDBC-Calls unbegrenzt.
+
+ Fachschicht & Workflow:
+  S-12  RBS 2026 und ALLE Satzwerte hart kodiert — kein versionierbarer
+        Satzkatalog, Jahreswechsel = Codeänderung; Snapshots über
+        Jahresgrenzen bedenken.
+  S-13  Bescheid-Nr./Zeitfelder: JVM-Zeit im Rückgabeobjekt vs. SYSTIMESTAMP
+        in DB — Divergenz inkl. Mitternachtsfenster (siehe D10).
+  S-14  LmgServer: keine HTTP-Integrationstests für die größte Klasse des
+        Projekts (Auth-Matrix 401/403, Body-Limit, Tiefenlimit, CSP).
+  S-15  § 30 Abs. 2: 13. SSW und Entbindungsmonatsende nur Konvention —
+        FLAG_SCHWANGER erzwingt die Norm nicht.
+  S-16  Saga: SozialFall für Bedarfsprüfung/Bescheid aus PAYLOAD statt DB
+        (Absetzbeträge/Schwanger = 0) — Bescheid weicht vom Bestand ab.
+  S-17  Saga: KduParameter.AUS und Vermögen=0 — Saga-Zahlbetrag weicht vom
+        Service-Weg ab (dokumentiert? konsistent?).
+  S-18  LmgServer: datumWert() DateTimeParseException → HTTP 500 statt 400;
+        limit(): ungeprüftes parseInt, negatives limit → ORA-artiger 500.
+  S-19  erteileBescheid ohne BG-Sperre — Bescheid-Snapshot kann gegen
+        parallel laufende Falländerung geraced sein.
+  S-20  Saga: keine 12-Monate-Prüfung (§ 44 Abs. 3), nur bis>=von.
+  S-21  Bescheidnummer-Format Service vs. Saga inkonsistent; UQ-Kollision bei
+        Wiederholung nach Commit von Schritt 3 denkbar.
+  S-22  ZahlungDao/BescheidDao: JVM-Zeit (Instant.now/LocalDate.now) im
+        Rückgabeobjekt vs. SYSTIMESTAMP in DB — Divergenz.
+  S-23  DAOs lesen Spalten über POSITION (rs.getInt(19)) — fragil.
+  S-24  uebergebeBereite (ZahlungDao, Variante ohne ID-Liste) — toter Pfad
+        mit offenem Race-Fenster.
+  S-25  Admin darf Selbstfreigabe ersetzen (Vier-Augen-Ausnahme) — fachlich
+        gewollt und dokumentiert?
+
+ Web & Sicherheit:
+  S-26  Druck-Link mit ?token= im Query (einzige Header-Ausnahme) — Token in
+        URLs/Logs; Frontend-Token in localStorage.
+  S-27  Klartext-Passwörter in Konfig + hartkodierte Standardkonten — Demo
+        dokumentiert; bewerte Restrisiken (z. B. Produktivdefault).
+  S-28  Json-Parser: keine Tests für Tiefenbombe/1-MB-Grenze; BigDecimal-
+        Präzisionsverhalten ungeprüft.
+  S-29  LmgServer: Bindung localhost vs. 0.0.0.0 klären; fixer 16er-Executor
+        vs. TaskController-Pool-Interaktion.
+
+ testsweet:
+  S-30  Passwörter in auftrag.kontext → MdBericht-Report (BLOCKER-Kandidat).
+  S-31  SweetServer.sendeFehler sendet immer HTTP 200.
+  S-32  CP1252-PDF: „→" u. a. Nicht-CP1252-Zeichen werden zu „?".
+  S-33  LocalDateTime.now für Laufdauern (nicht monoton; Zeitumstellung!).
+  S-34  log.close() nur im Happy Path — Handle-Leak je gescheitertem Lauf.
+  S-35  STRESS+WEB über CLI: Guard erst NACH Treiber-/Serverstart; log-Leak.
+  S-36  Kein Treiber-Neustart bei totem Chrome-Renderer — Worker stirbt
+        sequenziell weiter (bekannter Einzelfall 234154).
+  S-37  Behaupteter Freigabevermerk-Check existiert nicht als SQL-Erwartung.
+  S-38  Journal-Verifikation nur im Kassenlauf-Szenario.
+  S-39  Rollback-Sauberkeit FEHLGESCHLAGENER Aufträge ungeprüft (Skip).
+  S-40  Aktenzeichen-Mehfachfunde bei Wiederholungsläufen ohne Aufräumen.
+  S-41  Phasenbarriere als 25-ms-Busy-Wait.
+  S-42  SweetLog synchron+flush je Zeile — Engstelle bei Last/Stress.
+  S-43  Path-Traversal in SweetServer.statischeDatei; raeume-fenster.ps1
+        Kill-Muster kann fremde Chrome treffen.
+  S-44  NumberFormatException in Report-Aggregation bei „<keine Zeile>".
+  S-45  Toter Code (mitarbeiterLatch, Altsignaturen) in testsweet und
+        Hauptprojekt.
+  S-46  Konten-Wiederverwendung über Fenster im externen Modus — Session-
+        kollisions-Flakiness.
+  S-47  liesKategorie-Fehlermeldung nennt STRESS nicht.
+  S-48  Zirkelschluss: Erwartungswerte mit derselben Leistungsberechnung wie
+        das Produkt erzeugt (nur die Goldwerte in regressionstests.md sind
+        unabhängig).
+
+Hinweis: Dies ist ein Katalog, keine Wahrheit. Widerlegte Spuren sind wertvoll
+(auch als Dokumentation geprüfter Sicherheit); falsch bestätigte dagegen
+schädlich — prüfe sauber.
+
+
+15. FEHLENDE TESTS — BEKANNTE LÜCKEN (BESTÄTIGEN, ERGÄNZEN, PRIORISIEREN)
+--------------------------------------------------------------------------------
+
+Bewerte jede Lücke nach Risiko (was kann unbemerkt kaputtgehen?) und schlage
+je eine konkrete Testidee an (Klasse, Szenario, wichtigste Assertions).
+
+Hauptprojekt — Unit-/Integrationsebene (ohne DB möglich):
+  L-01  TxManager-Testklasse: execute-Retry-Schleife mit Fake-Pool (erster
+        Versuch ORA-00060, zweiter OK; maxAttempts erschöpft; Error→Rollback;
+        Fachfehler NIE wiederholt), manuelle API begin/commit/finish in allen
+        Reihenfolgen (inkl. finish ohne commit, doppelt, nach Error).
+  L-02  RetryPolicy.sleepBeforeAttempt: Backoff-Grenzen, Jitter-Band,
+        Interrupt→nonRetryable.
+  L-03  TaskHandle.resultOrCancelAfter + cancel gegen echten TaskController.
+  L-04  TxAuditLog: Trim >1000, Listener wirft, Dateifehler (Verzeichnis weg).
+  L-05  TxMonitoring-Fehlerpfad (Register schlägt fehl → null konsumiert?).
+  L-06  LmgServer HTTP-Integrationstest (Server auf Port 0 starten):
+        401/403-Matrix je Endpunkt, 400 für Müll-Body, Grenzen >1 MB und
+        Tiefe >128, CSP/nosniff-Header auf allen Pfaden, Druck-Query-Token
+        (gültig/abgelaufen/fremd), Fehlercode-Mapping (FachlicheException→400
+        mit Code).
+  L-07  Benutzerverwaltung: Drosselung (5 Fehlversuche→30 s, auch versetzt),
+        Idle-Timeout-Ablauf (Clock-Injektion erwägen), parallele Sessions
+        einer Kennung, Logout invalidiert.
+  L-08  Json: Tiefenbombe, 1-MB-Grenze, exotische Escapes, doppelte Keys,
+        Zahlformate (sehr große Exponenten, Präzision).
+  L-09  AntragsSagaProzess.validierePayload als reine Funktion (gute/böse
+        Payloads tabellarisch).
+  L-10  SozialLeistungsService-Workflow mit Fake-TxManager/in-memory-DAOs
+        (falls Umbau nötig, als Empfehlung formulieren): Freigabe-, Storno-,
+        Kassenlauf-Zustandsmaschine inkl. aller Guards.
+  L-11  BerechnungsSnapshot: Fremdversion, Riesen-BGs, exakter Betrags-
+        Roundtrip über CLOB-Grenzen.
+
+Hauptprojekt — DB-Ebene (mit TX_URL):
+  L-12  Paralleler recover (zwei Threads, SKIP LOCKED) als echter Test.
+  L-13  Prozess-Kill statt synthetischem Crash-Zustand (Saga IN_FLIGHT real
+        abreißen lassen, dann recover).
+  L-14  Deadlock-Gezielttest im Fachschema (zwei Sessions in vertauschter
+        Sperrenreihenfolge auf Zahlung+BG) — Erwartung: RetryPolicy fängt.
+  L-15  Grenzfälle: Budget==Bedarf exakt, KEIN_ANSPRUCH wenn Rente==Bedarf,
+        12 Monate exakt / 12 Monate+1 Tag, § 30-Abs.-6-Deckel exakt erreicht.
+  L-16  Storno-/Freigabe-/Kassenlauf-Rennen (drei Threads auf dieselbe
+        Zahlung).
+
+testsweet:
+  L-17  Crash/Recovery mitten im Lauf (DB-Stop in Welle 1, Neustart,
+        Konsistenzprüfung danach).
+  L-18  Server-Restart im Web-Modus (Fehlerbilder statt Endlos-Timeouts).
+  L-19  Echte Rennbedingungen: zwei Worker stornieren/freigeben DIESELBE
+        Zahlung; zwei Worker ordnen denselben Monat an (Negativ-DOPPELMONAT
+        ist bisher sequenziell).
+  L-20  Session-/Token-Ablauf und Login-Sperre im Web-Modus.
+  L-21  Positive Bescheidkette (12-Monate-Grenze exakt) mit Snapshot-Druck.
+  L-22  Journal-Verifikation automatisiert je Szenario (inkl. Vier-Augen-
+        Identitätsbeweis FREIGEBEN_VON ≠ ERFASST_VON — schließt S-37).
+  L-23  Wiederholungslauf ohne Aufräumen als Negativtest (S-40).
+  L-24  Rollback-Sauberkeit fehlgeschlagener Aufträge (S-39): DB unverändert
+        auch bei FEHLGESCHLAGEN (ausgenommen dokumentierte Teilcommits).
+  L-25  Goldene Master-Werte je Szenario-Art gegen den Zirkelschluss (S-48):
+        kleine unabhängige, handgerechnete Referenztabelle.
+
+Ergänze Lücken, die hier fehlen (deine eigenen Funde aus A–J).
+
+
+16. AUSGABEFORMAT DES REVIEW-BERICHTS
+--------------------------------------------------------------------------------
+
+Aufbau (eine Datei / ein Bericht):
+
+  1. EXECUTIVE SUMMARY (max. 1 Seite)
+     - Gesamteurteil in 3–5 Sätzen (Zustand Kern / Fachschicht / Web /
+       Tests / testsweet), die 5 wichtigsten Befunde, Testlauf-Ergebnisse
+       (mvn test ohne/mit TX_URL, testsweet-Läufe je Kategorie).
+
+  2. BEFUNDE (sortiert BLOCKER → KRITISCH → MAJOR → MINOR → INFO)
+     Je Befund dieses Muster:
+       ID:          CR-<nr>
+       Schweregrad: BLOCKER|KRITISCH|MAJOR|MINOR|INFO
+       Prüffeld:    A…J (+ Normbezug, z. B. „§ 30 Abs. 6 SGB XII;
+                    doc/rechtsgrundlagen.md 1.2")
+       Ort:         Datei:Zeile (oder Datei+Methode)
+       Beobachtung: was genau im Code steht (mit kurzer Evidenz)
+       Auswirkung:  was im Betrieb/worst case passiert
+       Empfehlung:  konkreter Reparaturvorschlag (kein Fix-Code nötig,
+                    aber präzise genug zum Umsetzen)
+       Absicherung: welcher Test den Befund dauerhaft bewacht (Bezug zu L-xx)
+
+  3. SPURENKATALOG-ERGEBNIS
+     Tabelle S-01…S-48: BESTÄTIGT/WIDERLEGT/UNKLAR + Verweis auf Befund-ID
+     bzw. einzeilige Begründung.
+
+  4. TESTLÜCKEN-KATALOG (priorisiert)
+     L-01…L-nn + eigene: je Risiko, Aufwand (S/M/L), und welcher Befund
+     dadurch abgesichert wird. Empfohlene Reihenfolge zum Abarbeiten.
+
+  5. DOKU-BEFUNDE (Prüffeld J): Liste inkonsistenter Doku-Stellen mit
+     korrigiertem Formulierungsvorschlag.
+
+  6. ANHANG
+     - Ausgeführte Befehle mit Ergebniszeilen (Testzahlen, testsweet-
+       Zusammenfassungen), damit der Bericht reproduzierbar bleibt.
+     - Endpunkt-Matrix (E1), Normabgleich-Tabelle (Prüffeld C:
+       Norm → Code → Urteil), Bestandsaufnahme Testabdeckung je Klasse (H1).
+
+Qualitätskriterien des Berichts: jede Zahl belegbar, jede Behauptung mit
+Fundort, keine Vermutung ohne Kennzeichnung, Empfehlungen umsetzbar und
+priorisiert. Der Bericht ist das EINZIGE Deliverable — du änderst nichts am
+Repository.
+
+================================================================================
+ENDE DES PROMPTS
+================================================================================

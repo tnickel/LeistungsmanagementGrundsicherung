@@ -680,12 +680,29 @@ final class SweetPdf {
         return sb.toString();
     }
 
+    /** Ersetzt Zeichen, die im WinAnsi/CP1252-Zeichensatz der PDF-Fonts fehlen
+     *  (Pfeile, Gedankenstriche, Auslassungs-/Anführungszeichen, Aufzählungs-
+     *  punkte), durch CP1252-sichere ASCII-Entsprechungen. Sollte danach dennoch
+     *  ein Zeichen übrig bleiben, das CP1252 nicht kennt, ersetzt die Enkodier-
+     *  Schicht (getBytes(CP1252) mit REPLACE-Strategie) es ersatzweise mit '?'. */
     private static String normalisiere(String text) {
         return text
                 .replace("\u2264", "<=")
                 .replace("\u2265", ">=")
                 .replace("\u2286", "in")
-                .replace("\u2212", "-");
+                .replace("\u2212", "-")
+                .replace("\u2192", "->")
+                .replace("\u2190", "<-")
+                .replace("\u2013", "-")
+                .replace("\u2014", "-")
+                .replace("\u2026", "...")
+                .replace("\u201e", "\"")
+                .replace("\u201c", "\"")
+                .replace("\u2018", "'")
+                .replace("\u2019", "'")
+                .replace("\u2022", "-")
+                .replace("\u226a", "<")
+                .replace("\u226b", ">");
     }
 
     private static List<String> brichUm(String text, int maxZeichen) {

@@ -4,7 +4,15 @@ import java.sql.Connection;
 import java.time.Duration;
 import java.util.Objects;
 
-/** Optionen einer Transaktion: Isolationsebene, Zeitlimit und Anzahl der Versuche. */
+/**
+ * Optionen einer Transaktion: Isolationsebene, Zeitlimit und Anzahl der Versuche.
+ *
+ * <p><b>Zeitlimit-Semantik (CR-047):</b> {@code timeout} ist das Budget der
+ * <em>einzelnen</em> Ausführung — der {@link TxManager} setzt die Deadline je
+ * Versuch neu. Der Wachhund des {@link TaskController} misst dagegen die Gesamtzeit
+ * des Tasks inklusive aller Versuche und Backoff-Pausen. In Kombination mit
+ * {@code maxAttempts > 1} also großzügig wählen (siehe TaskController-Javadoc).</p>
+ */
 public record TxOptions(int isolation, Duration timeout, int maxAttempts) {
 
     public static final TxOptions DEFAULT =

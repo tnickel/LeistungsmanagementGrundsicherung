@@ -43,7 +43,6 @@ final class Mitarbeiter implements Runnable {
             }
         } finally {
             aktiv = false;
-            simulator.mitarbeiterBeendet(this);
         }
     }
 
@@ -53,6 +52,7 @@ final class Mitarbeiter implements Runnable {
         auftrag.status = Auftrag.Status.IN_BEARBEITUNG;
         auftrag.bearbeiter = kuerzel;
         auftrag.startZeit = LocalDateTime.now();
+        auftrag.startNano = System.nanoTime();
         Map<String, Object> kontext = new HashMap<>();
         SozialLeistungsService service = simulator.service();
         String kollege = simulator.zufallsKollege(kuerzel);
@@ -107,6 +107,7 @@ final class Mitarbeiter implements Runnable {
         auftrag.bgId = (Long) kontext.get("bgId");
         auftrag.kontext = Map.copyOf(kontext);
         auftrag.endeZeit = LocalDateTime.now();
+        auftrag.endeNano = System.nanoTime();
         auftrag.status = fehlgeschlagen ? Auftrag.Status.FEHLGESCHLAGEN : Auftrag.Status.FERTIG_GESPIELT;
         if (!fehlgeschlagen) {
             erledigt++;

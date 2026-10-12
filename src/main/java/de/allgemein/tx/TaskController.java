@@ -27,7 +27,14 @@ import java.util.logging.Logger;
  * <p><b>Zeitlimit:</b> Der Wachhund-Timer wird erst gestartet, wenn der Task
  * tatsächlich zur Ausführung kommt — die Wartezeit in der Warteschlange zählt
  * bewusst nicht auf das Task-Zeitlimit, sonst würden harmlose Tasks beim ersten
- * Lastberg abgeschossen, obwohl sie selbst schnell laufen.</p>
+ * Lastberg abgeschossen, obwohl sie selbst schnell laufen. <b>Budget-Semantik
+ * (CR-047):</b> Das Zeitlimit gilt für die <em>gesamte</em> Task-Ausführung
+ * inklusive aller Wiederholungsversuche des TxManager und deren Backoff-Pausen;
+ * die {@link TxContext}-Deadline dagegen gilt pro Versuch. Ein Task mit
+ * Sperren-Konflikten (ORA-00054/60/8177) kann daher vom Wachhund abgebrochen
+ * werden, obwohl jeder Einzelversuch deutlich unter dem Zeitlimit blieb — wer
+ * Wiederholungen mit Backoff erlaubt, sollte das Task-Zeitlimit entsprechend
+ * großzügig wählen (Faustregel: timeout &ge; maxAttempts × Einzellaufzeit).</p>
  *
  * <p><b>Bekanntes Restfenster (ehrlich dokumentiert):</b> Der Abbruch geschieht
  * durch {@code future.cancel(true)}, also per Interrupt. Trifft der Interrupt den

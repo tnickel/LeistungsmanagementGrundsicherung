@@ -67,10 +67,11 @@ public final class JournalDao {
 
     private Journaleintrag mappe(ResultSet rs) throws SQLException {
         long bgId = rs.getLong(2);
+        boolean bgIdIstNull = rs.wasNull(); // unmittelbar nach dem zugehörigen getLong auswerten
         Timestamp erstellt = rs.getTimestamp(5);
         return new Journaleintrag(
                 rs.getLong(1),
-                rs.wasNull() ? null : bgId,
+                bgIdIstNull ? null : bgId,
                 rs.getString(3),
                 rs.getString(4),
                 erstellt == null ? null : erstellt.toInstant());

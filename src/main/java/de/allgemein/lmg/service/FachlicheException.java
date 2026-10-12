@@ -21,6 +21,8 @@ public class FachlicheException extends TxException {
     public static final String NICHT_GEFUNDEN = "NICHT_GEFUNDEN";
     public static final String RBS_NICHT_KONFIGURIERT = "RBS_NICHT_KONFIGURIERT";
     public static final String BERECHTIGUNG = "BERECHTIGUNG";
+    /** HTTP 405: Pfad bekannt, Methode nicht unterstützt (Unterscheidung von 404). */
+    public static final String METHODE_NICHT_UNTERSTUETZT = "METHODE_NICHT_UNTERSTUETZT";
 
     private final String code;
 

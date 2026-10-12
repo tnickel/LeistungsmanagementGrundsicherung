@@ -321,6 +321,12 @@ public final class BescheidGenerator {
                 punkte.append("; Mehrbedarf dezentrale Warmwassererzeugung (§ 30 Abs. 7 SGB XII): ")
                         .append(formatBetrag(fb.mehrbedarfWarmwasser())).append(" €");
             }
+            java.math.BigDecimal ungekappt = fb.mehrbedarfG().add(fb.mehrbedarfSchwangere())
+                    .add(fb.mehrbedarfAlleinerziehend());
+            if (ungekappt.compareTo(fb.mehrbedarf().subtract(fb.mehrbedarfWarmwasser())) > 0) {
+                punkte.append("; die Summe der Mehrbedarfe nach § 30 Abs. 1 bis 5 SGB XII ist auf die "
+                        + "Regelbedarfsstufe begrenzt worden (§ 30 Abs. 6 SGB XII)");
+            }
             punkte.append("; Kosten der Unterkunft und Heizung (§ 42a i.V.m. § 35 SGB XII): ")
                     .append(formatBetrag(fb.kdu())).append(" €.");
             if (fb.kduWarmwasserAbzug().signum() > 0) {
@@ -376,8 +382,9 @@ public final class BescheidGenerator {
                 ? escapeHtml(belehrung.widerspruchsbehoerde()) : "die zuständige Widerspruchsbehörde";
         return """
                 Gegen diesen Bescheid kann innerhalb eines Monats nach seiner Bekanntgabe Widerspruch eingelegt
-                werden. Der Widerspruch ist schriftlich oder zur Niederschrift bei %s einzulegen (§ 84 Abs. 1
-                SGG). Die Frist ist auch gewahrt, wenn der Widerspruch innerhalb der Frist bei einer anderen
+                werden. Der Widerspruch ist schriftlich, elektronisch oder zur Niederschrift bei %s einzulegen
+                (§ 84 Abs. 1 SGG, für die elektronische Form § 65a SGG). Die Frist ist auch gewahrt, wenn der
+                Widerspruch innerhalb der Frist bei einer anderen
                 inländischen Behörde, einem Versicherungsträger oder einer deutschen Konsularbehörde eingeht
                 (§ 84 Abs. 2 SGG).%s
                 Hilft die Behörde dem Widerspruch nicht ab, entscheidet %s durch Widerspruchsbescheid. Gegen den

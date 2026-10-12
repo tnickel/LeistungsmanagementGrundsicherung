@@ -49,14 +49,12 @@ import java.util.Map;
  */
 public final class Leistungsberechnung {
 
-    /** Regelbedarfsstufen 2026 (Stufen 1 bis 6 nach Regelbedarfsstufen-Fortschreibungsverordnung). */
-    private static final Map<Integer, BigDecimal> REGELBEDARF_2026 = Map.of(
-            1, new BigDecimal("563.00"),
-            2, new BigDecimal("506.00"),
-            3, new BigDecimal("451.00"),
-            4, new BigDecimal("471.00"),
-            5, new BigDecimal("390.00"),
-            6, new BigDecimal("357.00"));
+    /**
+     * Regelbedarfsstufen stehen in der Datenbanktabelle SATZSTAND (je Jahr gepflegt,
+     * Anlage zu § 28 SGB XII). Der Produktionspfad übergibt den zum Bezugsmonat
+     * gültigen {@link Satzstand}; die Kompatibilitätsüberladungen unten nutzen die
+     * Seed-Referenz 2026 ({@link Satzstand#REFERENZ_2026}).
+     */
 
     /** Mehrbedarf Merkzeichen G (§ 30 Abs. 1 SGB XII): 17 % des maßgeblichen Regelbedarfs. */
     public static final BigDecimal MEHRBEDARF_G_ANTEIL = new BigDecimal("0.17");
@@ -105,9 +103,19 @@ public final class Leistungsberechnung {
     /**
      * Summierte Berechnung über alle SozialFälle einer Bedarfsgemeinschaft;
      * die KdU-Parameter (Warmwasser-Abzug, Angemessenheitsgrenze) sind deaktiviert.
+     * Nutzt die Seed-Referenz 2026 — Produktionsaufrufe übergeben den DB-Satzstand.
      */
     public static Berechnungsergebnis berechne(long bgId, List<SozialFall> faelle) {
-        return berechne(bgId, faelle, KduParameter.AUS, BigDecimal.ZERO);
+        return berechne(bgId, faelle, KduParameter.AUS, BigDecimal.ZERO, Satzstand.REFERENZ_2026);
+    }
+
+    /**
+     * Kompatibilitätsüberladung mit der Seed-Referenz 2026 (testsweet, Tests);
+     * Produktionscode ruft die Satzstand-Variante mit dem DB-Stand des Bezugsmonats.
+     */
+    public static Berechnungsergebnis berechne(
+            long bgId, List<SozialFall> faelle, KduParameter kduParameter, BigDecimal vermoegen) {
+        return berechne(bgId, faelle, kduParameter, vermoegen, Satzstand.REFERENZ_2026);
     }
 
     /**
@@ -117,9 +125,11 @@ public final class Leistungsberechnung {
      *
      * @param kduParameter örtliche Parameter der KdU-Prüfung (§ 42a SGB XII)
      * @param vermoegen    Gesamtvermögen der Bedarfsgemeinschaft in EUR
+     * @param satzstand    zum Bezugsmonat gültige Regelbedarfsstufen (Tabelle SATZSTAND)
      */
     public static Berechnungsergebnis berechne(
-            long bgId, List<SozialFall> faelle, KduParameter kduParameter, BigDecimal vermoegen) {
+            long bgId, List<SozialFall> faelle, KduParameter kduParameter, BigDecimal vermoegen,
+            Satzstand satzstand) {
         if (faelle.isEmpty()) {
             throw new FachlicheException(FachlicheException.VALIDATION,
                     "Die Bedarfsgemeinschaft " + bgId + " hat keinen SozialFall");
@@ -130,7 +140,7 @@ public final class Leistungsberechnung {
         BigDecimal kduRest = kduParameter.angemessenheitsgrenze().signum() > 0
                 ? kduParameter.angemessenheitsgrenze() : null;
         for (SozialFall fall : faelle) {
-            FallBerechnung berechnung = berechneFall(fall, kduParameter, kduRest);
+            FallBerechnung berechnung = berechneFall(fall, kduParameter, kduRest, satzstand);
             einzeln.add(berechnung);
             if (kduRest != null) {
                 kduRest = kduRest.subtract(berechnung.kdu());
@@ -151,14 +161,18 @@ public final class Leistungsberechnung {
     }
 
     static FallBerechnung berechneFall(SozialFall fall, KduParameter kduParameter) {
+        return berechneFall(fall, kduParameter, Satzstand.REFERENZ_2026);
+    }
+
+    static FallBerechnung berechneFall(SozialFall fall, KduParameter kduParameter, Satzstand satzstand) {
         BigDecimal grenze = kduParameter.angemessenheitsgrenze();
-        return berechneFall(fall, kduParameter, grenze.signum() > 0 ? grenze : null);
+        return berechneFall(fall, kduParameter, grenze.signum() > 0 ? grenze : null, satzstand);
     }
 
     /** @param kduRest noch anerkennbare KdU der Bedarfsgemeinschaft; {@code null} = keine Grenze */
     private static FallBerechnung berechneFall(
-            SozialFall fall, KduParameter kduParameter, BigDecimal kduRest) {
-        BigDecimal regelbedarf = regelbedarf(fall.regelbedarfsstufe());
+            SozialFall fall, KduParameter kduParameter, BigDecimal kduRest, Satzstand satzstand) {
+        BigDecimal regelbedarf = satzstand.regelbedarf(fall.regelbedarfsstufe());
 
         BigDecimal mehrbedarfG = fall.merkzeichenG()
                 ? regelbedarf.multiply(MEHRBEDARF_G_ANTEIL).setScale(SCALE, RoundingMode.HALF_UP)
@@ -166,7 +180,7 @@ public final class Leistungsberechnung {
         BigDecimal mehrbedarfSchwangere = fall.schwanger()
                 ? regelbedarf.multiply(MEHRBEDARF_SCHWANGERE_ANTEIL).setScale(SCALE, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO.setScale(SCALE);
-        BigDecimal mehrbedarfAlleinerziehend = mehrbedarfAlleinerziehend(fall);
+        BigDecimal mehrbedarfAlleinerziehend = mehrbedarfAlleinerziehend(fall, satzstand);
         BigDecimal mehrbedarfWarmwasser = fall.warmwasser()
                 ? regelbedarf.multiply(MEHRBEDARF_WARMWASSER_ANTEILE.get(fall.regelbedarfsstufe()))
                         .setScale(SCALE, RoundingMode.HALF_UP)
@@ -196,7 +210,7 @@ public final class Leistungsberechnung {
 
         BigDecimal gesamtbedarf = regelbedarf.add(mehrbedarf).add(kdu);
 
-        BigDecimal freibetrag = erwerbsfreibetrag(fall.einkommenErwerb());
+        BigDecimal freibetrag = erwerbsfreibetrag(fall.einkommenErwerb(), satzstand);
         BigDecimal anrechenbar = fall.einkommenRente()
                 .add(fall.einkommenErwerb())
                 .subtract(freibetrag)
@@ -215,7 +229,7 @@ public final class Leistungsberechnung {
      * Regelbedarfsstufe 1: bei Kind unter 7 oder zwei/drei Kindern unter 16 einmal 36 %
      * (Nr. 1), sonst 12 % je minderjährigem Kind (Nr. 2); gedeckelt auf 60 % der RBS 1.
      */
-    private static BigDecimal mehrbedarfAlleinerziehend(SozialFall fall) {
+    private static BigDecimal mehrbedarfAlleinerziehend(SozialFall fall, Satzstand satzstand) {
         int kinderU16 = Math.max(fall.anzKinderUnter16(), fall.anzKinderUnter7());
         int minderjaehrig = Math.max(fall.anzKinderMinderjaehrig(), kinderU16);
         if (minderjaehrig == 0) {
@@ -225,7 +239,7 @@ public final class Leistungsberechnung {
         BigDecimal anteil = nr1
                 ? MEHRBEDARF_ALLEINERZIEHEND_36
                 : MEHRBEDARF_ALLEINERZIEHEND_JE_KIND.multiply(BigDecimal.valueOf(minderjaehrig));
-        BigDecimal rbs1 = REGELBEDARF_2026.get(1);
+        BigDecimal rbs1 = satzstand.regelbedarf(1);
         BigDecimal betrag = rbs1.multiply(anteil).setScale(SCALE, RoundingMode.HALF_UP);
         BigDecimal deckel = rbs1.multiply(MEHRBEDARF_ALLEINERZIEHEND_DECKEL_RBS1)
                 .setScale(SCALE, RoundingMode.HALF_UP);
@@ -256,18 +270,26 @@ public final class Leistungsberechnung {
                 .setScale(SCALE, RoundingMode.HALF_UP);
     }
 
-    private static BigDecimal regelbedarf(int rbs) {
-        BigDecimal betrag = REGELBEDARF_2026.get(rbs);
+    private static BigDecimal regelbedarf(Satzstand satzstand, int rbs) {
+        BigDecimal betrag = switch (rbs) {
+            case 1 -> satzstand.rbs1();
+            case 2 -> satzstand.rbs2();
+            case 3 -> satzstand.rbs3();
+            case 4 -> satzstand.rbs4();
+            case 5 -> satzstand.rbs5();
+            case 6 -> satzstand.rbs6();
+            default -> null;
+        };
         if (betrag == null) {
             throw new FachlicheException(FachlicheException.RBS_NICHT_KONFIGURIERT,
-                    "Regelbedarfsstufe " + rbs + " ist für das Referenzjahr 2026 nicht hinterlegt "
-                            + "(konfiguriert sind die Stufen 1 bis 6)");
+                    "Regelbedarfsstufe " + rbs + " ist im Satzstand ab " + satzstand.gueltigAb()
+                            + " nicht hinterlegt (gültig sind die Stufen 1 bis 6)");
         }
         return betrag;
     }
 
-    private static BigDecimal erwerbsfreibetrag(BigDecimal erwerbseinkommen) {
-        BigDecimal kappung = REGELBEDARF_2026.get(1).multiply(ERWERBSFREIBETRAG_KAPPUNG_RBS1)
+    private static BigDecimal erwerbsfreibetrag(BigDecimal erwerbseinkommen, Satzstand satzstand) {
+        BigDecimal kappung = satzstand.regelbedarf(1).multiply(ERWERBSFREIBETRAG_KAPPUNG_RBS1)
                 .setScale(SCALE, RoundingMode.HALF_UP);
         BigDecimal anteilig = erwerbseinkommen.multiply(ERWERBSFREIBETRAG_ANTEIL)
                 .setScale(SCALE, RoundingMode.HALF_UP);

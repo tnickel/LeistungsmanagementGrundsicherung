@@ -15,6 +15,11 @@ import java.math.BigDecimal;
  * Einkommensbereinigung nach § 82 Abs. 2 SGB XII (Steuern, Sozialversicherung,
  * gesetzlich vorgeschriebene/angemessene Versicherungen, Erwerbsaufwendungen)
  * werden vor dem Erwerbsfreibetrag des § 82 Abs. 3 abgezogen.</p>
+ *
+ * <p>Der Schwangeren-Mehrbedarf läuft nach § 30 Abs. 2 nur bis zum Ende des
+ * Entbindungsmonats: {@code entbindungsmonat} (Format YYYY-MM, optional) beendet
+ * ihn fachlich — Auszahlungen und Bescheide für Monate danach werden abgewiesen,
+ * bis das Flag zurückgenommen oder der Entbindungsmonat fortgeschrieben wird.</p>
  */
 public record SozialFall(
         long id,
@@ -35,11 +40,12 @@ public record SozialFall(
         BigDecimal abzSozialversicherung,
         BigDecimal abzVersicherungen,
         BigDecimal abzErwerbsaufwendungen,
+        String entbindungsmonat,
         long version) {
 
     /**
-     * Abwärtskompatibler Konstruktor ohne eigene Zählung minderjähriger Kinder:
-     * der Wert wird aus den Kindern unter 16 bzw. unter 7 abgeleitet.
+     * Abwärtskompatibler Konstruktor ohne eigene Zählung minderjähriger Kinder
+     * und ohne Entbindungsmonat.
      */
     public SozialFall(
             long id,
@@ -63,7 +69,36 @@ public record SozialFall(
         this(id, bgId, regelbedarfsstufe, merkzeichenG, schwanger, anzKinderUnter7, anzKinderUnter16,
                 Math.max(anzKinderUnter7, anzKinderUnter16), warmwasser,
                 kduMiete, kduBetriebskosten, kduHeizung, einkommenRente, einkommenErwerb,
-                abzSteuern, abzSozialversicherung, abzVersicherungen, abzErwerbsaufwendungen, version);
+                abzSteuern, abzSozialversicherung, abzVersicherungen, abzErwerbsaufwendungen,
+                null, version);
+    }
+
+    /** Abwärtskompatibler Konstruktor ohne Entbindungsmonat (alter kanonischer Stand). */
+    public SozialFall(
+            long id,
+            long bgId,
+            int regelbedarfsstufe,
+            boolean merkzeichenG,
+            boolean schwanger,
+            int anzKinderUnter7,
+            int anzKinderUnter16,
+            int anzKinderMinderjaehrig,
+            boolean warmwasser,
+            BigDecimal kduMiete,
+            BigDecimal kduBetriebskosten,
+            BigDecimal kduHeizung,
+            BigDecimal einkommenRente,
+            BigDecimal einkommenErwerb,
+            BigDecimal abzSteuern,
+            BigDecimal abzSozialversicherung,
+            BigDecimal abzVersicherungen,
+            BigDecimal abzErwerbsaufwendungen,
+            long version) {
+        this(id, bgId, regelbedarfsstufe, merkzeichenG, schwanger, anzKinderUnter7, anzKinderUnter16,
+                anzKinderMinderjaehrig, warmwasser,
+                kduMiete, kduBetriebskosten, kduHeizung, einkommenRente, einkommenErwerb,
+                abzSteuern, abzSozialversicherung, abzVersicherungen, abzErwerbsaufwendungen,
+                null, version);
     }
 
     /** Abwärtskompatibler Konstruktor: Alter Stand ohne Mehrbedarfe/Absetzbeträge. */

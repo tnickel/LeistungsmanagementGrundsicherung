@@ -460,11 +460,11 @@ public final class SzenarioBibliothek {
         rechnungen.replaceAll(b -> b.mitBudget(budget));
         String name = hauptperson();
         String az = aktenzeichen(nr);
+        LocalDate wiedervorlage = LocalDate.now().plusMonths(6);
 
         List<SzenarioAktion> aktionen = List.of(
                 SzenarioAktion.schritt("Vorgang anlegen (Familie)", (s, ich, kollege, ctx) -> {
-                    var bg = s.legeBedarfsgemeinschaftAn(az, name, budget,
-                            LocalDate.now().plusMonths(6), ich);
+                    var bg = s.legeBedarfsgemeinschaftAn(az, name, budget, wiedervorlage, ich);
                     ctx.put("bgId", bg.id());
                     return "Vorgang " + bg.id();
                 }),
@@ -482,9 +482,14 @@ public final class SzenarioBibliothek {
                     ctx.put("zahlungId", erg.zahlung().id());
                     return erg.zahlung().auszahlungsbetrag().toPlainString() + " EUR";
                 }));
+        List<Erwartung> erwartungen = new ArrayList<>(
+                erwartungenStandard(zahlbetrag, budget, 0, false));
+        erwartungen.add(Erwartung.ganzeZahl("Wiedervorlagedatum exakt wie gesetzt",
+                "SELECT COUNT(*) FROM BEDARFSGEMEINSCHAFT WHERE ID = ? AND WIEDERVORLAGE_AM = ?",
+                ctx -> List.of(ctx.get("bgId"), java.sql.Date.valueOf(wiedervorlage)), 1));
         return new Auftrag(nr, "FAMILIE", az, name,
                 "Alleinerziehende mit " + kinder + " Kind(ern) (§ 30 Abs. 3)",
-                aktionen, erwartungenStandard(zahlbetrag, budget, 0, false))
+                aktionen, erwartungen)
                 .dokumentiere("Eine alleinerziehende Mutter beantragt für sich und ihre "
                         + kinder + " Kinder. Die Kinder werden als eigene Mitglieder der "
                         + "Bedarfsgemeinschaft erfasst (Regelbedarfsstufe 6, geringerer "
@@ -615,9 +620,15 @@ public final class SzenarioBibliothek {
         }
 
         List<Erwartung> erwartungen = new ArrayList<>();
-        erwartungen.add(Erwartung.betrag("Vermögen persistiert (§ 90)",
+        // Verbrauchsfortschreibung (§ 90 SGB XII, seit v0.5.6): Bei erfolgreicher
+        // Auszahlung verbraucht sich der über dem Schonvermögen liegende Anteil —
+        // danach liegt der Rest im Schonvermögen und wird nicht erneut abgezogen.
+        BigDecimal vermoegenseinsatz = vermoegen
+                .subtract(Leistungsberechnung.schonvermoegen(faelle)).max(BigDecimal.ZERO);
+        BigDecimal vermoegenNachLauf = keinAnspruch ? vermoegen : vermoegen.subtract(vermoegenseinsatz);
+        erwartungen.add(Erwartung.betrag("Vermögen nach Verbrauchsfortschreibung (§ 90)",
                 "SELECT VERMOEGEN FROM BEDARFSGEMEINSCHAFT WHERE ID = ?",
-                ctx -> List.of(ctx.get("bgId")), vermoegen.toPlainString()));
+                ctx -> List.of(ctx.get("bgId")), vermoegenNachLauf.toPlainString()));
         if (keinAnspruch) {
             erwartungen.add(Erwartung.ganzeZahl("keine Zahlung trotz Anordnung (KEIN_ANSPRUCH)",
                     "SELECT COUNT(*) FROM ZAHLUNG WHERE BG_ID = ?",
@@ -696,6 +707,10 @@ public final class SzenarioBibliothek {
         List<Erwartung> erwartungen = List.of(
                 Erwartung.ganzeZahl("genau eine Zahlung trotz Wiederholung",
                         "SELECT COUNT(*) FROM ZAHLUNG WHERE BG_ID = ?",
+                        ctx -> List.of(ctx.get("bgId")), 1),
+                Erwartung.ganzeZahl("genau ein Auszahlungsjournal-Eintrag (keine Doppelbuchung)",
+                        "SELECT COUNT(*) FROM JOURNAL WHERE BG_ID = ? "
+                                + "AND AKTION_TEXT LIKE 'Auszahlung über%'",
                         ctx -> List.of(ctx.get("bgId")), 1),
                 Erwartung.betrag("Budget nur einmal gemindert",
                         "SELECT BUDGET_REST FROM BEDARFSGEMEINSCHAFT WHERE ID = ?",
@@ -1641,12 +1656,6 @@ public final class SzenarioBibliothek {
         return ergebnis.zahlbetrag();
     }
 
-    /** Abgelaufene Signatur — ersetzt durch {@link #berechne} mit Rechenblock. */
-    private BigDecimal zahlbetrag(int rbsIgnoriert, List<SozialFall> faelle, BigDecimal vermoegen) {
-        return Leistungsberechnung.berechne(0, faelle,
-                Leistungsberechnung.KduParameter.AUS, vermoegen).zahlbetrag();
-    }
-
     /**
      * Erwartungsbausteine der Anordnungs-Szenarien. {@code mitFreigabe} = das
      * Szenario gibt selbst frei (Status BEREIT, ggf. schon vom Kassenlauf übergeben);
@@ -1673,6 +1682,15 @@ public final class SzenarioBibliothek {
             e.add(Erwartung.ganzeZahl("Regelbedarfsstufe persistiert",
                     "SELECT COUNT(*) FROM SOZIAL_FALL WHERE BG_ID = ? AND REGELBEDARFSSTUFE = ?",
                     ctx -> List.of(ctx.get("bgId"), rbs), 1));
+        }
+        if (mitFreigabe) {
+            // Vier-Augen-Beweis: Der Freigabevermerk muss genau den Kollegen aus
+            // dem Kontext nennen (Vergleich komplett in SQL — Parameter wie beim
+            // Negativ-Pendant NEG-SELBSTFREIGABE, das auf FREIGEGEBEN_VON IS NULL prüft).
+            e.add(Erwartung.text("Freigabevermerk nennt den Kollegen (Vier-Augen)",
+                    "SELECT CASE WHEN FREIGEGEBEN_VON = ? THEN 'ok' ELSE 'abweichend' END "
+                            + "FROM ZAHLUNG WHERE ID = ?",
+                    ctx -> List.of(ctx.get("kollege"), ctx.get("zahlungId")), "ok"));
         }
         return e;
     }

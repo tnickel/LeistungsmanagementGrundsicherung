@@ -191,6 +191,42 @@ public final class BedarfsgemeinschaftDao {
         }
     }
 
+    /**
+     * Verbrauchsfortschreibung (§ 90 SGB XII): mindert den Vermögensbestand um den
+     * eingesetzten verwertbaren Betrag — nur innerhalb der BG-Sperre; Guard verhindert
+     * das Unterlaufen des Schonvermögens durch konkurrierende Buchungen.
+     */
+    public void mindereVermoegen(TxContext ctx, long id, BigDecimal betrag) throws SQLException {
+        if (betrag == null || betrag.signum() <= 0) {
+            return;
+        }
+        try (PreparedStatement stmt = ctx.connection().prepareStatement(
+                "UPDATE BEDARFSGEMEINSCHAFT SET VERMOEGEN = VERMOEGEN - ? "
+                        + "WHERE ID = ? AND VERMOEGEN >= ?")) {
+            stmt.setBigDecimal(1, betrag);
+            stmt.setLong(2, id);
+            stmt.setBigDecimal(3, betrag);
+            if (stmt.executeUpdate() != 1) {
+                throw new java.sql.SQLException(
+                        "Vermögensfortschreibung nicht möglich: Bestand geringer als der Einsatz "
+                                + "(BG " + id + ", Einsatz " + betrag + ")");
+            }
+        }
+    }
+
+    /** Bucht den Vermögenseinsatz einer stornierten Zahlung zurück (Storno). */
+    public void erhoehenVermoegen(TxContext ctx, long id, BigDecimal betrag) throws SQLException {
+        if (betrag == null || betrag.signum() <= 0) {
+            return;
+        }
+        try (PreparedStatement stmt = ctx.connection().prepareStatement(
+                "UPDATE BEDARFSGEMEINSCHAFT SET VERMOEGEN = VERMOEGEN + ? WHERE ID = ?")) {
+            stmt.setBigDecimal(1, betrag);
+            stmt.setLong(2, id);
+            stmt.executeUpdate();
+        }
+    }
+
     public long naechsteId(TxContext ctx) throws SQLException {
         return naechsteSequence(ctx, "SEQ_BG");
     }

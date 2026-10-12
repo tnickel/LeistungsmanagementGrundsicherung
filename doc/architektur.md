@@ -1,6 +1,6 @@
 # Architektur der Transaktionssteuerung
 
-*Stand: 2026-10-10, Version 0.5.2*
+*Stand: 2026-10-12, Version 0.5.5*
 
 ## Schichtenbild
 
@@ -62,7 +62,7 @@ Fachschicht: Leistungsmanagement Grundsicherung (SDN.Leistung LMG)
 | `lmg.saga.AntragsSagaProzess` | 4-stufige Fach-Saga Antrag → Bedarfsprüfung → Bescheid → Erstauszahlung mit idempotenter Rückwärtskompensation (Budget-Rückbuchung, Historisierung statt Löschung). |
 | `lmg.dao.*` | DAOs auf der Verbindung des `TxContext`, ausschließlich PreparedStatements; keine eigenen Connections. |
 | `lmg.config.LmgConfig` | Externalisierte Konfiguration (System-Properties > Umgebungsvariablen > `lmg.properties` > Defaults), inkl. KdU-, Rechtsbehelf- und Session-Parameter. |
-| `lmg.web.LmgServer/LmgServerMain` | JSON-API + Oberfläche auf dem JDK-HttpServer; jede Anfrage (auch der Bescheid-Druck) läuft als Task über den `TaskController`; CSP-Header, Body-Limit, Token nur aus dem Authorization-Header (Ausnahme: Druck-Link). |
+| `lmg.web.LmgServer/LmgServerMain` | JSON-API + Oberfläche auf dem JDK-HttpServer; jede Anfrage (auch der Bescheid-Druck) läuft als Task über den `TaskController`; bindet per Default **Loopback** (`lmg.host` konfigurierbar; Demo-Standardkonten werden bei Nicht-Loopback verweigert); CSP-/no-store-Header, Body-Limit, Token nur aus dem Authorization-Header (Druck-Link: Einmal-Kurzzeit-Token über `POST /api/drucktoken`). |
 | `lmg.web.Benutzerverwaltung` | Anmeldung mit Rollen; Sitzungs-Token (SecureRandom/UUID) mit Idle-Timeout, Anmelde-Drosselung, constant-time-Passwortvergleich. |
 | `lmg.web.Json` | Schlanker JSON-Writer/Parser ohne externe Bibliothek (Tiefenlimit, vollständige Escape-Prüfung). |
 | `webapp/` (Ressourcen) | Single-Page-Oberfläche (SDN.Leistung-Stil): Widget-Dashboard, Vorgangsmaske, Zahlbarmachung, Journal — HTML-Escaping für alle Serverdaten. |
@@ -134,17 +134,27 @@ COMPENSATED` (bzw. zurück zu FAILED, wenn eine Kompensation fehlschlägt).
    (`WHERE … AND STATUS = …`) und werten die Update-Zählung aus — Races mit
    parallelen Kassenläufen/Freigaben werden erkannt statt blind überschrieben.
 
-## Bekannte Grenzen (Stand v0.5.0)
+## Bekannte Grenzen (Stand v0.5.5)
 
 - Watchdog-Abbruch im Commit-Fenster: Das klassische TP-Monitor-Restfenster
   (Commit durch, Abbruch dem Aufrufer gemeldet) ist nicht vollständig
   eliminierbar; dokumentiert im `TaskController`-Javadoc, Auflösung nur über
   TX-IDs + Recovery-Abfrage beim DB-Server.
 - `SimpleConnectionPool` bewusst minimal (Demo/Tests); Produktion läuft über
-  Oracle UCP (`validateConnectionOnBorrow`).
+  Oracle UCP (`validateConnectionOnBorrow`, seit v0.5.5 mit explizitem
+  Connection-Wait-Timeout und JDBC-Connect-/Read-Timeouts).
 - Passwörter als Klartext-Konfiguration, Sitzungen im Speicher — Produktivweg
   ist LDAP/AD hinter HTTPS (siehe Doku Leistungsmanagement).
-- Audit-Log ohne Rotation; Archivierungsstrategie für historisierte Vorgänge
-  und Journal-Einträge steht noch aus.
+- Audit-Log rotiert bei 10 MB auf einen Vorgänger (`.1`); eine mehrstufige
+  Archivierungsstrategie für historisierte Vorgänge und alte Journal-Einträge
+  steht noch aus. Audit-Zeilen enthalten bewusst keine Sozialdaten (Payload-
+  Redaktion, v0.5.5).
 - Anmelde-Drosselung und Session-Timeout sind einfach (in-memory) — für
-  horizontale Skalierung wäre ein verteilter Sitzungsspeiler nötig.
+  horizontale Skalierung wäre ein verteilter Sitzungsspeicher nötig.
+- Getestete Oracle-Mindestversion: 19c (FOR UPDATE SKIP LOCKED des
+  Wiederanlaufs ist seit 11g verfügbar; verifiziert gegen 19c EE und 23ai Free).
+- Kein Need-to-know-Filter auf den Listen-Endpunkten: jeder angemeldete
+  Sachbearbeiter sieht alle Vorgänge (Einmandanten-Innenanwendung). Seit v0.5.7
+  gilt Option D: Übersichten ohne Bankverbindungsdaten, jede Detail-Einsicht mit
+  Kennung im Journal protokolliert (60-s-Zusammenfassung); ein Zuständigkeits-/
+  Teammodell (Option B/C) bleibt Ausbaustufe.

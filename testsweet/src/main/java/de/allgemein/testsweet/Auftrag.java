@@ -44,6 +44,11 @@ public final class Auftrag {
     public volatile String bearbeiter;
     public volatile LocalDateTime startZeit;
     public volatile LocalDateTime endeZeit;
+    /** Monotone Stoppuhr (System.nanoTime) für die Laufzeitmessung — unabhängig
+     *  von Wanduhr-Umstellungen (NTP/Zeitzone); startZeit/endeZeit bleiben für
+     *  die Protokollanzeige in Wanduhrzeit erhalten. */
+    public volatile long startNano;
+    public volatile long endeNano;
     public volatile Long bgId;
     public volatile String fehlerText;
     /** Kopie des Spiel-Kontexts (bgId, zahlungId …) — Eingabe der Verifikation. */
@@ -101,11 +106,11 @@ public final class Auftrag {
     }
 
     public long dauerMs() {
-        LocalDateTime von = startZeit;
-        LocalDateTime bis = endeZeit;
-        if (von == null) {
+        long von = startNano;
+        if (von == 0) {
             return 0;
         }
-        return Duration.between(von, bis != null ? bis : LocalDateTime.now()).toMillis();
+        long bis = endeNano != 0 ? endeNano : System.nanoTime();
+        return Duration.ofNanos(Math.max(0, bis - von)).toMillis();
     }
 }

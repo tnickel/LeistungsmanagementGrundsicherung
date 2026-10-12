@@ -24,7 +24,7 @@ public final class SozialFallDao {
                     + "KDU_MIETE, KDU_BETRIEBSKOSTEN, KDU_HEIZUNG, "
                     + "EINKOMMEN_RENTE, EINKOMMEN_ERWERB, "
                     + "ABZ_STEUERN, ABZ_SV, ABZ_VERSICHERUNGEN, ABZ_ERWERBSAUSGABEN, VERSION, "
-                    + "ANZ_KINDER_MINDERJ";
+                    + "ANZ_KINDER_MINDERJ, ENTBINDUNGSMONAT";
 
     public List<SozialFall> listeFuerBg(TxContext ctx, long bgId) throws SQLException {
         try (PreparedStatement stmt = ctx.connection().prepareStatement(
@@ -48,8 +48,9 @@ public final class SozialFallDao {
                 "INSERT INTO SOZIAL_FALL (ID, BG_ID, REGELBEDARFSSTUFE, FLAG_MERKZEICHEN_G, FLAG_SCHWANGER, "
                         + "ANZ_KINDER_U7, ANZ_KINDER_U16, FLAG_WARMWASSER, "
                         + "KDU_MIETE, KDU_BETRIEBSKOSTEN, KDU_HEIZUNG, EINKOMMEN_RENTE, EINKOMMEN_ERWERB, "
-                        + "ABZ_STEUERN, ABZ_SV, ABZ_VERSICHERUNGEN, ABZ_ERWERBSAUSGABEN, ANZ_KINDER_MINDERJ) "
-                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+                        + "ABZ_STEUERN, ABZ_SV, ABZ_VERSICHERUNGEN, ABZ_ERWERBSAUSGABEN, ANZ_KINDER_MINDERJ, "
+                        + "ENTBINDUNGSMONAT) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
             stmt.setLong(1, id);
             stmt.setLong(2, neu.bgId());
             stmt.setInt(3, neu.regelbedarfsstufe());
@@ -68,6 +69,11 @@ public final class SozialFallDao {
             stmt.setBigDecimal(16, neu.abzVersicherungen());
             stmt.setBigDecimal(17, neu.abzErwerbsaufwendungen());
             stmt.setInt(18, neu.anzKinderMinderjaehrig());
+            if (neu.entbindungsmonat() != null) {
+                stmt.setString(19, neu.entbindungsmonat());
+            } else {
+                stmt.setNull(19, java.sql.Types.VARCHAR);
+            }
             stmt.executeUpdate();
         }
         return new SozialFall(id, neu.bgId(), neu.regelbedarfsstufe(), neu.merkzeichenG(), neu.schwanger(),
@@ -75,7 +81,7 @@ public final class SozialFallDao {
                 neu.kduMiete(), neu.kduBetriebskosten(), neu.kduHeizung(),
                 neu.einkommenRente(), neu.einkommenErwerb(),
                 neu.abzSteuern(), neu.abzSozialversicherung(), neu.abzVersicherungen(),
-                neu.abzErwerbsaufwendungen(), 1L);
+                neu.abzErwerbsaufwendungen(), neu.entbindungsmonat(), 1L);
     }
 
     /**
@@ -90,7 +96,7 @@ public final class SozialFallDao {
                         + "KDU_MIETE = ?, KDU_BETRIEBSKOSTEN = ?, KDU_HEIZUNG = ?, "
                         + "EINKOMMEN_RENTE = ?, EINKOMMEN_ERWERB = ?, "
                         + "ABZ_STEUERN = ?, ABZ_SV = ?, ABZ_VERSICHERUNGEN = ?, ABZ_ERWERBSAUSGABEN = ?, "
-                        + "ANZ_KINDER_MINDERJ = ? "
+                        + "ANZ_KINDER_MINDERJ = ?, ENTBINDUNGSMONAT = ? "
                         + "WHERE ID = ? AND VERSION = ?")) {
             stmt.setInt(1, geaendert.regelbedarfsstufe());
             stmt.setInt(2, geaendert.merkzeichenG() ? 1 : 0);
@@ -108,8 +114,13 @@ public final class SozialFallDao {
             stmt.setBigDecimal(14, geaendert.abzVersicherungen());
             stmt.setBigDecimal(15, geaendert.abzErwerbsaufwendungen());
             stmt.setInt(16, geaendert.anzKinderMinderjaehrig());
-            stmt.setLong(17, geaendert.id());
-            stmt.setLong(18, erwarteteVersion);
+            if (geaendert.entbindungsmonat() != null) {
+                stmt.setString(17, geaendert.entbindungsmonat());
+            } else {
+                stmt.setNull(17, java.sql.Types.VARCHAR);
+            }
+            stmt.setLong(18, geaendert.id());
+            stmt.setLong(19, erwarteteVersion);
             return stmt.executeUpdate();
         }
     }
@@ -153,6 +164,7 @@ public final class SozialFallDao {
                 nullSafeBetrag(rs.getBigDecimal(15)),
                 nullSafeBetrag(rs.getBigDecimal(16)),
                 nullSafeBetrag(rs.getBigDecimal(17)),
+                rs.getString(20),
                 rs.getLong(18));
     }
 

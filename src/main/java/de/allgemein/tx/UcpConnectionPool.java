@@ -9,9 +9,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Produktions-Verbindungspool auf Basis des Oracle Universal Connection Pool (UCP).
- * Unterstützt Fast Connection Failover (FCF), RAC Load Balancing und hochperformantes
- * Oracle-Verbindungsmanagement wie in der Blueprint-Spezifikation (Abschnitt 2) gefordert.
+ * Produktions-Verbindungspool auf Basis des Oracle Universal Connection Pool (UCP):
+ * Validierung beim Entleihen, begrenztes Warten auf freie Verbindungen und
+ * JDBC-Connect-/Read-Timeouts gegen hängende Aufrufe. Fast Connection Failover (FCF)
+ * und RAC-Load-Balancing sind NICHT konfiguriert (dafür wären ONS/FCF-Parameter
+ * erforderlich) — der Pool bedient eine Single-Instance-/EE-Standardumgebung.
  */
 public final class UcpConnectionPool implements ConnectionPool {
 
@@ -20,6 +22,16 @@ public final class UcpConnectionPool implements ConnectionPool {
     private final PoolDataSource poolDataSource;
 
     public UcpConnectionPool(String url, String user, String password, int initialSize, int maxSize) throws SQLException {
+        this(url, user, password, initialSize, maxSize, 15_000, 120_000);
+    }
+
+    /**
+     * @param connectTimeoutMs TCP-Aufbau-Timeout für neue Verbindungen (oracle.net.CONNECT_TIMEOUT)
+     * @param readTimeoutMs    Lese-Timeout für JDBC-Aufrufe (oracle.jdbc.ReadTimeout) —
+     *                         begrenzt hängende Calls auch ohne TaskController-Wachhund
+     */
+    public UcpConnectionPool(String url, String user, String password, int initialSize, int maxSize,
+            int connectTimeoutMs, int readTimeoutMs) throws SQLException {
         this.poolDataSource = PoolDataSourceFactory.getPoolDataSource();
         this.poolDataSource.setConnectionFactoryClassName("oracle.jdbc.pool.OracleDataSource");
         this.poolDataSource.setURL(url);
@@ -29,7 +41,17 @@ public final class UcpConnectionPool implements ConnectionPool {
         this.poolDataSource.setMinPoolSize(1);
         this.poolDataSource.setMaxPoolSize(Math.max(1, maxSize));
         this.poolDataSource.setValidateConnectionOnBorrow(true);
-        LOG.info(() -> "Oracle UCP initialisiert für " + url + " (Min=1, Max=" + maxSize + ")");
+        // Explizit statt UCP-Default (3 s): analog zum SimpleConnectionPool-Borrow-Timeout
+        this.poolDataSource.setConnectionWaitTimeout(30);
+        // Verbindungen, die nach dem Ausleihen nie zurückgegeben werden (z. B. TxContext.close()
+        // ohne finish()), gelten nach 5 Minuten als „abandoned“ und kehren zum Pool zurück
+        this.poolDataSource.setAbandonedConnectionTimeout(300);
+        java.util.Properties dbProps = new java.util.Properties();
+        dbProps.setProperty("oracle.net.CONNECT_TIMEOUT", String.valueOf(Math.max(100, connectTimeoutMs)));
+        dbProps.setProperty("oracle.jdbc.ReadTimeout", String.valueOf(Math.max(100, readTimeoutMs)));
+        this.poolDataSource.setConnectionProperties(dbProps);
+        LOG.info(() -> "Oracle UCP initialisiert für " + url + " (Min=1, Max=" + maxSize
+                + ", WaitTimeout=30s, ReadTimeout=" + readTimeoutMs + "ms)");
     }
 
     public UcpConnectionPool(String url, String user, String password, int maxSize) throws SQLException {
@@ -112,6 +134,9 @@ public final class UcpConnectionPool implements ConnectionPool {
         try {
             String poolName = poolDataSource.getConnectionPoolName();
             if (poolName != null) {
+                // Achtung: destroyConnectionPool wirkt über den JVM-weiten UCP-Singleton-
+                // Manager — bei mehreren Pool-Instanzen (z. B. parallele Tests) wird der
+                // Pool dieses Namens global entfernt.
                 oracle.ucp.admin.UniversalConnectionPoolManager mgr =
                         oracle.ucp.admin.UniversalConnectionPoolManagerImpl.getUniversalConnectionPoolManager();
                 mgr.destroyConnectionPool(poolName);

@@ -153,8 +153,8 @@ Budget 500,00; Auszahlung 2026-10.
 
 | Tabelle | Nachweis |
 |---------|----------|
-| `BEDARFSGEMEINSCHAFT` | `VERMOEGEN = 10500,00` persistiert |
-| `ZAHLUNG` | Betrag **363,00** = 863,00 Bedarf − 500,00 verwertbares Vermögen (10.500,00 − 10.000,00 Schonvermögen § 90 Abs. 2 Nr. 9 i.V.m. § 1 BarbetragsVO) |
+| `BEDARFSGEMEINSCHAFT` | `VERMOEGEN = 10000,00` — Verbrauchsfortschreibung (§ 90): der Einsatz senkt den Bestand bis zum Schonvermögen; ab dem Folgemonat wird nichts mehr abgezogen |
+| `ZAHLUNG` | Betrag **363,00** = 863,00 Bedarf − 500,00 verwertbares Vermögen (10.500,00 − 10.000,00 Schonvermögen § 90 Abs. 2 Nr. 9 i.V.m. § 1 BarbetragsVO); `VERMOEGENSEINSATZ = 500,00` dokumentiert |
 | `BEDARFSGEMEINSCHAFT` | `BUDGET_REST = 137,00` |
 
 ### Fall 7 — Doppelklick / Netzwerk-Wiederholung (Idempotenz)

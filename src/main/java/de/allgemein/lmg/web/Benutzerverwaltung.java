@@ -3,6 +3,7 @@ package de.allgemein.lmg.web;
 import de.allgemein.lmg.service.FachlicheException;
 
 import java.security.MessageDigest;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -31,6 +32,10 @@ public final class Benutzerverwaltung {
     private static final Duration STANDARD_IDLE_TIMEOUT = Duration.ofMinutes(60);
     private static final int MAX_FEHLVERSUCHE = 5;
     private static final Duration SPERRDAUER = Duration.ofSeconds(30);
+    /** Deckelung der Fehlversuchs-Map gegen Speicher-DoS über Phantom-Kennungen (CR-026). */
+    private static final int MAX_FEHLVERSUCH_EINTRAEGE = 1024;
+    /** Gültigkeit des Einmal-Tokens für den Bescheid-Druck (CR-027). */
+    private static final Duration DRUCK_TOKEN_GUELTIG = Duration.ofSeconds(60);
 
     private record Konto(String passwort, String rolle) {
     }
@@ -41,10 +46,22 @@ public final class Benutzerverwaltung {
     private record Fehlversuche(int anzahl, Instant gesperrtBis) {
     }
 
+    private record DruckToken(Benutzer benutzer, Instant faelltAb) {
+    }
+
     private final Map<String, Konto> konten = new LinkedHashMap<>();
     private final Map<String, Sitzung> sitzungen = new ConcurrentHashMap<>();
     private final Map<String, Fehlversuche> fehlversuche = new ConcurrentHashMap<>();
+    private final Map<String, DruckToken> druckTokens = new ConcurrentHashMap<>();
     private final Duration idleTimeout;
+
+    /** Uhr für Timeout-Berechnungen — injizierbar für Tests (Standard: Systemuhr). */
+    private volatile Clock uhr = Clock.systemDefaultZone();
+
+    /** Erlaubt Tests, die Zeit zu verstellen (Drosselung/Idle-Timeout ohne echte Wartezeiten). */
+    void setzeUhrFuerTests(Clock uhr) {
+        this.uhr = uhr == null ? Clock.systemDefaultZone() : uhr;
+    }
 
     /** Historischer Einstieg: nur Umgebungsvariable, Standard-Idle-Timeout. */
     public static Benutzerverwaltung ausUmgebung() {
@@ -80,7 +97,7 @@ public final class Benutzerverwaltung {
     public String anmelden(String kennung, String passwort) {
         String bereinigt = kennung == null ? "" : kennung.trim();
         Fehlversuche bisher = fehlversuche.get(bereinigt);
-        if (bisher != null && bisher.gesperrtBis() != null && Instant.now().isBefore(bisher.gesperrtBis())) {
+        if (bisher != null && bisher.gesperrtBis() != null && uhr.instant().isBefore(bisher.gesperrtBis())) {
             throw new FachlicheException(FachlicheException.VALIDATION,
                     "Zu viele fehlgeschlagene Anmeldeversuche — bitte kurz warten");
         }
@@ -89,16 +106,30 @@ public final class Benutzerverwaltung {
             fehlversuche.merge(bereinigt, new Fehlversuche(1, null), (alt, neu) -> {
                 int anzahl = alt.anzahl() + 1;
                 return anzahl >= MAX_FEHLVERSUCHE
-                        ? new Fehlversuche(0, Instant.now().plus(SPERRDAUER))
+                        ? new Fehlversuche(0, uhr.instant().plus(SPERRDAUER))
                         : new Fehlversuche(anzahl, null);
             });
+            raumeFehlversucheAuf();
             // Identische Meldung für unbekannte Kennung und falsches Passwort
             throw new FachlicheException(FachlicheException.VALIDATION, "Kennung oder Passwort ist falsch");
         }
         fehlversuche.remove(bereinigt);
         String token = UUID.randomUUID().toString();
-        sitzungen.put(token, new Sitzung(new Benutzer(bereinigt, konto.rolle()), Instant.now()));
+        sitzungen.put(token, new Sitzung(new Benutzer(bereinigt, konto.rolle()), uhr.instant()));
         return token;
+    }
+
+    /** Entfernt überzählige und abgelaufene Fehlversuch-Einträge (Map bleibt begrenzt). */
+    private void raumeFehlversucheAuf() {
+        if (fehlversuche.size() <= MAX_FEHLVERSUCH_EINTRAEGE) {
+            return;
+        }
+        Instant jetzt = uhr.instant();
+        fehlversuche.entrySet().removeIf(e -> e.getValue().gesperrtBis() == null
+                || jetzt.isAfter(e.getValue().gesperrtBis()));
+        while (fehlversuche.size() > MAX_FEHLVERSUCH_EINTRAEGE) {
+            fehlversuche.remove(fehlversuche.keySet().iterator().next());
+        }
     }
 
     /** Constant-time-Vergleich, damit die Antwortzeit nicht verrät, wo das erste falsche Zeichen steht. */
@@ -117,12 +148,37 @@ public final class Benutzerverwaltung {
         if (sitzung == null) {
             return Optional.empty();
         }
-        if (Duration.between(sitzung.zuletztAktiv(), Instant.now()).compareTo(idleTimeout) > 0) {
+        if (Duration.between(sitzung.zuletztAktiv(), uhr.instant()).compareTo(idleTimeout) > 0) {
             sitzungen.remove(token);
             return Optional.empty();
         }
-        sitzungen.put(token, new Sitzung(sitzung.benutzer(), Instant.now()));
+        sitzungen.put(token, new Sitzung(sitzung.benutzer(), uhr.instant()));
         return Optional.of(sitzung.benutzer());
+    }
+
+    /**
+     * Einmal-Token für den Bescheid-Druck (CR-027): window.open kann keinen
+     * Authorization-Header setzen; statt des Sitzungs-Tokens in der URL erhält der
+     * Druck-Link ein Kurzzeit-Token, das sich beim ersten Abruf verbraucht.
+     */
+    public String erzeugeDruckToken(Benutzer benutzer) {
+        Instant jetzt = uhr.instant();
+        druckTokens.entrySet().removeIf(e -> jetzt.isAfter(e.getValue().faelltAb()));
+        String token = UUID.randomUUID().toString();
+        druckTokens.put(token, new DruckToken(benutzer, jetzt.plus(DRUCK_TOKEN_GUELTIG)));
+        return token;
+    }
+
+    /** Verbraucht das Druck-Token (genau ein Abruf möglich); ungültig/abgelaufen → leer. */
+    public Optional<Benutzer> verbraucheDruckToken(String token) {
+        if (token == null || token.isBlank()) {
+            return Optional.empty();
+        }
+        DruckToken druck = druckTokens.remove(token);
+        if (druck == null || uhr.instant().isAfter(druck.faelltAb())) {
+            return Optional.empty();
+        }
+        return Optional.of(druck.benutzer());
     }
 
     public void abmelden(String token) {

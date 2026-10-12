@@ -43,6 +43,7 @@ CREATE TABLE SOZIAL_FALL (
     REGELBEDARFSSTUFE  NUMBER(1)     NOT NULL,           -- 1..6, steuert den Basisbetrag
     FLAG_MERKZEICHEN_G NUMBER(1)     DEFAULT 0 NOT NULL, -- 1 = Merkzeichen G, 17 % Mehrbedarf (§ 30 Abs. 1)
     FLAG_SCHWANGER     NUMBER(1)     DEFAULT 0 NOT NULL, -- 1 = schwanger ab der 13. SSW (nach Vollendung der 12. Woche), 17 % Mehrbedarf (§ 30 Abs. 2)
+    ENTBINDUNGSMONAT   VARCHAR2(7 CHAR),                 -- Ende des Schwangeren-Mehrbedarfs (§ 30 Abs. 2): YYYY-MM, optional; danach keine Leistung mehr mit diesem Merkmal
     ANZ_KINDER_U7      NUMBER(2)     DEFAULT 0 NOT NULL, -- Kinder unter 7 im Haushalt (§ 30 Abs. 3)
     ANZ_KINDER_U16     NUMBER(2)     DEFAULT 0 NOT NULL, -- Kinder unter 16 im Haushalt (§ 30 Abs. 3 Nr. 1)
     ANZ_KINDER_MINDERJ NUMBER(2)     DEFAULT 0 NOT NULL, -- minderjährige Kinder im Haushalt insgesamt (§ 30 Abs. 3 Nr. 2)
@@ -62,6 +63,8 @@ CREATE TABLE SOZIAL_FALL (
     CONSTRAINT CK_FALL_RBS CHECK (REGELBEDARFSSTUFE BETWEEN 1 AND 6),
     CONSTRAINT CK_FALL_MERKZEICHEN_G CHECK (FLAG_MERKZEICHEN_G IN (0, 1)),
     CONSTRAINT CK_FALL_SCHWANGER CHECK (FLAG_SCHWANGER IN (0, 1)),
+    CONSTRAINT CK_FALL_ENTBINDUNGSMONAT CHECK (ENTBINDUNGSMONAT IS NULL
+        OR REGEXP_LIKE(ENTBINDUNGSMONAT, '^[0-9]{4}-(0[1-9]|1[0-2])$')),
     CONSTRAINT CK_FALL_WARMWASSER CHECK (FLAG_WARMWASSER IN (0, 1)),
     CONSTRAINT CK_FALL_KINDER CHECK (ANZ_KINDER_U7 >= 0 AND ANZ_KINDER_U16 >= 0 AND ANZ_KINDER_MINDERJ >= 0),
     CONSTRAINT CK_FALL_KDU_MIETE CHECK (KDU_MIETE >= 0),
@@ -91,12 +94,15 @@ CREATE TABLE ZAHLUNG (
     EMPFAENGER_IBAN   VARCHAR2(34 CHAR),               -- Überweisungs-IBAN
     EMPFAENGER_BIC    VARCHAR2(11 CHAR),               -- Überweisungs-BIC
     EMPFAENGER_NAME   VARCHAR2(100 CHAR),              -- Name des Begünstigten
+    VERMOEGENSEINSATZ NUMBER(10,2)      DEFAULT 0 NOT NULL, -- bei der Anordnung verbrauchtes verwertbares Vermögen (§ 90; Storno bucht genau diesen Betrag zurück)
     CONSTRAINT PK_ZAHLUNG PRIMARY KEY (ID),
     CONSTRAINT UQ_ZAHLUNG_VORGANG UNIQUE (VORGANGS_NR),
     CONSTRAINT FK_ZAHLUNG_BG FOREIGN KEY (BG_ID) REFERENCES BEDARFSGEMEINSCHAFT (ID),
     CONSTRAINT FK_ZAHLUNG_FALL FOREIGN KEY (FALL_ID) REFERENCES SOZIAL_FALL (ID),
     CONSTRAINT CK_ZAHLUNG_STATUS CHECK (ZAHLUNGSSTATUS IN ('ANGELEGT', 'BEREIT', 'UEBERGEBEN', 'STORNIERT')),
-    CONSTRAINT CK_ZAHLUNG_BETRAG CHECK (AUSZAHLUNGSBETRAG > 0)
+    CONSTRAINT CK_ZAHLUNG_BETRAG CHECK (AUSZAHLUNGSBETRAG > 0),
+    CONSTRAINT CK_ZAHLUNG_VERMOEGENSEINSATZ CHECK (VERMOEGENSEINSATZ >= 0),
+    CONSTRAINT CK_ZAHLUNG_MONAT CHECK (REGEXP_LIKE(ZAHLUNGSMONAT, '^[0-9]{4}-(0[1-9]|1[0-2])$'))
 );
 
 -- ------------------------------------------------------------------
@@ -121,7 +127,29 @@ CREATE TABLE BESCHEID (
     CONSTRAINT PK_BESCHEID PRIMARY KEY (ID),
     CONSTRAINT UQ_BESCHEID_NR UNIQUE (BESCHEID_NR),
     CONSTRAINT FK_BESCHEID_BG FOREIGN KEY (BG_ID) REFERENCES BEDARFSGEMEINSCHAFT (ID),
-    CONSTRAINT CK_BESCHEID_STATUS CHECK (STATUS IN ('ERTEILT', 'AUFGEHOBEN'))
+    CONSTRAINT CK_BESCHEID_STATUS CHECK (STATUS IN ('ERTEILT', 'AUFGEHOBEN')),
+    CONSTRAINT CK_BESCHEID_VON CHECK (REGEXP_LIKE(BEWILLIGUNG_VON, '^[0-9]{4}-(0[1-9]|1[0-2])$')),
+    CONSTRAINT CK_BESCHEID_BIS CHECK (REGEXP_LIKE(BEWILLIGUNG_BIS, '^[0-9]{4}-(0[1-9]|1[0-2])$'))
+);
+
+-- ------------------------------------------------------------------
+-- Satztabelle: je Jahr gepflegte Regelbedarfsstufen (Anlage zu § 28 SGB XII).
+-- Für einen Bezugsmonat gilt der zuletzt wirksam gewordenen Stand
+-- (größtes GUELTIG_AB ≤ Monat) — der Jahreswechsel ist ein INSERT,
+-- keine Codeänderung. Startwerte: ddl/lmg_seed.sql.
+-- ------------------------------------------------------------------
+CREATE TABLE SATZSTAND (
+    GUELTIG_AB VARCHAR2(7 CHAR) NOT NULL,                -- erster Gültigkeitsmonat YYYY-MM
+    RBS_1      NUMBER(10,2)     NOT NULL,                -- Alleinstehende/Alleinerziehende
+    RBS_2      NUMBER(10,2)     NOT NULL,                -- volljährige Partner
+    RBS_3      NUMBER(10,2)     NOT NULL,                -- Volljährige ohne eigene Wirtschaftsführung
+    RBS_4      NUMBER(10,2)     NOT NULL,                -- Jugendliche 14 bis unter 18
+    RBS_5      NUMBER(10,2)     NOT NULL,                -- Kinder 6 bis unter 14
+    RBS_6      NUMBER(10,2)     NOT NULL,                -- Kinder unter 6
+    CONSTRAINT PK_SATZSTAND PRIMARY KEY (GUELTIG_AB),
+    CONSTRAINT CK_SATZSTAND_AB CHECK (REGEXP_LIKE(GUELTIG_AB, '^[0-9]{4}-(0[1-9]|1[0-2])$')),
+    CONSTRAINT CK_SATZSTAND_POSITIV CHECK (RBS_1 > 0 AND RBS_2 > 0 AND RBS_3 > 0
+        AND RBS_4 > 0 AND RBS_5 > 0 AND RBS_6 > 0)
 );
 
 -- ------------------------------------------------------------------

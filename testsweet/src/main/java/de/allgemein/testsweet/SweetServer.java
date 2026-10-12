@@ -294,22 +294,33 @@ final class SweetServer {
     }
 
     private void sendeJson(HttpExchange exchange, Object antwort) throws IOException {
+        sendeJson(exchange, 200, antwort);
+    }
+
+    private void sendeJson(HttpExchange exchange, int code, Object antwort) throws IOException {
         byte[] bytes = Json.write(antwort).getBytes(StandardCharsets.UTF_8);
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
         exchange.getResponseHeaders().set("Cache-Control", "no-store");
-        exchange.sendResponseHeaders(200, bytes.length);
+        exchange.sendResponseHeaders(code, bytes.length);
         try (OutputStream out = exchange.getResponseBody()) {
             out.write(bytes);
         }
     }
 
     private void sendeFehler(HttpExchange exchange, int code, String meldung) throws IOException {
-        sendeJson(exchange, Map.of("ok", false, "fehler", String.valueOf(meldung)));
-        // Statuscode bewusst 200 lassen? Nein — Meldung transportieren:
-        // (Wir nutzen bewusst 200 + ok=false, damit die GUI die Meldung anzeigen kann.)
+        // Wirklich den übergebenen Statuscode senden (z. B. 400/404/409/500) —
+        // die GUI liest die Meldung aus dem JSON-Body (ergebnis.fehler) und
+        // wertet dafür response.json() aus, das auch bei Nicht-200 funktioniert.
+        sendeJson(exchange, code, Map.of("ok", false, "fehler", String.valueOf(meldung)));
     }
 
     private void statischeDatei(HttpExchange exchange, String pfad) throws IOException {
+        // Path-Traversal abwehren: Pfade mit ".."-Segmenten sind nie gewollt —
+        // weder für die Classpath-Ressource noch für die Dateisystem-Fallbacks.
+        if (pfad.contains("..")) {
+            sendeFehler(exchange, 404, "nicht gefunden: " + pfad);
+            return;
+        }
         String resource = pfad.equals("/") ? "/sweet/index.html" : "/sweet" + pfad;
         String typ = resource.endsWith(".html") ? "text/html; charset=utf-8"
                 : resource.endsWith(".js") ? "text/javascript; charset=utf-8"
@@ -325,13 +336,23 @@ final class SweetServer {
             }
         }
         if (bytes == null) {
-            // Fallback auf Dateisystem (Entwicklungsumgebung)
-            java.nio.file.Path datei = java.nio.file.Path.of("testsweet/src/main/resources" + resource);
-            if (!java.nio.file.Files.exists(datei)) {
-                datei = java.nio.file.Path.of("testsweet" + pfad);
-            }
-            if (java.nio.file.Files.exists(datei)) {
-                bytes = java.nio.file.Files.readAllBytes(datei);
+            // Fallback auf Dateisystem (Entwicklungsumgebung) — jeder Kandidat
+            // wird normalisiert und muss unterhalb des testsweet-Projekt-
+            // verzeichnisses bleiben, sonst droht Path-Traversal.
+            java.nio.file.Path basis = java.nio.file.Path.of("testsweet").toAbsolutePath().normalize();
+            java.nio.file.Path[] kandidaten = {
+                    java.nio.file.Path.of("testsweet/src/main/resources" + resource),
+                    java.nio.file.Path.of("testsweet" + pfad)
+            };
+            for (java.nio.file.Path kandidat : kandidaten) {
+                java.nio.file.Path normalisiert = kandidat.toAbsolutePath().normalize();
+                if (!normalisiert.startsWith(basis)) {
+                    continue; // Zugriff außerhalb des Projektverzeichnisses verweigern
+                }
+                if (java.nio.file.Files.isRegularFile(normalisiert)) {
+                    bytes = java.nio.file.Files.readAllBytes(normalisiert);
+                    break;
+                }
             }
         }
         if (bytes == null) {

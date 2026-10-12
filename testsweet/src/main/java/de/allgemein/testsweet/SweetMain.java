@@ -39,6 +39,11 @@ public final class SweetMain {
             int seed = args.length > 3 ? Integer.parseInt(args[3]) : 42;
             int denkzeit = args.length > 4 ? Integer.parseInt(args[4]) : 200;
             Simulator.Kategorie kategorie = liesKategorie(args);
+            if (kategorie == Simulator.Kategorie.STRESS) {
+                System.err.println("Der Stresstest (User anlegen + nachbearbeiten) ist nur im "
+                        + "Fachschicht-Modus möglich — bitte Kommando 'run' verwenden");
+                System.exit(2);
+            }
             Simulator simulator = new Simulator();
             System.out.println("testsweet — Starte Weboberflächen-Lauf (Selenium) mit " + ma
                     + " Browserfenstern, " + auf + " Aufträgen (Seed " + seed + ", Kategorie "
@@ -75,7 +80,8 @@ public final class SweetMain {
         Thread.currentThread().join();
     }
 
-    /** Optionaler 6. CLI-Parameter: Testfallkategorie (POSITIV/NEGATIV/LAST). */
+    /** Optionaler 6. CLI-Parameter: Testfallkategorie (POSITIV/NEGATIV/LAST/STRESS;
+     *  STRESS nur im Fachschicht-Modus 'run'). */
     private static Simulator.Kategorie liesKategorie(String[] args) {
         if (args.length <= 5) {
             return Simulator.Kategorie.POSITIV;
@@ -84,7 +90,7 @@ public final class SweetMain {
             return Simulator.Kategorie.valueOf(args[5].toUpperCase(java.util.Locale.ROOT));
         } catch (IllegalArgumentException e) {
             System.err.println("Unbekannte Testfallkategorie '" + args[5]
-                    + "' — zulaessig: POSITIV, NEGATIV, LAST");
+                    + "' — zulaessig: POSITIV, NEGATIV, LAST, STRESS (nur Fachschicht)");
             System.exit(2);
             return Simulator.Kategorie.POSITIV; // nicht erreichbar
         }

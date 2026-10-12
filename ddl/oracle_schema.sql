@@ -40,6 +40,9 @@ CREATE TABLE TX_SAGA_STEP (
 );
 
 CREATE INDEX IX_TX_SAGA_STATE ON TX_SAGA (STATE);
+-- FK-Index für die Schrittzeilen: recover() liest TX_SAGA_STEP per SAGA_ID — ohne
+-- Index läuft jeder Wiederanlauf mit einem Full Scan je Saga (Oracle indexiert FKs nicht).
+CREATE INDEX IX_TX_SAGA_STEP_SAGA ON TX_SAGA_STEP (SAGA_ID);
 
 -- Demo-Tabellen für die Beispielverarbeitung (Antrag → Bescheid → Auszahlung).
 -- SAGA_ID korreliert jede Zeile mit genau einer Saga: Die Kompensationen greifen

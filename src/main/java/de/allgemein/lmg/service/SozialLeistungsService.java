@@ -19,6 +19,7 @@ import de.allgemein.tx.TxManager;
 import de.allgemein.tx.TxOptions;
 
 import java.math.BigDecimal;
+import java.sql.SQLException;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -53,6 +54,7 @@ public final class SozialLeistungsService implements LeistungsService {
     private final ZahlungDao zahlungDao = new ZahlungDao();
     private final JournalDao journalDao = new JournalDao();
     private final de.allgemein.lmg.dao.BescheidDao bescheidDao = new de.allgemein.lmg.dao.BescheidDao();
+    private final de.allgemein.lmg.dao.SatzstandDao satzstandDao = new de.allgemein.lmg.dao.SatzstandDao();
     private final Leistungsberechnung.KduParameter kduParameter;
     private final BescheidGenerator.Rechtsbehelf rechtsbehelf;
 
@@ -99,6 +101,20 @@ public final class SozialLeistungsService implements LeistungsService {
 
     @Override
     public Vorgangsdetail ladeDetail(long bgId) {
+        return ladeDetail(bgId, null);
+    }
+
+    /**
+     * Detail-Einsicht mit Zugriffsprotokoll (CR-035/Option D): Jede Einsicht in
+     * die vollständigen Falldaten (einschließlich IBAN und Einkommen) wird
+     * revisionssicher im Journal festgehalten — die Standardfrage des
+     * Datenschutzes („wer hat welche Sozialdaten gesehen?") ist damit
+     * beantwortbar. Wiederholte Einsichten derselben Kennung in demselben Fall
+     * werden innerhalb einer Minute zu einem Eintrag zusammengefasst
+     * (Masken-Reloads fluten das Journal nicht).
+     */
+    @Override
+    public Vorgangsdetail ladeDetail(long bgId, String sachbearbeiterId) {
         return txManager.execute(TxOptions.DEFAULT, ctx -> {
             Bedarfsgemeinschaft bg = bgDao.finde(ctx, bgId)
                     .orElseThrow(() -> new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
@@ -106,10 +122,12 @@ public final class SozialLeistungsService implements LeistungsService {
             List<SozialFall> faelle = fallDao.listeFuerBg(ctx, bgId);
             de.allgemein.lmg.model.Bescheid bescheid = bescheidDao.letzteFuerBg(ctx, bgId, 1)
                     .stream().findFirst().orElse(null);
-            return new Vorgangsdetail(bg, faelle, berechnungDefensiv(bg, faelle),
+            Vorgangsdetail detail = new Vorgangsdetail(bg, faelle, berechnungDefensiv(ctx, bg, faelle),
                     zahlungDao.letzteFuerBg(ctx, bgId, 10),
                     journalDao.letzteFuerBg(ctx, bgId, 20),
                     bescheid);
+            protokolliereEinsicht(ctx, bgId, "Vorgangsdaten (Detail)", sachbearbeiterId);
+            return detail;
         });
     }
 
@@ -139,6 +157,13 @@ public final class SozialLeistungsService implements LeistungsService {
             SozialFall vorhandener = fallDao.finde(ctx, geaendert.id())
                     .orElseThrow(() -> new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
                             "SozialFall " + geaendert.id() + " ist nicht vorhanden"));
+            Bedarfsgemeinschaft bgDesFalles = bgDao.finde(ctx, vorhandener.bgId())
+                    .orElseThrow(() -> new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
+                            "Bedarfsgemeinschaft " + vorhandener.bgId() + " ist nicht vorhanden"));
+            if (!bgDesFalles.statusAktiv()) {
+                throw new FachlicheException(FachlicheException.VALIDATION,
+                        "Der Vorgang ist historisiert; Falländerungen sind nicht mehr möglich");
+            }
             int geaenderteZeilen = fallDao.aktualisiere(ctx, normalisiert, erwarteteVersion);
             if (geaenderteZeilen == 0) {
                 throw new FachlicheException(FachlicheException.KONKURRENZ,
@@ -160,6 +185,7 @@ public final class SozialLeistungsService implements LeistungsService {
             Bedarfsgemeinschaft vorhandene = bgDao.finde(ctx, id)
                     .orElseThrow(() -> new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
                             "Bedarfsgemeinschaft " + id + " ist nicht vorhanden"));
+            verbieteReaktivierung(vorhandene, statusAktiv);
             int geaenderteZeilen = bgDao.aktualisiere(ctx, id, statusAktiv, wiedervorlageAm, erwarteteVersion);
             if (geaenderteZeilen == 0) {
                 throw new FachlicheException(FachlicheException.KONKURRENZ,
@@ -192,6 +218,12 @@ public final class SozialLeistungsService implements LeistungsService {
                 ? BigDecimal.ZERO.setScale(2)
                 : normiereBetrag(vermoegen, "Vermögen");
         return txManager.execute(TxOptions.DEFAULT, ctx -> {
+            Bedarfsgemeinschaft bestehende = bgDao.finde(ctx, id).orElse(null);
+            if (bestehende == null) {
+                throw new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
+                        "Bedarfsgemeinschaft " + id + " ist nicht vorhanden");
+            }
+            verbieteReaktivierung(bestehende, statusAktiv);
             int geaenderteZeilen;
             if (vermoegen == null) {
                 // Vermögen unverändert lassen (alte Maske ohne Vermögensfeld)
@@ -259,10 +291,13 @@ public final class SozialLeistungsService implements LeistungsService {
                                 + "dieser Bedarfsgemeinschaft; ggf. zuerst stornieren");
             }
 
-            // 3. Bedarf ermitteln (§§ 27a ff., 42a, 82, 90 SGB XII) und prüfen
+            // 3. Bedarf ermitteln (§§ 27a ff., 42a, 82, 90 SGB XII) und prüfen —
+            //    mit dem zum Zahlungsmonat gültigen Satzstand (Tabelle SATZSTAND)
             List<SozialFall> faelle = fallDao.listeFuerBg(ctx, bg.id());
+            pruefeSchwangerschaftsende(faelle, auftrag.zahlungsmonat());
+            de.allgemein.lmg.calc.Satzstand satzstand = satzstandDao.findeFuerMonat(ctx, auftrag.zahlungsmonat());
             Leistungsberechnung.Berechnungsergebnis berechnung = Leistungsberechnung.berechne(
-                    bg.id(), faelle, kduParameter, bg.vermoegen());
+                    bg.id(), faelle, kduParameter, bg.vermoegen(), satzstand);
             BigDecimal zahlbetrag = berechnung.zahlbetrag();
             if (zahlbetrag.signum() <= 0) {
                 throw new FachlicheException(FachlicheException.KEIN_ANSPRUCH,
@@ -297,17 +332,29 @@ public final class SozialLeistungsService implements LeistungsService {
             //    Sachbearbeiters (freigebenZahlung) zur Kasse bereitgestellt.
             long zahlungId = zahlungDao.naechsteId(ctx);
             Long einzigerFall = faelle.size() == 1 ? faelle.get(0).id() : null;
+            BigDecimal vermoegenseinsatz = berechnung.verwertbaresVermoegen().max(BigDecimal.ZERO);
             Zahlung zahlung = zahlungDao.einfuegen(ctx, zahlungId, bg.id(), einzigerFall,
                     auftrag.vorgangsNr(), auftrag.zahlungsmonat(), zahlbetrag, "ANGELEGT",
-                    auftrag.sachbearbeiterId(), null, empfIban, empfBic, empfName);
+                    auftrag.sachbearbeiterId(), null, empfIban, empfBic, empfName, vermoegenseinsatz);
 
             // 6. Restanspruch der Bedarfsgemeinschaft mindern
             bgDao.mindereBudget(ctx, bg.id(), zahlbetrag);
 
+            // 6b. Verbrauchsfortschreibung (§ 90 SGB XII): Der eingesetzte verwertbare
+            //     Vermögensanteil verbraucht sich — ab dem Folgemonat liegt der Rest im
+            //     Schonvermögen und mindert die Leistung nicht mehr.
+            bgDao.mindereVermoegen(ctx, bg.id(), vermoegenseinsatz);
+
             // 7. Revisionssicherer Journal-Eintrag
-            journalDao.einfuegen(ctx, bg.id(), String.format(Locale.GERMAN,
+            StringBuilder journalText = new StringBuilder(String.format(Locale.GERMAN,
                     "Auszahlung über %,.2f EUR für %s erfasst (Status: ANGELEGT, wartet auf Freigabe)",
-                    zahlbetrag, auftrag.zahlungsmonat()), auftrag.sachbearbeiterId());
+                    zahlbetrag, auftrag.zahlungsmonat()));
+            if (vermoegenseinsatz.signum() > 0) {
+                journalText.append(String.format(Locale.GERMAN,
+                        "; Vermögenseinsatz %,.2f EUR verbucht (§ 90 SGB XII, Verbrauchsfortschreibung)",
+                        vermoegenseinsatz));
+            }
+            journalDao.einfuegen(ctx, bg.id(), journalText.toString(), auftrag.sachbearbeiterId());
 
             Bedarfsgemeinschaft aktualisiert = bgDao.finde(ctx, bg.id()).orElse(bg);
             return new Auszahlungsergebnis(zahlung, aktualisiert, false);
@@ -390,7 +437,20 @@ public final class SozialLeistungsService implements LeistungsService {
                 fall.kduMiete(), fall.kduBetriebskosten(), fall.kduHeizung(),
                 fall.einkommenRente(), fall.einkommenErwerb(),
                 fall.abzSteuern(), fall.abzSozialversicherung(), fall.abzVersicherungen(),
-                fall.abzErwerbsaufwendungen(), 1L);
+                fall.abzErwerbsaufwendungen(), fall.entbindungsmonat(), 1L);
+    }
+
+    /**
+     * Reaktivierungsschutz (CR-009): Eine historisierte Bedarfsgemeinschaft darf über
+     * die Maskenbearbeitung nicht wieder aktiviert werden — die Historisierung ist eine
+     * fachliche Entscheidung, die Rücknahme braucht einen eigenen, journalführenden Vorgang.
+     */
+    private static void verbieteReaktivierung(Bedarfsgemeinschaft bestehende, boolean neuStatusAktiv) {
+        if (!bestehende.statusAktiv() && neuStatusAktiv) {
+            throw new FachlicheException(FachlicheException.VALIDATION,
+                    "Der Vorgang ist historisiert und kann über die Maske nicht reaktiviert werden "
+                            + "(eigener Vorgang erforderlich)");
+        }
     }
 
     @Override
@@ -409,6 +469,16 @@ public final class SozialLeistungsService implements LeistungsService {
                 throw new FachlicheException(FachlicheException.VALIDATION,
                         "Nur angelegte Zahlungen können freigegeben werden (aktueller Status: "
                                 + zahlung.status() + ")");
+            }
+            // Historisierte Vorgänge bleiben zahlbar gesperrt (CR-009): die Freigabe
+            // passiert unter der Zahlungssperre — der Aktivitätsstatus kann hier nicht
+            // mehr konkurrierend geändert werden.
+            Bedarfsgemeinschaft bgZurZahlung = bgDao.lockForUpdate(ctx, zahlung.bgId())
+                    .orElseThrow(() -> new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
+                            "Bedarfsgemeinschaft " + zahlung.bgId() + " ist nicht vorhanden"));
+            if (!bgZurZahlung.statusAktiv()) {
+                throw new FachlicheException(FachlicheException.VALIDATION,
+                        "Der Vorgang ist historisiert; Zahlungen können nicht mehr freigegeben werden");
             }
             // Vier-Augen-Prinzip: Erfasser und Freigebender dürfen nicht identisch sein;
             // ein Administrator mit Rolle admin darf ausnahmsweise selbst feststellen
@@ -470,6 +540,9 @@ public final class SozialLeistungsService implements LeistungsService {
                                 + "Storno abgebrochen, bitte neu prüfen");
             }
             bgDao.erhoehenBudget(ctx, zahlung.bgId(), zahlung.auszahlungsbetrag());
+            // Vermögenseinsatz derselben Zahlung zurückbuchen (Verbrauchsfortschreibung
+            // rückgängig — der dokumentierte Einsatz der Zeile, nicht eine Neuberechnung)
+            bgDao.erhoehenVermoegen(ctx, zahlung.bgId(), zahlung.vermoegenseinsatz());
             journalDao.einfuegen(ctx, zahlung.bgId(), String.format(Locale.GERMAN,
                     "Auszahlung über %,.2f EUR (%s, Vorgang %s) storniert, Restbudget erhöht",
                     zahlung.auszahlungsbetrag(), zahlung.zahlungsmonat(), zahlung.vorgangsNr()),
@@ -477,7 +550,8 @@ public final class SozialLeistungsService implements LeistungsService {
             return new Zahlung(zahlung.id(), zahlung.bgId(), zahlung.fallId(), zahlung.vorgangsNr(),
                     zahlung.zahlungsmonat(), zahlung.auszahlungsbetrag(), "STORNIERT", zahlung.erstelltAm(),
                     zahlung.sachbearbeiterId(), zahlung.freigegebenVon(),
-                    zahlung.empfaengerIban(), zahlung.empfaengerBic(), zahlung.empfaengerName());
+                    zahlung.empfaengerIban(), zahlung.empfaengerBic(), zahlung.empfaengerName(),
+                    zahlung.vermoegenseinsatz());
         });
     }
 
@@ -494,7 +568,10 @@ public final class SozialLeistungsService implements LeistungsService {
         pruefeText(sachbearbeiterId, "Sachbearbeiter-Kürzel", 50);
 
         return txManager.execute(TxOptions.DEFAULT, ctx -> {
-            Bedarfsgemeinschaft bg = bgDao.finde(ctx, bgId)
+            // Sperre auch hier (CR-014): Der Bescheid-Snapshot muss einen Zustand einfrieren,
+            // der atomar existiert hat — Vermögen und Fälle unter derselben BG-Sperre lesen,
+            // wie es der Buchungsweg tut.
+            Bedarfsgemeinschaft bg = bgDao.lockForUpdate(ctx, bgId)
                     .orElseThrow(() -> new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
                             "Bedarfsgemeinschaft " + bgId + " ist nicht vorhanden"));
             if (!bg.statusAktiv()) {
@@ -506,9 +583,11 @@ public final class SozialLeistungsService implements LeistungsService {
                 throw new FachlicheException(FachlicheException.VALIDATION,
                         "Bedarfsgemeinschaft hat keine Personen (SozialFälle)");
             }
+            pruefeSchwangerschaftsende(faelle, bewilligungVon);
 
+            de.allgemein.lmg.calc.Satzstand satzstand = satzstandDao.findeFuerMonat(ctx, bewilligungVon);
             Leistungsberechnung.Berechnungsergebnis berechnung = Leistungsberechnung.berechne(
-                    bgId, faelle, kduParameter, bg.vermoegen());
+                    bgId, faelle, kduParameter, bg.vermoegen(), satzstand);
             if (berechnung.zahlbetrag().signum() <= 0) {
                 throw new FachlicheException(FachlicheException.KEIN_ANSPRUCH,
                         "Kein Leistungsanspruch nach SGB XII: Einkommen/Vermögen decken den Gesamtbedarf "
@@ -516,13 +595,14 @@ public final class SozialLeistungsService implements LeistungsService {
             }
 
             long id = bescheidDao.naechsteId(ctx);
-            String bescheidNr = "BESCH-" + bg.aktenzeichen() + "-" + LocalDate.now().getYear() + "-" + id;
+            LocalDate bescheidDatum = LocalDate.now();
+            String bescheidNr = "BESCH-" + bg.aktenzeichen() + "-" + bescheidDatum.getYear() + "-" + id;
             // BESCHEID_DATUM ist das Ausstellungsdatum; die Bekanntgabe (§ 37 SGB X), mit der die
             // Rechtsbehelfsfrist (1 Monat) beginnt, ist ein eigener, nicht erfasster Zeitpunkt.
             // Der Berechnungs-Snapshot hält den Stand der Erteilung fest: der Nachdruck bleibt
             // auch nach späteren Falländerungen beim erteilten Berechnungsstand.
             String snapshot = BerechnungsSnapshot.schreibe(berechnung, faelle, bg.vermoegen());
-            Bescheid bescheid = bescheidDao.einfuegen(ctx, id, bgId, bescheidNr, LocalDate.now(),
+            Bescheid bescheid = bescheidDao.einfuegen(ctx, id, bgId, bescheidNr, bescheidDatum,
                     bewilligungVon, bewilligungBis, berechnung.zahlbetrag(), sachbearbeiterId, snapshot);
 
             journalDao.einfuegen(ctx, bgId, String.format(Locale.GERMAN,
@@ -535,12 +615,29 @@ public final class SozialLeistungsService implements LeistungsService {
 
     @Override
     public Optional<Bescheid> letzterBescheid(long bgId) {
-        return txManager.execute(TxOptions.DEFAULT, ctx ->
-                bescheidDao.letzteFuerBg(ctx, bgId, 1).stream().findFirst());
+        return letzterBescheid(bgId, null);
+    }
+
+    /** Bescheid-Abruf mit Zugriffsprotokoll (CR-035/Option D, 60-s-Zusammenfassung). */
+    @Override
+    public Optional<Bescheid> letzterBescheid(long bgId, String sachbearbeiterId) {
+        return txManager.execute(TxOptions.DEFAULT, ctx -> {
+            Optional<Bescheid> bescheid = bescheidDao.letzteFuerBg(ctx, bgId, 1).stream().findFirst();
+            if (bescheid.isPresent()) {
+                protokolliereEinsicht(ctx, bgId, "Bescheiddaten", sachbearbeiterId);
+            }
+            return bescheid;
+        });
     }
 
     @Override
     public String generiereBescheidHtml(long bgId) {
+        return generiereBescheidHtml(bgId, null);
+    }
+
+    /** Bescheid-Druck mit Zugriffsprotokoll (CR-035/Option D, 60-s-Zusammenfassung). */
+    @Override
+    public String generiereBescheidHtml(long bgId, String sachbearbeiterId) {
         return txManager.execute(TxOptions.DEFAULT, ctx -> {
             Bedarfsgemeinschaft bg = bgDao.finde(ctx, bgId)
                     .orElseThrow(() -> new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
@@ -549,6 +646,7 @@ public final class SozialLeistungsService implements LeistungsService {
             Bescheid bescheid = bescheidDao.letzteFuerBg(ctx, bgId, 1).stream().findFirst()
                     .orElseThrow(() -> new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
                             "Kein Bewilligungsbescheid für Bedarfsgemeinschaft " + bgId + " vorhanden"));
+            protokolliereEinsicht(ctx, bgId, "Bescheid-Druckansicht", sachbearbeiterId);
 
             // Snapshot aus dem Erteilungszeitpunkt: der Nachdruck zeigt ausschließlich den
             // gespeicherten Berechnungsstand, auch wenn die Fälle inzwischen geändert wurden.
@@ -563,7 +661,7 @@ public final class SozialLeistungsService implements LeistungsService {
                 return BescheidGenerator.generiereHtml(bgZurBerechnung, snapshot.faelle(),
                         snapshot.ergebnis(), bescheid, rechtsbehelf, false);
             }
-            Leistungsberechnung.Berechnungsergebnis berechnung = berechnungDefensiv(bg, faelle);
+            Leistungsberechnung.Berechnungsergebnis berechnung = berechnungDefensiv(ctx, bg, faelle);
             if (berechnung == null) {
                 throw new FachlicheException(FachlicheException.VALIDATION,
                         "Für diese Bedarfsgemeinschaft kann keine Berechnung erstellt werden "
@@ -580,24 +678,62 @@ public final class SozialLeistungsService implements LeistungsService {
     /** Sachbearbeiter-Kürzel für automatisch erzeugte Journal-Einträge. */
     public static final String SYSTEM_SACHBEARBEITER = "system";
 
+    // ------------------------------------------------------------------
+    // Zugriffsprotokoll (CR-035/Option D)
+    // ------------------------------------------------------------------
+
+    /** Wiederholte Einsichten derselben Kennung/Fall werden binnen 60 s zusammengefasst. */
+    private static final java.time.Duration EINSICHT_DEDUP = java.time.Duration.ofSeconds(60);
+
+    /** Deckelung des Dedup-Zwischenspeichers gegen Speicherwachstum. */
+    private static final int MAX_DEDUP_EINTRAEGE = 10_000;
+
+    private final java.util.concurrent.ConcurrentHashMap<String, java.time.Instant> letzteEinsicht =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Journalisiert eine Einsicht, sofern dieselbe Kennung nicht bereits innerhalb
+     * der Zusammenfassungsfrist auf denselben Fall zugegriffen hat. Batch- und
+     * Testaufrufe ohne Kennung ({@code null}) werden nicht protokolliert.
+     */
+    private void protokolliereEinsicht(TxContext ctx, long bgId, String was, String sachbearbeiterId)
+            throws SQLException {
+        if (sachbearbeiterId == null || sachbearbeiterId.isBlank()) {
+            return;
+        }
+        String schluessel = sachbearbeiterId + "#" + bgId + "#" + was;
+        java.time.Instant jetzt = java.time.Instant.now();
+        java.time.Instant zuletzt = letzteEinsicht.put(schluessel, jetzt);
+        if (zuletzt != null && java.time.Duration.between(zuletzt, jetzt).compareTo(EINSICHT_DEDUP) <= 0) {
+            return;
+        }
+        if (letzteEinsicht.size() > MAX_DEDUP_EINTRAEGE) {
+            letzteEinsicht.entrySet().removeIf(e ->
+                    java.time.Duration.between(e.getValue(), jetzt).compareTo(EINSICHT_DEDUP) > 0);
+        }
+        journalDao.einfuegen(ctx, bgId,
+                "Einsicht: " + was + " durch " + sachbearbeiterId + " (Zugriffsprotokoll § 35 SGB I / Art. 32 DSGVO)",
+                sachbearbeiterId);
+    }
+
+    /** Berechnung, die fachliche Fehlkonfiguration in "keine Vorschau" auflöst (Maske zeigt Hinweis). */
+    private Leistungsberechnung.Berechnungsergebnis berechnungDefensiv(
+            TxContext ctx, Bedarfsgemeinschaft bg, List<SozialFall> faelle) throws java.sql.SQLException {
+        try {
+            return Leistungsberechnung.berechne(bg.id(), faelle, kduParameter,
+                    bg.vermoegen(), satzstandDao.findeNeuesten(ctx));
+        } catch (FachlicheException e) {
+            return null;
+        }
+    }
+
     private BigDecimal zahlbetragVorschau(TxContext ctx, Bedarfsgemeinschaft bg) throws Exception {
         List<SozialFall> faelle = fallDao.listeFuerBg(ctx, bg.id());
         if (faelle.isEmpty()) {
             return null;
         }
-        Leistungsberechnung.Berechnungsergebnis berechnung = berechnungDefensiv(bg, faelle);
+        Leistungsberechnung.Berechnungsergebnis berechnung = berechnungDefensiv(ctx, bg, faelle);
         return berechnung == null ? null : berechnung.zahlbetrag();
-    }
-
-    /** Berechnung, die fachliche Fehlkonfiguration in "keine Vorschau" auflöst (Maske zeigt Hinweis). */
-    private Leistungsberechnung.Berechnungsergebnis berechnungDefensiv(
-            Bedarfsgemeinschaft bg, List<SozialFall> faelle) {
-        try {
-            return Leistungsberechnung.berechne(bg.id(), faelle, kduParameter,
-                    bg.vermoegen());
-        } catch (FachlicheException e) {
-            return null;
-        }
     }
 
     private void pruefeAuftrag(Auszahlungsauftrag auftrag) {
@@ -620,8 +756,9 @@ public final class SozialLeistungsService implements LeistungsService {
      * § 44 Abs. 3 SGB XII: Bewilligungszeitraum in der Regel zwölf Monate (bei
      * vorläufiger Entscheidung nach § 44a höchstens sechs). Längere Zeiträume sind
      * ausnahmsweise rechtlich möglich, hier aber bewusst nicht vorgesehen.
+     * Public, weil auch die Antrags-Saga (alle Bescheid-Pfade) dieselbe Regel erzwingt.
      */
-    static void pruefeBewilligungszeitraum(String bewilligungVon, String bewilligungBis) {
+    public static void pruefeBewilligungszeitraum(String bewilligungVon, String bewilligungBis) {
         YearMonth von = YearMonth.parse(bewilligungVon);
         YearMonth bis = YearMonth.parse(bewilligungBis);
         int monate = (bis.getYear() - von.getYear()) * 12 + bis.getMonthValue() - von.getMonthValue() + 1;
@@ -645,6 +782,14 @@ public final class SozialLeistungsService implements LeistungsService {
             throw new FachlicheException(FachlicheException.VALIDATION,
                     "Anzahl Kinder muss zwischen 0 und 99 liegen");
         }
+        String entbindungsmonat = null;
+        if (fall.entbindungsmonat() != null && !fall.entbindungsmonat().isBlank()) {
+            entbindungsmonat = fall.entbindungsmonat().trim();
+            if (!Zahlungsmonat.isValid(entbindungsmonat)) {
+                throw new FachlicheException(FachlicheException.VALIDATION,
+                        "Entbindungsmonat muss im Format YYYY-MM angegeben oder leer sein");
+            }
+        }
         // Jede Altersgruppe enthält die engere: unter 7 ⊆ unter 16 ⊆ minderjährig
         int kinderU16 = Math.max(fall.anzKinderUnter16(), fall.anzKinderUnter7());
         int minderjaehrig = Math.max(fall.anzKinderMinderjaehrig(), kinderU16);
@@ -660,7 +805,27 @@ public final class SozialLeistungsService implements LeistungsService {
                 normiereBetrag(fall.abzSozialversicherung(), "Absetzung Sozialversicherung"),
                 normiereBetrag(fall.abzVersicherungen(), "Absetzung Versicherungen"),
                 normiereBetrag(fall.abzErwerbsaufwendungen(), "Absetzung Erwerbsaufwendungen"),
+                entbindungsmonat,
                 fall.version());
+    }
+
+    /**
+     * § 30 Abs. 2 SGB XII: Der Schwangeren-Mehrbedarf endet mit Ablauf des Entbindungsmonats.
+     * Ist der Entbindungsmonat erfasst und der Bezugsmonat später, werden Auszahlung bzw.
+     * Bescheid abgewiesen, bis das Flag zurückgenommen oder der Monat fortgeschrieben wird
+     * (ohne erfassten Entbindungsmonat bleibt die Erfassungsverantwortung beim Sachbearbeiter).
+     */
+    private static void pruefeSchwangerschaftsende(List<SozialFall> faelle, String bezugsmonat) {
+        for (SozialFall fall : faelle) {
+            if (fall.schwanger() && fall.entbindungsmonat() != null
+                    && bezugsmonat.compareTo(fall.entbindungsmonat()) > 0) {
+                throw new FachlicheException(FachlicheException.VALIDATION,
+                        "Der Schwangeren-Mehrbedarf (§ 30 Abs. 2 SGB XII) endet mit dem Entbindungsmonat "
+                                + fall.entbindungsmonat() + " — für " + bezugsmonat
+                                + " ist keine Leistung mehr vorgesehen. Bitte das Schwangeren-Flag "
+                                + "zurücknehmen oder den Entbindungsmonat prüfen.");
+            }
+        }
     }
 
     /**

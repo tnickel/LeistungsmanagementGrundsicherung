@@ -52,11 +52,6 @@ public final class Simulator {
     public record LaufKonfiguration(
             int mitarbeiter, int auftraege, long seed, long denkzeitMs, boolean aufraeumen,
             Kategorie kategorie) {
-        /** Bequemer Konstruktor: Positivfälle (bisheriges Verhalten). */
-        public LaufKonfiguration(int mitarbeiter, int auftraege, long seed,
-                long denkzeitMs, boolean aufraeumen) {
-            this(mitarbeiter, auftraege, seed, denkzeitMs, aufraeumen, Kategorie.POSITIV);
-        }
         public LaufKonfiguration {
             if (kategorie == null) {
                 kategorie = Kategorie.POSITIV;
@@ -80,8 +75,11 @@ public final class Simulator {
     private volatile boolean abgebrochen;
     private volatile LocalDateTime laufStart;
     private volatile LocalDateTime laufEnde;
+    /** Monotone Stoppuhr (System.nanoTime) — unabhängig von Wanduhr-Verstellungen;
+     *  laufStart/laufEnde bleiben als Wanduhrzeit für die Protokolle erhalten. */
+    private volatile long laufStartNano;
+    private volatile long laufEndeNano;
     private final AtomicInteger naechsterAuftrag = new AtomicInteger();
-    private volatile CountDownLatch mitarbeiterLatch;
     private volatile String letzteFehlermeldung;
     private volatile String letztesLogVerzeichnis;
     private volatile String letztesPdf;
@@ -95,7 +93,7 @@ public final class Simulator {
     /** STRESS-Phasenbarriere: Index des ersten BEARBEITEN-Auftrags (-1 = kein
      *  Stresstest); Welle 2 wartet, bis alle ANLEGEN-Aufträge abgeschlossen sind. */
     private volatile int stressPhase1Ende = -1;
-    private volatile java.util.concurrent.atomic.AtomicInteger stressPhase1Offen;
+    private volatile CountDownLatch stressPhase1Latch;
     private volatile List<WebMitarbeiter> webMitarbeiter = List.of();
     private final java.util.concurrent.ConcurrentHashMap<String, String> webKonten =
             new java.util.concurrent.ConcurrentHashMap<>();
@@ -212,12 +210,12 @@ public final class Simulator {
     }
 
     public long laufdauerSekunden() {
-        LocalDateTime von = laufStart;
-        if (von == null) {
+        long von = laufStartNano;
+        if (von == 0) {
             return 0;
         }
-        LocalDateTime bis = laufEnde != null ? laufEnde : LocalDateTime.now();
-        return Duration.between(von, bis).toSeconds();
+        long bis = laufEndeNano != 0 ? laufEndeNano : System.nanoTime();
+        return Duration.ofNanos(Math.max(0, bis - von)).toSeconds();
     }
 
     SozialLeistungsService service() {
@@ -243,6 +241,10 @@ public final class Simulator {
             this.letzteFehlermeldung = null;
             laufAusfuehren(konfig);
         } finally {
+            if (log != null) {
+                log.close(); // auch im Fehlerpfad: Logdateien sauber schließen
+                log = null;
+            }
             laufAktiv.set(false);
         }
     }
@@ -267,6 +269,10 @@ public final class Simulator {
                 }
                 schliesseRessourcen();
             } finally {
+                if (log != null) {
+                    log.close(); // in jedem Pfad schließen — auch nach Abbruch
+                    log = null;
+                }
                 laufAktiv.set(false);
             }
         }, "testsweet-lauf");
@@ -335,6 +341,10 @@ public final class Simulator {
             this.letzteFehlermeldung = null;
             laufWebAusfuehren(konfig);
         } finally {
+            if (log != null) {
+                log.close(); // auch im Fehlerpfad: Logdateien sauber schließen
+                log = null;
+            }
             laufAktiv.set(false);
         }
     }
@@ -344,6 +354,12 @@ public final class Simulator {
         if (!laufAktiv.compareAndSet(false, true)) {
             throw new IllegalStateException("Es läuft bereits ein Simulator-Lauf (Phase "
                     + phase + ") — bitte das Ende abwarten");
+        }
+        // STRESS gibt es nur im Fachschicht-Modus — VOR dem Anlegen von Log/Server/
+        // Treiber-Fenster abweisen (siehe auch Guard am Anfang von laufWebAusfuehren)
+        if (konfig.kategorie() == Kategorie.STRESS) {
+            laufAktiv.set(false);
+            throw new IllegalStateException(webStressMeldung());
         }
         this.konfiguration = konfig;
         this.abgebrochen = false;
@@ -359,6 +375,10 @@ public final class Simulator {
                 }
                 schliesseWebServer();
             } finally {
+                if (log != null) {
+                    log.close(); // in jedem Pfad schließen — auch nach Abbruch
+                    log = null;
+                }
                 laufAktiv.set(false);
             }
         }, "testsweet-web-lauf");
@@ -366,11 +386,23 @@ public final class Simulator {
         laufThread.start();
     }
 
+    private static String webStressMeldung() {
+        return "Der Stresstest (User anlegen + nachbearbeiten) ist für den Fachschicht-Modus "
+                + "vorgesehen — für die Weboberfläche die Kategorie LAST nutzen";
+    }
+
     private void laufWebAusfuehren(LaufKonfiguration konfig) throws Exception {
+        // STRESS+WEB-Guard als ALLERERSTE Anweisung — bevor irgendetwas angefasst
+        // (SweetLog, eingebetteter Server, WebDriverManager, Fenster) wird.
+        if (konfig.kategorie() == Kategorie.STRESS) {
+            throw new IllegalStateException(webStressMeldung());
+        }
         modusLetzter = "WEB";
         kategorieLetzter = konfig.kategorie();
         laufStart = LocalDateTime.now();
+        laufStartNano = System.nanoTime();
         laufEnde = null;
+        laufEndeNano = 0;
         log = new SweetLog(PathLogBasis());
         letztesLogVerzeichnis = log.runVerzeichnis.toString();
         log.ereignis("SIMULATOR", "", "Web-Lauf gestartet: " + konfig.mitarbeiter()
@@ -382,6 +414,7 @@ public final class Simulator {
         webMitarbeiter.forEach(WebMitarbeiter::schliesse);
         WebMitarbeiter.raeumeVerwaisteFensterAuf();
         pruefeDatenbank();
+        pruefeKeineAltenAktenzeichen(konfig);
         if (konfig.aufraeumen()) {
             phase = Phase.AUFRAEUMEN;
             log.ereignis("SIMULATOR", "", "Altdaten aufgeräumt: "
@@ -396,6 +429,13 @@ public final class Simulator {
             webKonten.put("sb-02", "sb-02");
             webAdminKennung = "admin-01";
             webAdminPasswort = "admin";
+            if (konfig.mitarbeiter() > webKonten.size()) {
+                log.fehler("SIMULATOR", "Mehr Fenster (" + konfig.mitarbeiter()
+                        + ") als verfügbare Konten (" + webKonten.size()
+                        + ") — Fenster teilen sich Kennungen, Vier-Augen-Konflikte "
+                        + "(z. B. Selbstfreigabe-Abwehr) sind möglich. Für eigene Konten "
+                        + "den externen Server beenden.");
+            }
             log.ereignis("SIMULATOR", "", "Port 8080 ist belegt — es wird der bereits laufende "
                     + "SDN.Leistung-Server genutzt (Standard-Konten sb-01/sb-02, Admin admin-01). "
                     + "Für eigene Sim-Konten den externen Server beenden.");
@@ -416,7 +456,6 @@ public final class Simulator {
             webMitarbeiter.add(new WebMitarbeiter(this, kennung, webPasswort(kennung),
                     i, konfig.mitarbeiter()));
         }
-        mitarbeiterLatch = new CountDownLatch(webMitarbeiter.size());
         log.ereignis("SIMULATOR", "", "Chrome-Fenster werden geöffnet und nebeneinander "
                 + "angeordnet — die Oberfläche läuft unter " + WebHelfer.basisUrl);
 
@@ -451,12 +490,11 @@ public final class Simulator {
         }
 
         laufEnde = LocalDateTime.now();
+        laufEndeNano = System.nanoTime();
         schreibeTestdokumentation();
         log.zusammenfassung(zusammenfassungsText());
         log.ereignis("SIMULATOR", "", "Web-Lauf beendet in " + laufdauerSekunden()
                 + " s — Browserfenster bleiben zur Ansicht offen (bis zum nächsten Lauf/Stopp).");
-        log.close();
-        log = null;
     }
 
     /**
@@ -542,7 +580,9 @@ public final class Simulator {
         modusLetzter = "FACHSCHICHT";
         kategorieLetzter = konfig.kategorie();
         laufStart = LocalDateTime.now();
+        laufStartNano = System.nanoTime();
         laufEnde = null;
+        laufEndeNano = 0;
         log = new SweetLog(PathLogBasis());
         letztesLogVerzeichnis = log.runVerzeichnis.toString();
         log.ereignis("SIMULATOR", "", "Lauf gestartet: " + konfig.mitarbeiter() + " Mitarbeiter, "
@@ -551,6 +591,7 @@ public final class Simulator {
 
         // Datenbank erreichbar?
         pruefeDatenbank();
+        pruefeKeineAltenAktenzeichen(konfig);
 
         // Phase 1: optional Altdaten aufräumen
         if (konfig.aufraeumen()) {
@@ -576,7 +617,6 @@ public final class Simulator {
         for (int i = 1; i <= konfig.mitarbeiter(); i++) {
             mitarbeiter.add(new Mitarbeiter(this, "sb-sim-" + String.format("%02d", i), konfig.denkzeitMs()));
         }
-        mitarbeiterLatch = new CountDownLatch(mitarbeiter.size());
 
         phase = Phase.LAUF;
         ExecutorService executor = Executors.newFixedThreadPool(konfig.mitarbeiter());
@@ -613,12 +653,11 @@ public final class Simulator {
         }
 
         laufEnde = LocalDateTime.now();
+        laufEndeNano = System.nanoTime();
         schreibeTestdokumentation();
         log.zusammenfassung(zusammenfassungsText());
         log.ereignis("SIMULATOR", "", "Lauf beendet in " + laufdauerSekunden() + " s — Logdateien: "
                 + log.runVerzeichnis);
-        log.close();
-        log = null;
     }
 
     /** Auftragstopf je Modus und Kategorie; das Aktenzeichen-Präfix unterscheidet
@@ -629,13 +668,8 @@ public final class Simulator {
             case POSITIV -> web ? "W-" : "";
             case NEGATIV -> web ? "NW-" : "N-";
             case LAST -> web ? "LW-" : "L-";
-            case STRESS -> "S-"; // nur Fachschicht (siehe Guard unten)
+            case STRESS -> "S-"; // nur Fachschicht (Guard in laufWebAusfuehren/starteWeb)
         };
-        if (konfig.kategorie() == Kategorie.STRESS && web) {
-            throw new IllegalStateException("Der Stresstest (User anlegen + nachbearbeiten) "
-                    + "ist für den Fachschicht-Modus vorgesehen — für die Weboberfläche die "
-                    + "Kategorie LAST nutzen");
-        }
         return switch (konfig.kategorie()) {
             case POSITIV -> !web
                     ? new SzenarioBibliothek(seed).erzeuge(konfig.auftraege(), praefix)
@@ -685,6 +719,34 @@ public final class Simulator {
         log.ereignis("SIMULATOR", "", "Datenbankverbindung ok (" + dbUrl + ")");
     }
 
+    /**
+     * Duplikat-Schutz vor dem Laufstart: Liegen noch SWEET-Vorgänge eines früheren
+     * Laufs in der Datenbank und ist Aufräumen nicht aktiviert, würde der neue Lauf
+     * dieselben Aktenzeichen wieder anlegen und mitten im Betrieb an der Eindeutig-
+     * keitsregel scheitern — der Lauf wird deshalb vorab mit klarer Meldung
+     * abgebrochen (das finally der Aufrufer schließt das Log).
+     */
+    private void pruefeKeineAltenAktenzeichen(LaufKonfiguration konfig) throws Exception {
+        if (konfig.aufraeumen()) {
+            return; // es wird ohnehin automatisch geräumt
+        }
+        try (Connection c = DriverManager.getConnection(dbUrl, dbUser, dbPass);
+             Statement st = c.createStatement();
+             ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM BEDARFSGEMEINSCHAFT "
+                     + "WHERE AKTENZEICHEN LIKE '" + SzenarioBibliothek.PREFIX + "%'")) {
+            rs.next();
+            int alte = rs.getInt(1);
+            if (alte > 0) {
+                throw new IllegalStateException("In der Datenbank liegen noch " + alte
+                        + " Vorgänge früherer Läufe (Aktenzeichen " + SzenarioBibliothek.PREFIX
+                        + "…). Ein neuer Lauf würde dieselben Aktenzeichen erneut anlegen und "
+                        + "an der Eindeutigkeitsregel scheitern. Bitte das Aufräumen aktivieren "
+                        + "(Option „Altdaten aufräumen“) oder die Datenbank säubern und den "
+                        + "Lauf neu starten.");
+            }
+        }
+    }
+
     /** Löscht Vorgänge früherer Läufe (SWEET-%); Rückgabe: Anzahl gelöschter Vorgänge. */
     private int raeumeAltdatenAuf() throws Exception {
         try (Connection c = DriverManager.getConnection(dbUrl, dbUser, dbPass)) {
@@ -711,10 +773,13 @@ public final class Simulator {
         }
     }
 
-    /** Globale Zusatzprüfung: Anzahl SWEET-Vorgänge passt zu den erzeugten
+    /** Globale Zusatzprüfung: (1) Anzahl SWEET-Vorgänge passt zu den erzeugten
      *  Bedarfsgemeinschaften — Fachschicht: Aufträge mit bgId (KEIN_ANSPRUCH erzeugt
      *  keine); Web: Auftraege mit Vorgangs-Marker aus WebHelfer.vorgangAnlegen
-     *  (Negativszenarien wehren die Anlage bewusst ab). */
+     *  (Negativszenarien wehren die Anlage bewusst ab). Dazu zwei vorgangsübergreifende
+     *  Invarianten über ALLE SWEET-%-Vorgänge: (2) keine Übergabe ohne Freigabe
+     *  (UEBERGEBEN erfordert FREIGEGEBEN_VON) und (3) keine stornierte Zahlung zu
+     *  einem FEHLGESCHLAGENEN Auftrag des Laufs (Zuordnung über das Aktenzeichen). */
     private void globalerKonsistenzcheck() {
         try (Connection c = DriverManager.getConnection(dbUrl, dbUser, dbPass);
              Statement st = c.createStatement();
@@ -744,6 +809,69 @@ public final class Simulator {
             }
         } catch (Exception e) {
             log.fehler("VERIFIKATION", "Globaler Konsistenzcheck gescheitert: " + e.getMessage());
+        }
+        pruefeKeineUebergabeOhneFreigabe();
+        pruefeKeineStornierteZahlungFehlgeschlagenerAuftraege();
+    }
+
+    /** Invariante: KEINE Zahlung im Status UEBERGEBEN ohne Freigabevermerk —
+     *  die Übergabe an die Kasse setzt serverseitig die Vier-Augen-Freigabe voraus. */
+    private void pruefeKeineUebergabeOhneFreigabe() {
+        try (Connection c = DriverManager.getConnection(dbUrl, dbUser, dbPass);
+             Statement st = c.createStatement();
+             ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM ZAHLUNG WHERE "
+                     + "ZAHLUNGSSTATUS = 'UEBERGEBEN' AND FREIGEGEBEN_VON IS NULL AND BG_ID IN "
+                     + "(SELECT ID FROM BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN LIKE '"
+                     + SzenarioBibliothek.PREFIX + "%')")) {
+            rs.next();
+            long verstoesse = rs.getLong(1);
+            String text = "Globaler Konsistenzcheck: " + verstoesse
+                    + " übergebene Zahlung(en) ohne Freigabevermerk (erwartet 0)";
+            log.ereignis("VERIFIKATION", "", text + (verstoesse == 0 ? " — OK" : " — ABWEICHUNG!"));
+            if (verstoesse != 0) {
+                log.fehler("VERIFIKATION", text);
+            }
+        } catch (Exception e) {
+            log.fehler("VERIFIKATION", "Check „keine Übergabe ohne Freigabe“ gescheitert: "
+                    + e.getMessage());
+        }
+    }
+
+    /** Invariante (heuristisch über das Aktenzeichen): Zu FEHLGESCHLAGENEN Aufträgen
+     *  des Laufs darf keine STORNIERT-Zahlung gehören — ein gescheiterter Auftrag
+     *  soll keine halbfertigen Storno-Spuren hinterlassen. */
+    private void pruefeKeineStornierteZahlungFehlgeschlagenerAuftraege() {
+        List<String> aktenzeichen = auftraege.stream()
+                .filter(a -> a.status == Auftrag.Status.FEHLGESCHLAGEN)
+                .map(a -> a.aktenzeichen)
+                .filter(az -> az != null && !az.isBlank() && !"-".equals(az))
+                .distinct()
+                .toList();
+        if (aktenzeichen.isEmpty()) {
+            log.ereignis("VERIFIKATION", "",
+                    "Globaler Konsistenzcheck: keine fehlgeschlagenen Aufträge — "
+                    + "Storno-Spurenanalyse entfällt (0 Verstöße)");
+            return;
+        }
+        String liste = aktenzeichen.stream()
+                .map(az -> "'" + az.replace("'", "''") + "'")
+                .collect(java.util.stream.Collectors.joining(","));
+        try (Connection c = DriverManager.getConnection(dbUrl, dbUser, dbPass);
+             Statement st = c.createStatement();
+             ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM ZAHLUNG WHERE "
+                     + "ZAHLUNGSSTATUS = 'STORNIERT' AND BG_ID IN (SELECT ID FROM "
+                     + "BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN IN (" + liste + "))")) {
+            rs.next();
+            long verstoesse = rs.getLong(1);
+            String text = "Globaler Konsistenzcheck: " + verstoesse
+                    + " stornierte Zahlung(en) zu fehlgeschlagenen Aufträgen (erwartet 0)";
+            log.ereignis("VERIFIKATION", "", text + (verstoesse == 0 ? " — OK" : " — ABWEICHUNG!"));
+            if (verstoesse != 0) {
+                log.fehler("VERIFIKATION", text);
+            }
+        } catch (Exception e) {
+            log.fehler("VERIFIKATION", "Check „keine Storno-Spuren fehlgeschlagener Aufträge“ "
+                    + "gescheitert: " + e.getMessage());
         }
     }
 
@@ -789,20 +917,21 @@ public final class Simulator {
 
     /** Nächsten offenen Auftrag atomar entnehmen (Pool-Prinzip); null = leer.
      *  STRESS-Phasenbarriere: Aufträge hinter dem Phasenende (Nachbearbeitungen)
-     *  werden erst ausgegeben, wenn alle Anlagen der Welle 1 abgeschlossen sind. */
+     *  werden erst ausgegeben, wenn alle Anlagen der Welle 1 abgeschlossen sind —
+     *  gewartet wird im 250-ms-Takt auf dem CountdownLatch stattBusy-Waiting. */
     Auftrag nimmAuftrag() {
         while (true) {
             int index = naechsterAuftrag.get();
             if (index >= auftraege.size()) {
                 return null;
             }
-            if (index >= stressPhase1Ende && stressPhase1Offen != null
-                    && stressPhase1Offen.get() > 0) {
+            CountDownLatch barriere = stressPhase1Latch;
+            if (index >= stressPhase1Ende && barriere != null && barriere.getCount() > 0) {
                 if (abgebrochen) {
                     return null;
                 }
                 try {
-                    Thread.sleep(25);
+                    barriere.await(250, TimeUnit.MILLISECONDS);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     return null;
@@ -819,18 +948,18 @@ public final class Simulator {
     private void initialisiereStressBarriere() {
         if (kategorieLetzter == Kategorie.STRESS && auftraege.size() >= 2) {
             stressPhase1Ende = auftraege.size() / 2;
-            stressPhase1Offen = new java.util.concurrent.atomic.AtomicInteger(stressPhase1Ende);
+            stressPhase1Latch = new CountDownLatch(stressPhase1Ende);
         } else {
             stressPhase1Ende = -1;
-            stressPhase1Offen = null;
+            stressPhase1Latch = null;
         }
     }
 
     /** Meldet den Abschluss eines Spiel-Auftrags (Hook für die STRESS-Barriere). */
     void auftragSpielenBeendet(Auftrag auftrag) {
-        java.util.concurrent.atomic.AtomicInteger offen = stressPhase1Offen;
-        if (offen != null && auftrag.id <= stressPhase1Ende) {
-            offen.decrementAndGet();
+        CountDownLatch barriere = stressPhase1Latch;
+        if (barriere != null && auftrag.id <= stressPhase1Ende) {
+            barriere.countDown();
         }
     }
 
@@ -844,13 +973,6 @@ public final class Simulator {
             kollege = liste.get(ThreadLocalRandom.current().nextInt(liste.size())).kuerzel;
         } while (kollege.equals(ausser));
         return kollege;
-    }
-
-    void mitarbeiterBeendet(Mitarbeiter m) {
-        CountDownLatch latch = mitarbeiterLatch;
-        if (latch != null) {
-            latch.countDown();
-        }
     }
 
     /** Logbasis: immer testsweet/logs — egal ob vom Projektroot oder aus testsweet gestartet. */

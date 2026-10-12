@@ -27,6 +27,9 @@ public final class BescheidDao {
     public Bescheid einfuegen(TxContext ctx, long id, long bgId, String bescheidNr,
                               LocalDate bescheidDatum, String bewilligungVon, String bewilligungBis,
                               BigDecimal zahlbetrag, String erstelltVon, String berechnung) throws SQLException {
+        // Datum einmalig ermitteln: Nummern-Jahr und BESCHEID_DATUM müssen zusammenpassen,
+        // auch wenn der Insert über Mitternacht fällt.
+        LocalDate datum = bescheidDatum != null ? bescheidDatum : LocalDate.now();
         try (PreparedStatement stmt = ctx.connection().prepareStatement(
                 "INSERT INTO BESCHEID (ID, BG_ID, BESCHEID_NR, BESCHEID_DATUM, BEWILLIGUNG_VON, "
                         + "BEWILLIGUNG_BIS, ZAHLBETRAG, STATUS, ERSTELLT_VON, ERSTELLT_AM, BERECHNUNG) "
@@ -34,7 +37,7 @@ public final class BescheidDao {
             stmt.setLong(1, id);
             stmt.setLong(2, bgId);
             stmt.setString(3, bescheidNr);
-            stmt.setDate(4, Date.valueOf(bescheidDatum != null ? bescheidDatum : LocalDate.now()));
+            stmt.setDate(4, Date.valueOf(datum));
             stmt.setString(5, bewilligungVon);
             stmt.setString(6, bewilligungBis);
             stmt.setBigDecimal(7, zahlbetrag);
@@ -42,8 +45,7 @@ public final class BescheidDao {
             stmt.setString(9, berechnung);
             stmt.executeUpdate();
         }
-        return new Bescheid(id, bgId, bescheidNr,
-                bescheidDatum != null ? bescheidDatum : LocalDate.now(),
+        return new Bescheid(id, bgId, bescheidNr, datum,
                 bewilligungVon, bewilligungBis, zahlbetrag, "ERTEILT", erstelltVon, Instant.now(),
                 berechnung);
     }
@@ -56,14 +58,6 @@ public final class BescheidDao {
         }
     }
 
-    public Optional<Bescheid> findeBescheidNr(TxContext ctx, String bescheidNr) throws SQLException {
-        try (PreparedStatement stmt = ctx.connection().prepareStatement(
-                "SELECT " + COLUMNS + " FROM BESCHEID WHERE BESCHEID_NR = ?")) {
-            stmt.setString(1, bescheidNr);
-            return leseEinzeln(stmt.executeQuery());
-        }
-    }
-
     public List<Bescheid> letzteFuerBg(TxContext ctx, long bgId, int limit) throws SQLException {
         try (PreparedStatement stmt = ctx.connection().prepareStatement(
                 "SELECT " + COLUMNS + " FROM BESCHEID WHERE BG_ID = ? "
@@ -71,14 +65,6 @@ public final class BescheidDao {
             stmt.setLong(1, bgId);
             stmt.setInt(2, limit);
             return leseListe(stmt.executeQuery());
-        }
-    }
-
-    public void aufheben(TxContext ctx, long id) throws SQLException {
-        try (PreparedStatement stmt = ctx.connection().prepareStatement(
-                "UPDATE BESCHEID SET STATUS = 'AUFGEHOBEN' WHERE ID = ?")) {
-            stmt.setLong(1, id);
-            stmt.executeUpdate();
         }
     }
 

@@ -23,7 +23,25 @@ import java.util.Map;
 public final class WebHelfer {
 
     private static final Duration TIMEOUT = Duration.ofSeconds(10);
-    public static volatile String basisUrl = "http://localhost:8080/";
+
+    /** Basis-URL der SDN.Leistung-Weboberfläche — überschreibbar über das
+     *  Systemproperty {@code sweet.baseurl} oder die Umgebungsvariable
+     *  {@code SWEET_BASE_URL} (für einen externen Server statt des eingebetteten
+     *  Standard-Ports). Initialisierung einmalig beim Laden der Klasse; ein
+     *  abschließender Schrägstrich wird immer ergänzt. */
+    public static volatile String basisUrl = liesBasisUrl();
+
+    private static String liesBasisUrl() {
+        String wert = System.getProperty("sweet.baseurl");
+        if (wert == null || wert.isBlank()) {
+            wert = System.getenv("SWEET_BASE_URL");
+        }
+        if (wert == null || wert.isBlank()) {
+            wert = "http://localhost:8080";
+        }
+        wert = wert.trim();
+        return wert.endsWith("/") ? wert : wert + "/";
+    }
 
     private WebHelfer() {}
 

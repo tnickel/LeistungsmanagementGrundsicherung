@@ -51,10 +51,16 @@ public final class SimpleConnectionPool implements ConnectionPool {
     private final String user;
     private final String password;
     private final Duration borrowTimeout;
+    private final int connectTimeoutMs;
+    private final int readTimeoutMs;
     private final BlockingQueue<Connection> idle;
     private final Semaphore permits;
     /** Momentan ausgeliehene Verbindungen — Grundlage für das idempotente release(). */
     private final Set<Connection> borrowed = ConcurrentHashMap.newKeySet();
+
+    /** Rate-Begrenzung der Erschöpfungs-Warnung (CR-046): höchstens eine pro 10 s. */
+    private final java.util.concurrent.atomic.AtomicLong letzteWarnungNano =
+            new java.util.concurrent.atomic.AtomicLong();
 
     /**
      * Wie bisher: Pool mit Standard-Borrow-Timeout von 30 Sekunden
@@ -72,6 +78,17 @@ public final class SimpleConnectionPool implements ConnectionPool {
      * @param borrowTimeout maximale Wartezeit auf eine freie Verbindung, muss positiv sein
      */
     public SimpleConnectionPool(String url, String user, String password, int maxSize, Duration borrowTimeout) {
+        this(url, user, password, maxSize, borrowTimeout, 15_000, 120_000);
+    }
+
+    /**
+     * @param connectTimeoutMs TCP-Aufbau-Timeout für neue Verbindungen
+     *                         (oracle.net.CONNECT_TIMEOUT) — begrenzt hängende Verbindungsaufbauten
+     * @param readTimeoutMs    Lese-Timeout für JDBC-Aufrufe (oracle.jdbc.ReadTimeout),
+     *                         wirksam auch ohne TaskController-Wachhund
+     */
+    public SimpleConnectionPool(String url, String user, String password, int maxSize, Duration borrowTimeout,
+            int connectTimeoutMs, int readTimeoutMs) {
         if (maxSize < 1) {
             throw new IllegalArgumentException("maxSize muss >= 1 sein");
         }
@@ -83,6 +100,8 @@ public final class SimpleConnectionPool implements ConnectionPool {
         this.user = user;
         this.password = password;
         this.borrowTimeout = borrowTimeout;
+        this.connectTimeoutMs = Math.max(100, connectTimeoutMs);
+        this.readTimeoutMs = Math.max(100, readTimeoutMs);
         this.idle = new ArrayBlockingQueue<>(maxSize);
         this.permits = new Semaphore(maxSize);
     }
@@ -91,6 +110,7 @@ public final class SimpleConnectionPool implements ConnectionPool {
     public Connection getConnection() throws SQLException {
         try {
             if (!permits.tryAcquire(borrowTimeout.toMillis(), TimeUnit.MILLISECONDS)) {
+                warneErschoepfung();
                 throw new SQLException("Pool erschöpft: innerhalb von " + borrowTimeout.toMillis()
                         + " ms keine freie Verbindung bekommen (maxSize erreicht)");
             }
@@ -113,8 +133,18 @@ public final class SimpleConnectionPool implements ConnectionPool {
                 }
                 closeQuietly(candidate);
             }
-            // Keine brauchbare gepoolte Verbindung: neue physische Verbindung öffnen.
-            Connection frisch = DriverManager.getConnection(url, user, password);
+            // Keine brauchbare gepoolte Verbindung: neue physische Verbindung öffnen
+            // (mit Connect-/Read-Timeout gegen hängende Aufrufe, CR-020).
+            java.util.Properties props = new java.util.Properties();
+            if (user != null) {
+                props.setProperty("user", user);
+                if (password != null) {
+                    props.setProperty("password", password);
+                }
+            }
+            props.setProperty("oracle.net.CONNECT_TIMEOUT", String.valueOf(connectTimeoutMs));
+            props.setProperty("oracle.jdbc.ReadTimeout", String.valueOf(readTimeoutMs));
+            Connection frisch = DriverManager.getConnection(url, props);
             if (!istGueltig(frisch)) {
                 closeQuietly(frisch);
                 throw new SQLException("Neu aufgebaute Verbindung besteht die Gültigkeitsprüfung nicht: " + url);
@@ -126,6 +156,16 @@ public final class SimpleConnectionPool implements ConnectionPool {
             if (!success) {
                 permits.release();
             }
+        }
+    }
+
+    /** Operative Warnung bei Erschöpfung, rate-begrenzt auf eine Meldung pro 10 Sekunden. */
+    private void warneErschoepfung() {
+        long jetzt = System.nanoTime();
+        long letzte = letzteWarnungNano.get();
+        if (jetzt - letzte > 10_000_000_000L && letzteWarnungNano.compareAndSet(letzte, jetzt)) {
+            LOG.warning("Verbindungspool erschöpft — Aufrufer warten bis zu " + borrowTimeout.toMillis()
+                    + " ms auf eine freie Verbindung (mögliche Ursache: vergessene release()/finish()-Aufrufe)");
         }
     }
 

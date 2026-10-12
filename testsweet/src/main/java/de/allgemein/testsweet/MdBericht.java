@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Maschinenlesbare Datenfassung des Simulator-Laufs als Markdown ({@code
@@ -68,6 +69,9 @@ final class MdBericht {
         kv(md, "ergebnis.verifikation_nio", String.valueOf(nok));
         kv(md, "ergebnis.fehlgeschlagen", String.valueOf(fehl));
         kv(md, "ergebnis.gesamt", String.valueOf(simulator.auftraege().size()));
+        md.append("hinweis: Soll-Beträge werden mit der Produktionsberechnung (Leistungsberechnung) "
+                + "ermittelt; unabhängige Goldwerte-Absicherung: GoldWerteTest im Hauptprojekt "
+                + "(Werte aus doc/regressionstests.md).\n");
         md.append('\n');
     }
 
@@ -107,14 +111,7 @@ final class MdBericht {
         kv(md, "bg_id", a.bgId != null ? String.valueOf(a.bgId) : "-");
         kv(md, "dauer_ms", String.valueOf(a.dauerMs()));
         if (!a.kontext.isEmpty()) {
-            StringBuilder ids = new StringBuilder();
-            a.kontext.forEach((k, v) -> {
-                if (ids.length() > 0) {
-                    ids.append(", ");
-                }
-                ids.append(k).append('=').append(v);
-            });
-            kv(md, "ids", ids.toString());
+            kv(md, "ids", kontextZeile(a.kontext));
         }
         md.append('\n');
 
@@ -209,6 +206,26 @@ final class MdBericht {
 
     private static void kv(StringBuilder md, String schluessel, String wert) {
         md.append(schluessel).append(" = ").append(wert).append('\n');
+    }
+
+    /**
+     * Einzeilige Aufzählung der Kontext-Schlüssel=Wert-Paare für die ids-Zeile.
+     * Schlüssel, die (case-insensitive) „passwort" enthalten, werden bewusst
+     * ausgelassen — in der maschinenlesbaren Doku dürfen niemals Passwörter
+     * stehen (auch nicht als Nebeneffekt künftiger Kontext-Erweiterungen).
+     */
+    static String kontextZeile(Map<String, Object> kontext) {
+        StringBuilder ids = new StringBuilder();
+        kontext.forEach((k, v) -> {
+            if (k != null && k.toLowerCase(java.util.Locale.ROOT).contains("passwort")) {
+                return; // Passwörter nie ausschreiben
+            }
+            if (ids.length() > 0) {
+                ids.append(", ");
+            }
+            ids.append(k).append('=').append(v);
+        });
+        return ids.toString();
     }
 
     private static String sqlFuer(Auftrag a, Auftrag.Pruefung p) {
