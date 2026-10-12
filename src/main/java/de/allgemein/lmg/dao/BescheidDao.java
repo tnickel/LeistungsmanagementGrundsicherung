@@ -72,6 +72,31 @@ public final class BescheidDao {
         return BedarfsgemeinschaftDao.naechsteSequence(ctx, "SEQ_BESCHEID");
     }
 
+    /** Anzahl aller Bescheide (jeder Status) der Bedarfsgemeinschaft. */
+    public int zaehleFuerBg(TxContext ctx, long bgId) throws SQLException {
+        try (PreparedStatement stmt = ctx.connection().prepareStatement(
+                "SELECT COUNT(*) FROM BESCHEID WHERE BG_ID = ?")) {
+            stmt.setLong(1, bgId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        }
+    }
+
+    /** Deckt ein erteilter (nicht aufgehobener) Bescheid den Zahlungsmonat (YYYY-MM) ab? */
+    public boolean existiertErteiltFuerMonat(TxContext ctx, long bgId, String monat) throws SQLException {
+        try (PreparedStatement stmt = ctx.connection().prepareStatement(
+                "SELECT COUNT(*) FROM BESCHEID WHERE BG_ID = ? AND STATUS = 'ERTEILT' "
+                        + "AND BEWILLIGUNG_VON <= ? AND BEWILLIGUNG_BIS >= ?")) {
+            stmt.setLong(1, bgId);
+            stmt.setString(2, monat);
+            stmt.setString(3, monat);
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next() && rs.getInt(1) > 0;
+            }
+        }
+    }
+
     private List<Bescheid> leseListe(ResultSet rs) throws SQLException {
         List<Bescheid> liste = new ArrayList<>();
         while (rs.next()) {

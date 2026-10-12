@@ -105,6 +105,26 @@ public final class TxAuditLog {
         return Collections.unmodifiableList(result);
     }
 
+    /**
+     * Datenschutzkonforme Fehlerbeschreibung für Audit-Ereignisse: nur Exception-Typ und
+     * ggf. ORA-Code, nie die Meldung — sie kann Eingabewerte, Aktenzeichen oder andere
+     * Sozialdaten enthalten (Details stehen mit Stacktrace im technischen Server-Log).
+     */
+    public static String fehlerBeschreibung(Throwable fehler) {
+        if (fehler == null) {
+            return null;
+        }
+        String ora = null;
+        Throwable aktuell = fehler;
+        for (int i = 0; aktuell != null && i < 8; i++, aktuell = aktuell.getCause()) {
+            if (aktuell instanceof java.sql.SQLException sql) {
+                ora = " ORA-" + String.format("%05d", sql.getErrorCode());
+                break;
+            }
+        }
+        return fehler.getClass().getSimpleName() + (ora == null ? "" : ora);
+    }
+
     static void clearForTests() {
         synchronized (FILE_LOCK) {
             schliesseWriter();

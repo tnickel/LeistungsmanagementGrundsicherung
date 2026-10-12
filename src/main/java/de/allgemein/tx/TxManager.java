@@ -54,7 +54,7 @@ public final class TxManager {
                 lastFailure = e;
                 if (!e.isRetryable() || attempt == maxAttempts) {
                     long durationMillis = (System.nanoTime() - startNanos) / 1_000_000;
-                    de.allgemein.tx.audit.TxAuditLog.recordTxRollback(txId, attempt, durationMillis, e.getMessage());
+                    de.allgemein.tx.audit.TxAuditLog.recordTxRollback(txId, attempt, durationMillis, de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(e));
                     throw e;
                 }
             } catch (SQLException e) {
@@ -62,13 +62,13 @@ public final class TxManager {
                 lastFailure = TxException.from(e);
                 if (!lastFailure.isRetryable() || attempt == maxAttempts) {
                     long durationMillis = (System.nanoTime() - startNanos) / 1_000_000;
-                    de.allgemein.tx.audit.TxAuditLog.recordTxRollback(txId, attempt, durationMillis, lastFailure.getMessage());
+                    de.allgemein.tx.audit.TxAuditLog.recordTxRollback(txId, attempt, durationMillis, de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(lastFailure));
                     throw lastFailure;
                 }
             } catch (Exception e) {
                 rollbackQuietly(raw);
                 long durationMillis = (System.nanoTime() - startNanos) / 1_000_000;
-                de.allgemein.tx.audit.TxAuditLog.recordTxRollback(txId, attempt, durationMillis, e.getMessage());
+                de.allgemein.tx.audit.TxAuditLog.recordTxRollback(txId, attempt, durationMillis, de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(e));
                 throw TxException.nonRetryable("Transaktion abgebrochen: " + e.getMessage(), e);
             } catch (Error e) {
                 // OOM/StackOverflow o. ä.: Transaktion zurückrollen und den Error durchreichen.
@@ -87,8 +87,8 @@ public final class TxManager {
             final TxException failure = lastFailure;
             LOG.log(Level.WARNING,
                     () -> "Transaktionsversuch " + tried + "/" + maxAttempts
-                            + " fehlgeschlagen, Wiederholung folgt: " + failure.getMessage());
-            de.allgemein.tx.audit.TxAuditLog.recordTxRetry(txId, attempt, failure.getMessage());
+                            + " fehlgeschlagen, Wiederholung folgt: " + de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(failure));
+            de.allgemein.tx.audit.TxAuditLog.recordTxRetry(txId, attempt, de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(failure));
             retryPolicy.sleepBeforeAttempt(attempt);
         }
         // Nicht erreichbar: die Schleife endet immer mit return oder throw

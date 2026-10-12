@@ -492,6 +492,14 @@ class EchteDbVerifikationTest {
                 zahlung.setString(7, "Recover, Rita");
                 zahlung.executeUpdate();
             }
+            // Journal-Marker, den Schritt 1 der echten Saga schreibt (Korrelation der Kompensation)
+            try (PreparedStatement journal = c.prepareStatement(
+                    "INSERT INTO JOURNAL (ID, BG_ID, AKTION_TEXT, SACHBEARBEITER_ID, ERSTELLT_AM) "
+                            + "VALUES (SEQ_JOURNAL.NEXTVAL, ?, ?, 'saga-engine', SYSTIMESTAMP)")) {
+                journal.setLong(1, bgId);
+                journal.setString(2, "Antrags-Saga " + sagaId + ": Vorgang " + az + " erfasst");
+                journal.executeUpdate();
+            }
             c.commit();
         }
 

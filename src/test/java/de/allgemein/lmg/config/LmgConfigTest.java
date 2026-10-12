@@ -18,7 +18,7 @@ class LmgConfigTest {
         LmgConfig config = LmgConfig.load("nicht-vorhanden.properties");
         assertEquals(8080, config.port());
         assertEquals("ucp", config.poolType());
-        assertEquals(8, config.poolSize());
+        assertEquals(16, config.poolSize());
         assertEquals(8, config.maxTasks());
         assertEquals(100, config.queueCapacity());
         assertNotNull(config.url());

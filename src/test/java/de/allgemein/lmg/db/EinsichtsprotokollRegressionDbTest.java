@@ -194,7 +194,7 @@ class EinsichtsprotokollRegressionDbTest {
             assertEquals(400, sendeReplay(client, base, token, bgId, "2026-11").statusCode());
             assertEquals(0, einsichten("sb-http"));
             var erlaubt = sendeReplay(client, base, token, bgId, "2026-10");
-            assertEquals(200, erlaubt.statusCode());
+            assertEquals(200, erlaubt.statusCode(), erlaubt.body());
             assertTrue(erlaubt.body().contains(IBAN));
             assertTrue(erlaubt.body().contains("\"bereitsGebucht\":true"));
             assertEquals(1, einsichten("sb-http"));

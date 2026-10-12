@@ -117,8 +117,12 @@ public final class AntragsSagaProzess {
         String name = (String) data.get("hauptpersonName");
         BigDecimal budget = getBigDecimal(data.get("startBudget"));
         BigDecimal vermoegen = getBigDecimal(data.get("vermoegen"));
-        String iban = (String) data.get("iban");
-        String bic = (String) data.get("bic");
+        String ibanRoh = (String) data.get("iban");
+        String bicRoh = (String) data.get("bic");
+        String iban = ibanRoh != null && !ibanRoh.isBlank()
+                ? de.allgemein.lmg.service.SepaValidator.normalisiereIban(ibanRoh) : null;
+        String bic = bicRoh != null && !bicRoh.isBlank()
+                ? de.allgemein.lmg.service.SepaValidator.normalisiereBic(bicRoh) : null;
         int rbs = ((Number) data.get("regelbedarfsstufe")).intValue();
         BigDecimal miete = getBigDecimal(data.get("kduMiete"));
         BigDecimal betrieb = getBigDecimal(data.get("kduBetriebskosten"));
@@ -127,6 +131,12 @@ public final class AntragsSagaProzess {
         BigDecimal erwerb = getBigDecimal(data.get("einkommenErwerb"));
 
         long bgId = nextVal(c, "SEQ_BG");
+        // Fachfehler statt rohem ORA-00001; die Kompensation darf niemals einen fremden
+        // Vorgang mit gleichem Aktenzeichen treffen (siehe istVonSagaAngelegt).
+        if (findBgId(c, aktenzeichen) != null) {
+            throw new FachlicheException(FachlicheException.VALIDATION,
+                    "Das Aktenzeichen '" + aktenzeichen + "' ist bereits vorhanden");
+        }
         try (PreparedStatement stmt = c.prepareStatement(
                 "INSERT INTO BEDARFSGEMEINSCHAFT (ID, AKTENZEICHEN, HAUPTPERSON_NAME, STATUS_AKTIV, BUDGET_REST, "
                         + "VERMOEGEN, IBAN, BIC, KONTOINHABER) "
@@ -157,6 +167,30 @@ public final class AntragsSagaProzess {
             stmt.setBigDecimal(8, erwerb);
             stmt.executeUpdate();
         }
+        schreibeJournal(c, bgId, sagaMarker(sagaId) + ": Vorgang " + aktenzeichen + " erfasst",
+                data.get("sachbearbeiterId") instanceof String s && !s.isBlank() ? s : "saga-engine");
+    }
+
+    /** Journal-Marker, der einen Vorgang eindeutig der Saga zuordnet, die ihn angelegt hat. */
+    private static String sagaMarker(String sagaId) {
+        return "Antrags-Saga " + sagaId;
+    }
+
+    /**
+     * Korrelation der Kompensation: Nur ein Vorgang, den DIESE Saga angelegt hat, darf
+     * historisiert bzw. in seinen Bescheiden aufgehoben werden. Das Aktenzeichen allein
+     * genügt nicht — ein fehlgeschlagener Schritt 1 (z. B. doppeltes Aktenzeichen) würde sonst
+     * im Wiederanlauf einen fremden, bereits existierenden Vorgang treffen.
+     */
+    private static boolean istVonSagaAngelegt(Connection c, long bgId, String sagaId) throws SQLException {
+        try (PreparedStatement stmt = c.prepareStatement(
+                "SELECT COUNT(*) FROM JOURNAL WHERE BG_ID = ? AND AKTION_TEXT LIKE ?")) {
+            stmt.setLong(1, bgId);
+            stmt.setString(2, sagaMarker(sagaId) + ": Vorgang %");
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next() && rs.getInt(1) > 0;
+            }
+        }
     }
 
     /**
@@ -179,8 +213,8 @@ public final class AntragsSagaProzess {
         Map<String, Object> data = parsePayload(payload);
         String aktenzeichen = (String) data.get("aktenzeichen");
         Long bgId = findBgId(c, aktenzeichen);
-        if (bgId == null) {
-            return; // Vorgang wurde nie angelegt — nichts zu kompensieren
+        if (bgId == null || !istVonSagaAngelegt(c, bgId, sagaId)) {
+            return; // Vorgang wurde nie (von dieser Saga) angelegt — nichts zu kompensieren
         }
         try (PreparedStatement stmt = c.prepareStatement(
                 "UPDATE BEDARFSGEMEINSCHAFT SET STATUS_AKTIV = 0 WHERE ID = ? AND STATUS_AKTIV = 1")) {
@@ -229,7 +263,7 @@ public final class AntragsSagaProzess {
         Map<String, Object> data = parsePayload(payload);
         String aktenzeichen = (String) data.get("aktenzeichen");
         Long bgId = findBgId(c, aktenzeichen);
-        if (bgId != null) {
+        if (bgId != null && istVonSagaAngelegt(c, bgId, sagaId)) {
             schreibeJournal(c, bgId, "Bedarfspruefung durch Saga-Kompensation zurueckgenommen", "saga-engine");
         }
     }
@@ -287,7 +321,7 @@ public final class AntragsSagaProzess {
         Map<String, Object> data = parsePayload(payload);
         String aktenzeichen = (String) data.get("aktenzeichen");
         Long bgId = findBgId(c, aktenzeichen);
-        if (bgId == null) {
+        if (bgId == null || !istVonSagaAngelegt(c, bgId, sagaId)) {
             return;
         }
         try (PreparedStatement stmt = c.prepareStatement(
@@ -595,6 +629,16 @@ public final class AntragsSagaProzess {
             if (data.get(feld) != null && !(data.get(feld) instanceof String)) {
                 throw new FachlicheException(FachlicheException.VALIDATION, feld + " muss ein Text sein");
             }
+        }
+        if (data.get("iban") instanceof String iban && !iban.isBlank()
+                && !de.allgemein.lmg.service.SepaValidator.isValidIban(
+                        de.allgemein.lmg.service.SepaValidator.normalisiereIban(iban))) {
+            throw new FachlicheException(FachlicheException.VALIDATION, "Ungültige IBAN");
+        }
+        if (data.get("bic") instanceof String bic && !bic.isBlank()
+                && !de.allgemein.lmg.service.SepaValidator.isValidBic(
+                        de.allgemein.lmg.service.SepaValidator.normalisiereBic(bic))) {
+            throw new FachlicheException(FachlicheException.VALIDATION, "Ungültiger BIC");
         }
         if (!(data.get("regelbedarfsstufe") instanceof Number rbs)
                 || rbs.doubleValue() != rbs.intValue() || rbs.intValue() < 1 || rbs.intValue() > 6) {

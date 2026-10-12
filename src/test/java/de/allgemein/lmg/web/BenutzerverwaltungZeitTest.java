@@ -106,6 +106,24 @@ class BenutzerverwaltungZeitTest {
     }
 
     @Test
+    void aktiveSperreUeberlebtFlutMitPhantomKennungen() {
+        BeweglicheUhr uhr = new BeweglicheUhr();
+        Benutzerverwaltung verwaltung = verwaltungMitUhr(uhr);
+        for (int i = 0; i < 5; i++) {
+            assertThrows(FachlicheException.class, () -> verwaltung.anmelden("sb-01", "falsch"));
+        }
+        for (int i = 0; i < 3000; i++) {
+            String name = "phantom-" + i;
+            assertThrows(FachlicheException.class, () -> verwaltung.anmelden(name, "x"));
+        }
+        assertThrows(FachlicheException.class, () -> verwaltung.anmelden("x".repeat(100_000), "x"));
+        FachlicheException gesperrt = assertThrows(FachlicheException.class,
+                () -> verwaltung.anmelden("sb-01", "sb-01"));
+        assertTrue(gesperrt.getMessage().contains("Zu viele fehlgeschlagene"),
+                "die Sperre darf durch Phantom-Kennungen nicht verdrängt werden");
+    }
+
+    @Test
     void abmeldenBeendetDieSitzung() {
         BeweglicheUhr uhr = new BeweglicheUhr();
         Benutzerverwaltung verwaltung = verwaltungMitUhr(uhr);

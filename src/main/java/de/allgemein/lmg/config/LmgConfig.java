@@ -58,7 +58,7 @@ public final class LmgConfig {
         this.dbReadTimeoutMs = Integer.parseInt(
                 resolve(props, "lmg.db.readTimeoutMs", "LMG_DB_READ_TIMEOUT_MS", "120000"));
         this.poolType = resolve(props, "lmg.pool.type", "LMG_POOL_TYP", "ucp");
-        this.poolSize = Integer.parseInt(resolve(props, "lmg.pool.size", "LMG_POOL_GROESSE", "8"));
+        this.poolSize = Integer.parseInt(resolve(props, "lmg.pool.size", "LMG_POOL_GROESSE", "16"));
         this.maxTasks = Integer.parseInt(resolve(props, "lmg.tasks.max", "LMG_TASKS", "8"));
         this.queueCapacity = Integer.parseInt(resolve(props, "lmg.tasks.queue", "LMG_WARTESCHLANGE", "100"));
         this.auditFile = resolve(props, "lmg.audit.file", "LMG_AUDIT_FILE", "lmg_audit.log");

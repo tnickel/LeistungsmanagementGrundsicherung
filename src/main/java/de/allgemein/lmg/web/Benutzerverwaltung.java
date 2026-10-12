@@ -34,6 +34,7 @@ public final class Benutzerverwaltung {
     private static final Duration SPERRDAUER = Duration.ofSeconds(30);
     /** Deckelung der Fehlversuchs-Map gegen Speicher-DoS über Phantom-Kennungen (CR-026). */
     private static final int MAX_FEHLVERSUCH_EINTRAEGE = 1024;
+    private static final int MAX_KENNUNG_LAENGE = 64;
     /** Gültigkeit des Einmal-Tokens für den Bescheid-Druck (CR-027). */
     private static final Duration DRUCK_TOKEN_GUELTIG = Duration.ofSeconds(60);
 
@@ -96,40 +97,57 @@ public final class Benutzerverwaltung {
     /** Prüft Kennung und Passwort; liefert ein Sitzungs-Token oder bricht fachlich ab. */
     public String anmelden(String kennung, String passwort) {
         String bereinigt = kennung == null ? "" : kennung.trim();
-        Fehlversuche bisher = fehlversuche.get(bereinigt);
+        // Schlüssel der Drosselung begrenzen: beliebig lange Eingaben dürfen den Speicher nicht füllen
+        String schluessel = bereinigt.length() > MAX_KENNUNG_LAENGE
+                ? bereinigt.substring(0, MAX_KENNUNG_LAENGE) : bereinigt;
+        Fehlversuche bisher = fehlversuche.get(schluessel);
         if (bisher != null && bisher.gesperrtBis() != null && uhr.instant().isBefore(bisher.gesperrtBis())) {
             throw new FachlicheException(FachlicheException.VALIDATION,
                     "Zu viele fehlgeschlagene Anmeldeversuche — bitte kurz warten");
         }
         Konto konto = bereinigt.isEmpty() ? null : konten.get(bereinigt);
         if (konto == null || !passwortGleich(konto.passwort(), passwort)) {
-            fehlversuche.merge(bereinigt, new Fehlversuche(1, null), (alt, neu) -> {
-                int anzahl = alt.anzahl() + 1;
-                return anzahl >= MAX_FEHLVERSUCHE
-                        ? new Fehlversuche(0, uhr.instant().plus(SPERRDAUER))
-                        : new Fehlversuche(anzahl, null);
-            });
-            raumeFehlversucheAuf();
+            registriereFehlversuch(schluessel);
             // Identische Meldung für unbekannte Kennung und falsches Passwort
             throw new FachlicheException(FachlicheException.VALIDATION, "Kennung oder Passwort ist falsch");
         }
-        fehlversuche.remove(bereinigt);
+        fehlversuche.remove(schluessel);
+        raeumeSitzungenAuf();
         String token = UUID.randomUUID().toString();
         sitzungen.put(token, new Sitzung(new Benutzer(bereinigt, konto.rolle()), uhr.instant()));
         return token;
     }
 
-    /** Entfernt überzählige und abgelaufene Fehlversuch-Einträge (Map bleibt begrenzt). */
-    private void raumeFehlversucheAuf() {
-        if (fehlversuche.size() <= MAX_FEHLVERSUCH_EINTRAEGE) {
-            return;
+    /** Zählt atomar einen Fehlversuch; aktive Sperren werden nie verdrängt. */
+    private void registriereFehlversuch(String schluessel) {
+        if (!fehlversuche.containsKey(schluessel) && fehlversuche.size() >= MAX_FEHLVERSUCH_EINTRAEGE) {
+            raumeFehlversucheAuf();
+            if (fehlversuche.size() >= MAX_FEHLVERSUCH_EINTRAEGE) {
+                return; // nur noch aktive Sperren vorhanden: neue Kennung wird nicht verfolgt
+            }
         }
+        fehlversuche.compute(schluessel, (k, alt) -> {
+            Instant jetzt = uhr.instant();
+            int anzahl = alt == null ? 1 : alt.anzahl() + 1;
+            if (anzahl >= MAX_FEHLVERSUCHE) {
+                return new Fehlversuche(0, jetzt.plus(SPERRDAUER));
+            }
+            return new Fehlversuche(anzahl, alt == null ? null : alt.gesperrtBis());
+        });
+    }
+
+    /** Entfernt Zähler ohne aktive Sperre und abgelaufene Sperren — nie eine laufende Sperre. */
+    private void raumeFehlversucheAuf() {
         Instant jetzt = uhr.instant();
         fehlversuche.entrySet().removeIf(e -> e.getValue().gesperrtBis() == null
                 || jetzt.isAfter(e.getValue().gesperrtBis()));
-        while (fehlversuche.size() > MAX_FEHLVERSUCH_EINTRAEGE) {
-            fehlversuche.remove(fehlversuche.keySet().iterator().next());
-        }
+    }
+
+    /** Entfernt abgelaufene Sitzungen, damit die Map nicht unbegrenzt wächst. */
+    private void raeumeSitzungenAuf() {
+        Instant jetzt = uhr.instant();
+        sitzungen.entrySet().removeIf(e ->
+                Duration.between(e.getValue().zuletztAktiv(), jetzt).compareTo(idleTimeout) > 0);
     }
 
     /** Constant-time-Vergleich, damit die Antwortzeit nicht verrät, wo das erste falsche Zeichen steht. */
@@ -152,8 +170,10 @@ public final class Benutzerverwaltung {
             sitzungen.remove(token);
             return Optional.empty();
         }
-        sitzungen.put(token, new Sitzung(sitzung.benutzer(), uhr.instant()));
-        return Optional.of(sitzung.benutzer());
+        // computeIfPresent: eine parallel abgemeldete Sitzung wird nicht wiederbelebt
+        Sitzung verlaengert = sitzungen.computeIfPresent(token,
+                (t, alt) -> new Sitzung(alt.benutzer(), uhr.instant()));
+        return verlaengert == null ? Optional.empty() : Optional.of(verlaengert.benutzer());
     }
 
     /**

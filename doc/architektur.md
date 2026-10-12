@@ -1,6 +1,6 @@
 # Architektur der Transaktionssteuerung
 
-*Stand: 2026-10-12, Version 0.5.5*
+*Stand: 2026-10-12, Version 0.5.8*
 
 ## Schichtenbild
 
@@ -134,7 +134,7 @@ COMPENSATED` (bzw. zurück zu FAILED, wenn eine Kompensation fehlschlägt).
    (`WHERE … AND STATUS = …`) und werten die Update-Zählung aus — Races mit
    parallelen Kassenläufen/Freigaben werden erkannt statt blind überschrieben.
 
-## Bekannte Grenzen (Stand v0.5.5)
+## Bekannte Grenzen (Stand v0.5.8)
 
 - Watchdog-Abbruch im Commit-Fenster: Das klassische TP-Monitor-Restfenster
   (Commit durch, Abbruch dem Aufrufer gemeldet) ist nicht vollständig
@@ -162,6 +162,41 @@ COMPENSATED` (bzw. zurück zu FAILED, wenn eine Kompensation fehlschlägt).
   Journalzeilen unter BG-Sperre; Rollbacks/Retry und mehrere Serviceinstanzen
   können keinen falschen Dedup-Zustand mehr erzeugen. Auszahlungs-Replays prüfen
   BG/Monat und explizite Bankdaten und protokollieren die erneute Dateneinsicht.
+
+## Nachbesserung nach Gegenprüfung v0.5.8
+
+- **Web:** Pfad-Normalisierung (abschließende `/`) vor Rollenprüfung; Request-Body
+  wird einmal gelesen und bei ORA-08177-Retry wiederverwendet; Überlast
+  (abgelehnte Task-Einreichung) liefert 503 `UEBERLAST` mit `Retry-After`;
+  Standard-Poolgröße 16 (Warnung beim Start, wenn `poolSize < 2 × maxTasks`);
+  JSON-Parser: Tiefenlimit korrekt, `\u`-Escapes strikt hexadezimal;
+  Anmelde-Drosselung: Schlüssel auf 64 Zeichen begrenzt, aktive Sperren werden
+  nie verdrängt, abgelaufene Sitzungen werden periodisch aufgeräumt.
+- **Audit-Log:** Fehlerzeilen enthalten nur Klassenname und ORA-Code, nie die
+  Meldung; Anführungszeichen, Backslashes und Steuerzeichen werden maskiert.
+- **Saga:** mehrdeutiger Commit-Ausgang (Exception nach Commit) wird über
+  `isStepDone` aufgelöst und der fragliche Schritt konservativ kompensiert;
+  Payload wird bei COMPLETED/COMPENSATED auf NULL gesetzt; Wiederanlauf fasst
+  nur Sagas an, die ≥ 5 Minuten inaktiv sind (laufende Sagas bleiben unberührt);
+  Antrags-Saga kompensiert nur selbst angelegte Vorgänge (Journal-Marker
+  `Antrags-Saga <id>: Vorgang <az> erfasst`) und prüft IBAN/BIC.
+- **Fachlogik:** Zahlung nur in vom Bescheid gedeckten Monaten (sobald die BG
+  mindestens einen Bescheid hat); stornierte Zahlungen werden nicht
+  wiederholt gebucht.
+
+Zusätzliche bekannte Grenzen:
+
+- Auszahlungen für BG **ohne** jeden Bescheid bleiben zulässig (Demo/Simulator);
+  produktiv wäre Bescheidpflicht zu erzwingen.
+- Vor dem Upgrade begonnene Antrags-Sagas besitzen keinen Journal-Marker; ihre
+  BG-bezogenen Schritte werden bei Recovery nicht kompensiert (manuelle Prüfung).
+- Der Druck-Token ist nicht an die Sitzung gebunden (60 s, einmalig).
+- `close()` des Servers beendet den Task-Executor nicht; `SimpleConnectionPool`
+  hat kein Closed-Flag (nur Demo/Tests).
+- Einzelne Fachvereinfachungen (Alleinerziehenden-Merkmal, Vermögen ohne
+  Zahlung, IBAN-/Vermögensänderung an historisierter BG) sind nicht modelliert.
+- testsweet: Simulator-Hilfsendpunkte sind nur für lokale Nutzung gedacht
+  (kein Origin-/Host-Check).
 
 ## Monatsbezogene Bescheide seit v0.5.8
 

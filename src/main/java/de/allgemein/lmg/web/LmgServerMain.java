@@ -56,6 +56,11 @@ public final class LmgServerMain {
         CountDownLatch beendet = new CountDownLatch(1);
         try {
             pool = erzeugePool(config);
+            if (config.poolSize() < 2 * config.maxTasks()) {
+                // Jeder Task kann zwei Verbindungen halten (Fachtransaktion + Saga-Journal)
+                System.err.println("WARNUNG: lmg.poolSize (" + config.poolSize() + ") < 2 x lmg.maxTasks ("
+                        + config.maxTasks() + ") — unter Last drohen Pool-Timeouts/Verklemmungen.");
+            }
             TxManager txManager = new TxManager(pool);
             tasks = new TaskController(txManager, config.maxTasks(), config.queueCapacity());
             // KdU-Parameter (§ 42a SGB XII) und Rechtsbehelfsbelehrung (§ 36 SGB X)
@@ -75,6 +80,8 @@ public final class LmgServerMain {
             // Wiederanlauf VOR dem server.start() (CR-050): keine neuen Anfragen, während
             // halbfertige Sagas kompensiert werden.
             int wiederanlauf = diagnose.wiederanlauf();
+            // Ab jetzt laufen Sagas im Betrieb: der Admin-Wiederanlauf darf nur "verwaiste" übernehmen
+            sagas.setzeMindestInaktivitaet(java.time.Duration.ofMinutes(5));
 
             // Geordneter Shutdown (CR-017): Drain-Logik des TaskController läuft jetzt auch
             // bei SIGTERM/SIGINT/Ctrl+C — vorher war sie über den nie erreichten Ende-von-main
@@ -97,7 +104,7 @@ public final class LmgServerMain {
             poolJmx.set(de.allgemein.tx.monitoring.TxMonitoring.registerConnectionPool(pool));
             jmx.set(tasks.registerJmx());
             server.start();
-            System.out.println("SDN.Leistung — Leistungsmanagement Grundsicherung (v0.5.7)");
+            System.out.println("SDN.Leistung — Leistungsmanagement Grundsicherung (v0.5.8)");
             System.out.println("Oberfläche: http://" + config.host() + ":" + config.port() + "/");
             System.out.println("Verbindungspool: " + pool.getClass().getSimpleName()
                     + " (Größe: " + config.poolSize() + ")");

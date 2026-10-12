@@ -21,7 +21,7 @@ public record TxAuditEvent(
         StringBuilder sb = new StringBuilder();
         sb.append(timestamp).append(" [").append(threadName).append("] ")
           .append(category).append(".").append(eventType)
-          .append(" id=").append(correlationId);
+          .append(" id=").append(bereinige(correlationId));
         if (attempt > 0) {
             sb.append(" attempt=").append(attempt);
         }
@@ -29,10 +29,29 @@ public record TxAuditEvent(
             sb.append(" duration=").append(durationMillis).append("ms");
         }
         if (details != null && !details.isBlank()) {
-            sb.append(" details=\"").append(details).append("\"");
+            sb.append(" details=\"").append(bereinige(details)).append("\"");
         }
         if (error != null && !error.isBlank()) {
-            sb.append(" error=\"").append(error).append("\"");
+            sb.append(" error=\"").append(bereinige(error)).append("\"");
+        }
+        return sb.toString();
+    }
+
+    /** Steuerzeichen und Anführungszeichen maskieren: eine Zeile pro Ereignis (Log-Injection). */
+    private static String bereinige(String text) {
+        if (text == null) {
+            return null;
+        }
+        StringBuilder sb = new StringBuilder(text.length());
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == '"' || c == '\\') {
+                sb.append('\\').append(c);
+            } else if (c < 0x20 || c == 0x7f) {
+                sb.append(' ');
+            } else {
+                sb.append(c);
+            }
         }
         return sb.toString();
     }

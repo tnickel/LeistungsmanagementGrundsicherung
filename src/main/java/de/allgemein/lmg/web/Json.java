@@ -187,6 +187,7 @@ public final class Json {
             ueberspringeLeerraum();
             if (aktuell() == '}') {
                 pos++;
+                tiefe--;
                 return objekt;
             }
             while (true) {
@@ -270,7 +271,15 @@ public final class Json {
                             if (pos + 4 > text.length()) {
                                 throw fehler("unvollständige \\u-Escape-Folge");
                             }
-                            aus.append((char) Integer.parseInt(text.substring(pos, pos + 4), 16));
+                            int codeUnit = 0;
+                            for (int i = 0; i < 4; i++) {
+                                int ziffer = Character.digit(text.charAt(pos + i), 16);
+                                if (ziffer < 0) {
+                                    throw fehler("ungültige \\u-Escape-Folge");
+                                }
+                                codeUnit = codeUnit * 16 + ziffer;
+                            }
+                            aus.append((char) codeUnit);
                             pos += 4;
                         }
                         default -> throw fehler("unbekannte Escape-Folge '\\" + esc + "'");

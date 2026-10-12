@@ -124,7 +124,8 @@ class FachlicheNachpruefungDbTest {
             assertEquals(FachlicheException.VALIDATION, fehler.code());
             assertEquals(0, anzahl("BESCHEID", vorgang.id()));
             assertEquals(0, anzahl("ZAHLUNG", vorgang.id()));
-            assertEquals(0, anzahl("JOURNAL", vorgang.id()));
+            // nur der Journal-Marker aus Schritt 1 — die gesperrten Folgeschritte fügen nichts hinzu
+            assertEquals(1, anzahl("JOURNAL", vorgang.id()));
             assertEquals(eur("10000.00"), betrag("SELECT BUDGET_REST FROM BEDARFSGEMEINSCHAFT WHERE ID=" + vorgang.id()));
         }
     }

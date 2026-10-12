@@ -56,6 +56,27 @@ class TxAuditLogTest {
     }
 
     @Test
+    void auditZeileNimmtKeineFremdenZeilenumbruecheAuf(@TempDir Path tempDir) throws IOException {
+        Path logFile = tempDir.resolve("audit.log");
+        TxAuditLog.setAuditFilePath(logFile);
+
+        TxAuditLog.recordSagaFailed("saga-x", "Schritt\n2025-01-01 TX.COMMIT id=gefaelscht \"x\"");
+
+        List<String> zeilen = Files.readAllLines(logFile);
+        assertEquals(1, zeilen.size(), "ein Ereignis = genau eine Zeile (Log-Injection ausgeschlossen)");
+        assertFalse(zeilen.get(0).contains("\n"));
+    }
+
+    @Test
+    void fehlerBeschreibungEnthaeltKeineMeldungMitSozialdaten() {
+        Exception fehler = new IllegalStateException("IBAN DE89370400440532013000 von Max Mustermann");
+        String text = TxAuditLog.fehlerBeschreibung(fehler);
+        assertTrue(text.contains("IllegalStateException"));
+        assertFalse(text.contains("Mustermann"));
+        assertFalse(text.contains("DE89"));
+    }
+
+    @Test
     void schreibtInAuditDatei(@TempDir Path tempDir) throws IOException {
         Path logFile = tempDir.resolve("audit.log");
         TxAuditLog.setAuditFilePath(logFile);

@@ -54,8 +54,28 @@ public interface TxSagaJournal {
     /** Liest, ob ein Schritt bereits kompensiert wurde (eigene kurze Lesetransaktion). */
     boolean isStepCompensated(String sagaId, int index) throws SQLException;
 
+    /**
+     * Liest, ob ein Schritt im Journal als DONE geführt wird (eigene kurze Lesetransaktion).
+     * Dient der Klärung eines mehrdeutigen Commits: Hat die Fachtransaktion trotz Fehlermeldung
+     * committet, steht der Schritt auf DONE und muss mit kompensiert werden. Implementierungen
+     * ohne Lesezugriff liefern konservativ {@code false}.
+     */
+    default boolean isStepDone(String sagaId, int index) throws SQLException {
+        return false;
+    }
+
     /** Alle unvollendeten Sagas (RUNNING/FAILED/COMPENSATING) — ohne Sperre, nur Information. */
     List<UnfinishedSaga> unfinished() throws SQLException;
+
+    /**
+     * Wie {@link #unfinished()}, aber nur Sagas, deren letzte Journal-Aktivität (Kopf oder
+     * Schritt) mindestens {@code mindestInaktivitaet} zurückliegt — schützt lebende Sagas
+     * vor einem Wiederanlauf im laufenden Betrieb. Die Nutzdaten (Payload) werden hier nicht
+     * geladen; sie liefert erst {@link #claimUnfinished}.
+     */
+    default List<UnfinishedSaga> unfinished(java.time.Duration mindestInaktivitaet) throws SQLException {
+        return unfinished();
+    }
 
     /**
      * Beansprucht eine konkrete unvollendete Saga exklusiv für den Wiederanlauf: Die

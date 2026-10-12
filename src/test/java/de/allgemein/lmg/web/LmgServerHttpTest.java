@@ -267,6 +267,23 @@ class LmgServerHttpTest {
     }
 
     @Test
+    void stornoMitAbschliessendemSchraegstrichUmgehtAdminPflichtNicht() {
+        String token = meldeAn("sb-01", "sb-01");
+        for (String pfad : List.of("/api/zahlungen/7/storno", "/api/zahlungen/7/storno/",
+                "/api/zahlungen/7/storno//", "/api/kassenlauf/", "/api/system/status/")) {
+            assertEquals(403, sende("POST", pfad, "{}", token).statusCode(), pfad);
+        }
+    }
+
+    @Test
+    void ueberlangeIdInDruckPfadGibtKein500() {
+        String token = meldeAn("sb-01", "sb-01");
+        int status = sende("GET", "/api/bedarfsgemeinschaften/99999999999999999999999/bescheid/druck",
+                null, token).statusCode();
+        assertTrue(status == 400 || status == 404, "erwartet 4xx, war " + status);
+    }
+
+    @Test
     void adminEndpunktFuerSachbearbeiterGibt403() {
         String token = meldeAn("sb-01", "sb-01");
         assertEquals(403, sende("GET", "/api/system/status", null, token).statusCode());

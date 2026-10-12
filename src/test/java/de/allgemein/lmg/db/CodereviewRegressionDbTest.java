@@ -177,6 +177,59 @@ class CodereviewRegressionDbTest {
     }
 
     // ------------------------------------------------------------------
+    // Nachbesserung v0.5.9: F-01, F-02, F-04
+    // ------------------------------------------------------------------
+
+    private long bgMitFall(String aktenzeichen) {
+        var bg = service.legeBedarfsgemeinschaftAn(aktenzeichen, "Nora Nachprüfung",
+                new BigDecimal("5000.00"), null, "sb-test");
+        SozialFall fall = new SozialFall(1, bg.id(), 1, false, false,
+                new BigDecimal("300.00"), new BigDecimal("0.00"), new BigDecimal("0.00"),
+                new BigDecimal("0.00"), new BigDecimal("0.00"), 1L);
+        service.legeSozialFallAn(bg.id(), fall, "sb-test");
+        return bg.id();
+    }
+
+    /** F-01: Mit vorhandenem Bescheid ist nur ein vom Bescheid gedeckter Monat zahlbar. */
+    @Test
+    void zahlungAusserhalbDesBewilligungszeitraumsWirdAbgelehnt() {
+        long bgId = bgMitFall("BG-CR-ZEITRAUM");
+        service.erteileBescheid(bgId, "2026-10", "2026-10", "sb-test");
+        FachlicheException ausserhalb = assertThrows(FachlicheException.class,
+                () -> service.ordneAuszahlungAn(new Auszahlungsauftrag(
+                        bgId, "CR-ZR-2", "2026-12", "sb-test", false, null, null, null)));
+        assertEquals(FachlicheException.VALIDATION, ausserhalb.code());
+        var gedeckt = service.ordneAuszahlungAn(new Auszahlungsauftrag(
+                bgId, "CR-ZR-1", "2026-10", "sb-test", false, null, null, null));
+        assertEquals("ANGELEGT", gedeckt.zahlung().status());
+    }
+
+    /** F-02: Eine stornierte Zahlung wird durch Wiederholung nicht stillschweigend „erneut“ gebucht. */
+    @Test
+    void wiederholungEinerStorniertenZahlungWirdAbgelehnt() {
+        long bgId = bgMitFall("BG-CR-STORNOREPLAY");
+        var angelegt = service.ordneAuszahlungAn(new Auszahlungsauftrag(
+                bgId, "CR-SR-1", "2026-10", "sb-test", false, null, null, null));
+        service.storniereZahlung(angelegt.zahlung().id(), "sb-admin");
+        FachlicheException fehler = assertThrows(FachlicheException.class,
+                () -> service.ordneAuszahlungAn(new Auszahlungsauftrag(
+                        bgId, "CR-SR-1", "2026-10", "sb-test", false, null, null, null)));
+        assertEquals(FachlicheException.VALIDATION, fehler.code());
+    }
+
+    /** F-04: Scheitert Schritt 1 an einem fremden Aktenzeichen, bleibt der fremde Vorgang unberührt. */
+    @Test
+    void sagaMitFremdemAktenzeichenHistorisiertDenFremdenVorgangNicht() throws Exception {
+        long fremd = bgMitFall("BG-CR-FREMD");
+        assertThrows(RuntimeException.class,
+                () -> sagas.run(AntragsSagaProzess.definition(), sagaPayload("BG-CR-FREMD", "0", "2026-10")));
+        try (Connection c = verbindung()) {
+            assertEquals(1, zahl(c, "SELECT STATUS_AKTIV FROM BEDARFSGEMEINSCHAFT WHERE ID = " + fremd),
+                    "fremder Vorgang bleibt aktiv — Kompensation greift nur auf eigene Anlage");
+        }
+    }
+
+    // ------------------------------------------------------------------
     // Helfer
     // ------------------------------------------------------------------
 

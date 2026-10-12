@@ -103,10 +103,12 @@ public final class LmgServer implements AutoCloseable {
         String methode = exchange.getRequestMethod();
         try {
             if (pfad.startsWith("/api/")) {
-                if (pfad.matches("/api/bedarfsgemeinschaften/\\d+/bescheid/druck") && "GET".equals(methode)) {
+                if (pfad.matches("/api/bedarfsgemeinschaften/\\d{1,18}/bescheid/druck") && "GET".equals(methode)) {
                     bescheidDruck(exchange, pfad);
                 } else {
-                    api(exchange, methode, pfad);
+                    // Abschließende Schrägstriche abschneiden: split("/") verwirft sie, die
+                    // Rollenprüfung (brauchtAdmin) würde sonst anders routen als bearbeiteApi.
+                    api(exchange, methode, pfad.replaceAll("/+$", ""));
                 }
             } else {
                 statisch(exchange, pfad);
@@ -119,6 +121,7 @@ public final class LmgServer implements AutoCloseable {
                     "message", "Technischer Fehler — bitte die Systemdiagnose prüfen "
                             + "(Details stehen im Server-Log)"));
         } finally {
+            koerperCache.remove(exchange);
             exchange.close();
         }
     }
@@ -200,6 +203,9 @@ public final class LmgServer implements AutoCloseable {
                 benutzer = gefunden;
             }
             final Benutzer angemeldet = benutzer;
+            if ("POST".equals(methode) || "PUT".equals(methode)) {
+                rohKoerper(exchange);
+            }
             // Jede Anfrage ist ein Task der Transaktionssteuerung: begrenzte
             // Parallelität + Zeitlimit-Wachhund decken die Last von Tausenden
             // gleichzeitiger Sachbearbeiter ab. IllegalArgumentException aus dem
@@ -222,7 +228,12 @@ public final class LmgServer implements AutoCloseable {
                     : FachlicheException.METHODE_NICHT_UNTERSTUETZT.equals(e.code()) ? 405 : 400;
             antworte(exchange, status, Map.of("code", e.code(), "message", String.valueOf(e.getMessage())));
         } catch (TxException e) {
-            // Oracle-/Infrastrukturdetails nicht nach außen geben, nur ins Log
+            if (e.getCause() instanceof java.util.concurrent.RejectedExecutionException) {
+                exchange.getResponseHeaders().set("Retry-After", "2");
+                antworte(exchange, 503, Map.of("code", "UEBERLAST",
+                        "message", "Server ausgelastet — bitte in Kürze erneut versuchen"));
+                return;
+            }
             java.util.logging.Logger.getLogger(LmgServer.class.getName())
                     .log(java.util.logging.Level.WARNING, "Tx-Fehler bei " + methode + " " + pfad, e);
             antworte(exchange, 500, Map.of("code", "TECHNISCH",
@@ -510,7 +521,7 @@ public final class LmgServer implements AutoCloseable {
                     List.of("GET")),
             new Route("/api/bedarfsgemeinschaften/\\d+", List.of("GET", "PUT")),
             new Route("/api/bedarfsgemeinschaften/\\d+/bescheid", List.of("GET", "POST")),
-            new Route("/api/bedarfsgemeinschaften/\\d+/bescheid/druck", List.of("GET")),
+            new Route("/api/bedarfsgemeinschaften/\\d{1,18}/bescheid/druck", List.of("GET")),
             new Route("/api/bedarfsgemeinschaften/\\d+/sozialfaelle", List.of("POST")),
             new Route("/api/sozialfaelle/\\d+", List.of("PUT")),
             new Route("/api/zahlungen/\\d+/(freigabe|storno)", List.of("POST")));
@@ -771,11 +782,28 @@ public final class LmgServer implements AutoCloseable {
     /** Maximale Größe des Anfragekörpers (Schutz vor Speicher-Exhaustion). */
     private static final int MAX_BODY_BYTES = 1_000_000;
 
-    private Map<String, Object> leseKoerper(HttpExchange exchange) throws IOException {
+    /** Pro Anfrage zwischengespeicherter Körper (HttpExchange.setAttribute wäre kontextweit geteilt!). */
+    private final Map<HttpExchange, byte[]> koerperCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Liest den Körper genau einmal und hält ihn für die Dauer der Anfrage: Task-Wiederholungen
+     * (TxManager-Retry) lesen sonst einen bereits verbrauchten Stream und lieferten 400.
+     */
+    private byte[] rohKoerper(HttpExchange exchange) throws IOException {
+        byte[] vorhanden = koerperCache.get(exchange);
+        if (vorhanden != null) {
+            return vorhanden;
+        }
         byte[] roh = exchange.getRequestBody().readNBytes(MAX_BODY_BYTES + 1);
         if (roh.length > MAX_BODY_BYTES) {
             throw new IllegalArgumentException("Anfragekörper zu groß (maximal 1 MB)");
         }
+        koerperCache.put(exchange, roh);
+        return roh;
+    }
+
+    private Map<String, Object> leseKoerper(HttpExchange exchange) throws IOException {
+        byte[] roh = rohKoerper(exchange);
         String text = new String(roh, StandardCharsets.UTF_8);
         Object geparst = Json.parse(text);
         if (!(geparst instanceof Map<?, ?> map)) {

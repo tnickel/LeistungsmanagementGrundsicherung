@@ -290,6 +290,17 @@ public final class SozialLeistungsService implements LeistungsService {
                                 + "dieser Bedarfsgemeinschaft; ggf. zuerst stornieren");
             }
 
+            // 2d. Liegt für die Bedarfsgemeinschaft bereits ein Bescheid vor, muss ein erteilter
+            //     (nicht aufgehobener) Bescheid den Zahlungsmonat abdecken — sonst würden
+            //     Zahlung und Bescheid-Snapshot auseinanderlaufen (§ 44 Abs. 3 SGB XII).
+            //     Ohne jeden Bescheid bleibt der direkte Buchungsweg zulässig.
+            if (bescheidDao.zaehleFuerBg(ctx, bg.id()) > 0
+                    && !bescheidDao.existiertErteiltFuerMonat(ctx, bg.id(), auftrag.zahlungsmonat())) {
+                throw new FachlicheException(FachlicheException.VALIDATION,
+                        "Für " + auftrag.zahlungsmonat() + " liegt kein erteilter Bewilligungsbescheid vor "
+                                + "(Zahlungsmonat außerhalb des Bewilligungszeitraums oder Bescheid aufgehoben)");
+            }
+
             // 3. Bedarf ermitteln (§§ 27a ff., 42a, 82, 90 SGB XII) und prüfen —
             //    mit dem zum Zahlungsmonat gültigen Satzstand (Tabelle SATZSTAND)
             List<SozialFall> faelle = Bewilligungsplan.faelleFuerMonat(
@@ -701,6 +712,11 @@ public final class SozialLeistungsService implements LeistungsService {
                             Math.min(100, auftrag.empfaengerName().trim().length())), zahlung.empfaengerName()))) {
             throw new FachlicheException(FachlicheException.VALIDATION,
                     "Die Vorgangsnummer gehört bereits zu einem Auftrag mit anderen Auszahlungsdaten");
+        }
+        if ("STORNIERT".equals(zahlung.status())) {
+            throw new FachlicheException(FachlicheException.VALIDATION,
+                    "Die Zahlung zu dieser Vorgangsnummer wurde storniert; für eine erneute Auszahlung "
+                            + "ist eine neue Vorgangsnummer erforderlich");
         }
         protokolliereEinsicht(ctx, zahlung.bgId(), "Auszahlungsdaten (Wiederholung)", auftrag.sachbearbeiterId());
         Bedarfsgemeinschaft bg = bgDao.finde(ctx, zahlung.bgId())

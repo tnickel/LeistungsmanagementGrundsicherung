@@ -270,24 +270,6 @@ public final class Leistungsberechnung {
                 .setScale(SCALE, RoundingMode.HALF_UP);
     }
 
-    private static BigDecimal regelbedarf(Satzstand satzstand, int rbs) {
-        BigDecimal betrag = switch (rbs) {
-            case 1 -> satzstand.rbs1();
-            case 2 -> satzstand.rbs2();
-            case 3 -> satzstand.rbs3();
-            case 4 -> satzstand.rbs4();
-            case 5 -> satzstand.rbs5();
-            case 6 -> satzstand.rbs6();
-            default -> null;
-        };
-        if (betrag == null) {
-            throw new FachlicheException(FachlicheException.RBS_NICHT_KONFIGURIERT,
-                    "Regelbedarfsstufe " + rbs + " ist im Satzstand ab " + satzstand.gueltigAb()
-                            + " nicht hinterlegt (gültig sind die Stufen 1 bis 6)");
-        }
-        return betrag;
-    }
-
     private static BigDecimal erwerbsfreibetrag(BigDecimal erwerbseinkommen, Satzstand satzstand) {
         BigDecimal kappung = satzstand.regelbedarf(1).multiply(ERWERBSFREIBETRAG_KAPPUNG_RBS1)
                 .setScale(SCALE, RoundingMode.HALF_UP);

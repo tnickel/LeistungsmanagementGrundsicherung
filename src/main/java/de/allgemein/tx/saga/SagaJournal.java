@@ -135,7 +135,7 @@ public final class SagaJournal implements TxSagaJournal {
         }
         tx(connection -> {
             int geaendert = execUpdate(connection,
-                    "UPDATE TX_SAGA SET STATE = ?, UPDATED_AT = SYSTIMESTAMP "
+                    "UPDATE TX_SAGA SET STATE = ?, " + payloadLoeschen(state) + "UPDATED_AT = SYSTIMESTAMP "
                             + "WHERE SAGA_ID = ? AND STATE IN (" + platzhalter(vorgaenger) + ")",
                     stmt -> {
                         stmt.setString(1, state.name());
@@ -170,16 +170,51 @@ public final class SagaJournal implements TxSagaJournal {
     }
 
     @Override
+    public boolean isStepDone(String sagaId, int index) throws SQLException {
+        Connection connection = pool.getConnection();
+        try {
+            return UnfinishedSaga.STEP_DONE.equals(leseSchrittState(connection, sagaId, index));
+        } finally {
+            pool.release(connection);
+        }
+    }
+
+    @Override
     public List<UnfinishedSaga> unfinished() throws SQLException {
+        return unfinished(java.time.Duration.ZERO);
+    }
+
+    @Override
+    public List<UnfinishedSaga> unfinished(java.time.Duration mindestInaktivitaet) throws SQLException {
+        boolean mitFrist = mindestInaktivitaet != null && !mindestInaktivitaet.isZero()
+                && !mindestInaktivitaet.isNegative();
+        String frist = mitFrist ? """
+                  AND s.UPDATED_AT <= SYSTIMESTAMP - NUMTODSINTERVAL(?, 'SECOND')
+                  AND NOT EXISTS (SELECT 1 FROM TX_SAGA_STEP x WHERE x.SAGA_ID = s.SAGA_ID
+                                  AND x.UPDATED_AT > SYSTIMESTAMP - NUMTODSINTERVAL(?, 'SECOND'))
+                """ : "";
         String sql = """
                 SELECT s.SAGA_ID, s.SAGA_TYPE, s.PAYLOAD, s.STATE, st.IDX, st.STATE AS STEP_STATE
                 FROM TX_SAGA s
                 LEFT JOIN TX_SAGA_STEP st ON st.SAGA_ID = s.SAGA_ID
                 WHERE s.STATE IN ('RUNNING', 'FAILED', 'COMPENSATING')
+                """ + frist + """
                 ORDER BY s.SAGA_ID, st.IDX
                 """;
         Connection connection = pool.getConnection();
-        try (PreparedStatement stmt = connection.prepareStatement(sql); ResultSet rs = stmt.executeQuery()) {
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            if (mitFrist) {
+                stmt.setLong(1, mindestInaktivitaet.getSeconds());
+                stmt.setLong(2, mindestInaktivitaet.getSeconds());
+            }
+            return leseUnfinished(stmt);
+        } finally {
+            pool.release(connection);
+        }
+    }
+
+    private List<UnfinishedSaga> leseUnfinished(PreparedStatement stmt) throws SQLException {
+        try (ResultSet rs = stmt.executeQuery()) {
             Map<String, UnfinishedSaga> byId = new LinkedHashMap<>();
             List<String> ignoriert = new ArrayList<>();
             while (rs.next()) {
@@ -212,8 +247,6 @@ public final class SagaJournal implements TxSagaJournal {
                 }
             }
             return new ArrayList<>(byId.values());
-        } finally {
-            pool.release(connection);
         }
     }
 
@@ -303,7 +336,8 @@ public final class SagaJournal implements TxSagaJournal {
                 return;
             }
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "UPDATE TX_SAGA SET STATE = ?, UPDATED_AT = SYSTIMESTAMP WHERE SAGA_ID = ?")) {
+                    "UPDATE TX_SAGA SET STATE = ?, " + payloadLoeschen(endState)
+                            + "UPDATED_AT = SYSTIMESTAMP WHERE SAGA_ID = ?")) {
                 stmt.setString(1, endState.name());
                 stmt.setString(2, saga.sagaId());
                 stmt.executeUpdate();
@@ -331,6 +365,15 @@ public final class SagaJournal implements TxSagaJournal {
     // ------------------------------------------------------------------
     // Hilfsmethoden
     // ------------------------------------------------------------------
+
+    /**
+     * Datensparsamkeit (§ 67c SGB X / Art. 5 DSGVO): Der Payload enthält Sozialdaten und wird
+     * nur für den Wiederanlauf gebraucht. Mit dem Endzustand COMPLETED/COMPENSATED entfällt der
+     * Zweck — der Payload wird gelöscht. FAILED behält ihn (manuelle Klärung/Wiederanlauf).
+     */
+    private static String payloadLoeschen(SagaState state) {
+        return state == SagaState.COMPLETED || state == SagaState.COMPENSATED ? "PAYLOAD = NULL, " : "";
+    }
 
     /** Erlaubte Vorgänger-Zustände für einen Zielzustand (Guard der Kopf-Updates). */
     private static String[] vorgaengerVon(SagaState state) {

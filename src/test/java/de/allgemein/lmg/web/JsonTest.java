@@ -35,6 +35,18 @@ class JsonTest {
     }
 
     @Test
+    void leereObjekteZaehlenNichtGegenDasTiefenlimit() {
+        String viele = "[" + "{},".repeat(500) + "{}]";
+        assertEquals(501, ((List<?>) Json.parse(viele)).size());
+    }
+
+    @Test
+    void unicodeEscapeAkzeptiertNurHexziffern() {
+        assertEquals("A", Json.parse("\"\\u0041\""));
+        assertThrows(IllegalArgumentException.class, () -> Json.parse("\"\\u+041\""));
+    }
+
+    @Test
     void sonderzeichenWerdenEscaped() {
         String text = Json.write(Map.of("text", "Zeile1\nZeile2 \"mit Anführungszeichen\" \\ und Backslash"));
         Map<String, Object> geparst = (Map<String, Object>) Json.parse(text);

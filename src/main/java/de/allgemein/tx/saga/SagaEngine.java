@@ -33,10 +33,22 @@ public final class SagaEngine {
 
     private final TxManager txManager;
     private final TxSagaJournal journal;
+    private volatile java.time.Duration mindestInaktivitaet = java.time.Duration.ZERO;
 
     public SagaEngine(TxManager txManager, TxSagaJournal journal) {
         this.txManager = txManager;
         this.journal = journal;
+    }
+
+    /**
+     * Schutz lebender Sagas im laufenden Betrieb: Der Wiederanlauf fasst nur Sagas an, deren
+     * letzte Journal-Aktivität mindestens so lange zurückliegt. Zwischen den Schritt-
+     * Transaktionen hält keine Sperre den Saga-Kopf — ohne diese Frist könnte ein Wiederanlauf
+     * (Admin-Endpunkt oder zweiter Server) eine noch laufende Saga übernehmen. Standard
+     * {@code ZERO} (Start-Wiederanlauf vor dem Annehmen von Anfragen).
+     */
+    public void setzeMindestInaktivitaet(java.time.Duration dauer) {
+        this.mindestInaktivitaet = dauer == null || dauer.isNegative() ? java.time.Duration.ZERO : dauer;
     }
 
     /**
@@ -52,11 +64,13 @@ public final class SagaEngine {
         de.allgemein.tx.audit.TxAuditLog.recordSagaStart(sagaId, definition.type(), payload);
 
         int doneCount = 0;
+        boolean imFlug = false;
         try {
             for (SagaStep step : steps) {
                 final int index = doneCount;
                 // (a) Write-Ahead: Schritt als begonnen markieren, BEVOR die Fachtransaktion läuft.
                 record(() -> journal.markStepInFlight(sagaId, index));
+                imFlug = true;
                 // (b) Fachschritt und Journal-Eintrag in derselben Transaktion (atomarer Commit).
                 TxWork<Void> work = ctx -> {
                     step.action().run(ctx.connection(), payload, sagaId);
@@ -64,6 +78,7 @@ public final class SagaEngine {
                     return null;
                 };
                 txManager.execute(TxOptions.DEFAULT, work);
+                imFlug = false;
                 de.allgemein.tx.audit.TxAuditLog.recordSagaStep(sagaId, index, step.name());
                 doneCount++;
             }
@@ -72,9 +87,17 @@ public final class SagaEngine {
             // weiterreichen. Die FAILED-Markierung darf die Kompensation NIE verhindern
             // (Fund H4/M6): ihr Scheitern wird nur protokolliert.
             markiereStill(sagaId, SagaState.FAILED, "FAILED");
-            de.allgemein.tx.audit.TxAuditLog.recordSagaCompensating(sagaId, e.getMessage());
-            compensate(definition, payload, sagaId, doneCount);
-            de.allgemein.tx.audit.TxAuditLog.recordSagaFailed(sagaId, e.getMessage());
+            de.allgemein.tx.audit.TxAuditLog.recordSagaCompensating(sagaId, de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(e));
+            // Mehrdeutiger Commit: Der fehlgeschlagene Schritt kann trotz Fehlermeldung committet
+            // haben (z. B. Verbindungsabbruch beim Commit). Das Journal klärt das — wie der
+            // Wiederanlauf, der IN_FLIGHT konservativ mit kompensiert, soll auch der Laufzeitpfad
+            // keinen committeten Schritt übersehen.
+            int zuKompensieren = doneCount;
+            if (imFlug && doneCount < steps.size() && schrittCommittet(sagaId, doneCount)) {
+                zuKompensieren = doneCount + 1;
+            }
+            compensate(definition, payload, sagaId, zuKompensieren);
+            de.allgemein.tx.audit.TxAuditLog.recordSagaFailed(sagaId, de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(e));
             throw e;
         }
         // Alle Schritte erfolgreich: Die COMPLETED-Markierung läuft bewusst NACH dem
@@ -137,7 +160,7 @@ public final class SagaEngine {
         int errors = 0;
         List<UnfinishedSaga> kandidaten;
         try {
-            kandidaten = journal.unfinished();
+            kandidaten = journal.unfinished(mindestInaktivitaet);
         } catch (SQLException e) {
             // Journal nicht lesbar: blind weiterlaufen wäre falsch — abbrechen,
             // aber nicht werfen (Fund M3: der Serverstart darf nicht gefährdet werden).
@@ -302,6 +325,17 @@ public final class SagaEngine {
         }
         markiereStill(sagaId, vollstaendig ? SagaState.COMPENSATED : SagaState.FAILED,
                 vollstaendig ? "COMPENSATED" : "FAILED");
+    }
+
+    /** Klärt einen mehrdeutigen Commit über das Journal; bei Lesefehler konservativ „committet". */
+    private boolean schrittCommittet(String sagaId, int index) {
+        try {
+            return journal.isStepDone(sagaId, index);
+        } catch (SQLException e) {
+            LOG.log(Level.WARNING, "Journal nicht lesbar zur Klärung von Schritt " + index + " der Saga "
+                    + sagaId + " — Schritt wird vorsorglich mit kompensiert", e);
+            return true;
+        }
     }
 
     /**

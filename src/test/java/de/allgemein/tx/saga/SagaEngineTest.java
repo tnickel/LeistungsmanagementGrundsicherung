@@ -45,6 +45,23 @@ class SagaEngineTest {
     // ==================================================================
 
     /** (a) Erfolgreiche Saga: je Schritt IN_FLIGHT → DONE, Endstatus COMPLETED. */
+    /**
+     * NEU-06: Scheitert der Commit eines Schritts mehrdeutig (Journal sagt DONE, der Aufrufer
+     * sieht einen Fehler), muss genau dieser Schritt mit kompensiert werden.
+     */
+    @Test
+    void mehrdeutigerCommitKompensiertAuchDenFraglichenSchritt() {
+        SchrittVerhalten verhalten = new SchrittVerhalten(3);
+        FakeJournal journal = new FakeJournal();
+        journal.stepDoneWirftNachCommitBei = 1;
+        SagaEngine engine = new SagaEngine(new TxManager(new FakePool()), journal);
+
+        assertThrows(TxException.class, () -> engine.run(definition("T", verhalten), "{}"));
+
+        assertEquals(List.of("action:0", "action:1", "comp:1", "comp:0"), verhalten.verlauf);
+        assertEquals(SagaState.COMPENSATED.name(), journal.zustand(journal.einzigeSagaId()));
+    }
+
     @Test
     void erfolgreicheSagaMarkiertJedenSchrittInFlightUndDone() {
         SchrittVerhalten verhalten = new SchrittVerhalten(3);
@@ -281,6 +298,8 @@ class SagaEngineTest {
         final Set<String> beansprucht = new HashSet<>();
         boolean completedMarkierungWirft;
         boolean isStepCompensatedWirft;
+        /** Simuliert einen mehrdeutigen Commit: Schritt gilt als DONE, der Aufrufer sieht aber einen Fehler. */
+        int stepDoneWirftNachCommitBei = -1;
 
         String zustand(String sagaId) {
             return koepfe.get(sagaId);
@@ -335,6 +354,15 @@ class SagaEngineTest {
             }
             map.put(index, UnfinishedSaga.STEP_DONE);
             protokoll.add("done:" + index);
+            if (index == stepDoneWirftNachCommitBei) {
+                throw new SQLException("Verbindungsabbruch beim Commit (mehrdeutig)");
+            }
+        }
+
+        @Override
+        public boolean isStepDone(String sagaId, int index) {
+            Map<Integer, String> map = schritte.get(sagaId);
+            return map != null && UnfinishedSaga.STEP_DONE.equals(map.get(index));
         }
 
         @Override

@@ -29,7 +29,7 @@ mit dem Nutzer) mitgeloggt.
 Voraussetzung (einmalig und nach Änderungen am Hauptprojekt):
 
 ```bash
-mvn install          # im Hauptprojekt (installiert transaktionssteuerung-0.5.4 ins lokale Repo)
+mvn install          # im Hauptprojekt (installiert transaktionssteuerung-0.5.8 ins lokale Repo)
 ```
 
 ### Option A: Interaktive Weboberfläche (Standard)
