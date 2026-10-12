@@ -1,6 +1,18 @@
 # Roadmap: Transaktionssteuerung
 
-*Stand: 2026-10-10, Version 0.5.3 (Gegenprüfung der v0.5.2-Fachrechtskorrekturen eingearbeitet)*
+*Stand: 2026-10-12, Version 0.5.8*
+
+## Nachprüfung der Codereview-Fixes v0.5.8
+
+- [x] Monatspläne für Bescheide mit Snapshot-Version 2 (Vermögen, Schwangerschaftsende, bekannte Satzwechsel).
+- [x] Einheitliche Monatsberechnung und Aktivitäts-/Anspruchsprüfung in Service und Saga.
+- [x] BG-Sperren für Falländerung/-anlage und erneute Aktivitätsprüfung vor Kassenübergabe.
+- [x] Parameterbindung und Einsichtsprotokoll für Auszahlungs-Replays; transaktionale Journal-Deduplizierung.
+- [x] Druckantworten mit `no-store`, Vorschau mit aktuell gültigem Satzstand.
+- [x] testsweet: eigene Browserprofile, sichere Wiederaufnahme, globale Prüffehler im Laufresultat.
+
+Prüfbericht mit Reproduktionsbefehlen und Gegenproben:
+`doc/codereview/codereview-nachbesserungsbericht-2026-10-12.md`.
 
 ## Gegenprüfung v0.5.2 → Nacharbeiten (v0.5.3)
 

@@ -29,7 +29,7 @@
     <dependency>
       <groupId>de.allgemein</groupId>
       <artifactId>transaktionssteuerung</artifactId>
-      <version>0.5.7</version>
+      <version>0.5.8</version>
     </dependency>
 
     <!-- Modus 2: Selenium steuert sichtbare Chrome-Fenster, die die echte

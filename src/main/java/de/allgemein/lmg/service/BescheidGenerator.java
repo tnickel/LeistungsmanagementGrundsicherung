@@ -1,6 +1,8 @@
 package de.allgemein.lmg.service;
 
 import de.allgemein.lmg.calc.Leistungsberechnung;
+import de.allgemein.lmg.calc.BerechnungsSnapshot;
+import de.allgemein.lmg.calc.Bewilligungsplan;
 import de.allgemein.lmg.model.Bedarfsgemeinschaft;
 import de.allgemein.lmg.model.Bescheid;
 import de.allgemein.lmg.model.SozialFall;
@@ -79,6 +81,10 @@ public final class BescheidGenerator {
                                        Leistungsberechnung.Berechnungsergebnis berechnung,
                                        Bescheid bescheid, Rechtsbehelf rechtsbehelf,
                                        boolean neuberechnetOhneSnapshot) {
+        List<Bewilligungsplan.Monat> monate = List.of();
+        if (!neuberechnetOhneSnapshot && bescheid.berechnung() != null && !bescheid.berechnung().isBlank()) {
+            monate = BerechnungsSnapshot.lese(bescheid.berechnung()).monate();
+        }
         Rechtsbehelf belehrung = rechtsbehelf == null ? Rechtsbehelf.standard() : rechtsbehelf;
         String snapshotWarnung = neuberechnetOhneSnapshot
                 ? "<div class='vorbehalt'>Hinweis: Für diesen Bescheid ist kein Berechnungs-Snapshot aus "
@@ -106,22 +112,30 @@ public final class BescheidGenerator {
                         + " €; es wird auf den Bedarf angerechnet.</li>"
                 : "";
 
-        StringBuilder fallZeilen = new StringBuilder();
-        int index = 1;
-        for (Leistungsberechnung.FallBerechnung fb : berechnung.faelle()) {
-            SozialFall fall = faelle.stream().filter(f -> f.id() == fb.fallId()).findFirst().orElse(null);
-            fallZeilen.append("<tr>")
-                    .append("<td>Person ").append(index++).append(" (RBS ").append(fall != null ? fall.regelbedarfsstufe() : "-").append(")</td>")
-                    .append("<td class='num'>").append(formatBetrag(fb.regelbedarf())).append(" €</td>")
-                    .append("<td class='num'>").append(formatBetrag(fb.mehrbedarf())).append(" €</td>")
-                    .append("<td class='num'>").append(formatBetrag(fb.kdu())).append(fb.kduUnangemessen() ? " € *" : " €").append("</td>")
-                    .append("<td class='num'><strong>").append(formatBetrag(fb.gesamtbedarf())).append(" €</strong></td>")
-                    .append("<td class='num'>").append(formatBetrag(fb.anrechenbaresEinkommen())).append(" €</td>")
-                    .append("<td class='num'><strong>").append(formatBetrag(fb.zahlbetrag())).append(" €</strong></td>")
-                    .append("</tr>");
-        }
-
         String begruendungPunkte = begruendungPunkte(faelle, berechnung, vermoegenHinweis);
+        String verfuegungsBetrag = "in Höhe von monatlich <strong>" + zahlbetragText + " EUR</strong>";
+        String berechnungsTabellen = berechnungsTabelle(faelle, berechnung, bescheid.zahlbetrag());
+        if (!monate.isEmpty()) {
+            StringBuilder betraege = new StringBuilder("in den folgenden verbindlichen Monatsbeträgen:<table>"
+                    + "<thead><tr><th>Monat</th><th class='num'>Zahlbetrag</th></tr></thead><tbody>");
+            StringBuilder tabellen = new StringBuilder();
+            StringBuilder gruende = new StringBuilder();
+            for (Bewilligungsplan.Monat monat : monate) {
+                betraege.append("<tr><td>").append(escapeHtml(monat.monat())).append("</td><td class='num'><strong>")
+                        .append(formatBetrag(monat.ergebnis().zahlbetrag())).append(" EUR</strong></td></tr>");
+                tabellen.append("<h3>Berechnung für ").append(escapeHtml(monat.monat())).append("</h3>")
+                        .append(berechnungsTabelle(monat.faelle(), monat.ergebnis(), monat.ergebnis().zahlbetrag()));
+                String verm = monat.ergebnis().verwertbaresVermoegen().signum() > 0
+                        ? "<li>Vermögen vor Einsatz: " + formatBetrag(monat.vermoegen())
+                        + " EUR; verwertbares Vermögen (§ 90 SGB XII): "
+                        + formatBetrag(monat.ergebnis().verwertbaresVermoegen()) + " EUR.</li>" : "";
+                gruende.append("<li><strong>").append(escapeHtml(monat.monat())).append("</strong><ul>")
+                        .append(begruendungPunkte(monat.faelle(), monat.ergebnis(), verm)).append("</ul></li>");
+            }
+            verfuegungsBetrag = betraege.append("</tbody></table>").toString();
+            berechnungsTabellen = tabellen.toString();
+            begruendungPunkte = gruende.toString();
+        }
         String belehrungText = belehrungText(belehrung);
         String anschriftZeile = belehrung.anschrift() == null || belehrung.anschrift().isBlank() ? ""
                 : "<div class=\"untertitel\">" + escapeHtml(belehrung.anschrift()) + "</div>";
@@ -165,6 +179,8 @@ public final class BescheidGenerator {
     @media print {
       .druck-button { display: none; }
       body { padding: 0; }
+      tr { break-inside: avoid; }
+      h3 { break-after: avoid; }
     }
   </style>
 </head>
@@ -199,37 +215,13 @@ public final class BescheidGenerator {
     <strong>Verfügungssatz:</strong><br>
     Auf Ihren Antrag werden für die oben genannte Bedarfsgemeinschaft Leistungen der Grundsicherung im Alter
     und bei Erwerbsminderung nach dem Vierten Kapitel des Zwölften Buches Sozialgesetzbuch (SGB XII)
-    für den Bewilligungszeitraum <strong>%s bis %s</strong> (§ 44 SGB XII) in Höhe von monatlich
-    <strong>%s EUR</strong> bewilligt. Die Leistung wird jeweils monatlich im Voraus gezahlt (§ 44 Abs. 4 SGB XII).
+    für den Bewilligungszeitraum <strong>%s bis %s</strong> (§ 44 SGB XII) %s
+    bewilligt. Die Leistung wird jeweils monatlich im Voraus gezahlt (§ 44 Abs. 4 SGB XII).
   </div>
 
   <div class="abschnitt">
     <div class="abschnitt-titel">1. Berechnung des monatlichen Leistungsanspruchs</div>
-    <table>
-      <thead>
-        <tr>
-          <th>Person / Stufe</th>
-          <th class="num">Regelbedarf</th>
-          <th class="num">Mehrbedarf</th>
-          <th class="num">Unterkunft/Heizung</th>
-          <th class="num">Gesamtbedarf</th>
-          <th class="num">Anrech. Einkommen</th>
-          <th class="num">Zahlbetrag</th>
-        </tr>
-      </thead>
-      <tbody>
-        %s
-        <tr class="summenzeile">
-          <td>Gesamtanspruch</td>
-          <td class="num">–</td>
-          <td class="num">–</td>
-          <td class="num">–</td>
-          <td class="num">%s €</td>
-          <td class="num">%s €</td>
-          <td class="num" style="color:#047857; font-size:11pt;">%s €</td>
-        </tr>
-      </tbody>
-    </table>
+    %s
     %s
   </div>
 
@@ -277,11 +269,8 @@ public final class BescheidGenerator {
                 snapshotWarnung,
                 escapeHtml(bescheid.bewilligungVon()),
                 escapeHtml(bescheid.bewilligungBis()),
-                zahlbetragText,
-                fallZeilen.toString(),
-                formatBetrag(berechnung.gesamtbedarf()),
-                formatBetrag(berechnung.anrechenbaresEinkommen()),
-                zahlbetragText,
+                verfuegungsBetrag,
+                berechnungsTabellen,
                 vorbehaltHinweis,
                 escapeHtml(inhaberText),
                 escapeHtml(ibanText),
@@ -290,6 +279,37 @@ public final class BescheidGenerator {
                 belehrungText,
                 ortUndDatum,
                 escapeHtml(bescheid.erstelltVon()));
+    }
+
+    private static String berechnungsTabelle(List<SozialFall> faelle,
+                                             Leistungsberechnung.Berechnungsergebnis berechnung,
+                                             BigDecimal zahlbetrag) {
+        StringBuilder tabelle = new StringBuilder("<table><thead><tr><th>Person / Stufe</th>"
+                + "<th class='num'>Regelbedarf</th><th class='num'>Mehrbedarf</th>"
+                + "<th class='num'>Unterkunft/Heizung</th><th class='num'>Gesamtbedarf</th>"
+                + "<th class='num'>Anrech. Einkommen</th><th class='num'>Zahlbetrag</th></tr></thead><tbody>");
+        int index = 1;
+        for (Leistungsberechnung.FallBerechnung fb : berechnung.faelle()) {
+            SozialFall fall = faelle.stream().filter(f -> f.id() == fb.fallId()).findFirst().orElse(null);
+            tabelle.append("<tr><td>Person ").append(index++).append(" (RBS ")
+                    .append(fall == null ? "–" : fall.regelbedarfsstufe()).append(")</td>");
+            int spalte = 0;
+            for (BigDecimal betrag : List.of(fb.regelbedarf(), fb.mehrbedarf(), fb.kdu(), fb.gesamtbedarf(),
+                    fb.anrechenbaresEinkommen(), fb.zahlbetrag())) {
+                tabelle.append("<td class='num'>").append(formatBetrag(betrag))
+                        .append(spalte++ == 2 && fb.kduUnangemessen() ? " € *" : " €").append("</td>");
+            }
+            tabelle.append("</tr>");
+        }
+        tabelle.append("<tr class='summenzeile'><td>Gesamtanspruch</td><td>–</td><td>–</td><td>–</td>")
+                .append("<td class='num'>").append(formatBetrag(berechnung.gesamtbedarf())).append(" €</td>")
+                .append("<td class='num'>").append(formatBetrag(berechnung.anrechenbaresEinkommen())).append(" €</td>")
+                .append("<td class='num'>").append(formatBetrag(zahlbetrag)).append(" €</td></tr>");
+        if (berechnung.verwertbaresVermoegen().signum() > 0) {
+            tabelle.append("<tr><td colspan='6'>Vermögenseinsatz (§ 90 SGB XII)</td><td class='num'>")
+                    .append(formatBetrag(berechnung.verwertbaresVermoegen())).append(" €</td></tr>");
+        }
+        return tabelle.append("</tbody></table>").toString();
     }
 
     /** Fallbezogene Hauptgründe der Begründung (§ 35 Abs. 1 SGB X). */

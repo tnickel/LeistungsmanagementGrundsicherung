@@ -129,6 +129,10 @@ final class SweetServer {
     private Map<String, Object> status() {
         Map<String, Object> antwort = new LinkedHashMap<>();
         antwort.put("phase", simulator.phase().name());
+        antwort.put("laufErfolgreich", simulator.laufErfolgreich());
+        antwort.put("globalePruefungen", simulator.globalePruefungen().stream().map(p -> Map.of(
+                "beschreibung", p.beschreibung(), "erwartet", p.erwartet(), "ist", p.ist(),
+                "ok", p.ok(), "hinweis", p.hinweis() == null ? "" : p.hinweis())).toList());
         antwort.put("db", Map.of("url", simulator.dbUrl, "user", simulator.dbUser));
         antwort.put("laufdauerSekunden", simulator.laufdauerSekunden());
         antwort.put("letzteFehlermeldung", simulator.letzteFehlermeldung());

@@ -73,7 +73,7 @@ public final class WebSzenarioBibliothek {
         String monat = "2026-10";
 
         List<WebAktion> schritte = new ArrayList<>(List.of(
-                WebAktion.schritt("Anmeldung an der Weboberfläche", WebHelfer::anmeldung),
+                WebAktion.wiederholbar("Anmeldung an der Weboberfläche", WebHelfer::anmeldung),
                 WebAktion.schritt("Neuen Vorgang anlegen (Aktenzeichen " + aktenzeichen + ")",
                         (d, ctx) -> WebHelfer.vorgangAnlegen(d, ctx, aktenzeichen,
                                 "Web, Willi " + nr, budget)),
@@ -83,9 +83,9 @@ public final class WebSzenarioBibliothek {
                                 miete, betrieb, heizung)),
                 WebAktion.schritt("Auszahlung für " + monat + " anordnen",
                         (d, ctx) -> WebHelfer.auszahlungAnordnen(d, ctx, monat)),
-                WebAktion.schritt("Abmelden und als Kollegin/Kollege anmelden (Vier-Augen)",
+                WebAktion.wiederholbar("Abmelden und als Kollegin/Kollege anmelden (Vier-Augen)",
                         WebHelfer::kollegenLogin),
-                WebAktion.schritt("Vorgang über die Suche finden und öffnen",
+                WebAktion.wiederholbar("Vorgang über die Suche finden und öffnen",
                         (d, ctx) -> WebHelfer.vorgangSuchen(d, ctx, aktenzeichen)),
                 WebAktion.schritt("Zahlung freigeben (rechnerisch feststellen)",
                         WebHelfer::freigeben)));
@@ -213,7 +213,7 @@ public final class WebSzenarioBibliothek {
                         "SELECT COUNT(*) FROM BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN = ?",
                         ctx -> List.of(az), 0)))
                 .mitWebAktionen(List.of(
-                        WebAktion.schritt("Anmeldung an der Weboberfläche", WebHelfer::anmeldung),
+                        WebAktion.wiederholbar("Anmeldung an der Weboberfläche", WebHelfer::anmeldung),
                         WebAktion.schritt("Vorgang mit IBAN mit falscher Prüfziffer anlegen",
                                 (d, ctx) -> WebHelfer.vorgangAnlegenFehlschlag(d, ctx, az,
                                         "Web, Negativ " + nr, BigDecimal.valueOf(1200),
@@ -258,7 +258,7 @@ public final class WebSzenarioBibliothek {
                                         + "BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN = ?)",
                                 ctx -> List.of(az), 0)))
                 .mitWebAktionen(List.of(
-                        WebAktion.schritt("Anmeldung an der Weboberfläche", WebHelfer::anmeldung),
+                        WebAktion.wiederholbar("Anmeldung an der Weboberfläche", WebHelfer::anmeldung),
                         WebAktion.schritt("Neuen Vorgang anlegen (Aktenzeichen " + az + ")",
                                 (d, ctx) -> WebHelfer.vorgangAnlegen(d, ctx, az,
                                         "Web, Negativ " + nr, BigDecimal.valueOf(1200))),
@@ -305,7 +305,7 @@ public final class WebSzenarioBibliothek {
                                         + "AND EINKOMMEN_RENTE = ?",
                                 ctx -> List.of(az, rente), 1)))
                 .mitWebAktionen(List.of(
-                        WebAktion.schritt("Anmeldung an der Weboberfläche", WebHelfer::anmeldung),
+                        WebAktion.wiederholbar("Anmeldung an der Weboberfläche", WebHelfer::anmeldung),
                         WebAktion.schritt("Neuen Vorgang anlegen (Aktenzeichen " + az + ")",
                                 (d, ctx) -> WebHelfer.vorgangAnlegen(d, ctx, az,
                                         "Web, Negativ " + nr, BigDecimal.valueOf(1200))),
@@ -363,7 +363,7 @@ public final class WebSzenarioBibliothek {
                                 "SELECT BUDGET_REST FROM BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN = ?",
                                 ctx -> List.of(az), budget.toPlainString())))
                 .mitWebAktionen(List.of(
-                        WebAktion.schritt("Anmeldung an der Weboberfläche", WebHelfer::anmeldung),
+                        WebAktion.wiederholbar("Anmeldung an der Weboberfläche", WebHelfer::anmeldung),
                         WebAktion.schritt("Neuen Vorgang mit Startbudget " + budget.toPlainString()
                                 + " EUR anlegen (bewusst zu klein)",
                                 (d, ctx) -> WebHelfer.vorgangAnlegen(d, ctx, az,
@@ -420,7 +420,7 @@ public final class WebSzenarioBibliothek {
                                 "SELECT BUDGET_REST FROM BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN = ?",
                                 ctx -> List.of(az), budget.subtract(zahlbetrag).toPlainString())))
                 .mitWebAktionen(List.of(
-                        WebAktion.schritt("Anmeldung an der Weboberfläche", WebHelfer::anmeldung),
+                        WebAktion.wiederholbar("Anmeldung an der Weboberfläche", WebHelfer::anmeldung),
                         WebAktion.schritt("Neuen Vorgang anlegen (Aktenzeichen " + az + ")",
                                 (d, ctx) -> WebHelfer.vorgangAnlegen(d, ctx, az,
                                         "Web, Negativ " + nr, budget)),
@@ -478,7 +478,7 @@ public final class WebSzenarioBibliothek {
                                 "SELECT BUDGET_REST FROM BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN = ?",
                                 ctx -> List.of(az), budget.subtract(zahlbetrag).toPlainString())))
                 .mitWebAktionen(List.of(
-                        WebAktion.schritt("Anmeldung an der Weboberfläche", WebHelfer::anmeldung),
+                        WebAktion.wiederholbar("Anmeldung an der Weboberfläche", WebHelfer::anmeldung),
                         WebAktion.schritt("Neuen Vorgang anlegen (Aktenzeichen " + az + ")",
                                 (d, ctx) -> WebHelfer.vorgangAnlegen(d, ctx, az,
                                         "Web, Negativ " + nr, budget)),
@@ -487,9 +487,9 @@ public final class WebSzenarioBibliothek {
                                         miete, betrieb, heizung)),
                         WebAktion.schritt("Auszahlung für 2026-10 anordnen",
                                 (d, ctx) -> WebHelfer.auszahlungAnordnen(d, ctx, "2026-10")),
-                        WebAktion.schritt("Abmelden und als Kollegin/Kollege anmelden (Vier-Augen)",
+                        WebAktion.wiederholbar("Abmelden und als Kollegin/Kollege anmelden (Vier-Augen)",
                                 WebHelfer::kollegenLogin),
-                        WebAktion.schritt("Vorgang über die Suche finden und öffnen",
+                        WebAktion.wiederholbar("Vorgang über die Suche finden und öffnen",
                                 (d, ctx) -> WebHelfer.vorgangSuchen(d, ctx, az)),
                         WebAktion.schritt("Zahlung freigeben (rechnerisch feststellen)",
                                 WebHelfer::freigeben),
@@ -559,7 +559,7 @@ public final class WebSzenarioBibliothek {
                                         + "WHERE AKTENZEICHEN = ?)",
                                 ctx -> List.of(rbs, az), 1)))
                 .mitWebAktionen(List.of(
-                        WebAktion.schritt("Anmeldung an der Weboberfläche", WebHelfer::anmeldung),
+                        WebAktion.wiederholbar("Anmeldung an der Weboberfläche", WebHelfer::anmeldung),
                         WebAktion.schritt("Neuen Vorgang anlegen (Aktenzeichen " + az + ")",
                                 (d, ctx) -> WebHelfer.vorgangAnlegen(d, ctx, az,
                                         "Web, Last " + nr, budget)),

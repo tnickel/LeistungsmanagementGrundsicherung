@@ -65,4 +65,21 @@ class BerechnungsSnapshotTest {
         assertThrows(IllegalArgumentException.class,
                 () -> BerechnungsSnapshot.lese("{\"version\":99}"));
     }
+
+    @Test
+    void monatsplanUeberlebtSnapshotMitAllenBerechnungenUndVermoegensstaenden() throws Exception {
+        SozialFall fall = new SozialFall(8, 7, 1, false, false,
+                eur("300.00"), eur("0.00"), eur("0.00"), eur("0.00"), eur("0.00"), 1);
+        var plan = Bewilligungsplan.erstelle(7, List.of(fall), Leistungsberechnung.KduParameter.AUS,
+                eur("10500.00"), "2026-10", "2026-12", monat -> Satzstand.REFERENZ_2026);
+        var gelesen = BerechnungsSnapshot.lese(BerechnungsSnapshot.schreibe(plan));
+        assertEquals(3, gelesen.monate().size());
+        for (int i = 0; i < plan.monate().size(); i++) {
+            assertEquals(plan.monate().get(i).monat(), gelesen.monate().get(i).monat());
+            assertEquals(plan.monate().get(i).ergebnis(), gelesen.monate().get(i).ergebnis());
+            assertEquals(plan.monate().get(i).vermoegen(), gelesen.monate().get(i).vermoegen());
+        }
+        assertEquals(eur("363.00"), gelesen.ergebnis().zahlbetrag());
+        assertEquals(eur("863.00"), gelesen.monate().get(1).ergebnis().zahlbetrag());
+    }
 }

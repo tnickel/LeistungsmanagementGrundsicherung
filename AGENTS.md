@@ -73,12 +73,24 @@ Redo-Logging, Recovery) — wir programmieren nur die Steuerungsschicht darüber
 5. Der Task-Wachhund unterbricht Tasks nach `TxOptions.timeout`; der Interrupt
    lässt den JDBC-Aufruf fehlschlagen, wodurch die DB zurückrollt.
 
-## Stand (Stand: 2026-10-12, Version 0.5.7)
+## Stand (Stand: 2026-10-12, Version 0.5.8)
 
 Kernbibliothek und Fachschicht vollständig umgesetzt, umfassendem Codereview unterzogen
 (Bericht: `doc/codereview/codereview-bericht-2026-10-12.md`) und auf echter Oracle 19c
 Enterprise Edition (VirtualBox, Port 1921/o19c1p1) sowie 23ai Free verifiziert:
 
+- **v0.5.8 — Nachprüfung und Regressionen**: Bescheide speichern einen monatlichen
+  Bewilligungsplan (Snapshot v2, v1 weiter lesbar) für Vermögensverbrauch,
+  Schwangerschaftsende und bekannte Satzwechsel. Service und Saga lassen ab dem
+  Folgemonat der Entbindung nur den Schwangerschaftsmehrbedarf entfallen; Saga-
+  Schritte prüfen Aktivität und Anspruch unter BG-Sperre. Fallanlage/-änderung und
+  Kassenübergabe sind gegen konkurrierende Historisierung abgesichert. Auszahlungs-
+  Replays binden Vorgangsnummer, BG, Monat und explizite Bankdaten zusammen und
+  protokollieren Einsicht; Journal-Dedup ist transaktional statt im Speicher.
+  Vorschau verwendet den aktuellen Satzstand, Druckantworten setzen `no-store`.
+  testsweet bereinigt nur registrierte eigene Browserprofile, wiederholt keine
+  bestätigten Schreibschritte und wertet globale SQL-Prüffehler als Laufmisserfolg.
+  Verifikation und Grenzen: `doc/codereview/codereview-nachbesserungsbericht-2026-10-12.md`.
 - **v0.5.7 — CR-035/Option D: Zugriffsprotokoll + entschärfte Übersichten**: Jede
   Einsicht in vollständige Falldaten (Vorgangsdetail, Bescheiddaten, Druckansicht) wird
   über die Web-Sitzung mit Kennung im Journal protokolliert („Einsicht: … durch sb-xx",

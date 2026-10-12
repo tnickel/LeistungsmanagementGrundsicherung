@@ -385,7 +385,11 @@ function rendereBescheid(bescheid) {
   const box = $("bescheid-status-text");
   const druckBtn = $("btn-bescheid-drucken");
   if (bescheid && bescheid.id) {
-    box.innerHTML = `<strong>Bescheid erteilt:</strong> ${esc(bescheid.bescheidNr)} · Bescheiddatum: ${esc(bescheid.bescheidDatum || '–')} · Zeitraum: <strong>${esc(bescheid.bewilligungVon)} bis ${esc(bescheid.bewilligungBis)}</strong> · Monatlicher Zahlbetrag: <strong>${betrag(bescheid.zahlbetrag)}</strong> (${esc(bescheid.status)}) · Bearbeiter: ${esc(bescheid.erstelltVon)}`;
+    const monatsplan = bescheid.monatsbetraege || [];
+    const betraege = monatsplan.length > 0
+      ? monatsplan.map(m => `${esc(m.monat)}: <strong>${betrag(m.zahlbetrag)}</strong>`).join(" · ")
+      : `Monatlicher Zahlbetrag: <strong>${betrag(bescheid.zahlbetrag)}</strong>`;
+    box.innerHTML = `<strong>Bescheid erteilt:</strong> ${esc(bescheid.bescheidNr)} · Bescheiddatum: ${esc(bescheid.bescheidDatum || '–')} · Zeitraum: <strong>${esc(bescheid.bewilligungVon)} bis ${esc(bescheid.bewilligungBis)}</strong><br>${betraege} (${esc(bescheid.status)}) · Bearbeiter: ${esc(bescheid.erstelltVon)}`;
     druckBtn.classList.remove("hidden");
     $("bescheid-von").value = bescheid.bewilligungVon || "";
     $("bescheid-bis").value = bescheid.bewilligungBis || "";

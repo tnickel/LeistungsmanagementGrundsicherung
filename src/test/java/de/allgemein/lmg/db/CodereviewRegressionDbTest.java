@@ -113,7 +113,7 @@ class CodereviewRegressionDbTest {
         }
     }
 
-    /** CR-008: Auszahlung nach dem Entbindungsmonat wird abgewiesen (§ 30 Abs. 2). */
+    /** CR-008: Nach Entbindung endet nur der Mehrbedarf, nicht der Grundanspruch. */
     @Test
     void entbindungsmonatBeendetSchwangerenMehrbedarf() throws Exception {
         var bg = service.legeBedarfsgemeinschaftAn("BG-CR-SCHW", "Clara Check",
@@ -124,10 +124,9 @@ class CodereviewRegressionDbTest {
                 new BigDecimal("0.00"), new BigDecimal("0.00"), new BigDecimal("0.00"),
                 new BigDecimal("0.00"), "2026-01", 1L);
         service.legeSozialFallAn(bg.id(), fall, "sb-test");
-        FachlicheException e = assertThrows(FachlicheException.class, () -> service.ordneAuszahlungAn(
-                new Auszahlungsauftrag(bg.id(), "CR-SCHW-1", "2026-03", "sb-test", false, null, null, null)));
-        assertTrue(e.getMessage().contains("Entbindungsmonat") || e.getMessage().contains("§ 30 Abs. 2"),
-                e.getMessage());
+        var ergebnis = service.ordneAuszahlungAn(new Auszahlungsauftrag(
+                bg.id(), "CR-SCHW-1", "2026-03", "sb-test", false, null, null, null));
+        assertEquals(0, ergebnis.zahlung().auszahlungsbetrag().compareTo(new BigDecimal("563.00")));
     }
 
     /** CR-009: Freigabe und Kassenlauf sind für historisierte Vorgänge gesperrt. */

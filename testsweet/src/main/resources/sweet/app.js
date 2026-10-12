@@ -275,6 +275,7 @@ async function aktualisiere() {
         : status.phase === "AUFRAEUMEN" ? "Bereinige Altdaten …"
         : status.phase === "LAUF" ? `Simulation läuft (${fertig} von ${gesamt} erledigt)`
         : status.phase === "VERIFIKATION" ? "SQL-Endzustandsprüfung auf Datenbank …"
+        : status.phase === "FEHLGESCHLAGEN" ? "Globale Datenbank-Verifikation fehlgeschlagen"
         : "Abgeschlossen";
 
     // PDF / Markdown Banner

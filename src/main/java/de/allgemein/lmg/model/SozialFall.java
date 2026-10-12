@@ -18,8 +18,8 @@ import java.math.BigDecimal;
  *
  * <p>Der Schwangeren-Mehrbedarf läuft nach § 30 Abs. 2 nur bis zum Ende des
  * Entbindungsmonats: {@code entbindungsmonat} (Format YYYY-MM, optional) beendet
- * ihn fachlich — Auszahlungen und Bescheide für Monate danach werden abgewiesen,
- * bis das Flag zurückgenommen oder der Entbindungsmonat fortgeschrieben wird.</p>
+     * ihn fachlich — in Bezugsmonaten danach wird nur dieser Mehrbedarf nicht mehr
+     * berücksichtigt; die übrige Leistung bleibt berechenbar.</p>
  */
 public record SozialFall(
         long id,

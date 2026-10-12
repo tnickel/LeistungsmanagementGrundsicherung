@@ -158,3 +158,18 @@ COMPENSATED` (bzw. zurück zu FAILED, wenn eine Kompensation fehlschlägt).
   gilt Option D: Übersichten ohne Bankverbindungsdaten, jede Detail-Einsicht mit
   Kennung im Journal protokolliert (60-s-Zusammenfassung); ein Zuständigkeits-/
   Teammodell (Option B/C) bleibt Ausbaustufe.
+  Seit v0.5.8 erfolgt die Zusammenfassung ausschließlich über persistierte
+  Journalzeilen unter BG-Sperre; Rollbacks/Retry und mehrere Serviceinstanzen
+  können keinen falschen Dedup-Zustand mehr erzeugen. Auszahlungs-Replays prüfen
+  BG/Monat und explizite Bankdaten und protokollieren die erneute Dateneinsicht.
+
+## Monatsbezogene Bescheide seit v0.5.8
+
+`Bewilligungsplan` berechnet jeden Bewilligungsmonat mit seinem Satzstand und
+bekannten Schwangerschaftsende. Der Vermögenseinsatz wird für Folgezeiträume
+simuliert; die Bescheiderteilung verändert den Bestand nicht. Snapshot-Version 2
+speichert die Monatsberechnungen in `BESCHEID.BERECHNUNG` (keine DDL-Migration).
+`BESCHEID.ZAHLBETRAG` bleibt der Anfangsmonatsbetrag. API, Maske und Druck zeigen
+die Einzelbeträge; Version-1-Snapshots bleiben lesbar und werden nicht verändert.
+Nachträgliche Fachänderungen benötigen weiterhin eine gesonderte verfahrensrechtliche
+Abstimmung (siehe `rechtsgrundlagen.md`, Abschnitt 4 Nr. 7).

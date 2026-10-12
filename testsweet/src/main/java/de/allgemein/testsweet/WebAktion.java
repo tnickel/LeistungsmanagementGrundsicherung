@@ -10,7 +10,11 @@ import java.util.Map;
  * Chrome-Fenster. {@code funktion} erhält den Selenium-Treiber und den Kontext
  * (aktenzeichen, monat, kollege …) und liefert eine Detailzeile fürs Protokoll.
  */
-public record WebAktion(String name, WebSchritt funktion) {
+public record WebAktion(String name, WebSchritt funktion, boolean wiederholbar) {
+
+    public WebAktion(String name, WebSchritt funktion) {
+        this(name, funktion, false);
+    }
 
     @FunctionalInterface
     public interface WebSchritt {
@@ -19,5 +23,10 @@ public record WebAktion(String name, WebSchritt funktion) {
 
     public static WebAktion schritt(String name, WebSchritt funktion) {
         return new WebAktion(name, funktion);
+    }
+
+    /** Nur Navigation/Anmeldung; schreibende Aktionen bleiben im Zweifel gesperrt. */
+    public static WebAktion wiederholbar(String name, WebSchritt funktion) {
+        return new WebAktion(name, funktion, true);
     }
 }

@@ -100,6 +100,14 @@ final class LastBericht {
         Aggregate agg = aggregate(simulator);
         SweetPdf inhalt = new SweetPdf();
         String zeitstempel = simulator.laufStart().format(TAG);
+        inhalt.fettZeile("Lauf erfolgreich: " + simulator.laufErfolgreich(),
+                simulator.laufErfolgreich() ? SweetPdf.GRUEN : SweetPdf.ROT, 10f);
+        for (Auftrag.Pruefung pruefung : simulator.globalePruefungen()) {
+            inhalt.text(pruefung.beschreibung() + ": erwartet " + pruefung.erwartet() + ", ist "
+                    + pruefung.ist() + (pruefung.hinweis() == null ? "" : " — " + pruefung.hinweis()),
+                    pruefung.ok() ? SweetPdf.GRUEN : SweetPdf.ROT, 9f);
+        }
+
         inhalt.setzeKopfzeile("SDN.Leistung LMG — Lasttest-Gesamtreport (Lauf " + zeitstempel + ")");
         inhalt.setzeFusszeile("testsweet — Lasttest-Gesamtreport (" + zeitstempel + ")");
 
@@ -303,6 +311,8 @@ final class LastBericht {
         md.append(simulator.letzteKategorie() == Simulator.Kategorie.STRESS
                 ? "# stresstest_gesamtreport\n\n" : "# lasttest_gesamtreport\n\n");
         md.append("# lauf\n\n");
+        kv(md, "lauf_erfolgreich", String.valueOf(simulator.laufErfolgreich()));
+        simulator.globalePruefungen().forEach(p -> kv(md, "globale_pruefung", p.toString()));
         kv(md, "kategorie", String.valueOf(simulator.letzteKategorie()));
         kv(md, "modus", "WEB".equalsIgnoreCase(simulator.letzterModus()) ? "WEB" : "FACHSCHICHT");
         kv(md, "lauf_start", String.valueOf(simulator.laufStart()));

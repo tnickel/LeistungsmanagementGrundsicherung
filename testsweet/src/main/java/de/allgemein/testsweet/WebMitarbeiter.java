@@ -69,8 +69,9 @@ final class WebMitarbeiter implements Runnable {
     }
 
     /** Erzeugt das sichtbare Chrome-Fenster und platziert es im Raster. */
-    private WebDriver erzeugeFenster() {
+    private WebDriver erzeugeFenster() throws IOException {
         ChromeOptions optionen = new ChromeOptions();
+        optionen.addArguments("--user-data-dir=" + BrowserProzesse.neuesProfil());
         // Skalierungsfaktor verkleinert Schrift und Layout dauerhaft, damit die
         // Seiteninhalte auch in den kleinen Rasterfenstern vollständig Platz finden
         optionen.addArguments("--lang=de", "--window-size=900,700",
@@ -92,46 +93,25 @@ final class WebMitarbeiter implements Runnable {
         return d;
     }
 
-    /**
-     * Spielanordnung mit EINMALIGEM Treiber-Neustart: Stirbt der Chrome-Treiber
-     * mitten im Auftrag (Absturz, geschlossenes Fenster), wird das Fenster neu
-     * erzeugt und der Auftrag vollständig wiederholt. Ein zweiter Treibertod
-     * innerhalb desselben Auftrags lässt ihn regulär FEHLGESCHLAGEN enden.
-     */
+    @FunctionalInterface
+    interface Neustart { WebDriver erzeuge() throws Exception; }
+    @FunctionalInterface
+    interface Wiederherstellung { void ausfuehren(WebDriver treiber, Map<String, Object> kontext) throws Exception; }
+
     private void spieleAuftrag(Auftrag auftrag) {
-        Exception treiberTod = spiele(auftrag);
-        if (treiberTod == null) {
-            return;
-        }
-        schliesse();
-        try {
-            treiber = erzeugeFenster();
-        } catch (Exception fensterFehler) {
-            simulator.log().fehler("WEB " + kuerzel, "Fenster-Neustart fehlgeschlagen (Auftrag "
-                    + auftrag.id + "): " + fensterFehler.getClass().getSimpleName()
-                    + ": " + fensterFehler.getMessage());
-            return;
-        }
-        simulator.log().mitarbeiterEreignis(kuerzel, "Treiber-Neustart nach "
-                + treiberTod.getClass().getSimpleName() + " — Auftrag " + auftrag.id
-                + " wird einmalig komplett wiederholt");
-        auftrag.fehlerText = null; // der Wiederholungsversuch darf neu bewertet werden
-        Exception erneut = spiele(auftrag);
-        if (erneut != null) {
-            simulator.log().fehler("WEB " + kuerzel, "Auftrag " + auftrag.id
-                    + " auch nach Treiber-Neustart gescheitert — bleibt FEHLGESCHLAGEN");
-        }
+        spieleAuftrag(auftrag, this::erzeugeFenster, WebHelfer::sitzungWiederherstellen);
     }
 
-    /** Spielt alle UI-Schritte eines Auftrags durch und protokolliert jeden Schritt.
-     *  Rückgabe: Ursache, wenn der Treiber während des Auftrags gestorben ist
-     *  (null sonst) — der Aufrufer darf dann genau einmal neu starten. */
-    private Exception spiele(Auftrag auftrag) {
+    /** Ein bestätigter Schritt wird nie erneut ausgeführt. Bei unklarem Commit-
+     * Ausgang eines Schreibschritts scheitert der Auftrag; der neue Treiber steht
+     * für Folgeaufträge bereit. Nur ausdrücklich wiederholbare Schritte laufen erneut. */
+    void spieleAuftrag(Auftrag auftrag, Neustart neustart, Wiederherstellung wiederherstellung) {
         aktuellerAuftrag = "#" + auftrag.id + " " + auftrag.aktenzeichen;
         auftrag.status = Auftrag.Status.IN_BEARBEITUNG;
         auftrag.bearbeiter = kuerzel;
         auftrag.startZeit = LocalDateTime.now();
         auftrag.startNano = System.nanoTime();
+        auftrag.endeNano = 0;
         Map<String, Object> kontext = new HashMap<>();
         kontext.put("mitarbeiter", kuerzel);
         kontext.put("passwort", passwort);
@@ -140,72 +120,54 @@ final class WebMitarbeiter implements Runnable {
         kontext.put("kollegePasswort", simulator.webPasswort(kollege));
         kontext.put("adminKonto", simulator.webAdminKennung());
         kontext.put("adminPasswort", simulator.webAdminPasswort());
-
-        simulator.log().mitarbeiterEreignis(kuerzel, "nimmt Web-Auftrag " + auftrag.id + " ("
-                + auftrag.szenarioTyp + ", " + auftrag.aktenzeichen + ") — Kollege: " + kollege);
-
         boolean fehlgeschlagen = false;
-        Exception toterTreiber = null;
-        int schrittNr = 0;
-        for (WebAktion aktion : auftrag.webAktionen) {
-            schrittNr++;
+        boolean neuGestartet = false;
+        for (int index = 0; index < auftrag.webAktionen.size(); index++) {
+            WebAktion aktion = auftrag.webAktionen.get(index);
             if (simulator.abgebrochen()) {
-                protokolliere(auftrag, schrittNr, aktion.name(), "ABGEBROCHEN (Lauf gestoppt)", null);
                 fehlgeschlagen = true;
+                auftrag.fehlerText = "Lauf gestoppt";
                 break;
             }
-            String bild = null;
             try {
                 String detail = aktion.funktion().ausfuehren(treiber, kontext);
-                // Passwörter bewusst NICHT in den Auftrag spiegeln (CR-002): der
-                // Kontext des Auftrags wird später in Berichte geschrieben; die
-                // WebHelfer-Schritte lesen die Passwörter weiterhin aus der
-                // lokalen Map. Der Marker (vorgangErstellt …) überlebt auch so
-                // einen Worker-Tod.
                 auftrag.kontext = kontextOhnePasswoerter(kontext);
-                bild = screenshot(auftrag, schrittNr);
-                protokolliere(auftrag, schrittNr, aktion.name(),
-                        "OK" + (detail == null || detail.isBlank() ? "" : " — " + detail), bild);
+                protokolliere(auftrag, index + 1, aktion.name(), "OK — " + detail,
+                        screenshot(auftrag, index + 1));
             } catch (Exception e) {
-                bild = screenshot(auftrag, schrittNr);
-                if (istToterTreiber(e)) {
-                    protokolliere(auftrag, schrittNr, aktion.name(),
-                            "FEHLGESCHLAGEN (" + e.getClass().getSimpleName() + ") — "
-                                    + e.getMessage() + " — Treiber gestorben, Neustart geplant", bild);
-                    auftrag.fehlerText = e.getClass().getSimpleName() + " in UI-Schritt «"
-                            + aktion.name() + "» (Treiber gestorben): " + e.getMessage();
-                    simulator.log().fehler("WEB " + kuerzel, "Auftrag " + auftrag.id + " ("
-                            + auftrag.aktenzeichen + "): Treiber gestorben — "
-                            + auftrag.fehlerText);
-                    toterTreiber = e;
-                    fehlgeschlagen = true;
-                    break;
+                if (istToterTreiber(e) && !neuGestartet) {
+                    neuGestartet = true;
+                    schliesse();
+                    try {
+                        treiber = neustart.erzeuge();
+                        if (aktion.wiederholbar()) {
+                            wiederherstellung.ausfuehren(treiber, kontext);
+                            protokolliere(auftrag, index + 1, aktion.name(),
+                                    "Treiber neu gestartet; bestätigte Schritte bleiben erhalten", null);
+                            index--; // nur den unterbrochenen sicheren Schritt wiederholen
+                            continue;
+                        }
+                    } catch (Exception restartFehler) {
+                        e.addSuppressed(restartFehler);
+                    }
                 }
-                protokolliere(auftrag, schrittNr, aktion.name(),
-                        "FEHLGESCHLAGEN (" + e.getClass().getSimpleName() + ") — "
-                                + e.getMessage(), bild);
-                auftrag.fehlerText = e.getClass().getSimpleName() + " in UI-Schritt «"
-                        + aktion.name() + "»: " + e.getMessage();
-                simulator.log().fehler("WEB " + kuerzel, "Auftrag " + auftrag.id + " ("
-                        + auftrag.aktenzeichen + ") fehlgeschlagen: " + auftrag.fehlerText
-                        + " — Screenshot: " + bild);
                 fehlgeschlagen = true;
+                auftrag.fehlerText = e.getClass().getSimpleName() + " in UI-Schritt «" + aktion.name()
+                        + "»: " + e.getMessage()
+                        + (istToterTreiber(e) && !aktion.wiederholbar()
+                        ? " — Commit-Ausgang unklar; Schreibschritt wird nicht wiederholt" : "");
+                protokolliere(auftrag, index + 1, aktion.name(), "FEHLGESCHLAGEN — " + auftrag.fehlerText,
+                        screenshot(auftrag, index + 1));
+                simulator.log().fehler("WEB " + kuerzel, auftrag.fehlerText);
                 break;
             }
         }
-
         auftrag.kontext = kontextOhnePasswoerter(kontext);
         auftrag.endeZeit = LocalDateTime.now();
         auftrag.endeNano = System.nanoTime();
-        auftrag.status = fehlgeschlagen ? Auftrag.Status.FEHLGESCHLAGEN
-                : Auftrag.Status.FERTIG_GESPIELT;
-        if (!fehlgeschlagen) {
-            erledigt++;
-        }
+        auftrag.status = fehlgeschlagen ? Auftrag.Status.FEHLGESCHLAGEN : Auftrag.Status.FERTIG_GESPIELT;
+        if (!fehlgeschlagen) erledigt++;
         aktuellerAuftrag = null;
-        simulator.log().mitarbeiterEreignis(kuerzel, "Web-Auftrag " + auftrag.id
-                + " abgeschlossen: " + auftrag.status + " (" + auftrag.dauerMs() + " ms)");
-        return toterTreiber;
     }
 
     /** Kopie des Kontexts ohne Passwort-Schlüssel — Passwörter dürfen nie in
@@ -262,82 +224,10 @@ final class WebMitarbeiter implements Runnable {
         }
     }
 
-    /**
-     * Räumt verwaiste Selenium-Fenster auf — aber NUR die der eigenen
-     * Java-Prozesskette: Zuerst wird die eigene PID-Kette über Win32_Process
-     * (ParentProcessId) bis zur Wurzel verfolgt, dann werden rekursiv alle
-     * Kind-Prozesse dieser Kette gesammelt und daraus ausschließlich
-     * chromedriver.exe und deren Automation-Chrome-Fenster (Erkennung über
-     * Selenium-Parameter) beendet. Fremde Chrome-Fenster anderer Nutzer und
-     * Prozesse bleiben unberührt. Der Skript-Body ist identisch zu
-     * testsweet/raeume-fenster.ps1.
-     */
+    /** Schließt ausschließlich Chrome-Fenster mit registriertem eigenen Profil. */
     static void raeumeVerwaisteFensterAuf() {
-        try {
-            ProcessBuilder pb = new ProcessBuilder("powershell", "-NoProfile",
-                    "-ExecutionPolicy", "Bypass", "-Command", RAEUME_SKRIPT);
-            pb.start().waitFor(20, java.util.concurrent.TimeUnit.SECONDS);
-        } catch (Exception ignored) {
-            // Ohne PowerShell: wenigstens die chromedriver-Prozesse der EIGENEN
-            // Prozesskette beenden (Descendants des aktuellen Prozesses statt
-            // global — fremde Treiber bleiben unberührt)
-            ProcessHandle aktuelleKette = ProcessHandle.current();
-            aktuelleKette.descendants()
-                    .filter(p -> p.info().command()
-                            .map(c -> c.toLowerCase().endsWith("chromedriver.exe")).orElse(false))
-                    .forEach(p -> {
-                        try {
-                            p.destroy();
-                        } catch (Exception ignoredToo) {
-                            // nichts weiter zu tun
-                        }
-                    });
-        }
+        BrowserProzesse.raeumeVerwaisteFensterAuf();
     }
-
-    /** PowerShell-Skript zum kettenbegrenzten Aufräumen (identisch zu raeume-fenster.ps1). */
-    private static final String RAEUME_SKRIPT = """
-            $prozesse = @()
-            try { $prozesse = Get-CimInstance Win32_Process -ErrorAction Stop } catch {}
-            if (@($prozesse).Count -eq 0) {
-                Write-Output 'Prozessliste nicht ermittelbar — es wurde nichts beendet'
-                exit 0
-            }
-            # Eigene PID-Kette nach oben verfolgen (Abbruch bei Zyklus oder Wurzel)
-            $kette = New-Object System.Collections.Generic.HashSet[uint32]
-            $aktuell = [uint32]$PID
-            while ($aktuell -and $aktuell -ne 0 -and -not $kette.Contains($aktuell)) {
-                [void]$kette.Add($aktuell)
-                $eintrag = $prozesse | Where-Object { $_.ProcessId -eq $aktuell } | Select-Object -First 1
-                if ($null -eq $eintrag) { break }
-                $aktuell = [uint32]$eintrag.ParentProcessId
-            }
-            # Alle Kind-Prozesse der Kette rekursiv sammeln (chromedriver, chrome darunter)
-            $eigene = New-Object System.Collections.Generic.HashSet[uint32]
-            $warteschlange = [System.Collections.Generic.Queue[uint32]]::new()
-            foreach ($id in $kette) { $warteschlange.Enqueue($id) }
-            while ($warteschlange.Count -gt 0) {
-                $id = $warteschlange.Dequeue()
-                foreach ($p in ($prozesse | Where-Object { $_.ParentProcessId -eq $id })) {
-                    if (-not $eigene.Contains([uint32]$p.ProcessId)) {
-                        [void]$eigene.Add([uint32]$p.ProcessId)
-                        $warteschlange.Enqueue([uint32]$p.ProcessId)
-                    }
-                }
-            }
-            # Nur eigene chromedriver-/Automation-Chrome-Prozesse beenden
-            $ziele = $prozesse | Where-Object {
-                ($_.ProcessId -ne $PID) -and $eigene.Contains([uint32]$_.ProcessId) -and (
-                    $_.Name -eq 'chromedriver.exe' -or
-                    ($_.Name -eq 'chrome.exe' -and ($_.CommandLine -like '*--remote-debugging-pipe*' -or $_.CommandLine -like '*--test-type*')))
-            }
-            if (@($ziele).Count -eq 0) {
-                Write-Output 'Keine verwaisten Fenster der eigenen Prozesskette gefunden'
-            } else {
-                foreach ($z in $ziele) { Stop-Process -Id $z.ProcessId -Force -ErrorAction SilentlyContinue }
-                Write-Output ('Aufgeraeumt: ' + @($ziele).Count + ' Prozess(e) der eigenen Kette beendet')
-            }
-            """;
 
     /** Einmalige Treiber-Vorbereitung (lädt den passenden ChromeDriver). */
     static synchronized void bereiteTreiberVor() {

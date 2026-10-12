@@ -3,6 +3,7 @@ package de.allgemein.lmg.web;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import de.allgemein.lmg.calc.Leistungsberechnung;
+import de.allgemein.lmg.calc.BerechnungsSnapshot;
 import de.allgemein.lmg.model.Bedarfsgemeinschaft;
 import de.allgemein.lmg.model.Journaleintrag;
 import de.allgemein.lmg.model.SozialFall;
@@ -123,6 +124,9 @@ public final class LmgServer implements AutoCloseable {
     }
 
     private void bescheidDruck(HttpExchange exchange, String pfad) throws IOException {
+        // Auch die Druckansicht enthält Sozialdaten; Einmal-Token und Abmeldung
+        // dürfen nicht durch eine gespeicherte Browser-/Proxyantwort umgangen werden.
+        exchange.getResponseHeaders().set("Cache-Control", "no-store");
         // Einziger Endpunkt, der den Token aus dem Query-String akzeptiert:
         // window.open kann keinen Authorization-Header setzen. Alle anderen
         // Endpunkte lesen den Token ausschließlich aus dem Header.
@@ -344,7 +348,7 @@ public final class LmgServer implements AutoCloseable {
             String bis = textWert(body.get("bewilligungBis"), "Bewilligung bis");
             Bescheid b = service.erteileBescheid(bgId, von, bis, angemeldet.kennung());
             return Map.of("bescheid", bescheidMap(b),
-                    "hinweis", "Bescheid " + b.bescheidNr() + " über " + b.zahlbetrag() + " EUR erteilt.");
+                    "hinweis", "Bescheid " + b.bescheidNr() + " mit Monatsplan erteilt.");
         }
         if (teile.length == 5 && teile[2].equals("bedarfsgemeinschaften")
                 && teile[4].equals("sozialfaelle") && "POST".equals(methode)) {
@@ -729,6 +733,13 @@ public final class LmgServer implements AutoCloseable {
         map.put("bewilligungVon", b.bewilligungVon());
         map.put("bewilligungBis", b.bewilligungBis());
         map.put("zahlbetrag", b.zahlbetrag());
+        var monate = b.berechnung() == null ? List.<de.allgemein.lmg.calc.Bewilligungsplan.Monat>of()
+                : BerechnungsSnapshot.lese(b.berechnung()).monate();
+        map.put("monatsbetraege", monate.stream()
+                .map(monat -> Map.<String, Object>of("monat", monat.monat(),
+                        "zahlbetrag", monat.ergebnis().zahlbetrag())).toList());
+        map.put("zahlbetragVariabel", !monate.isEmpty() && monate.stream().anyMatch(monat ->
+                monat.ergebnis().zahlbetrag().compareTo(monate.get(0).ergebnis().zahlbetrag()) != 0));
         map.put("status", b.status());
         map.put("erstelltVon", b.erstelltVon());
         map.put("erstelltAm", b.erstelltAm() != null ? b.erstelltAm().toString() : null);

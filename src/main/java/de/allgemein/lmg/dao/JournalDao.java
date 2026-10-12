@@ -38,6 +38,24 @@ public final class JournalDao {
         }
     }
 
+    /** Prüfung unter BG-Sperre: nur ein persistierter Zugriff eröffnet das 60-s-Fenster. */
+    public boolean existiertEinsichtSeit60Sekunden(TxContext ctx, long bgId, String aktionText,
+                                                 String sachbearbeiterId) throws SQLException {
+        try (PreparedStatement stmt = ctx.connection().prepareStatement(
+                "SELECT 1 FROM JOURNAL WHERE BG_ID = ? AND AKTION_TEXT = ? AND SACHBEARBEITER_ID = ? "
+                        // ERSTELLT_AM ist TIMESTAMP ohne Zeitzone wie der DEFAULT SYSTIMESTAMP.
+                        // Der Cast verhindert eine Umdeutung durch die JDBC-Session-Zeitzone.
+                        + "AND ERSTELLT_AM >= CAST(SYSTIMESTAMP AS TIMESTAMP) - INTERVAL '60' SECOND "
+                        + "FETCH FIRST 1 ROW ONLY")) {
+            stmt.setLong(1, bgId);
+            stmt.setString(2, aktionText);
+            stmt.setString(3, sachbearbeiterId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
     public List<Journaleintrag> letzteFuerBg(TxContext ctx, long bgId, int limit) throws SQLException {
         try (PreparedStatement stmt = ctx.connection().prepareStatement(
                 "SELECT " + COLUMNS + " FROM JOURNAL WHERE BG_ID = ? "

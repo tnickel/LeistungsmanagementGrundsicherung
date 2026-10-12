@@ -33,13 +33,43 @@ public final class BerechnungsSnapshot {
     public record Gelesen(
             Leistungsberechnung.Berechnungsergebnis ergebnis,
             List<SozialFall> faelle,
-            BigDecimal vermoegen) {
+            BigDecimal vermoegen,
+            List<Bewilligungsplan.Monat> monate) {
+        public Gelesen {
+            faelle = List.copyOf(faelle);
+            monate = List.copyOf(monate);
+        }
+        public Gelesen(Leistungsberechnung.Berechnungsergebnis ergebnis,
+                       List<SozialFall> faelle, BigDecimal vermoegen) {
+            this(ergebnis, faelle, vermoegen, List.of());
+        }
     }
 
     public static String schreibe(
             Leistungsberechnung.Berechnungsergebnis ergebnis,
             List<SozialFall> faelle,
             BigDecimal vermoegen) {
+        return Json.write(alsObjekt(ergebnis, faelle, vermoegen));
+    }
+
+    /** Version 2 enthält jeden bewilligten Monat einschließlich seiner Berechnungsbasis. */
+    public static String schreibe(Bewilligungsplan.Plan plan) {
+        Bewilligungsplan.Monat erster = plan.ersterMonat();
+        Map<String, Object> wurzel = alsObjekt(erster.ergebnis(), erster.faelle(), erster.vermoegen());
+        wurzel.put("version", 2);
+        List<Object> monate = new ArrayList<>();
+        for (Bewilligungsplan.Monat monat : plan.monate()) {
+            Map<String, Object> eintrag = alsObjekt(monat.ergebnis(), monat.faelle(), monat.vermoegen());
+            eintrag.put("monat", monat.monat());
+            monate.add(eintrag);
+        }
+        wurzel.put("monate", monate);
+        return Json.write(wurzel);
+    }
+
+    private static Map<String, Object> alsObjekt(
+            Leistungsberechnung.Berechnungsergebnis ergebnis,
+            List<SozialFall> faelle, BigDecimal vermoegen) {
         List<Object> fallEintraege = new ArrayList<>();
         for (Leistungsberechnung.FallBerechnung fb : ergebnis.faelle()) {
             SozialFall fall = faelle.stream()
@@ -77,7 +107,7 @@ public final class BerechnungsSnapshot {
         wurzel.put("verwertbaresVermoegen", betragText(ergebnis.verwertbaresVermoegen()));
         wurzel.put("zahlbetrag", betragText(ergebnis.zahlbetrag()));
         wurzel.put("faelle", fallEintraege);
-        return Json.write(wurzel);
+        return wurzel;
     }
 
     @SuppressWarnings("unchecked")
@@ -88,9 +118,29 @@ public final class BerechnungsSnapshot {
         }
         Map<String, Object> wurzel = (Map<String, Object>) wurzelObj;
         int version = zahlAlsInt(wurzel.get("version"), "version");
-        if (version != VERSION) {
+        if (version != VERSION && version != 2) {
             throw new IllegalArgumentException("Berechnungs-Snapshot hat Version " + version
-                    + ", lesbar ist nur Version " + VERSION);
+                    + ", lesbar sind Version 1 und 2");
+        }
+        if (version == 2) {
+            if (!(wurzel.get("monate") instanceof List<?> eintraege) || eintraege.isEmpty()) {
+                throw new IllegalArgumentException("Berechnungs-Snapshot enthält keinen Monatsplan");
+            }
+            List<Bewilligungsplan.Monat> monate = new ArrayList<>();
+            for (Object eintrag : eintraege) {
+                if (!(eintrag instanceof Map<?, ?> monatObj)
+                        || !(monatObj.get("monat") instanceof String monat)) {
+                    throw new IllegalArgumentException("Berechnungs-Snapshot enthält ungültigen Monat");
+                }
+                java.time.YearMonth.parse(monat);
+                if (zahlAlsInt(monatObj.get("version"), "version") != VERSION) {
+                    throw new IllegalArgumentException("Ungültige Version der Monatsberechnung");
+                }
+                Gelesen gelesen = lese(Json.write(monatObj));
+                monate.add(new Bewilligungsplan.Monat(monat, gelesen.ergebnis(), gelesen.faelle(), gelesen.vermoegen()));
+            }
+            Bewilligungsplan.Monat erster = monate.get(0);
+            return new Gelesen(erster.ergebnis(), erster.faelle(), erster.vermoegen(), monate);
         }
         long bgId = zahlAlsLong(wurzel.get("bgId"), "bgId");
         List<Leistungsberechnung.FallBerechnung> fallBerechnungen = new ArrayList<>();

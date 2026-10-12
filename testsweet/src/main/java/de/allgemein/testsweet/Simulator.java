@@ -59,7 +59,7 @@ public final class Simulator {
         }
     }
 
-    public enum Phase { BEREIT, AUFRAEUMEN, LAUF, VERIFIKATION, FERTIG, ABGEBROCHEN }
+    public enum Phase { BEREIT, AUFRAEUMEN, LAUF, VERIFIKATION, FERTIG, FEHLGESCHLAGEN, ABGEBROCHEN }
 
     public final String dbUrl;
     public final String dbUser;
@@ -70,6 +70,7 @@ public final class Simulator {
     private volatile List<Mitarbeiter> mitarbeiter = List.of();
     private volatile LaufKonfiguration konfiguration;
     private volatile SweetLog log;
+    private volatile List<Auftrag.Pruefung> globalePruefungen = List.of();
     private volatile SimpleConnectionPool pool;
     private volatile SozialLeistungsService service;
     private volatile boolean abgebrochen;
@@ -403,6 +404,7 @@ public final class Simulator {
         laufStartNano = System.nanoTime();
         laufEnde = null;
         laufEndeNano = 0;
+        globalePruefungen = List.of();
         log = new SweetLog(PathLogBasis());
         letztesLogVerzeichnis = log.runVerzeichnis.toString();
         log.ereignis("SIMULATOR", "", "Web-Lauf gestartet: " + konfig.mitarbeiter()
@@ -484,7 +486,8 @@ public final class Simulator {
             phase = Phase.VERIFIKATION;
             int verifiziert = new Verifikator(dbUrl, dbUser, dbPass).verifiziereAlle(auftraege, log);
             globalerKonsistenzcheck();
-            phase = Phase.FERTIG;
+            phase = globalePruefungen.stream().allMatch(Auftrag.Pruefung::ok)
+                    ? Phase.FERTIG : Phase.FEHLGESCHLAGEN;
             log.ereignis("SIMULATOR", "", "Web-Verifikation abgeschlossen: " + verifiziert
                     + " von " + auftraege.size() + " Aufträgen vollständig verifiziert");
         }
@@ -583,6 +586,7 @@ public final class Simulator {
         laufStartNano = System.nanoTime();
         laufEnde = null;
         laufEndeNano = 0;
+        globalePruefungen = List.of();
         log = new SweetLog(PathLogBasis());
         letztesLogVerzeichnis = log.runVerzeichnis.toString();
         log.ereignis("SIMULATOR", "", "Lauf gestartet: " + konfig.mitarbeiter() + " Mitarbeiter, "
@@ -647,7 +651,8 @@ public final class Simulator {
             int gespielt = (int) auftraege.stream()
                     .filter(a -> a.status == Auftrag.Status.FERTIG_GESPIELT).count();
             globalerKonsistenzcheck();
-            phase = Phase.FERTIG;
+            phase = globalePruefungen.stream().allMatch(Auftrag.Pruefung::ok)
+                    ? Phase.FERTIG : Phase.FEHLGESCHLAGEN;
             log.ereignis("SIMULATOR", "", "Verifikation abgeschlossen: " + verifiziert + " von "
                     + gespielt + " erfolgreich gespielten Aufträgen vollständig verifiziert");
         }
@@ -773,105 +778,45 @@ public final class Simulator {
         }
     }
 
-    /** Globale Zusatzprüfung: (1) Anzahl SWEET-Vorgänge passt zu den erzeugten
-     *  Bedarfsgemeinschaften — Fachschicht: Aufträge mit bgId (KEIN_ANSPRUCH erzeugt
-     *  keine); Web: Auftraege mit Vorgangs-Marker aus WebHelfer.vorgangAnlegen
-     *  (Negativszenarien wehren die Anlage bewusst ab). Dazu zwei vorgangsübergreifende
-     *  Invarianten über ALLE SWEET-%-Vorgänge: (2) keine Übergabe ohne Freigabe
-     *  (UEBERGEBEN erfordert FREIGEGEBEN_VON) und (3) keine stornierte Zahlung zu
-     *  einem FEHLGESCHLAGENEN Auftrag des Laufs (Zuordnung über das Aktenzeichen). */
+    public List<Auftrag.Pruefung> globalePruefungen() { return globalePruefungen; }
+
+    public boolean laufErfolgreich() {
+        return phase == Phase.FERTIG && auftraege.stream().allMatch(a -> a.status == Auftrag.Status.VERIFIZIERT)
+                && globalePruefungen.stream().allMatch(Auftrag.Pruefung::ok);
+    }
+
     private void globalerKonsistenzcheck() {
-        try (Connection c = DriverManager.getConnection(dbUrl, dbUser, dbPass);
-             Statement st = c.createStatement();
-             ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM BEDARFSGEMEINSCHAFT "
-                     + "WHERE AKTENZEICHEN LIKE '" + SzenarioBibliothek.PREFIX + "%'")) {
-            rs.next();
-            long vorhandene = rs.getLong(1);
-            // Web: zählt jeder Auftrag, dessen Vorgang über die Oberfläche wirklich
-            // angelegt wurde (NEGATIV-Szenarien wehren die Anlage bewusst ab — der
-            // Marker "vorgangErstellt" kommt aus WebHelfer.vorgangAnlegen).
-            // Fachschicht: Aufträge mit bgId (KEIN_ANSPRUCH erzeugt keine BG).
-            long erwartete;
-            if (kategorieLetzter == Kategorie.STRESS) {
-                // Stresstest: zwei Aufträge (ANLEGEN + BEARBEITEN) teilen sich je einen User
-                erwartete = (int) Math.ceil(auftraege.size() / 2.0);
-            } else if ("WEB".equals(modusLetzter)) {
-                erwartete = auftraege.stream().filter(a -> Boolean.TRUE.equals(
-                        a.kontext.get("vorgangErstellt"))).count();
-            } else {
-                erwartete = auftraege.stream().filter(a -> a.bgId != null).count();
-            }
-            String text = "Globaler Konsistenzcheck: " + vorhandene + " SWEET-Vorgänge in der DB, "
-                    + erwartete + " erwartet";
-            log.ereignis("VERIFIKATION", "", text + (vorhandene == erwartete ? " — OK" : " — ABWEICHUNG!"));
-            if (vorhandene != erwartete) {
-                log.fehler("VERIFIKATION", text);
-            }
-        } catch (Exception e) {
-            log.fehler("VERIFIKATION", "Globaler Konsistenzcheck gescheitert: " + e.getMessage());
-        }
-        pruefeKeineUebergabeOhneFreigabe();
-        pruefeKeineStornierteZahlungFehlgeschlagenerAuftraege();
+        long erwartete = kategorieLetzter == Kategorie.STRESS ? (long) Math.ceil(auftraege.size() / 2.0)
+                : "WEB".equals(modusLetzter) ? auftraege.stream().filter(a -> Boolean.TRUE.equals(
+                        a.kontext.get("vorgangErstellt"))).count()
+                : auftraege.stream().filter(a -> a.bgId != null).count();
+        uebernehmeGlobalePruefungen(GlobaleVerifikation.pruefe(
+                () -> DriverManager.getConnection(dbUrl, dbUser, dbPass), erwartete, auftraege));
     }
 
-    /** Invariante: KEINE Zahlung im Status UEBERGEBEN ohne Freigabevermerk —
-     *  die Übergabe an die Kasse setzt serverseitig die Vier-Augen-Freigabe voraus. */
-    private void pruefeKeineUebergabeOhneFreigabe() {
-        try (Connection c = DriverManager.getConnection(dbUrl, dbUser, dbPass);
-             Statement st = c.createStatement();
-             ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM ZAHLUNG WHERE "
-                     + "ZAHLUNGSSTATUS = 'UEBERGEBEN' AND FREIGEGEBEN_VON IS NULL AND BG_ID IN "
-                     + "(SELECT ID FROM BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN LIKE '"
-                     + SzenarioBibliothek.PREFIX + "%')")) {
-            rs.next();
-            long verstoesse = rs.getLong(1);
-            String text = "Globaler Konsistenzcheck: " + verstoesse
-                    + " übergebene Zahlung(en) ohne Freigabevermerk (erwartet 0)";
-            log.ereignis("VERIFIKATION", "", text + (verstoesse == 0 ? " — OK" : " — ABWEICHUNG!"));
-            if (verstoesse != 0) {
-                log.fehler("VERIFIKATION", text);
+    void uebernehmeGlobalePruefungen(List<Auftrag.Pruefung> pruefungen) {
+        globalePruefungen = List.copyOf(pruefungen);
+        boolean fehler = pruefungen.stream().anyMatch(p -> !p.ok());
+        long anzahlFehler = pruefungen.stream().filter(p -> !p.ok()).count();
+        Auftrag.Pruefung laufPruefung = new Auftrag.Pruefung("Globale Laufverifikation", "0 Fehler",
+                anzahlFehler + " Fehler", !fehler, "Einzelheiten stehen in den globalen Laufprüfungen");
+        for (Auftrag auftrag : auftraege) {
+            // Ein Laufresultat je Auftrag; keine quadratische Vervielfachung
+            // der Einzelprüfungen bei großen Fehlerwellen.
+            auftrag.ergaenzePruefung(laufPruefung);
+            if (fehler && auftrag.status == Auftrag.Status.VERIFIZIERT) {
+                auftrag.status = Auftrag.Status.VERIFIKATION_FEHLGESCHLAGEN;
             }
-        } catch (Exception e) {
-            log.fehler("VERIFIKATION", "Check „keine Übergabe ohne Freigabe“ gescheitert: "
-                    + e.getMessage());
         }
-    }
-
-    /** Invariante (heuristisch über das Aktenzeichen): Zu FEHLGESCHLAGENEN Aufträgen
-     *  des Laufs darf keine STORNIERT-Zahlung gehören — ein gescheiterter Auftrag
-     *  soll keine halbfertigen Storno-Spuren hinterlassen. */
-    private void pruefeKeineStornierteZahlungFehlgeschlagenerAuftraege() {
-        List<String> aktenzeichen = auftraege.stream()
-                .filter(a -> a.status == Auftrag.Status.FEHLGESCHLAGEN)
-                .map(a -> a.aktenzeichen)
-                .filter(az -> az != null && !az.isBlank() && !"-".equals(az))
-                .distinct()
-                .toList();
-        if (aktenzeichen.isEmpty()) {
-            log.ereignis("VERIFIKATION", "",
-                    "Globaler Konsistenzcheck: keine fehlgeschlagenen Aufträge — "
-                    + "Storno-Spurenanalyse entfällt (0 Verstöße)");
-            return;
+        for (Auftrag.Pruefung pruefung : pruefungen) {
+            if (log != null) log.ereignis("VERIFIKATION", "", pruefung.toString());
         }
-        String liste = aktenzeichen.stream()
-                .map(az -> "'" + az.replace("'", "''") + "'")
-                .collect(java.util.stream.Collectors.joining(","));
-        try (Connection c = DriverManager.getConnection(dbUrl, dbUser, dbPass);
-             Statement st = c.createStatement();
-             ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM ZAHLUNG WHERE "
-                     + "ZAHLUNGSSTATUS = 'STORNIERT' AND BG_ID IN (SELECT ID FROM "
-                     + "BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN IN (" + liste + "))")) {
-            rs.next();
-            long verstoesse = rs.getLong(1);
-            String text = "Globaler Konsistenzcheck: " + verstoesse
-                    + " stornierte Zahlung(en) zu fehlgeschlagenen Aufträgen (erwartet 0)";
-            log.ereignis("VERIFIKATION", "", text + (verstoesse == 0 ? " — OK" : " — ABWEICHUNG!"));
-            if (verstoesse != 0) {
-                log.fehler("VERIFIKATION", text);
-            }
-        } catch (Exception e) {
-            log.fehler("VERIFIKATION", "Check „keine Storno-Spuren fehlgeschlagener Aufträge“ "
-                    + "gescheitert: " + e.getMessage());
+        if (fehler) {
+            phase = Phase.FEHLGESCHLAGEN;
+            letzteFehlermeldung = "Globale Datenbank-Verifikation fehlgeschlagen: " + pruefungen.stream()
+                    .filter(p -> !p.ok()).map(p -> p.beschreibung() + " (" + p.ist() + ")")
+                    .collect(java.util.stream.Collectors.joining("; "));
+            if (log != null) log.fehler("VERIFIKATION", letzteFehlermeldung);
         }
     }
 
@@ -900,6 +845,8 @@ public final class Simulator {
         sb.append("verifiziert     : ").append(verifiziert).append('\n');
         sb.append("Verifik.-fehler : ").append(verifikationFehler).append('\n');
         sb.append("Summe verifizierter Auszahlungen: ").append(summe.toPlainString()).append(" EUR\n");
+        sb.append("Lauf erfolgreich: ").append(laufErfolgreich()).append('\n');
+        sb.append("Globale Prüfungen: ").append(globalePruefungen).append('\n');
         sb.append("Abgebrochen     : ").append(abgebrochen).append('\n');
         return sb.toString();
     }

@@ -734,3 +734,5 @@ tbody tr:hover { background: #f8faff; }
 }
 
 .hinweis { font-size: 12.5px; color: var(--text-gedaempft); }
+
+.phase.FEHLGESCHLAGEN { background: #fee2e2; color: #991b1b; }

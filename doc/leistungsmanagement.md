@@ -1,6 +1,6 @@
 # Leistungsmanagement Grundsicherung (SDN.Leistung LMG)
 
-*Stand: 2026-10-10, Version 0.5.2 (Fachrecht §§ 30/35/82/90 nachgeprüft, Rechtsgrundlagen-Tabelle, Bescheid mit § 84/87/88 SGG)*
+*Stand: 2026-10-12, Version 0.5.8 (Monatsplan, transaktionales Einsichtsprotokoll und Nachprüfung)*
 
 Fachschicht auf der eigenen Transaktionssteuerung: Bearbeitung von Grundsicherungs-
 Leistungen im Alter und bei Erwerbsminderung nach **SGB XII** — von der Bedarfs-
@@ -25,7 +25,7 @@ Widget-Dashboard-Stil unter der Produktbezeichnung **SDN.Leistung**.
 |---|---|
 | Regelbedarf | RBS 1 = 563,00 EUR, RBS 2 = 506,00 EUR, RBS 3 = 451,00 EUR, RBS 4 = 471,00 EUR, RBS 5 = 390,00 EUR, RBS 6 = 357,00 EUR (Stufen 1–6 für 2026 vollständig hinterlegt; absolute Beträge nach Anlage zu § 28 SGB XII). |
 | Mehrbedarf Merkzeichen G | 17 % des Regelbedarfs (§ 30 Abs. 1 SGB XII); bei RBS 1 exakt 95,71 EUR, bei RBS 2 exakt 86,02 EUR. |
-| Mehrbedarf Schwangerschaft | 17 % des Regelbedarfs ab der 12. Schwangerschaftswoche (§ 30 Abs. 2 SGB XII), erfasst als Kennzeichen je SozialFall. |
+| Mehrbedarf Schwangerschaft | 17 % des Regelbedarfs nach der zwölften Schwangerschaftswoche, also ab der 13. SSW (§ 30 Abs. 2 SGB XII). Bei bekanntem Entbindungsmonat entfällt nur dieser Mehrbedarf ab dem Folgemonat automatisch; die gespeicherten Falldaten bleiben erhalten. |
 | Mehrbedarf Alleinerziehende | Bemessungsgrundlage ist stets die RBS 1 (§ 30 Abs. 3 SGB XII): 36 % bei mindestens einem Kind unter 7 oder zwei/drei Kindern unter 16, sonst 12 % je minderjährigem Kind (Feld `ANZ_KINDER_MINDERJ`); gedeckelt auf 60 % der RBS 1 = 337,80 EUR. Keine Kumulation von 36 %- und 12 %-Satz (§ 30 Abs. 3 verlangt die höhere der beiden Varianten). |
 | Mehrbedarf dezentrale Warmwassererzeugung | stufenabhängig (§ 30 Abs. 7 SGB XII): RBS 1/2 = 2,3 % (12,95/11,64 EUR), RBS 4 = 1,4 % (6,59 EUR), RBS 5 = 1,2 % (4,68 EUR), RBS 6 = 0,8 % (2,86 EUR); für RBS 3 sieht das Gesetz keinen Satz vor (0 EUR). |
 | Obergrenze der Mehrbedarfe | Summe der Mehrbedarfe je Person übersteigt nie den eigenen Regelbedarf (§ 30 Abs. 6 SGB XII, Kappung). |

@@ -42,6 +42,10 @@ final class MdBericht {
 
     private static void kopf(StringBuilder md, Simulator simulator) {
         md.append("# testsweet Lauf\n\n");
+        kv(md, "lauf_erfolgreich", String.valueOf(simulator.laufErfolgreich()));
+        for (Auftrag.Pruefung p : simulator.globalePruefungen()) {
+            kv(md, "globale_pruefung", p.toString());
+        }
         kv(md, "produkt", "SDN.Leistung LMG");
         boolean istWeb = "WEB".equalsIgnoreCase(simulator.letzterModus());
         kv(md, "modus", istWeb ? "2-web (Weboberfläche/Selenium)" : "1-fachschicht (SozialLeistungsService direkt)");

@@ -274,6 +274,14 @@ final class Testdokumentation {
         pdf.leereZeile(3f);
 
         pdf.abschnittsTitel("Ergebnis in Zahlen");
+        pdf.fettZeile("Lauf erfolgreich: " + simulator.laufErfolgreich(),
+                simulator.laufErfolgreich() ? SweetPdf.GRUEN : SweetPdf.ROT, 10f);
+        for (Auftrag.Pruefung pruefung : simulator.globalePruefungen()) {
+            pdf.text(pruefung.beschreibung() + ": erwartet " + pruefung.erwartet() + ", ist "
+                    + pruefung.ist() + (pruefung.hinweis() == null ? "" : " — " + pruefung.hinweis()),
+                    pruefung.ok() ? SweetPdf.GRUEN : SweetPdf.ROT, 9f);
+        }
+
         int verifiziert = 0;
         int verifikationNok = 0;
         int fehlgeschlagen = 0;

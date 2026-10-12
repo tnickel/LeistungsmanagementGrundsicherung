@@ -121,7 +121,18 @@ public final class WebHelfer {
         // Warten bis Fallübersicht sichtbar ist
         wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("view-uebersicht")));
         autoConfirmAktivieren(treiber);
+        ctx.put("sitzungKennung", user);
+        ctx.put("sitzungPasswort", pw);
         return "Erfolgreich angemeldet als " + user;
+    }
+
+    /** Neue Sitzung mit der zuletzt bestätigten Identität; die wiederholbare
+     * Suchaktion öffnet anschließend den bereits persistierten Vorgang. */
+    static void sitzungWiederherstellen(WebDriver treiber, Map<String, Object> ctx) {
+        Map<String, Object> anmeldung = new java.util.HashMap<>(ctx);
+        anmeldung.put("mitarbeiter", ctx.getOrDefault("sitzungKennung", ctx.get("mitarbeiter")));
+        anmeldung.put("passwort", ctx.getOrDefault("sitzungPasswort", ctx.get("passwort")));
+        anmeldung(treiber, anmeldung);
     }
 
     /** Öffnet die Neuanlage-Karte nur, wenn sie noch zu ist — der Knopf ist ein
@@ -225,6 +236,8 @@ public final class WebHelfer {
         String kollege = (String) ctx.getOrDefault("kollege", "sb-02");
         String kollegePw = (String) ctx.getOrDefault("kollegePasswort", kollege);
         meldeAnAls(treiber, kollege, kollegePw);
+        ctx.put("sitzungKennung", kollege);
+        ctx.put("sitzungPasswort", kollegePw);
         return "Vier-Augen-Wechsel: angemeldet als Kollege " + kollege;
     }
 

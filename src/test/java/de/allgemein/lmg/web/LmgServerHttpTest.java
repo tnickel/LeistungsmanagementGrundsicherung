@@ -353,6 +353,8 @@ class LmgServerHttpTest {
                 "/api/bedarfsgemeinschaften/1/bescheid/druck?token=" + druckToken, null, null);
         assertEquals(200, druck.statusCode());
         assertTrue(druck.body().contains("Bescheid-Test"));
+        assertEquals("no-store", druck.headers().firstValue("Cache-Control").orElse(""),
+                "Bescheide dürfen auch nach Verbrauch des Druck-Tokens nicht im Cache bleiben");
 
         assertEquals(401, sende("GET",
                 "/api/bedarfsgemeinschaften/1/bescheid/druck?token=" + druckToken, null, null).statusCode(),
@@ -361,6 +363,9 @@ class LmgServerHttpTest {
                 "/api/bedarfsgemeinschaften/1/bescheid/druck?token=crime", null, null).statusCode(),
                 "Fremdes Token abgewiesen");
         assertFalse(druck.headers().firstValue("Content-Security-Policy").orElse("").isEmpty());
+        assertEquals("no-store", sende("GET",
+                "/api/bedarfsgemeinschaften/1/bescheid/druck?token=ungueltig", null, null)
+                .headers().firstValue("Cache-Control").orElse(""));
     }
 
     @Test

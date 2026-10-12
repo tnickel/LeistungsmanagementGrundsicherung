@@ -6,10 +6,11 @@ import java.time.LocalDate;
 
 /**
  * Bewilligungsbescheid nach § 44 SGB XII für Grundsicherungsleistungen nach SGB XII.
- * Trägt Bewilligungszeitraum, monatlichen Zahlbetrag und Status (ERTEILT / AUFGEHOBEN).
+ * Trägt Bewilligungszeitraum, Zahlbetrag des ersten Monats und Status (ERTEILT / AUFGEHOBEN).
  * BERECHNUNG hält den versionierten JSON-Snapshot des Berechnungsergebnisses aus dem
  * Erteilungszeitpunkt fest — der Nachdruck zeigt ausschließlich diesen Stand, auch
- * wenn die zugrunde liegenden SozialFälle später geändert werden.
+ * wenn die zugrunde liegenden SozialFälle später geändert werden. Snapshot-Version 2
+ * enthält die verbindlichen Einzelbeträge aller Bewilligungsmonate.
  */
 public record Bescheid(
         long id,

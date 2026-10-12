@@ -1,6 +1,7 @@
 package de.allgemein.lmg.saga;
 
 import de.allgemein.lmg.calc.BerechnungsSnapshot;
+import de.allgemein.lmg.calc.Bewilligungsplan;
 import de.allgemein.lmg.calc.Leistungsberechnung;
 import de.allgemein.lmg.config.LmgConfig;
 import de.allgemein.lmg.model.SozialFall;
@@ -200,8 +201,11 @@ public final class AntragsSagaProzess {
     public static void bedarfspruefung(Connection c, String payload, String sagaId) throws SQLException {
         Map<String, Object> data = parsePayload(payload);
         Long bgId = findeBgIdOderFehler(c, (String) data.get("aktenzeichen"));
-        List<SozialFall> faelle = leseFaelle(c, bgId);
-        BigDecimal vermoegen = leseVermoegen(c, bgId);
+        BgState bg = lockActiveBg(c, bgId);
+        List<SozialFall> faelle = Bewilligungsplan.faelleFuerMonat(leseFaelle(c, bgId),
+                (String) data.get("zahlungsmonat"));
+        requireCases(faelle);
+        BigDecimal vermoegen = bg.vermoegen();
         de.allgemein.lmg.calc.Satzstand satzstand =
                 SATZSTAND_DAO.findeFuerMonat(c, (String) data.get("zahlungsmonat"));
 
@@ -238,16 +242,18 @@ public final class AntragsSagaProzess {
         Map<String, Object> data = parsePayload(payload);
         String aktenzeichen = (String) data.get("aktenzeichen");
         Long bgId = findeBgIdOderFehler(c, aktenzeichen);
-
+        BgState bg = lockActiveBg(c, bgId);
         List<SozialFall> faelle = leseFaelle(c, bgId);
-        BigDecimal vermoegen = leseVermoegen(c, bgId);
+        requireCases(faelle);
+        BigDecimal vermoegen = bg.vermoegen();
         String monatVon = (String) data.get("zahlungsmonat");
         String monatBis = data.containsKey("bewilligungBis") ? (String) data.get("bewilligungBis") : monatVon;
         // § 44 Abs. 3 SGB XII: zwölf Monate — dieselbe Prüfung wie auf dem Service-Weg.
         SozialLeistungsService.pruefeBewilligungszeitraum(monatVon, monatBis);
-        de.allgemein.lmg.calc.Satzstand satzstand = SATZSTAND_DAO.findeFuerMonat(c, monatVon);
-        Leistungsberechnung.Berechnungsergebnis ergebnis =
-                Leistungsberechnung.berechne(bgId, faelle, kduParameter(), vermoegen, satzstand);
+        Bewilligungsplan.Plan plan = Bewilligungsplan.erstelle(bgId, faelle, kduParameter(), vermoegen,
+                monatVon, monatBis, monat -> SATZSTAND_DAO.findeFuerMonat(c, monat));
+        Leistungsberechnung.Berechnungsergebnis ergebnis = plan.ersterMonat().ergebnis();
+        requireEntitlement(ergebnis.zahlbetrag());
 
         long bescheidId = nextVal(c, "SEQ_BESCHEID");
         String sb = data.containsKey("sachbearbeiterId") ? (String) data.get("sachbearbeiterId") : "saga-engine";
@@ -266,7 +272,7 @@ public final class AntragsSagaProzess {
             stmt.setString(6, monatBis);
             stmt.setBigDecimal(7, ergebnis.zahlbetrag());
             stmt.setString(8, sb);
-            stmt.setString(9, BerechnungsSnapshot.schreibe(ergebnis, faelle, vermoegen));
+            stmt.setString(9, BerechnungsSnapshot.schreibe(plan));
             stmt.executeUpdate();
         }
         schreibeJournal(c, bgId, "Bescheid " + bescheidNr + " ueber " + ergebnis.zahlbetrag() + " EUR erteilt", sb);
@@ -314,23 +320,17 @@ public final class AntragsSagaProzess {
         Long bgId = findeBgIdOderFehler(c, aktenzeichen);
         String monat = (String) data.get("zahlungsmonat");
 
-        // Budget prüfen und sperren
-        BigDecimal budgetRest;
-        try (PreparedStatement stmt = c.prepareStatement(
-                "SELECT BUDGET_REST FROM BEDARFSGEMEINSCHAFT WHERE ID = ? FOR UPDATE")) {
-            stmt.setLong(1, bgId);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (!rs.next()) throw new IllegalStateException("BG nicht vorhanden: " + bgId);
-                budgetRest = rs.getBigDecimal(1);
-            }
-        }
-
-        List<SozialFall> faelle = leseFaelle(c, bgId);
-        BigDecimal vermoegen = leseVermoegen(c, bgId);
+        // Aktivität und Buchungsgrundlagen unter derselben BG-Sperre prüfen.
+        BgState bg = lockActiveBg(c, bgId);
+        BigDecimal budgetRest = bg.budgetRest();
+        List<SozialFall> faelle = Bewilligungsplan.faelleFuerMonat(leseFaelle(c, bgId), monat);
+        requireCases(faelle);
+        BigDecimal vermoegen = bg.vermoegen();
         de.allgemein.lmg.calc.Satzstand satzstand = SATZSTAND_DAO.findeFuerMonat(c, monat);
         Leistungsberechnung.Berechnungsergebnis ergebnis =
                 Leistungsberechnung.berechne(bgId, faelle, kduParameter(), vermoegen, satzstand);
         BigDecimal zahlbetrag = ergebnis.zahlbetrag();
+        requireEntitlement(zahlbetrag);
         BigDecimal vermoegenseinsatz = ergebnis.verwertbaresVermoegen().max(BigDecimal.ZERO);
 
         if (zahlbetrag.compareTo(budgetRest) > 0) {
@@ -357,9 +357,9 @@ public final class AntragsSagaProzess {
         long zahlungId = nextVal(c, "SEQ_ZAHLUNG");
         String sb = data.containsKey("sachbearbeiterId") ? (String) data.get("sachbearbeiterId") : "saga-engine";
         String vorgangsNr = vorgangsNrFuer(sagaId);
-        String iban = (String) data.get("iban");
-        String bic = (String) data.get("bic");
-        String name = (String) data.get("hauptpersonName");
+        String iban = bg.iban();
+        String bic = bg.bic();
+        String name = bg.kontoinhaber() != null ? bg.kontoinhaber() : bg.name();
         Long fallId = faelle.size() == 1 ? faelle.get(0).id() : null;
 
         try (PreparedStatement stmt = c.prepareStatement(
@@ -527,6 +527,44 @@ public final class AntragsSagaProzess {
     // Hilfsmethoden
     // ------------------------------------------------------------------
 
+    private record BgState(BigDecimal budgetRest, BigDecimal vermoegen,
+                           String iban, String bic, String kontoinhaber, String name) { }
+
+    /** Die Sperre serialisiert Historisierung, Falländerung und alle Buchungsschritte. */
+    private static BgState lockActiveBg(Connection c, long bgId) throws SQLException {
+        try (PreparedStatement stmt = c.prepareStatement(
+                "SELECT STATUS_AKTIV, BUDGET_REST, VERMOEGEN, IBAN, BIC, KONTOINHABER, HAUPTPERSON_NAME "
+                        + "FROM BEDARFSGEMEINSCHAFT WHERE ID = ? FOR UPDATE")) {
+            stmt.setLong(1, bgId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (!rs.next()) {
+                    throw new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
+                            "Bedarfsgemeinschaft " + bgId + " ist nicht vorhanden");
+                }
+                if (rs.getInt(1) != 1) {
+                    throw new FachlicheException(FachlicheException.VALIDATION,
+                            "Der Vorgang ist historisiert; die Antrags-Saga kann nicht fortgesetzt werden");
+                }
+                return new BgState(rs.getBigDecimal(2), rs.getBigDecimal(3), rs.getString(4),
+                        rs.getString(5), rs.getString(6), rs.getString(7));
+            }
+        }
+    }
+
+    private static void requireCases(List<SozialFall> faelle) {
+        if (faelle.isEmpty()) {
+            throw new FachlicheException(FachlicheException.VALIDATION,
+                    "Bedarfsgemeinschaft hat keine Personen (SozialFälle)");
+        }
+    }
+
+    private static void requireEntitlement(BigDecimal zahlbetrag) {
+        if (zahlbetrag.signum() <= 0) {
+            throw new FachlicheException(FachlicheException.KEIN_ANSPRUCH,
+                    "Kein Leistungsanspruch nach SGB XII (Zahlbetrag: " + zahlbetrag + " EUR)");
+        }
+    }
+
     @SuppressWarnings("unchecked")
     private static Map<String, Object> parsePayload(String payload) {
         Object parsed = Json.parse(payload);
@@ -666,21 +704,6 @@ public final class AntragsSagaProzess {
                     "Die Bedarfsgemeinschaft " + bgId + " hat keinen SozialFall");
         }
         return faelle;
-    }
-
-    /** Liest das Gesamtvermögen der BG aus dem Datenbestand (§ 43 Abs. 1, § 90 SGB XII). */
-    private static BigDecimal leseVermoegen(Connection c, long bgId) throws SQLException {
-        try (PreparedStatement stmt = c.prepareStatement(
-                "SELECT VERMOEGEN FROM BEDARFSGEMEINSCHAFT WHERE ID = ?")) {
-            stmt.setLong(1, bgId);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    BigDecimal wert = rs.getBigDecimal(1);
-                    return wert == null ? BigDecimal.ZERO : wert;
-                }
-                return BigDecimal.ZERO;
-            }
-        }
     }
 
     private static long nextVal(Connection c, String sequence) throws SQLException {

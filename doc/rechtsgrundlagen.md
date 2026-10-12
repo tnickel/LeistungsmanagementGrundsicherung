@@ -51,7 +51,7 @@ hoch- bzw. abgerundeten Summenbeträge die Regelbedarfsstufen ergeben (**Anlage*
 | Norm | Amtlicher Inhalt (Kurzfassung, verifiziert) | Umsetzung |
 |---|---|---|
 | § 30 Abs. 1 | Personen, die die Altersgrenze erreicht haben oder vor Erreichen voll erwerbsgemindert sind (Nachweis des **Merkzeichens G** durch Bescheid/Ausweis): Mehrbedarf **17 %** der maßgebenden Regelbedarfsstufe | `FLAG_MERKZEICHEN_G` in `SOZIAL_FALL` |
-| § 30 Abs. 2 | **Schwangere ab der 13. Schwangerschaftswoche** (Gesetz: „nach der zwölften Schwangerschaftswoche") bis zum Ende des Entbindungsmonats: **17 %** | `FLAG_SCHWANGER` mit optionalem `ENTBINDUNGSMONAT` (YYYY-MM, seit v0.5.5): Auszahlungen und Bescheide für Monate nach dem Entbindungsmonat werden abgewiesen, bis das Flag zurückgenommen ist; ohne erfassten Monat liegt die Einhaltung in der Erfassungsverantwortung |
+| § 30 Abs. 2 | **Schwangere ab der 13. Schwangerschaftswoche** (Gesetz: „nach der zwölften Schwangerschaftswoche") bis zum Ende des Entbindungsmonats: **17 %** | `FLAG_SCHWANGER` mit optionalem `ENTBINDUNGSMONAT` (YYYY-MM): Seit v0.5.8 entfällt in späteren Bezugsmonaten automatisch nur dieser Mehrbedarf, in Service und Saga; ohne erfassten Monat liegt die Einhaltung in der Erfassungsverantwortung |
 | § 30 Abs. 3 | **Alleinerziehende**, bezogen auf die **Regelbedarfsstufe 1**: 36 % bei einem Kind unter 7 oder zwei/drei Kindern unter 16; sonst 12 % je minderjährigem Kind; **maximal 60 %** der RBS 1 | `MEHRBEDARF_*`-Logik in `Leistungsberechnung` |
 | § 30 Abs. 6 | Deckel: Die Summe des nach **Abs. 1 bis 5** anzuerkennenden Mehrbedarfs darf die maßgebende Regelbedarfsstufe nicht übersteigen | umgesetzt; Abs. 7 bewusst außerhalb des Deckels (Wortlaut: „Absätze 1 bis 5") |
 | § 30 Abs. 7 | **Dezentrale Warmwassererzeugung**, je Regelbedarfsstufe der Person: **2,3 % (Stufe 1), 2,3 % (Stufe 2), – (Stufe 3), 1,4 % (Stufe 4), 1,2 % (Stufe 5), 0,8 % (Stufe 6)**; Höheres nur mit separatem Messnachweis | `MEHRBEDARF_WARMWASSER_*` in `Leistungsberechnung` |
@@ -159,13 +159,14 @@ Krisenfeste Dokumentation heißt auch festzuhalten, was bewusst **nicht** gilt:
    automatische Fortschreibung).
 6. § 44a SGB XII (vorläufige Entscheidung, verkürzter Bewilligungszeitraum);
    Nachzahlungen/Aufrechnung nach § 43a SGB XII.
-7. Abstimmung laufender Bescheide mit dem Satzstand: Zahlungen und Bescheide
-   rechnen mit dem zum jeweiligen Bezugsmonat gültigen Satzstand (Tabelle
-   SATZSTAND, seit v0.5.6). Läuft ein Bewilligungszeitraum über einen
-   Satzwechsel hinaus, folgt die Folgezahlung dem NEUEN Stand, ohne dass
-   automatisch ein Änderungsbescheid (§ 48 SGB X) ergeht; der Nachdruck zeigt
-   weiterhin den erteilten Snapshot. Die Verfahrensfrage (Zahlung folgt dem
-   Bescheid bis zum Änderungsbescheid) bleibt bewusst offen.
+7. Änderungen nach Bescheiderteilung: Neue Bescheide speichern seit v0.5.8
+   einen Monatsplan mit den bei Erteilung bereits bekannten Satzständen,
+   dem Schwangerschaftsende und dem simulierten Vermögenseinsatz. Der Nachdruck
+   zeigt genau diesen Snapshot. Nachträgliche Änderungen von Sätzen, Vermögen,
+   Einkommen oder Fällen werden nicht automatisch durch einen Änderungsbescheid
+   (§ 48 SGB X) aufgearbeitet. Zahlungen rechnen weiterhin mit dem Datenbestand
+   des Zahlungszeitpunkts; die verfahrensrechtliche Abstimmung solcher späteren
+   Änderungen und die Korrektur bereits erteilter alter Bescheide bleiben offen.
 
 ## 5. Verifikationsprotokoll (2026-10-10)
 

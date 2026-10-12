@@ -191,3 +191,24 @@ unberührt.
 Die Oberfläche lauscht nur auf 127.0.0.1, hat keine Anmeldung und erlaubt
 Löschungen (Aufräumen) — ausschließlich als lokales Entwicklungswerkzeug
 betreiben.
+
+### Wiederaufnahme und globale Prüfergebnisse
+
+Jedes Selenium-Fenster bekommt ein zufälliges registriertes Chrome-Profil unter
+`testsweet/logs/browser-profile/`. Das Aufräumskript beendet ausschließlich Chrome
+mit einem exakt passenden registrierten Profilpfad. Alte Fenster ohne diese
+Registrierung werden bewusst nicht automatisch zugeordnet.
+
+Nach einem Sitzungstod werden bestätigte Arbeitsschritte nicht erneut ausgeführt.
+Einmalig wiederholt werden nur ausdrücklich sichere Anmelde-/Suchschritte, mit
+neuer Sitzung unter der zuletzt bestätigten Kennung. Stirbt die Sitzung während
+einer schreibenden Aktion, ist der Commit-Ausgang unklar: Der Auftrag schlägt mit
+diesem Hinweis fehl; der Schreibschritt wird nicht blind wiederholt. Ein neuer
+Treiber steht danach für Folgeaufträge bereit.
+
+Globale Datenbankprüfungen gehören zum Laufresultat. Abweichungen und SQL-Fehler
+setzen den Lauf auf `FEHLGESCHLAGEN` und verhindern ein erfolgreiches Ergebnis in
+GUI, PDF und Markdown. Bereits verifizierte Aufträge werden als Verifikation mit
+Abweichung markiert. Batch-/Web-CLI-Läufe liefern bei erfolglosem Resultat Exitcode 1.
+Die Storno-Spurenprüfung ist weiterhin keine vollständige Rollback-Bilanz eines
+mehrschrittigen Auftrags.

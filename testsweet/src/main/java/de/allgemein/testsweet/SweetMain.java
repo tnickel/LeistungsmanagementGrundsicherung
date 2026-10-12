@@ -31,6 +31,7 @@ public final class SweetMain {
             simulator.laufSynchron(new Simulator.LaufKonfiguration(ma, auf, seed, denkzeit, true, kategorie));
             System.out.println("Lauf beendet. PDF: " + simulator.letztesPdf());
             System.out.println("Markdown: " + simulator.letztesMd());
+            if (!simulator.laufErfolgreich()) System.exit(1);
             return;
         }
         if (args.length > 0 && ("web".equalsIgnoreCase(args[0]) || "run-web".equalsIgnoreCase(args[0]))) {
@@ -51,6 +52,7 @@ public final class SweetMain {
             simulator.laufWebSynchron(new Simulator.LaufKonfiguration(ma, auf, seed, denkzeit, true, kategorie));
             System.out.println("Web-Lauf beendet. PDF: " + simulator.letztesPdf());
             System.out.println("Markdown: " + simulator.letztesMd());
+            if (!simulator.laufErfolgreich()) System.exit(1);
             return;
         }
 
