@@ -257,7 +257,8 @@ public final class SozialLeistungsService implements LeistungsService {
     public Auszahlungsergebnis ordneAuszahlungAn(Auszahlungsauftrag auftrag) {
         pruefeAuftrag(auftrag);
         return txManager.execute(TxOptions.DEFAULT, ctx -> {
-            // 1. Idempotenz (schneller Pfad ohne Sperre): dieselbe Vorgangsnummer
+            // 1. Idempotenz ohne BG-Sperre (die Einsichtsprotokoll-Prüfung nimmt
+            //    ihrerseits kurz die BG-Sperre): dieselbe Vorgangsnummer
             //    wurde evtl. schon gebucht (Netzwerkproblem, Doppelklick).
             Optional<Zahlung> vorhanden = zahlungDao.findeVorgangsNr(ctx, auftrag.vorgangsNr());
             if (vorhanden.isPresent()) {

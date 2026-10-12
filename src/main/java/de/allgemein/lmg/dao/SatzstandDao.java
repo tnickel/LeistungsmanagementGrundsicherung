@@ -51,20 +51,6 @@ public final class SatzstandDao {
         }
     }
 
-    /** Neuester gepflegter Stand (Vorschau/Detail-Ansicht ohne konkreten Bezugsmonat). */
-    public Satzstand findeNeuesten(TxContext ctx) throws SQLException {
-        try (PreparedStatement stmt = ctx.connection().prepareStatement(
-                "SELECT " + COLUMNS + " FROM SATZSTAND ORDER BY GUELTIG_AB DESC "
-                        + "FETCH FIRST 1 ROWS ONLY");
-             ResultSet rs = stmt.executeQuery()) {
-            if (!rs.next()) {
-                throw new FachlicheException(FachlicheException.RBS_NICHT_KONFIGURIERT,
-                        "Kein Satzstand gepflegt (Tabelle SATZSTAND ist leer)");
-            }
-            return mappe(rs);
-        }
-    }
-
     private static FachlicheException fachfehler(String monat) {
         return new FachlicheException(FachlicheException.RBS_NICHT_KONFIGURIERT,
                 "Kein Satzstand für den Bezugsmonat " + monat + " gepflegt "

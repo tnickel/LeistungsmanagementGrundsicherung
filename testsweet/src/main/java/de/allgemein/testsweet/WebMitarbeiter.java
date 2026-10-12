@@ -59,6 +59,14 @@ final class WebMitarbeiter implements Runnable {
                     break;
                 }
                 spieleAuftrag(auftrag);
+                if (treiber == null) {
+                    // Neustart gescheitert: Dieser Worker nimmt keine weiteren
+                    // Aufträge mehr an (keine NullPointerException-Kette);
+                    // der Topf versorgt den Rest mit den übrigen Fenstern.
+                    simulator.log().fehler("WEB " + kuerzel,
+                            "Treiber-Neustart gescheitert — Fenster wird zurückgezogen");
+                    break;
+                }
             }
         } catch (Exception e) {
             simulator.log().fehler("WEB " + kuerzel, "Fenster konnte nicht gestartet werden: "
@@ -68,10 +76,19 @@ final class WebMitarbeiter implements Runnable {
         }
     }
 
+    /** true, wenn dieser Worker keinen lauffähigen Treiber mehr hat. */
+    boolean treiberTot() {
+        return treiber == null;
+    }
+
+    /** Profil-Verzeichnis des aktuellen Fensters — wird beim Schließen gelöscht. */
+    private java.nio.file.Path fensterProfil;
+
     /** Erzeugt das sichtbare Chrome-Fenster und platziert es im Raster. */
     private WebDriver erzeugeFenster() throws IOException {
         ChromeOptions optionen = new ChromeOptions();
-        optionen.addArguments("--user-data-dir=" + BrowserProzesse.neuesProfil());
+        fensterProfil = BrowserProzesse.neuesProfil();
+        optionen.addArguments("--user-data-dir=" + fensterProfil);
         // Skalierungsfaktor verkleinert Schrift und Layout dauerhaft, damit die
         // Seiteninhalte auch in den kleinen Rasterfenstern vollständig Platz finden
         optionen.addArguments("--lang=de", "--window-size=900,700",
@@ -241,9 +258,11 @@ final class WebMitarbeiter implements Runnable {
                 treiber.quit();
             }
         } catch (RuntimeException ignored) {
-            // beim Aufräumen egal
-        } finally {
-            treiber = null;
         }
+        // Profil-Verzeichnis dieses Fensters entfernen — sonst akkumulieren die
+        // Chrome-Profile (mehrere MB je Fenster und je Treiber-Neustart) unbegrenzt.
+        BrowserProzesse.loescheProfil(fensterProfil);
+        fensterProfil = null;
+        treiber = null;
     }
 }

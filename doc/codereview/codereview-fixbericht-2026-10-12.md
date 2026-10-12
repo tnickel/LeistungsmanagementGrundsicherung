@@ -250,3 +250,40 @@ Auf Fachentscheid des Betreibers („Option D ist gut, alles protokollieren"):
   (AGENTS/architektur) aktualisiert. Option B/C bleiben dokumentierte Ausbaustufen.
 
 **Endstand v0.5.7: 213 Tests, alle grün**; testsweet gegen 0.5.7: 24/12/120/40.
+
+## 9. Nachtrag 4 (2026-10-12, Mittag): Review der Fremd-Nachbesserung v0.5.8 + eigene Ausbesserungen
+
+Die Gegenprüfung von v0.5.8 (Commit 62c90e2, N01–N11) durch zwei unabhängige
+Prüfinstanzen plus eigenen Testlauf (238/238 grün) ergab: **alle elf Behauptungen
+fachlich korrekt, kein eingebauter Fehler** (keine verlorenen Guards, keine
+Rundungsfehler, keine Sperren-Inversion; Bewilligungsplan-Design sauber). Aus der
+Kritikliste wurden anschließend behoben:
+
+- **Handbuch-Konflikt (wichtigster Fund):** teil1.js behauptete noch das alte
+  v0.5.5-Verhalten („Auszahlungen und Bescheide werden abgewiesen"); der Code
+  lässt seit v0.5.8 nur den Schwangeren-Mehrbedarf entfallen. Stelle umformuliert,
+  Handbuch als v0.5.8 regeneriert.
+- **testsweet-Profil-Akkumulation:** `WebMitarbeiter.schliesse()` löscht das
+  UUID-Profil-Verzeichnis des Fensters jetzt über `BrowserProzesse.loescheProfil`
+  (Rekursiv-Löschung, nur mit Marker-Datei) — Profile stapeln sich nicht mehr.
+- **Verwaiste chromedriver.exe:** Java-Fallback des Aufräumens beendet zusätzlich
+  chromedriver-Prozesse, deren Programmpfad das Werkzeugverzeichnis enthält.
+- **NPE-Kette nach gescheitertem Treiber-Neustart:** `run()`-Schleife zieht den
+  Worker zurück, sobald `treiber == null` (Log-Meldung statt Folge-NPEs).
+- **GUI zeigt konkrete globale Prüffehler:** Fortschritts-Label listet die
+  fehlgeschlagenen Prüfungen mit erwartet/ist statt des generischen Banners.
+- **Toter Code entfernt:** `SatzstandDao.findeNeuesten` (seit N10 ungenutzt).
+- **Bagatellen:** KdU-Vorbehalt-Fußnote berücksichtigt jetzt ALLE Monate
+  (Folgemonats-Asterisk hat immer seine Erklärung); Kommentar „schneller Pfad
+  ohne Sperre" korrigiert (Einsichtsprotokoll nimmt BG-Sperre);
+  `LmgServer.liesMonateRobust` — ein unlesbarer Snapshot-CLOB führt zu leerer
+  Monatsliste + Warnung statt HTTP 500 auf der ganzen Vorgangsansicht.
+
+Bewusst unverändert (dokumentierte Trade-offs): BG-`FOR UPDATE` bei jedem
+authentifizierten Lesezugriff (Korrektheit des Dedup; Kontention absehbar klein);
+Saga-IBAN-Länge statt Modulo-97 (präexistent, Symmetrie-Thema); v1-Altbescheide
+werden nicht umgeschrieben (fachliche Einzelfallprüfung).
+
+**Verifikation dieses Nachtrags:** Hauptsuite 238/238 grün (Docker-Oracle);
+testsweet 10/10 Unit-Tests; Batchläufe 24/24, 12/12, 120/120, 40/40;
+`testsweet/logs/browser-profile` nach den Läufen leer (Löschung wirkt).

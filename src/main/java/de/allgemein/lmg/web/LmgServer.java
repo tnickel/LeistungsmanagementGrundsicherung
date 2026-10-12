@@ -733,8 +733,7 @@ public final class LmgServer implements AutoCloseable {
         map.put("bewilligungVon", b.bewilligungVon());
         map.put("bewilligungBis", b.bewilligungBis());
         map.put("zahlbetrag", b.zahlbetrag());
-        var monate = b.berechnung() == null ? List.<de.allgemein.lmg.calc.Bewilligungsplan.Monat>of()
-                : BerechnungsSnapshot.lese(b.berechnung()).monate();
+        var monate = liesMonateRobust(b.berechnung());
         map.put("monatsbetraege", monate.stream()
                 .map(monat -> Map.<String, Object>of("monat", monat.monat(),
                         "zahlbetrag", monat.ergebnis().zahlbetrag())).toList());
@@ -744,6 +743,25 @@ public final class LmgServer implements AutoCloseable {
         map.put("erstelltVon", b.erstelltVon());
         map.put("erstelltAm", b.erstelltAm() != null ? b.erstelltAm().toString() : null);
         return map;
+    }
+
+    /**
+     * Monatswerte aus dem Snapshot-CLOB — bei unlesbarem/incompatiblen Snapshot
+     * bewusst leere Liste statt IllegalArgumentException: Ein beschädigtes Archiv-
+     * Feld darf die ganze Vorgangsansicht (HTTP 500) nicht blockieren.
+     */
+    private static List<de.allgemein.lmg.calc.Bewilligungsplan.Monat> liesMonateRobust(String snapshot) {
+        if (snapshot == null || snapshot.isBlank()) {
+            return List.of();
+        }
+        try {
+            return BerechnungsSnapshot.lese(snapshot).monate();
+        } catch (RuntimeException e) {
+            java.util.logging.Logger.getLogger(LmgServer.class.getName())
+                    .log(java.util.logging.Level.WARNING,
+                            "Bescheid-Snapshot unlesbar — Monatswerte bleiben leer", e);
+            return List.of();
+        }
     }
 
     // ------------------------------------------------------------------

@@ -275,8 +275,16 @@ async function aktualisiere() {
         : status.phase === "AUFRAEUMEN" ? "Bereinige Altdaten …"
         : status.phase === "LAUF" ? `Simulation läuft (${fertig} von ${gesamt} erledigt)`
         : status.phase === "VERIFIKATION" ? "SQL-Endzustandsprüfung auf Datenbank …"
-        : status.phase === "FEHLGESCHLAGEN" ? "Globale Datenbank-Verifikation fehlgeschlagen"
+        : status.phase === "FEHLGESCHLAGEN" ? globalePruefText(status)
         : "Abgeschlossen";
+
+    // Fehlgeschlagene globale Prüfungen konkret benennen (statt nur Banner)
+    function globalePruefText(status) {
+        const pruefungen = (status.globalePruefungen || []).filter((p) => !p.ok);
+        if (pruefungen.length === 0) return "Globale Datenbank-Verifikation fehlgeschlagen";
+        return "Globale Verifikation fehlgeschlagen: " + pruefungen.map((p) =>
+            `${p.beschreibung} (erwartet ${p.erwartet}, ist ${p.ist})`).join("; ");
+    }
 
     // PDF / Markdown Banner
     const pdfLeiste = $("pdfleiste");

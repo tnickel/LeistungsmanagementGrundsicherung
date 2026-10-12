@@ -98,7 +98,11 @@ public final class BescheidGenerator {
         String bicText = bg.bic() != null ? bg.bic() : "–";
         String inhaberText = bg.kontoinhaber() != null && !bg.kontoinhaber().isBlank()
                 ? bg.kontoinhaber() : bg.hauptpersonName();
-        String vorbehaltHinweis = berechnung.faelle().stream().anyMatch(Leistungsberechnung.FallBerechnung::kduUnangemessen)
+        boolean kduVorbehaltIrgendeinMonat = berechnung.faelle().stream()
+                        .anyMatch(Leistungsberechnung.FallBerechnung::kduUnangemessen)
+                || monate.stream().anyMatch(m -> m.ergebnis().faelle().stream()
+                        .anyMatch(Leistungsberechnung.FallBerechnung::kduUnangemessen));
+        String vorbehaltHinweis = kduVorbehaltIrgendeinMonat
                 ? "<p class='vorbehalt'>* Die Aufwendungen für Unterkunft und Heizung übersteigen die als "
                         + "angemessen anerkannte Grenze (§ 42a i.V.m. § 35 Abs. 1 und 7 SGB XII). Der übersteigende "
                         + "Betrag wird bei der Berechnung nicht berücksichtigt; eine Absenkungsfrist nach § 35 Abs. 3 "
