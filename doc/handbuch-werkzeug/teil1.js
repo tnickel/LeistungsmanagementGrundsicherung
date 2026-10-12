@@ -162,11 +162,12 @@ inhalt.push(...abbild("06_zahlbarmachung_bescheid.png", "Zahlbarmachung mit Vier
 
 inhalt.push(h2("6.2  Was beim Anordnen passiert"));
 inhalt.push(abs("Hinter der Schaltfläche „Auszahlung anordnen“ läuft eine einzige kurze Datenbank-Transaktion ab, die mehrere Schutzmechanismen in festen Reihenfolge kombiniert (Teil II, Kapitel 17, zeigt die technische Seite):"));
-inhalt.push(schritt(1, [{ t: "Idempotenz: ", fett: true }, { t: "Die Vorgangsnummer der Zahlung ist eindeutig. Wird dieselbe Anordnung ein zweites Mal geschickt (Doppelklick, Wiederholung), antwortet das System mit „Bereits gebucht“ und bucht nichts erneut." }]));
+inhalt.push(schritt(1, [{ t: "Idempotenz: ", fett: true }, { t: "Die Vorgangsnummer der Zahlung ist eindeutig. Wird dieselbe Anordnung ein zweites Mal geschickt (Doppelklick, Wiederholung), antwortet das System mit „Bereits gebucht“ und bucht nichts erneut. Ausnahme: Wurde die Zahlung zwischenzeitlich storniert, wird die Wiederholung abgewiesen — nach einem Storno ist eine neue Anordnung mit neuer Vorgangsnummer erforderlich." }]));
 inhalt.push(schritt(2, [{ t: "Sperre: ", fett: true }, { t: "Der Vorgang wird für die Dauer der Buchung exklusiv gesperrt; parallele Anordnungen zweier Sachbearbeiter laufen nacheinander ab." }]));
 inhalt.push(schritt(3, [{ t: "Anspruchsprüfung: ", fett: true }, { t: "Der Zahlbetrag wird frisch berechnet. Er muss größer null sein (sonst KEIN_ANSPRUCH) und darf das Restbudget nicht übersteigen (sonst BUDGET_ERSCHOEPFT)." }]));
-inhalt.push(schritt(4, [{ t: "SEPA-Prüfung: ", fett: true }, { t: "IBAN und BIC werden nach ISO 13616 (Modulo-97-Prüfziffer) geprüft; ungültige Verbindungen brechen mit VALIDATION ab." }]));
-inhalt.push(schritt(5, [{ t: "Buchung: ", fett: true }, { t: "Die Zahlung entsteht immer im Status ANGELEGT und wartet auf die Vier-Augen-Freigabe, das Restbudget mindert sich, und der Journaleintrag entsteht unter der eigenen Kennung." }]));
+inhalt.push(schritt(4, [{ t: "Bescheiddeckung: ", fett: true }, { t: "Sobald der Vorgang mindestens einen Bescheid besitzt, muss ein erteilter (nicht aufgehobener) Bescheid den Zahlungsmonat abdecken (§ 44 SGB XII) — andernfalls wird die Anordnung abgewiesen („Zahlungsmonat außerhalb des Bewilligungszeitraums“). Ohne jeden Bescheid bleibt der direkte Buchungsweg zulässig." }]));
+inhalt.push(schritt(5, [{ t: "SEPA-Prüfung: ", fett: true }, { t: "IBAN und BIC werden nach ISO 13616 (Modulo-97-Prüfziffer) geprüft; ungültige Verbindungen brechen mit VALIDATION ab." }]));
+inhalt.push(schritt(6, [{ t: "Buchung: ", fett: true }, { t: "Die Zahlung entsteht immer im Status ANGELEGT und wartet auf die Vier-Augen-Freigabe, das Restbudget mindert sich, und der Journaleintrag entsteht unter der eigenen Kennung." }]));
 
 inhalt.push(h2("6.3  Vier-Augen immer aktiv"));
 inhalt.push(abs("Das Vier-Augen-Prinzip ist serverseitig erzwungen: Jede Zahlung entsteht im Status ANGELEGT und wird erst durch die Freigabe einer zweiten Person (Kapitel 7) für die Kasse bereitgestellt. Eine Option, die Freigabe zu überspringen, gibt es bewusst nicht — auch nicht für die Administration."));

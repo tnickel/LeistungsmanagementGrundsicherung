@@ -91,6 +91,22 @@ Enterprise Edition (VirtualBox, Port 1921/o19c1p1) sowie 23ai Free verifiziert:
   testsweet bereinigt nur registrierte eigene Browserprofile, wiederholt keine
   bestätigten Schreibschritte und wertet globale SQL-Prüffehler als Laufmisserfolg.
   Verifikation und Grenzen: `doc/codereview/codereview-nachbesserungsbericht-2026-10-12.md`.
+- **v0.5.8 — Nachbesserung nach Gegenprüfung (Nachtrag, gleiche Version):** Request-Body
+  wird für TxManager-Retry zwischengespeichert (Stream war bei Wiederholung verbraucht);
+  Überlast antwortet 503 UEBERLAST mit Retry-After statt 500; Pool-Default 16 +
+  Startwarnung bei poolSize < 2 × maxTasks (Task hält Fachtx + Saga-Journal = 2
+  Verbindungen); JSON-Parser: Tiefenzähler-Fix bei leeren Objekten, strikte \u-Escapes;
+  Anmelde-Drosselung gehärtet (Schlüssel ≤ 64 Zeichen, aktive Sperren nie verdrängt,
+  Sitzungs-Cleanup); Audit-Fehlerzeilen nur noch Klassenname + ORA-Code (Sozialdaten in
+  Exception-Meldungen), Log-Injection maskiert; Saga: mehrdeutiger Commit-Ausgang wird
+  über das Journal geklärt und konservativ kompensiert, PAYLOAD wird bei
+  COMPLETED/COMPENSATED gelöscht (Datensparsamkeit, FAILED behält ihn), Admin-Wiederanlauf
+  fasst nur ≥ 5 Minuten inaktive Sagas an, Antrags-Saga kompensiert nur selbst angelegte
+  Vorgänge (Journal-Marker; Upgrade-Hinweis für Alt-Sagas in architektur.md) und prüft
+  IBAN/BIC nach ISO 13616; Fachlogik: Zahlung nur in vom erteilten Bescheid gedeckten
+  Monaten (sobald die BG einen Bescheid hat) und kein Replay stornierter Zahlungen
+  (neue Vorgangsnummer nötig). 249 Tests grün; Details: doc/architektur.md
+  „Nachbesserung nach Gegenprüfung v0.5.8" inkl. zusätzlicher bekannter Grenzen.
 - **v0.5.7 — CR-035/Option D: Zugriffsprotokoll + entschärfte Übersichten**: Jede
   Einsicht in vollständige Falldaten (Vorgangsdetail, Bescheiddaten, Druckansicht) wird
   über die Web-Sitzung mit Kennung im Journal protokolliert („Einsicht: … durch sb-xx",
