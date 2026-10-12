@@ -84,7 +84,11 @@
     <section class="abschnitt" id="kategorie-abschnitt">
         <div class="abschnitt-kopf">
             <h2>Testfallkategorie wählen</h2>
+            <span class="zeit-label" style="flex:1"></span>
             <span class="zeit-label" id="kategorie-hinweis">Positivfälle: Erfolgswege mit vollständiger Prüfung</span>
+            <button type="button" class="sekundaer" id="testfall-info" title="Beschreibung aller Testfall-Arten dieser Kategorie">
+                📋 Testfälle im Detail
+            </button>
         </div>
         <div class="diagramm-tabs">
             <button type="button" class="d-tab aktiv" id="kategorie-positiv" data-kategorie="POSITIV">
@@ -260,5 +264,15 @@
 </div>
 
 <script src="/app.js"></script>
+    <!-- Testfall-Beschreibung: scrollbarer Modal -->
+    <div id="testfall-overlay" class="testfall-overlay">
+        <div class="testfall-fenster">
+            <div class="testfall-kopf">
+                <strong id="testfall-titel">Testfälle</strong>
+                <button type="button" class="sekundaer" id="testfall-schliessen">Schließen ✕</button>
+            </div>
+            <div class="testfall-liste" id="testfall-liste"></div>
+        </div>
+    </div>
 </body>
 </html>

@@ -62,6 +62,7 @@ final class SweetServer {
                 case "/api/pdf" -> lieferePdf(exchange);
                 case "/api/md" -> liefereMd(exchange);
                 case "/api/auftraege" -> sendeJson(exchange, Map.of("auftraege", auftragsliste()));
+                case "/api/testfaelle" -> sendeJson(exchange, testfallKatalog(exchange));
                 default -> {
                     if (pfad.startsWith("/api/auftrag/")) {
                         auftragDetail(exchange, pfad.substring("/api/auftrag/".length()));
@@ -178,6 +179,34 @@ final class SweetServer {
         antwort.put("logs", log == null ? List.of() : log.letzteZeilen(120));
         antwort.put("logVerzeichnis", log == null ? simulator.letztesLogVerzeichnis()
                 : log.runVerzeichnis.toString());
+        return antwort;
+    }
+
+    /**
+     * Ausführliche Beschreibung der Testfall-Arten der gewählten Kategorie
+     * (?kategorie=POSITIV&modus=1|2). Statischer Katalog — vor dem Lauf abrufbar.
+     */
+    private Map<String, Object> testfallKatalog(HttpExchange exchange) {
+        var query = exchange.getRequestURI().getQuery();
+        String kategorie = "POSITIV";
+        boolean web = false;
+        if (query != null) {
+            for (String paar : query.split("&")) {
+                String[] teile = paar.split("=", 2);
+                if (teile.length == 2 && teile[0].equals("kategorie")) {
+                    kategorie = java.net.URLDecoder.decode(teile[1], java.nio.charset.StandardCharsets.UTF_8);
+                } else if (teile.length == 2 && teile[0].equals("modus")) {
+                    web = teile[1].trim().equals("2");
+                }
+            }
+        }
+        var eintraege = TestfallKatalog.fuer(kategorie, web).stream()
+                .map(e -> Map.of("name", e.name(), "anteil", e.anteil(), "text", e.text()))
+                .toList();
+        Map<String, Object> antwort = new LinkedHashMap<>();
+        antwort.put("kategorie", kategorie.toUpperCase(java.util.Locale.ROOT));
+        antwort.put("modus", web ? "2" : "1");
+        antwort.put("eintraege", eintraege);
         return antwort;
     }
 

@@ -71,6 +71,40 @@ window.addEventListener("DOMContentLoaded", () => {
         });
     });
 
+    // Testfall-Beschreibung: Modal mit der ausführlichen Katalogliste der Kategorie.
+    // Stresstest/Last liefern bewusst wenige Einträge (Rahmen + Wellen statt
+    // tausender gleicher Aufträge).
+    $("testfall-info").addEventListener("click", async () => {
+        const overlayFenster = $("testfall-overlay");
+        const liste = $("testfall-liste");
+        const modusWert = gewaehlterModus === "WEB" ? "2" : "1";
+        $("testfall-titel").textContent = "Testfälle im Detail — "
+            + (gewaehlteKategorie === "POSITIV" ? "Positivfälle"
+                : gewaehlteKategorie === "NEGATIV" ? "Negativfälle"
+                : gewaehlteKategorie === "LAST" ? "Lasttest" : "Stresstest")
+            + (modusWert === "2" ? " (Weboberfläche)" : " (Fachschicht)");
+        liste.innerHTML = '<p class="leise">Lade Katalog …</p>';
+        overlayFenster.classList.add("offen");
+        try {
+            const antwort = await fetch(`/api/testfaelle?kategorie=${encodeURIComponent(gewaehlteKategorie)}&modus=${modusWert}`);
+            const daten = await antwort.json();
+            liste.innerHTML = (daten.eintraege || []).map(e =>
+                '<div class="testfall-eintrag">'
+                + '<div class="testfall-name">' + esc(e.name)
+                + (e.anteil ? ' <span class="testfall-anteil">' + esc(e.anteil) + '</span>' : '')
+                + '</div>'
+                + '<div class="testfall-text">' + esc(e.text) + '</div>'
+                + '</div>').join("");
+        } catch (fehler) {
+            liste.innerHTML = '<p class="leise">Katalog konnte nicht geladen werden: '
+                + esc(String(fehler)) + '</p>';
+        }
+    });
+    $("testfall-schliessen").addEventListener("click", () => $("testfall-overlay").classList.remove("offen"));
+    $("testfall-overlay").addEventListener("click", (e) => {
+        if (e.target === $("testfall-overlay")) $("testfall-overlay").classList.remove("offen");
+    });
+
     // Start / Stop
     $("start").addEventListener("click", starteSimulation);
     $("stop").addEventListener("click", stoppeSimulation);
