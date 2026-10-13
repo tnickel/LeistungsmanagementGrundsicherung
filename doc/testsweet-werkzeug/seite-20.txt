@@ -1,0 +1,7 @@
+testsweet-Handbuch · Mitarbeiter-Simulator SDN.Leistung LMG
+Abbildung 10: Transaktionssteuerung und Oracle-ACID-Kern
+Der Stresstest richtet sich gezielt gegen diese Schicht: 4000 Transaktionsblöcke mit Sperren auf dieselben Vorgänge, Optimistic-Locking-Wechsel (Version 1  2) und Budgetführung unter Konkurrenz. Die Retry-Logik bei Sperrenkonflikten (ORA-00054/60/8177) läuft dabei im getesteten TxManager -- der Simulator überspringt sie nicht.
+Abbildung 11: Das Zwei-Wellen-Schema des Stresstests mit Phasenbarriere
+20
+
+

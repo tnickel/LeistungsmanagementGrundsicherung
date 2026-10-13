@@ -41,6 +41,8 @@
             <div class="banner-aktionen">
                 <a id="pdfknopf" class="btn btn-primaer" href="/api/pdf" target="_blank">📄 PDF-Testdokumentation öffnen</a>
                 <a id="mdknopf" class="btn btn-sekundaer" href="/api/md" target="_blank">{ } Markdown für KI-Review</a>
+                <button type="button" id="zertifikatknopf" class="btn btn-sekundaer">🏅 Testzertifikat erstellen</button>
+                <a id="zertifikatlink" class="btn btn-sekundaer" href="/api/zertifikat/pdf" target="_blank" style="display:none">🏅 Zertifikat öffnen (PDF)</a>
             </div>
         </div>
     </div>
@@ -123,6 +125,7 @@
             </label>
             <label>Aufträge
                 <input type="number" id="auftraege" value="60" min="1" max="3000">
+                <small class="feldbereich" id="auftraege-range">1–3000</small>
             </label>
             <label>Seed (0 = zufällig)
                 <input type="number" id="seed" value="42" min="0" max="999999999">
@@ -236,6 +239,39 @@
             Vollständige Logfiles je Lauf: <code>testsweet/logs/run-&lt;Zeitstempel&gt;/</code>
             (simulation.log, je Auftrag, je Mitarbeiter, db-verifikation.log, fehler.log, zusammenfassung.txt).
         </div>
+    </section>
+
+    <!-- LLM-Nachrechnung & Testzertifikat -->
+    <section class="abschnitt" id="llm-abschnitt">
+        <div class="abschnitt-kopf">
+            <h2>7. LLM-Nachrechnung &amp; Testzertifikat</h2>
+            <button type="button" class="btn-chip" id="llm-aktualisieren">↻ Aktualisieren</button>
+        </div>
+        <p class="hinweis">
+            Die KI-Prüfung läuft bewusst außerhalb dieser Anwendung (kein API-Aufruf): Hier wird das
+            Prüfpaket geschnürt und überwacht. Der Prüfmenge liegen die neueste
+            <code>testdokumentation.md</code>, die vollständigen Gesetzesgrundlagen und der
+            Prüfauftrag (Prompt) bei — deren Antwort als <code>llm-nachrechnung-&lt;Datum&gt;.md</code>
+            in <code>doc/testzertifikat-werkzeug/</code> ablegen; das Zertifikat liest sie automatisch ein.
+        </p>
+        <div id="llm-status">Lade …</div>
+        <div class="konfig" style="margin-top:10px">
+            <label>Fälle für die Prüfmenge
+                <input type="number" id="llm-faelle" value="100" min="1" max="500">
+            </label>
+            <div class="aktions-knöpfe">
+                <button type="button" class="btn btn-primaer" id="llm-paket-knopf">🤖 Prüfpaket erstellen</button>
+            </div>
+        </div>
+        <div id="llm-paket-ergebnis" class="hinweis" style="margin-top:8px"></div>
+        <details style="margin-top:10px">
+            <summary style="cursor:pointer">📋 Prüfauftrag (Prompt) ansehen — llm-pruefauftrag.txt</summary>
+            <pre id="llm-prompt" style="white-space:pre-wrap;background:#0f172a;color:#d1e3ea;padding:10px;border-radius:6px;font-size:12px;max-height:340px;overflow:auto"></pre>
+        </details>
+        <details style="margin-top:8px">
+            <summary style="cursor:pointer">📄 Mitgegebene Dateien &amp; Ablageorte</summary>
+            <div id="llm-dateien"></div>
+        </details>
     </section>
 </main>
 

@@ -1,0 +1,8 @@
+testsweet-Handbuch · Mitarbeiter-Simulator SDN.Leistung LMG
+3 Die Oberfläche im Überblick
+Die Oberfläche ist ein einziges langes Dashboard mit fünf Sprungmarken in der Reiterleiste: Konfiguration, Kenndaten, Architektur & Diagramme, Auftragsliste und Live-Protokoll. Ganz oben stehen Titel, der Status-Indikator des Laufs (LÄUFT, FERTIG, FEHLGESCHLAGEN) und die Kurzform der Datenbank-Verbindung.
+Abbildung 1: Konfigurationsbereich -- Statuszeile, Testdokumentation-Banner, Moduswahl, Testfallkategorie und Laufkonfiguration
+Der auffälligste Bereich ist das grüne Testdokumentation-Banner über der Konfiguration: Nach jedem Lauf bietet es die erzeugte Prüfdocumentation direkt an -- links der Knopf PDF-Testdokumentation öffnen (Deckblatt, Fachflussdiagramme, Zwischenrechenwege und SQL-Nachweise je Testfall), daneben Markdown für KI-Review (dieselben Daten maschinenlesbar, inklusive der vergebenen Datenbank-IDs und Prüf-SQLs). Darunter liegen die drei Konfigurations-Abschnitte: 1. Testmodus wählen (zwei Karten: Modus 1 Fachschicht, Modus 2 Weboberfläche/Selenium), Testfallkategorie wählen (vier Knöpfe, siehe Kapitel 6) und 2. Simulationslauf konfigurieren (Mitarbeiter, Aufträge, Seed, Denkzeit, AufräumCheckbox plus Schnell-Presets). Die Abschnitte 3. Kenndaten des Laufs bis 6. Live-Transaktionsprotokoll füllen sich ab dem ersten Lauf. Ein Hinweis zur Erwartung: Die Kenndaten zeigen immer nur den letzten Lauf dieser GUI-Sitzung (live aus dem Speicher) -- keine Tagesübersicht über alle Läufe. Die vollständige Geschichte liegt im Log-Verzeichnis jedes Laufs.
+5
+
+

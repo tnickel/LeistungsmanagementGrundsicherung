@@ -112,7 +112,20 @@ final class TestfallKatalog {
                         Der Kassenläufer läuft bewusst parallel zu laufenden Freigaben: Er sperrt die BEREIT-Zahlungen, \
                         übergibt exakt diese gesperrte Menge (ANGELEGT-Beginner und Freigaben, die währenddessen \
                         committen, gehören zum nächsten Lauf). Erwartet: Anzahl == Summe der Übergabe konsistent, \
-                        Status UEBERGEBEN nur mit gesetztem FREIGEGEBEN_VON, kein Zahlungszustand „kaputt“."""));
+                        Status UEBERGEBEN nur mit gesetztem FREIGEGEBEN_VON, kein Zahlungszustand „kaputt“."""),
+                new Eintrag("Kombinationsfälle (KOMBINATION) — systematisch gestreut", "Rest des Topfs",
+                        """
+                        Der Kombinationsgenerator füllt den Auftragstopf über die kuratierten Arten hinaus mit \
+                        garantiert VERSCHIEDENEN Konstellationen: Haushaltsform (Single, Paar, Alleinerziehende mit \
+                        Kindern, Paar mit Kindern), je Person gezogene Regelbedarfsstufe, Merkzeichen G, Schwangerschaft \
+                        (mit und ohne Entbindungsmonat — der Mehrbedarf entfällt dann im Zahlungsmonat automatisch), \
+                        dezentrales Warmwasser, Wohnkosten (am ersten Fall oder aufgeteilt), Renten- und Erwerbs- \
+                        einkommen mit Absetzbeträgen, Vermögen im und über dem Schonvermögen sowie zufällig gewählte \
+                        Wege (Bewilligungsbescheid mit Zeitraum, Vier-Augen-Freigabe, Doppelklick-Wiederholung, \
+                        Storno mit Mietekorrektur und Neu-Anordnung). Eine Signatur-Menge stellt sicher, dass keine \
+                        Konstellation zweimal vorkommt. Erwartet wird der vollständige Datenbank-Endzustand je \
+                        Kombination — gerechnet mit derselben Berechnung wie die Fachschicht, inklusive Vermögens- \
+                        verbrauchsfortschreibung (§ 90) und Fall-Versionierung."""));
     }
 
     // ------------------------------------------------------------------
@@ -194,6 +207,18 @@ final class TestfallKatalog {
                         """
                         Freigabe/Storno/Detail auf eine sicher nicht existierende ID (z. B. −999). Erwartet: Abweisung \
                         mit NICHT_GEFUNDEN, keine Nebeneffekte."""),
+                new Eintrag("NEG-KOMBINATION — Verstoß-Kombinationen", "Rest des Topfs",
+                        """
+                        Der negative Kombinationsgenerator streut Abwehrfälle über vier Gruppen und kombiniert \
+                        verträgliche Primär- und Sekundärverstöße: Anlage (ungültige IBAN mit falscher Prüfziffer \
+                        oder Länge, BIC mit unzulässiger Länge), Anordnung (hohe Rente, hohes Erwerbseinkommen, \
+                        Vermögen über Bedarf, zu kleines Startbudget, Anordnung ohne SozialFall, Zahlungsmonat \
+                        außerhalb des erteilten Bescheids), Workflow (zweite Anordnung für denselben Monat, \
+                        Selbstfreigabe, doppelte Freigabe, Storno nach Kassenübergabe) und Daten (umgekehrter oder \
+                        überlanger Bescheid-Zeitraum, veralteter Maskenstand, Operationen auf unbekannten IDs). \
+                        Erwartet werden die jeweiligen Fachfehler — und per SQL der saubere Datenbank-Endzustand: \
+                        keine ungewollte Zahlung, Budget nur durch erlaubte Schritte verändert, Bescheid-Bestand \
+                        exakt wie fachlich zulässig."""),
                 new Eintrag("Prinzip aller Negativfälle: unveränderter DB-Endzustand", "",
                         """
                         Nach jedem Negativ-Szenario wird nicht nur der Fehlercode geprüft, sondern per SQL der \

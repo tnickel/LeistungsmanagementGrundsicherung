@@ -1,0 +1,96 @@
+testsweet-Handbuch · Mitarbeiter-Simulator SDN.Leistung LMG
+
+10 Die Klassen
+
+Die 22 Hauptklassen im Paket de.allgemein.testsweet verteilen die Verantwortung auf klare Rollen -- von der Szenario-Definition über die Ausführung bis zu Protokoll und Bericht:
+
+Tabelle 4: Alle Hauptklassen (Zeilenstand 12.10.2026)
+
+Klasse SzenarioBibliothek
+
+Zeilen 1752
+
+Simulator
+
+934
+
+SweetPdf
+
+738
+
+Testdokumentation
+
+592
+
+WebSzenarioBibliothek 577
+
+WebHelfer
+
+541
+
+SweetServer
+
+401
+
+LastBericht
+
+367
+
+SweetLog
+
+300
+
+TestfallKatalog
+
+294
+
+WebMitarbeiter
+
+268
+
+MdBericht
+
+262
+
+Mitarbeiter
+
+138
+
+Auftrag
+
+116
+
+SweetMain
+
+115
+
+Verifikator
+
+110
+
+BrowserProzesse
+
+109
+
+Rolle
+die Szenario-Arten des Modus 1 samt Erwartungshaltung (Beträge, Status, Versionen)
+Orchestrierung: Auftragstopf, Worker-Threads, Phasenbarriere (Stress), globale Prüfungen
+eigenentwickelter PDF-Generator (PDF 1.4) für Testdokumentation und Lastreport
+baut den Positiv-/Negativ-Bericht: je Fall Rechenweg, Erwartung/Ist-SQL, Ablauf
+die Web-Szenario-Arten des Modus 2 (inkl. WEB-NEG-Varianten)
+Selenium-Werkzeuge: Klicks, Wartezeiten, Screenshots, Wiederaufnahme nach Sitzungstod
+HTTP-Oberfläche auf Port 8095 (JDK HttpServer) samt /api-Endpunkten
+der gekürzte Aggregate-Report für Last- und Stresstest
+Lauf-Protokollierung: run-Verzeichnis, je Mitarbeiter/Auftrag, Verifikations- und Fehlerlog
+Katalog der Testfallbeschreibungen für den Dialog ,,Testfälle im Detail"
+ein simulierter Sachbearbeiter im Modus 2 -- fährt sein eigenes Chrome-Fenster
+erzeugt die maschinenlesbare Markdown-Fassung der Berichte
+ein simulierter Sachbearbeiter im Modus 1 -- ruft die Fachschicht direkt auf
+Wertobjekt: Szenario, Aktenzeichen, Hauptperson, Erwartung und Status
+Einstiegspunkt: CLI-Auswertung (run/web) oder Start der GUI
+Soll/Ist-Prüfung je Auftrag per SQL (Beträge, Status, Budget, Versionen)
+Chrome-Prozess- und Profil-Verwaltung samt sicherem Aufräumen
+
+16
+
+

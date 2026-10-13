@@ -17,16 +17,17 @@ class TestfallKatalogTest {
     @Test
     void positivFachschichtBeschreibtAlleZehnArten() {
         List<TestfallKatalog.Eintrag> eintraege = TestfallKatalog.fuer("POSITIV", false);
-        assertEquals(10, eintraege.size());
+        assertEquals(11, eintraege.size(), "10 kuratierte Arten + 1 Kombinations-Generator");
         assertTrue(eintraege.stream().anyMatch(e -> e.name().contains("Standardrente")));
         assertTrue(eintraege.stream().anyMatch(e -> e.name().contains("Doppelklick")));
         assertTrue(eintraege.stream().anyMatch(e -> e.name().contains("Kassenlauf")));
+        assertTrue(eintraege.stream().anyMatch(e -> e.name().contains("Kombinationsfälle")));
     }
 
     @Test
     void negativFachschichtBeschreibtAlleAbwehrarten() {
         List<TestfallKatalog.Eintrag> eintraege = TestfallKatalog.fuer("NEGATIV", false);
-        assertEquals(10, eintraege.size(), "9 Abwehr-Arten + 1 Prinzip-Eintrag");
+        assertEquals(11, eintraege.size(), "9 Abwehr-Arten + 1 Kombinations-Generator + 1 Prinzip-Eintrag");
         assertTrue(eintraege.stream().allMatch(e -> !e.text().isBlank()));
     }
 

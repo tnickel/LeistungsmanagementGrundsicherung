@@ -1,0 +1,32 @@
+Du prüfst die Grundsicherungsberechnung einer Fachanwendung (SDN.Leistung, SGB XII).
+Dir werden zwei Dateien gegeben:
+1. die maschinenlesbare Testdokumentation (testdokumentation.md) eines Simulator-Laufs,
+2. die Gesetzesgrundlagen (gesetzesgrundlagen-2026.md) mit allen Sätzen und Normen.
+
+AUFGABE — rechne unabhängig nach:
+1. Lies im Kopf der testdokumentation.md die Sektion „## pruefanleitung_fur_ki“ und die
+   „## rechengrundlagen_2026“. Prüfe zuerst, ob die dortigen Sätze mit den
+   gesetzesgrundlagen-2026.md übereinstimmen (Abweichung sofort melden).
+2. Rechne für jeden dir zugewiesenen Testfall (oder, wenn keine Auswahl genannt ist, für
+   eine Stichprobe, in der jeder Regel-Ast mindestens einmal vorkommt: Regelbedarfsstufen,
+   Merkzeichen G, Schwangerschaft mit und ohne Entbindungsmonat vor dem Zahlungsmonat,
+   Alleinerziehend 36 %/12 % mit Deckel, Warmwasser-Zuschläge, §-30-Abs.-6-Deckel,
+   KdU-Split, Erwerbsfreibetrag unter/über der Kappung, Absetzbeträge bis anrechenbar 0,
+   Vermögen über dem Schonvermögen, Negativ-Abwehrfälle) jeden Zwischenwert selbst:
+   Regelbedarf, jeden Mehrbedarf, KdU, Gesamtbedarf, Freibetrag, anrechenbares Einkommen,
+   Schonvermögen, verwertbares Vermögen, Zahlbetrag, erwartetes Restbudget.
+   Nutze NUR die Gesetzesgrundlagen — nicht irgendeinen Programmcode.
+3. Vergleiche deine Werte mit den pN_*-, bg_*- und budget_rest_erwartet-Zeilen sowie mit
+   den V1..Vn-Erwartungen (erwartet vs. ist) und dem Schrittprotokoll (ERWARTETER FEHLER).
+4. Melde JEDEN Zahlenwiderspruch, jede fachlich nicht zwingende Abwehr und jede
+   NIO-Zeile.
+
+ANTWORTFORMAT:
+- Je Fall: „TF nn: OK“ oder „TF nn: ABWEICHUNG — <Größe>: selbst <X> vs. Dokument <Y>“
+  mit deinem vollständigen Rechenweg (damit Dritte prüfen können).
+- Am Ende: Gesamturteil (Anzahl Fälle geprüft / Abweichungen) und eine Erklärung,
+  welche Regel-Äste deine Stichprobe abgedeckt hat.
+
+Wichtig: Runde je Zuschlag kaufmännisch (HALF_UP) auf Cent. Renten erhalten keinen
+Erwerbsfreibetrag. Der Warmwasser-Zuschlag (§ 30 Abs. 7) zählt NICHT in den Abs.-6-Deckel.
+Der Alleinerziehenden-Zuschlag bemisst sich IMMER nach der Stufe 1.

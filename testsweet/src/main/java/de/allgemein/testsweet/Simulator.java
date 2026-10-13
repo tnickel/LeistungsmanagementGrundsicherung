@@ -48,6 +48,33 @@ public final class Simulator {
      *  Fachfehler (NEGATIV) oder schlanker Massenbetrieb für den Lasttest. */
     public enum Kategorie { POSITIV, NEGATIV, LAST, STRESS }
 
+    /** Zulässige Auftrags-Obergrenze je Kategorie: Der Testfallbestand ist bewusst
+     *  begrenzt — 500 Positiv- und 500 Negativ-Kombinationen (kuratierte Arten +
+     *  Kombinationsgenerator), 1200 schlanke Lastdurchläufe und 3000 Stress-User
+     *  (je User zwei Wellen = 6000 Transaktionsblöcke). */
+    public static int auftraegeLimit(Kategorie kategorie) {
+        return switch (kategorie) {
+            case POSITIV, NEGATIV -> 500;
+            case LAST -> 1200;
+            case STRESS -> 3000;
+        };
+    }
+
+    /** Wirft eine klare Meldung, wenn Mitarbeiter oder Aufträge außerhalb der
+     *  zulässigen Spanne liegen — vor jedem Laufstart geprüft (GUI, CLI). */
+    public static void pruefeKonfiguration(Kategorie kategorie, int mitarbeiter, int auftraege) {
+        if (mitarbeiter < 1 || mitarbeiter > 50) {
+            throw new IllegalStateException(
+                    "Mitarbeiter muss zwischen 1 und 50 liegen (" + mitarbeiter + ")");
+        }
+        int limit = auftraegeLimit(kategorie);
+        if (auftraege < 1 || auftraege > limit) {
+            throw new IllegalStateException("Die Auftragszahl muss zwischen 1 und " + limit
+                    + " liegen für Kategorie " + kategorie + " (" + auftraege
+                    + " eingegeben) — der Testfallbestand ist bewusst begrenzt");
+        }
+    }
+
     /** Laufparameter aus der GUI; Kategorie standardmäßig POSITIV. */
     public record LaufKonfiguration(
             int mitarbeiter, int auftraege, long seed, long denkzeitMs, boolean aufraeumen,
@@ -233,6 +260,7 @@ public final class Simulator {
 
     /** Startet einen Lauf synchron im aufrufenden Thread (für CLI/Batch-Betrieb). */
     public void laufSynchron(LaufKonfiguration konfig) throws Exception {
+        pruefeKonfiguration(konfig.kategorie(), konfig.mitarbeiter(), konfig.auftraege());
         if (!laufAktiv.compareAndSet(false, true)) {
             throw new IllegalStateException("Es läuft bereits ein Simulator-Lauf");
         }
@@ -252,6 +280,7 @@ public final class Simulator {
 
     /** Startet einen Lauf in einem Hintergrund-Thread; kehrt sofort zurück. */
     public synchronized void starte(LaufKonfiguration konfig) {
+        pruefeKonfiguration(konfig.kategorie(), konfig.mitarbeiter(), konfig.auftraege());
         if (!laufAktiv.compareAndSet(false, true)) {
             throw new IllegalStateException("Es läuft bereits ein Simulator-Lauf (Phase "
                     + phase + ") — bitte das Ende abwarten");
@@ -333,6 +362,7 @@ public final class Simulator {
 
     /** Startet einen Weboberflächen-Lauf synchron im aufrufenden Thread (für CLI). */
     public void laufWebSynchron(LaufKonfiguration konfig) throws Exception {
+        pruefeKonfiguration(konfig.kategorie(), konfig.mitarbeiter(), konfig.auftraege());
         if (!laufAktiv.compareAndSet(false, true)) {
             throw new IllegalStateException("Es läuft bereits ein Simulator-Lauf");
         }
@@ -352,6 +382,7 @@ public final class Simulator {
 
     /** Startet einen Weboberflächen-Lauf in einem Hintergrund-Thread. */
     public synchronized void starteWeb(LaufKonfiguration konfig) {
+        pruefeKonfiguration(konfig.kategorie(), konfig.mitarbeiter(), konfig.auftraege());
         if (!laufAktiv.compareAndSet(false, true)) {
             throw new IllegalStateException("Es läuft bereits ein Simulator-Lauf (Phase "
                     + phase + ") — bitte das Ende abwarten");

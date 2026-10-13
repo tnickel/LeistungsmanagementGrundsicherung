@@ -1,0 +1,73 @@
+So wird ein SozialFall berechnet · SDN.Leistung LMG
+
+Schritt
+
+Rechnung
+
+Ergebnis
+
+Vermögen 10.500 - Schonvermögen 10.000 = verwertbar 10.500 - 10.000
+
+500,00
+
+Januar: Zahlbetrag (Vermögen mindert)
+
+863,00 - 500,00
+
+363,00
+
+Nach der Januar-Auszahlung: Bestand auf Schonvermögen
+
+10.500 - 500
+
+10.000,00
+
+Februar bis Juni: Zahlbetrag je Monat (kein Abzug mehr) --
+
+863,00
+
+Genau dieser Verlauf ist der Zeitstrahl in Abbildung 7. Würde Frau V. die Januar-Zahlung stornieren lassen, kämen die 500 EUR Vermögenseinsatz zurück -- der Bestand stünde wieder bei 10.500 EUR.
+
+11 Schutzregeln beim Zahlen
+
+Zwischen dem fertigen Bescheid und dem Geld auf dem Konto liegen mehrere Schutzregeln. Sie sind in Kapitel 2 im Ablaufdiagramm eingezeichnet und werden hier in Kurzform zusammengestellt:
+
+Tabelle 10: Die Schutzregeln der Auszahlung
+
+Regel
+
+Was sie bewirkt
+
+Vier-Augen-Prinzip
+
+Eine Zahlung wird immer ANGELEGT und muss durch eine zweite Person freigegeben werden (BEREIT). Die Freigabe durch die eigene erfassende Person weist das System ab -- rechnerisch, nicht auf Vertrauen.
+
+Idempotenz
+
+Jede Anordnung trägt eine eindeutige Vorgangsnummer. Wird dieselbe Nummer erneut geschickt (Doppelklick, wiederholter Request), kommt die vorhandene Zahlung zurück -- es passiert nichts.
+
+Budgetführung
+
+Die Bedarfsgemeinschaft hat ein monatliches Restbudget. Eine Auszahlung mindert es; über das Budget hinaus geht nichts raus. Storno bucht den Betrag zurück.
+
+Sperren und Konkurrenz
+
+Buchen mehrere Sachbearbeiter gleichzeitig, ordnet die Datenbank die Zugriffe (,,SELECT ... FOR UPDATE"). Technische Sperrkonflikte wiederholt die Transaktionssteuerung automatisch; gleichzeitige Masken-Änderungen bekommen eine Klartext-Meldung statt stillen Datenverlust.
+
+Storno bis zur Übergabe
+
+Jede noch nicht übergebene Zahlung kann storniert werden (Status STORNIERT) -- inklusive Rückbuchung von Restbudget und Vermögenseinsatz. Nach dem Kassenlauf geht nichts mehr zurück.
+
+Revisionssicheres Jour- Jeder Schritt -- Anordnung, Freigabe, Übergabe, Storno, auch jede Einsicht in
+
+nal
+
+vollständige Falldaten -- steht mit Kennung und Zeitpunkt im Journal.
+
+SEPA-Prüfung
+
+IBAN und BIC werden mit der Modulo-97-Prüfziffer validiert (ISO 13616), bevor eine Zahlung angelegt wird.
+
+15
+
+

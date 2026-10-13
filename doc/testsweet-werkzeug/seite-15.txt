@@ -1,0 +1,69 @@
+testsweet-Handbuch · Mitarbeiter-Simulator SDN.Leistung LMG
+
+9 Der Technologiestack
+
+testsweet folgt derselben Philosophie wie das Hauptprojekt: bewusst keine Frameworks, alles nachlesbar. Die Abhängigkeiten in testsweet/pom.xml sind überschaubar:
+
+Tabelle 3: Bausteine und ihre Rolle
+
+Baustein
+
+Version
+
+Rolle im Simulator
+
+Java
+
+21
+
+Laufzeit und Sprache; Thread-Parallelität über die Stan-
+
+dardbibliothek
+
+transaktionssteuerung 0.5.8
+
+das getestete Hauptprojekt: Fachschicht, TxManager, DAOs -- Modus 1 ruft es direkt auf
+
+Oracle JDBC (ojdbc11)
+
+via Hauptprojekt
+
+Datenbankzugang für die Szenarien und die SQL-Verifikation
+
+selenium-java
+
+4.27.0
+
+Modus 2: Steuerung der sichtbaren Chrome-Fenster (Anmeldung, Masken, Freigabe, Storno)
+
+WebDriverManager
+
+5.9.0
+
+beschafft den passenden ChromeDriver automatisch und hält einen Ersatztreiber bereit
+
+JDK HttpServer
+
+JDK-Bestandteil die Dashboard-Oberfläche auf Port 8095 -- ohne WebFramework
+
+JUnit Jupiter
+
+5.10.2
+
+nur für die eigenen Tests des Simulators (siehe Kapitel 12)
+
+SweetPdf (Eigenbau)
+
+--
+
+PDF-1.4-Erzeugung ohne Drittbibliothek; bindet Grafiken als native XObjects (DCTDecode)
+
+Python + matplotlib
+
+Werkzeugkette erzeugt die Fachflussdiagramme (testsweet/generate_diagrams.py, 200 dpi)
+
+Zwei Details stechen heraus. Erstens: Der Simulator testet Produktionscode mit Produktionscode -- Modus 1 hängt an denselben Klassen wie die Fachanwendung, nicht an einer Kopie. Zweitens ist selbst der PDF-Export eine Eigenentwicklung (SweetPdf), damit der Bericht ohne schwergewichtige Bibliotheken aus einem einzigen Prozess fällt. Die Chrome-Fenster des Modus 2 laufen mit verkleinerter Darstellung (--force-device-scale-factor=0.8), damit die Seiten auch im kleinen Rasterfenster vollständig sichtbar sind.
+
+15
+
+

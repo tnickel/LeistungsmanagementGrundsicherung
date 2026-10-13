@@ -1,0 +1,35 @@
+So wird ein SozialFall berechnet · SDN.Leistung LMG
+
+Drei Sonderfälle steckt der Monatsplan selbst:
+1. Satzwechsel zum Jahreswechsel: Für jeden Monat wird der dann gültige Satzstand aus der Datenbank gelesen -- ändert der Gesetzgeber zum 1. Januar die Regelbedarfsstufen, stellt der Plan die Folgemonate automatisch auf die neuen Werte (ohne eine Änderung des Bescheids).
+2. Schwangerschaftsende: Ist der Entbindungsmonat erfasst, entfällt der SchwangerschaftsMehrbedarf ab dem Folgemonat automatisch -- die Falldaten bleiben erhalten, nur der Plan rechnet ab da ohne diesen Zuschlag.
+3. Vermögensverbrauch: Wie in Kapitel 8 -- der Vermögensabzug steht nur in dem Monat, in dem die erste Auszahlung erfolgt; danach rechnet der Plan ohne ihn.
+Wichtig zur Abgrenzung: Der Plan deckt nur vorhersehbare Änderungen ab. Meldet die Person etwas Neues -- etwa eine Erbschaft, einen Job oder einen Umzug --, kommt ein neuer Bescheid. Und der gedruckte Bescheid zeigt immer den gespeicherten Stand von der Erteilung, nicht die aktuelle Datenlage: Nachvollziehbarkeit vor Aktualität.
+
+10 Durchgerechnete Beispiele
+
+Fünf Fälle, Schritt für Schritt -- dieselben Werte stehen als ,,Goldwerte" in den automatischen Tests des Projekts (GoldWerteTest) und wurden handschriftlich nachgerechnet. Alle Beträge in EUR, Stand 2026.
+
+10.1 Frau B. -- alleinstehend, ohne Einkommen
+
+Tabelle 5: Beispiel A -- Standardfall
+
+Schritt Regelbedarf (Stufe 1) + Wohnkosten (Kaltmiete 350, Betriebskosten 60, Heizung 80) = Zahlbetrag (kein Einkommen, kein Vermögen)
+
+Rechnung -- 350 + 60 + 80
+563,00 + 490,00
+
+Ergebnis 563,00 490,00
+1.053,00
+
+10.2 Herr und Frau P. -- Ehepaar in gemeinsamer Wohnung
+
+Tabelle 6: Beispiel B -- Paar Schritt Regelbedarf, je Person (Stufe 2) + Wohnkosten der Bedarfsgemeinschaft = Zahlbetrag
+
+Rechnung 2 × 506,00 -- 1.012,00 + 650,00
+
+Ergebnis 1.012,00 650,00 1.662,00
+
+13
+
+

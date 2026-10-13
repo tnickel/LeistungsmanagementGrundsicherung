@@ -1,0 +1,30 @@
+{
+ "ablauf_antrag_bis_zahlung.png": {
+  "w": 1907,
+  "h": 1310
+ },
+ "fluss_berechnung_gesamt.png": {
+  "w": 1907,
+  "h": 1433
+ },
+ "fluss_einkommen.png": {
+  "w": 1907,
+  "h": 1526
+ },
+ "fluss_mehrbedarfe.png": {
+  "w": 1907,
+  "h": 1526
+ },
+ "fluss_vermoegen.png": {
+  "w": 1907,
+  "h": 1403
+ },
+ "fluss_wohnkosten.png": {
+  "w": 1907,
+  "h": 1588
+ },
+ "monatsplan_zeitstrahl.png": {
+  "w": 1907,
+  "h": 1033
+ }
+}

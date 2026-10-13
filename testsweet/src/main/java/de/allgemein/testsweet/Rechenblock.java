@@ -19,6 +19,7 @@ import java.util.List;
  */
 public record Rechenblock(
         String titel,
+        String zahlungsmonat,
         List<SozialFall> faelle,
         BigDecimal vermoegen,
         BigDecimal budget,
@@ -30,6 +31,13 @@ public record Rechenblock(
         zusatzHinweise = zusatzHinweise == null ? List.of() : List.copyOf(zusatzHinweise);
     }
 
+    /** Abwärtskompatibler Konstruktor ohne Zahlungsmonat (kuratierte Szenarien). */
+    public Rechenblock(String titel, List<SozialFall> faelle, BigDecimal vermoegen,
+            BigDecimal budget, Leistungsberechnung.Berechnungsergebnis ergebnis,
+            List<String> zusatzHinweise) {
+        this(titel, null, faelle, vermoegen, budget, ergebnis, zusatzHinweise);
+    }
+
     /** Schonvermögen der BG in EUR (§ 90 Abs. 2 Nr. 9 i.V.m. § 1 BarbetragsVO). */
     public BigDecimal schonvermoegen() {
         return Leistungsberechnung.schonvermoegen(faelle);
@@ -37,6 +45,6 @@ public record Rechenblock(
 
     /** Kopie mit gesetztem Budget (das Budget steht erst nach der Berechnung fest). */
     public Rechenblock mitBudget(BigDecimal neuesBudget) {
-        return new Rechenblock(titel, faelle, vermoegen, neuesBudget, ergebnis, zusatzHinweise);
+        return new Rechenblock(titel, zahlungsmonat, faelle, vermoegen, neuesBudget, ergebnis, zusatzHinweise);
     }
 }

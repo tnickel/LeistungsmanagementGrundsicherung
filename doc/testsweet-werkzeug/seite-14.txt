@@ -1,0 +1,8 @@
+testsweet-Handbuch · Mitarbeiter-Simulator SDN.Leistung LMG
+8 Architekturüberblick
+Technisch ist testsweet ein kleines, bewusst framework-freies Java-Programm (22 Klassen, rund 7.800 Zeilen im Hauptteil, dazu fünf Testklassen), das zwei Rollen hat: Es ist Webserver für die Dashboard-Oberfläche und Orchestrierung für die simulierten Mitarbeiter. Das folgende Bild zeigt die Komponenten und ihre Leitungen:
+Abbildung 6: Klassen und Zusammenspiel -- vom Browser über SweetServer und Simulator zu den Workern, darunter Protokoll, Verifikation und Berichte
+So liest man das Bild: Der solide Fluss oben ist der Weg eines Laufs: Der Browser spricht die Endpunkte /api/start, /api/status, /api/testfaelle, /api/auftraege, /api/pdf, /api/md und /api/stop an -- alle auf dem JDK-HttpServer von SweetServer. Der Simulator baut aus der SzenarioBibliothek den Auftragstopf (mit Seed reproduzierbar) und füttert damit N WorkerThreads: Mitarbeiter im Modus 1 direkt auf die Fachschicht, WebMitarbeiter im Modus 2 über Selenium in eigene Chrome-Fenster. Beide landen zwangsläufig in derselben Oracle-Datenbank -- genau dort soll geprüft werden. Der gestrichelte Fluss unten ist der Nachweis: SweetLog schreibt je Lauf ein Verzeichnis mit Protokollen; Verifikator und GlobaleVerifikation prüfen Soll gegen Ist per SQL; MdBericht, Testdokumentation, SweetPdf und LastBericht erzeugen daraus Markdown und PDF -- genau die Dateien, die das GUI-Banner anbietet.
+14
+
+

@@ -93,6 +93,24 @@ Im **Modus 2** kommen Web-Varianten hinzu: WEB-STANDARDRENTE und WEB-MEHRBEDARF
 (je mit Vier-Augen-Freigabe durch einen Kollegen) sowie WEB-STORNO (Anordnung,
 Freigabe, dann Storno durch die Administration mit vollständiger Budget-Rückbuchung).
 
+**Kombinationsgenerator (KOMBINATION / NEG-KOMBINATION):** Über die kuratierten
+Arten hinaus füllt der Simulator den Auftragstopf mit systematisch gestreuten
+Kombinationsfällen — bei POSITIV zufällige Haushalte (Single, Paar, Alleinerziehende
+mit Kindern, Paar mit Kindern) mit je Person gezogener Regelbedarfsstufe, Merkzeichen G,
+Schwangerschaft (mit/ohne Entbindungsmonat — der Mehrbedarf entfällt dann im
+Zahlungsmonat automatisch), dezentralem Warmwasser, Wohnkosten (am ersten Fall oder
+aufgeteilt), Renten-/Erwerbseinkommen mit Absetzbeträgen, Vermögen im und über dem
+Schonvermögen sowie zufällig gewählten Wegen (Bescheid mit Zeitraum, Vier-Augen-
+Freigabe, Doppelklick-Wiederholung, Storno mit Mietekorrektur und Neu-Anordnung).
+Bei NEGATIV werden Verstöße aus vier Gruppen (Anlage/SEPA, Anordnung inkl. Zahlungsmonat
+außerhalb des Bescheids, Workflow/Vier-Augen, Daten wie Konkurrenz und unbekannte IDs)
+zu verträglichen Primär-/Sekundär-Kombinationen gesetzt. Eine Signatur-Menge stellt
+sicher, dass **keine Konstellation zweimal vorkommt**; die Erwartungshaltung entsteht
+weiterhin mit derselben reinen Berechnung wie die Fachschicht (inkl. Entbindungsmonat-
+Regel und Vermögensverbrauch). Referenzläufe (2026-10-13, Docker-Oracle):
+500 Positiv (480 Kombinationen) und 500 Negativ (491 Kombinationen) — jeweils
+500/500 verifiziert in 4 bzw. 3 Sekunden; GUI-Preset „Breite 500“ setzt beide ein.
+
 ## Testfallkategorien (Positiv / Negativ / Lasttest)
 
 Zwischen Moduswahl und Laufkonfiguration wählt die GUI die **Testfallkategorie**;
@@ -104,6 +122,11 @@ das Aktenzeichen-Präfix unterscheidet die Datenmengen in der Datenbank:
 | **NEGATIV** | `SWEET-N-` | `SWEET-NW-` | `testdokumentation.pdf` / `.md` je Fall |
 | **LAST** | `SWEET-L-` | `SWEET-LW-` | **gekürzter** `lastreport.pdf` / `lastreport.md` (nur Aggregate) |
 | **STRESS** | `SWEET-S-` | — (bewusst nur Fachschicht) | **gekürzter** `lastreport.pdf` / `lastreport.md` |
+
+**Auftrags-Obergrenzen je Kategorie** (Feld „Aufträge", 1–Limit; GUI begrenzt das
+Eingabefeld, Simulator und CLI weisen Überschreitungen mit Klartext-Meldung ab):
+**500** Positiv- und **500** Negativ-Kombinationen (unser vereinbarter Testfallbestand),
+**1200** Lastdurchläufe, **3000** Stress-User (je User zwei Wellen).
 
 **Negativfälle** (Fachschicht, 9 Arten): NEG-KEINANSPRUCH (Rente über Bedarf,
 § 43 Abs. 1), NEG-BUDGET (Startbudget unter Zahlbetrag), NEG-DOPPELMONAT
@@ -161,7 +184,35 @@ Je Lauf ein Verzeichnis `testsweet/logs/run-<Zeitstempel>/`:
 | `screenshots/` | Modus 2: Screenshot je UI-Schritt (`tf-NN-schritt-MM.png`) |
 | `lastreport.pdf` / `lastreport.md` | LAST-Kategorie: gekürzter Gesamtreport (Aggregate statt Einzelfälle) |
 | `testdokumentation.pdf` | hochprofessionelle Testdokumentation (repräsentatives Deckblatt mit Titelbild, Fachflussdiagramme zu Architektur, SGB-XII-Rechenkaskade und Vier-Augen-Workflow, Inhaltsverzeichnis mit exakter Pagination, je Testfall nachrechenbarer Rechenweg + Erwartung/Ist-SQL-Prüfung + Ablauf); in der GUI per Button abrufbar (`/api/pdf`) |
-| `testdokumentation.md` | maschinenlesbare Fassung derselben Daten inkl. der vergebenen DB-IDs und der Prüf-SQLs — zum unabhängigen Nachprüfen durch KI/Dritte (`/api/md`) |
+| `testdokumentation.md` | maschinenlesbare Fassung derselben Daten inkl. der vergebenen DB-IDs und der Prüf-SQLs — zum unabhängigen Nachprüfen durch KI/Dritte (`/api/md`). Seit 2026-10-13 trägt die Datei ihren Prüfkontext in sich: Block „pruefanleitung_fur_ki" (Nachrechen-Anweisung), je Rechenweg `zahlungsmonat` und je Person `entbindungsmonat` (Regel: Mehrbedarf Schwangerschaft entfällt, wenn Zahlungsmonat nach Entbindungsmonat liegt), je Testfall `erwartete_fachfehler` (aggregierte Codes der abgewehrten Schritte) sowie für Positiv-/Negativläufe mit Storno-Korrektur einen zweiten Rechenweg für die Neuanordnung. Die Datei kann einer KI als Ganzes zur Überprüfung übergeben werden (nur Positiv/Negativ — Last/Stress liefern bewusst nur Aggregate). |
+
+
+## Qualitätssicherung: LLM-Nachrechnung & Testzertifikat (GUI-Abschnitt 7)
+
+Damit die Prüfungen nicht nur laufen, sondern nachweisbar richtig sind, verzahnt testsweet
+den gesamten Kontroll-Workflow (die KI selbst wird bewusst NICHT aus der Anwendung gerufen —
+kein API-Aufruf, keine Schlüssel; das Paket gibt man einer KI seiner Wahl):
+
+1. **Läufe fahren** (Positiv/Negativ, ggf. Last/Stress) — je Lauf entsteht die maschinenlesbare
+   `testdokumentation.md` (Button „{ } Markdown für KI-Review").
+2. **Prüfpaket schnüren** (GUI Abschnitt 7): Knopf „🤖 Prüfpaket erstellen" mit konfigurierbarer
+   Fallzahl (1–500, Standard 100) erzeugt die Prüfmenge `pruefmenge-positiv-<N>faelle.md`
+   (Kopf vollständig + die ersten N Kombinationsfälle der neuesten Testdokumentation; die
+   Kürzung ist im Dateikopf dokumentiert). Zusammen mit `gesetzesgrundlagen-2026.md`
+   (vollständige Gesetzestexte mit Fundstellen) und `llm-pruefauftrag.txt` (der Prompt —
+   in der GUI unter „Prüfauftrag ansehen" vollständig einsehbar) ergeben sich die drei
+   mitzugebenden Dateien; die GUI listet Pfade und Größen auf.
+3. **KI antworten lassen**: Die Antwort/Bestätigung als `llm-nachrechnung-<Datum>.md` in
+   `doc/testzertifikat-werkzeug/` ablegen — die Kopfzeilen (pruefumfang / mitgegeben /
+   modell / methode / ergebnis / abdeckung) werden von Generator und Zertifikat automatisch
+   eingelesen. Der Abschnitt zeigt Status, Modell, Umfang und warnt, wenn die
+   Testdokumentation neuer ist als die Nachrechnung.
+4. **Testzertifikat erstellen** (Knopf im Banner, Abschnitt 7): erzeugt das Zertifikat mit
+   zehn grünen Häkchen; Laufzahlen und LLM-Stand werden automatisch erhoben
+   (`doc/testzertifikat-werkzeug/`, Details im dortigen README).
+
+Referenz (2026-10-13): 100 Fälle (108 Rechenblöcke) von GLM-5.3 einzeln nachgerechnet —
+0 Abweichungen; Protokoll `llm-nachrechnung-2026-10-13-100faelle.md`.
 
 ## Grafik- und Diagramm-Generierung
 

@@ -1,0 +1,5 @@
+testsweet-Handbuch · Mitarbeiter-Simulator SDN.Leistung LMG
+Chrome mit exakt passendem registrierten Profilpfad; fremde Browserfenster werden nicht angetastet. Nach einem Sitzungstod werden bestätigte Arbeitsschritte nicht blind wiederholt -- bei unklarem Commit-Ausgang eines Schreibschritts schlägt der Auftrag mit Hinweis fehl.
+13
+
+

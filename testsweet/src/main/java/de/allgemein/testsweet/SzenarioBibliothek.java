@@ -1,5 +1,6 @@
 package de.allgemein.testsweet;
 
+import de.allgemein.lmg.calc.Bewilligungsplan;
 import de.allgemein.lmg.calc.Leistungsberechnung;
 import de.allgemein.lmg.model.SozialFall;
 import de.allgemein.lmg.service.Auszahlungsauftrag;
@@ -10,9 +11,11 @@ import de.allgemein.lmg.service.SozialLeistungsService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -42,6 +45,10 @@ public final class SzenarioBibliothek {
 
     private final Random random;
 
+    /** Bereits gezogene Parameter-Kombinationen des aktuellen Topfs — garantiert,
+     *  dass jeder KOMBINATION-Auftrag eine wirklich andere Konstellation prüft. */
+    private final Set<String> kombiSignaturen = new HashSet<>();
+
     /** Aktenzeichen-Präfix des aktuellen Topfs (POSITIV: SWEET-, NEGATIV: SWEET-N-,
      *  LAST: SWEET-L-); wird je erzeuge-Aufruf gesetzt, vor dem Lauf konstant. */
     private String praefix = PREFIX;
@@ -50,7 +57,10 @@ public final class SzenarioBibliothek {
         this.random = new Random(seed);
     }
 
-    /** Erzeugt {@code anzahl} Aufträge, gleichmäßig über die Szenario-Arten gestreut. */
+    /** Erzeugt {@code anzahl} Aufträge: Jede der zehn kuratierten Szenario-Arten
+     *  mindestens einmal (solange der Topf reicht), danach Auffüllung mit
+     *  garantiert verschiedenen Kombinationsfällen (siehe {@link #kombinationPositiv}).
+     *  Alle 50 Aufträge läuft einmal der Kassenlauf parallel mit. */
     public List<Auftrag> erzeuge(int anzahl) {
         return erzeuge(anzahl, PREFIX);
     }
@@ -58,62 +68,58 @@ public final class SzenarioBibliothek {
     /** Wie {@link #erzeuge(int)}, aber mit eigenem Aktenzeichen-Präfix. */
     public List<Auftrag> erzeuge(int anzahl, String praefix) {
         this.praefix = praefix;
+        kombiSignaturen.clear();
         List<Auftrag> auftraege = new ArrayList<>(anzahl);
+        // Round-Robin über die kuratierten Arten: gleiche Grundabdeckung für jeden Topf
         for (int i = 1; i <= anzahl; i++) {
-            int wahl = random.nextInt(100);
-            if (wahl < 22) {
-                auftraege.add(standardrente(i));
-            } else if (wahl < 32) {
-                auftraege.add(paar(i));
-            } else if (wahl < 42) {
-                auftraege.add(mehrbedarf(i));
-            } else if (wahl < 52) {
-                auftraege.add(familie(i));
-            } else if (wahl < 62) {
-                auftraege.add(erwerbstaetiger(i));
-            } else if (wahl < 72) {
-                auftraege.add(vermoegensfall(i));
-            } else if (wahl < 79) {
-                auftraege.add(doppelklick(i));
-            } else if (wahl < 89) {
-                auftraege.add(stornoMitKorrektur(i));
-            } else if (wahl < 95) {
-                auftraege.add(konkurrenz(i));
-            } else {
+            if (i <= 10) {
+                auftraege.add(switch (i) {
+                    case 1 -> standardrente(i);
+                    case 2 -> paar(i);
+                    case 3 -> mehrbedarf(i);
+                    case 4 -> familie(i);
+                    case 5 -> erwerbstaetiger(i);
+                    case 6 -> vermoegensfall(i);
+                    case 7 -> doppelklick(i);
+                    case 8 -> stornoMitKorrektur(i);
+                    case 9 -> konkurrenz(i);
+                    default -> kassenlauf(i);
+                });
+            } else if (i % 50 == 0) {
                 auftraege.add(kassenlauf(i));
+            } else {
+                auftraege.add(kombinationPositiv(i));
             }
         }
         return auftraege;
     }
 
     /**
-     * Erzeugt {@code anzahl} NEGATIV-Aufträge: abgewehrte Fachfehler sind hier das
-     * erwartete Ergebnis (schrittMitErwartetemFehler), geprüft wird der unveränderte
-     * Datenbank-Endzustand (keine Zahlung, unverändertes Budget, keine Bescheide …).
+     * Erzeugt {@code anzahl} NEGATIV-Aufträge: Jede der neun kuratierten Abwehr-Arten
+     * mindestens einmal, danach Auffüllung mit garantiert verschiedenen Verstoß-
+     * Kombinationen (siehe {@link #kombinationNegativ}). Abgewehrte Fachfehler sind
+     * das erwartete Ergebnis (schrittMitErwartetemFehler), geprüft wird der
+     * unveränderte Datenbank-Endzustand (keine Zahlung, unverändertes Budget …).
      */
     public List<Auftrag> erzeugeNegativ(int anzahl, String praefix) {
         this.praefix = praefix;
+        kombiSignaturen.clear();
         List<Auftrag> auftraege = new ArrayList<>(anzahl);
         for (int i = 1; i <= anzahl; i++) {
-            int wahl = random.nextInt(90);
-            if (wahl < 12) {
-                auftraege.add(negKeinAnspruch(i));
-            } else if (wahl < 24) {
-                auftraege.add(negBudget(i));
-            } else if (wahl < 36) {
-                auftraege.add(negDoppelterMonat(i));
-            } else if (wahl < 45) {
-                auftraege.add(negSelbstfreigabe(i));
-            } else if (wahl < 54) {
-                auftraege.add(negDoppelfreigabe(i));
-            } else if (wahl < 63) {
-                auftraege.add(negStornoNachUebergabe(i));
-            } else if (wahl < 72) {
-                auftraege.add(negUngueltigeBankverbindung(i));
-            } else if (wahl < 81) {
-                auftraege.add(negBescheidZeitraum(i));
-            } else if (wahl < 90) {
-                auftraege.add(negNichtGefunden(i));
+            if (i <= 9) {
+                auftraege.add(switch (i) {
+                    case 1 -> negKeinAnspruch(i);
+                    case 2 -> negBudget(i);
+                    case 3 -> negDoppelterMonat(i);
+                    case 4 -> negSelbstfreigabe(i);
+                    case 5 -> negDoppelfreigabe(i);
+                    case 6 -> negStornoNachUebergabe(i);
+                    case 7 -> negUngueltigeBankverbindung(i);
+                    case 8 -> negBescheidZeitraum(i);
+                    default -> negNichtGefunden(i);
+                });
+            } else {
+                auftraege.add(kombinationNegativ(i));
             }
         }
         return auftraege;
@@ -770,13 +776,11 @@ public final class SzenarioBibliothek {
                     ctx.put("alteZahlungId", erg.zahlung().id());
                     return erg.zahlung().auszahlungsbetrag().toPlainString() + " EUR";
                 }),
-                SzenarioAktion.schritt("Freigabe durch Kollegen", (s, ich, kollege, ctx) -> {
+                SzenarioAktion.schritt("Freigabe und sofortiges Storno (in einem Schritt — "
+                        + "kein Fenster für den parallelen Kassenlauf)", (s, ich, kollege, ctx) -> {
                     s.freigebenZahlung((Long) ctx.get("alteZahlungId"), kollege);
-                    return "freigegeben durch " + kollege;
-                }),
-                SzenarioAktion.schritt("Fehler erkannt: Storno", (s, ich, kollege, ctx) -> {
                     s.storniereZahlung((Long) ctx.get("alteZahlungId"), ich);
-                    return "Zahlung " + ctx.get("alteZahlungId") + " storniert, Budget zurückgebucht";
+                    return "freigegeben und storniert — Budget zurückgebucht";
                 }),
                 SzenarioAktion.schritt("Fall korrigieren (Miete auf "
                         + mieteNeu.toPlainString() + ")", (s, ich, kollege, ctx) -> {
@@ -935,8 +939,813 @@ public final class SzenarioBibliothek {
     }
 
     // ------------------------------------------------------------------
-    // Erwartungsbausteine und Helfer
+    // KOMBINATIONS-Szenarien: systematisch gestreute Haushalte und Verstöße.
+    // Jeder Auftrag zieht eine andere Konstellation (Signatur-Menge); die
+    // Erwartungshaltung entsteht wie immer mit derselben reinen Berechnung,
+    // die auch die Fachschicht nutzt — inkl. Entbindungsmonat-Regel
+    // (Bewilligungsplan.faelleFuerMonat) und Vermögensverbrauch (§ 90).
     // ------------------------------------------------------------------
+
+    /** Zahlungsmonate mit SATZSTAND-Belag (Seed 2026-01) — Feb..Nov lässt dem
+     *  Bewilligungszeitraum Platz nach beiden Seiten. */
+    private static final String[] MONATE_2026 = {
+            "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06",
+            "2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12"};
+
+    /** Positiver Kombinationsfall: zufälliger Haushalt (Single/Paar/Alleinerziehend/
+     *  Paar mit Kindern), gestreute Merkmale, Einkommen, Vermögen und ein zufälliger
+     *  Weg (Bescheid, Freigabe, Doppelklick-Idempotenz, Storno+Neu-Anordnung).
+     *  Wiederholte Konstellationen werden über die Signatur ausgeschlossen. */
+    private Auftrag kombinationPositiv(int nr) {
+        for (int versuch = 0; versuch < 5000; versuch++) {
+            // ---------------- Haushalt ziehen ----------------
+            int variante = random.nextInt(4); // 0 Single, 1 Paar, 2 Alleinerziehend, 3 Paar+Kinder
+            int monatIdx = 1 + random.nextInt(10);
+            String monat = MONATE_2026[monatIdx];
+            BigDecimal miete = zufallsBetrag(200, 750, 10);
+            BigDecimal betrieb = zufallsBetrag(20, 140, 5);
+            BigDecimal heizung = zufallsBetrag(30, 170, 5);
+            // KdU-Split nur bei Zwei-Personen-Haushalten (Service summiert über die Fälle)
+            boolean kduSplit = (variante == 1 || variante == 3) && random.nextBoolean();
+
+            List<SozialFall> faelle = new ArrayList<>();
+            String haushalt;
+            if (variante == 0) {
+                haushalt = "Single";
+                faelle.add(kombiFall(1, monatIdx, miete, betrieb, heizung, 0, 0));
+            } else if (variante == 1) {
+                haushalt = "Paar (2 × RBS 2)";
+                faelle.add(kombiFall(2, monatIdx, kduSplit ? miete : miete,
+                        kduSplit ? BigDecimal.ZERO : betrieb,
+                        kduSplit ? BigDecimal.ZERO : heizung, 0, 0));
+                faelle.add(kombiFall(2, monatIdx, BigDecimal.ZERO,
+                        kduSplit ? betrieb : BigDecimal.ZERO,
+                        kduSplit ? heizung : BigDecimal.ZERO, 0, 0));
+            } else if (variante == 2) {
+                int kinder = 1 + random.nextInt(3);
+                int u7 = random.nextInt(Math.min(2, kinder) + 1);
+                haushalt = "Alleinerziehend mit " + kinder + " Kind(ern)";
+                faelle.add(kombiFall(1, monatIdx, miete, betrieb, heizung, kinder, u7));
+                for (int k = 0; k < kinder; k++) {
+                    faelle.add(kombiFall(4 + random.nextInt(3), monatIdx,
+                            BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, 0, 0));
+                }
+            } else {
+                int kinder = 1 + random.nextInt(2);
+                haushalt = "Paar mit " + kinder + " Kind(ern)";
+                faelle.add(kombiFall(2, monatIdx, kduSplit ? miete : miete,
+                        kduSplit ? BigDecimal.ZERO : betrieb,
+                        kduSplit ? BigDecimal.ZERO : heizung, 0, 0));
+                faelle.add(kombiFall(2, monatIdx, BigDecimal.ZERO,
+                        kduSplit ? betrieb : BigDecimal.ZERO,
+                        kduSplit ? heizung : BigDecimal.ZERO, 0, 0));
+                for (int k = 0; k < kinder; k++) {
+                    faelle.add(kombiFall(4 + random.nextInt(3), monatIdx,
+                            BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, 0, 0));
+                }
+            }
+
+            // ---------------- Erwartung rechnen (Entbindungsmonat beachten!) ----------------
+            List<SozialFall> wirksam = Bewilligungsplan.faelleFuerMonat(faelle, monat);
+            var ohneVermoegen = Leistungsberechnung.berechne(0, wirksam,
+                    Leistungsberechnung.KduParameter.AUS, BigDecimal.ZERO);
+            if (ohneVermoegen.zahlbetrag().signum() <= 0) {
+                continue; // Einkommen deckt den Bedarf — für einen Positivfall neu ziehen
+            }
+
+            // ---------------- Vermögen (nur so hoch, dass ein Restanspruch bleibt) ----------------
+            BigDecimal vermoegen = BigDecimal.ZERO;
+            boolean mitVermoegen = random.nextInt(100) < 45;
+            if (mitVermoegen) {
+                BigDecimal schon = Leistungsberechnung.schonvermoegen(wirksam);
+                BigDecimal spielraum = ohneVermoegen.zahlbetrag().min(BigDecimal.valueOf(6000));
+                if (spielraum.compareTo(BigDecimal.ONE) < 0) {
+                    continue;
+                }
+                vermoegen = schon.add(zufallsBetrag(0, spielraum.intValue() - 1, 50));
+            }
+            var ergebnis = Leistungsberechnung.berechne(0, wirksam,
+                    Leistungsberechnung.KduParameter.AUS, vermoegen);
+            BigDecimal zahlbetrag = ergebnis.zahlbetrag();
+            BigDecimal verwertbar = ergebnis.verwertbaresVermoegen();
+
+            // ---------------- Weg ziehen ----------------
+            boolean mitStornoNeu = verwertbar.signum() == 0 && random.nextInt(100) < 15;
+            boolean mitDoppelklick = !mitStornoNeu && random.nextInt(100) < 20;
+            boolean mitFreigabe = random.nextInt(100) < 45;
+            boolean mitBescheid = random.nextInt(100) < 35;
+            boolean mitWiedervorlage = random.nextInt(100) < 20;
+            BigDecimal mieteNeu = BigDecimal.ZERO;
+            BigDecimal zahlbetragNeu = BigDecimal.ZERO;
+            List<SozialFall> wirksamNeu = null;
+            if (mitStornoNeu) {
+                mieteNeu = miete.add(zufallsBetrag(30, 150, 10));
+                SozialFall erster = faelle.get(0);
+                List<SozialFall> faelleNeu = new ArrayList<>(faelle);
+                faelleNeu.set(0, new SozialFall(erster.id(), erster.bgId(),
+                        erster.regelbedarfsstufe(), erster.merkzeichenG(), erster.schwanger(),
+                        erster.anzKinderUnter7(), erster.anzKinderUnter16(),
+                        erster.anzKinderMinderjaehrig(), erster.warmwasser(), mieteNeu,
+                        erster.kduBetriebskosten(), erster.kduHeizung(), erster.einkommenRente(),
+                        erster.einkommenErwerb(), erster.abzSteuern(), erster.abzSozialversicherung(),
+                        erster.abzVersicherungen(), erster.abzErwerbsaufwendungen(),
+                        erster.entbindungsmonat(), erster.version()));
+                wirksamNeu = Bewilligungsplan.faelleFuerMonat(faelleNeu, monat);
+                zahlbetragNeu = Leistungsberechnung.berechne(0, wirksamNeu,
+                        Leistungsberechnung.KduParameter.AUS, vermoegen).zahlbetrag();
+            }
+            BigDecimal budget = (mitStornoNeu ? zahlbetragNeu : zahlbetrag)
+                    .add(zufallsBetrag(50, 400, 10));
+            LocalDate wiedervorlage = mitWiedervorlage
+                    ? LocalDate.now().plusDays(20 + random.nextInt(200)) : null;
+            int bescheidVonIdx = 0;
+            int bescheidBisIdx = 0;
+            if (mitBescheid) {
+                int a = random.nextInt(Math.min(3, monatIdx) + 1);
+                int bRest = 11 - a - (monatIdx - a);
+                int b = random.nextInt(Math.max(0, Math.min(bRest, 11 - monatIdx)) + 1);
+                bescheidVonIdx = monatIdx - a;
+                bescheidBisIdx = monatIdx + b;
+            }
+
+            // ---------------- Eindeutigkeit der Konstellation ----------------
+            StringBuilder sig = new StringBuilder(variante + "|" + monat + "|" + vermoegen
+                    + "|" + mitStornoNeu + mitDoppelklick + mitFreigabe + mitBescheid + mitWiedervorlage
+                    + "|" + kduSplit + "|" + miete + "/" + betrieb + "/" + heizung);
+            for (SozialFall f : faelle) {
+                sig.append("|").append(f.regelbedarfsstufe()).append(',').append(f.merkzeichenG())
+                        .append(',').append(f.schwanger()).append(',').append(f.entbindungsmonat())
+                        .append(',').append(f.warmwasser()).append(',').append(f.anzKinderUnter7())
+                        .append(',').append(f.anzKinderUnter16()).append(',').append(f.einkommenRente())
+                        .append(',').append(f.einkommenErwerb()).append(',').append(f.abzSteuern())
+                        .append(',').append(f.abzSozialversicherung());
+            }
+            if (!kombiSignaturen.add(sig.toString())) {
+                continue;
+            }
+
+            // ---------------- Auftrag bauen ----------------
+            String name = hauptperson();
+            String az = aktenzeichen(nr);
+            boolean schwangerschaftEntfiel = faelle.stream().anyMatch(SozialFall::schwanger)
+                    && wirksam.stream().noneMatch(SozialFall::schwanger);
+            List<Rechenblock> rechnungen = new ArrayList<>();
+            rechnungen.add(new Rechenblock("Kombinationsfall " + nr + ": " + haushalt
+                    + (schwangerschaftEntfiel
+                            ? " (Schwangerschafts-Mehrbedarf entfällt im Zahlungsmonat)" : ""),
+                    monat, wirksam, vermoegen, budget, ergebnis, List.of(
+                    "Erwartungswert mit derselben Berechnung wie die Fachschicht — je Person Regelbedarf, "
+                            + "Mehrbedarfe (§ 30), Wohnkosten und Einkommen (§ 82), dazu das Vermögen der "
+                            + "Bedarfsgemeinschaft (§§ 43, 90).")));
+            if (mitStornoNeu) {
+                rechnungen.add(new Rechenblock("Neuanordnung nach Mietekorrektur (Miete "
+                        + miete.toPlainString() + " → " + mieteNeu.toPlainString() + ")", monat,
+                        wirksamNeu, vermoegen, budget, Leistungsberechnung.berechne(0, wirksamNeu,
+                                Leistungsberechnung.KduParameter.AUS, vermoegen),
+                        List.of("Nach Storno und Mietekorrektur gilt der neu berechnete Zahlbetrag; "
+                                + "das zurückgebuchte Budget fließt wieder ein.")));
+            }
+
+            List<SzenarioAktion> aktionen = new ArrayList<>();
+            BigDecimal vermoegenAnlage = vermoegen;
+            LocalDate wiedervorlageFinal = wiedervorlage;
+            aktionen.add(SzenarioAktion.schritt("Vorgang anlegen (" + haushalt + ", Budget "
+                    + budget.toPlainString() + " EUR" + (vermoegenAnlage.signum() > 0
+                    ? ", Vermögen " + vermoegenAnlage.toPlainString() + " EUR" : "") + ")",
+                    (s, ich, kollege, ctx) -> {
+                        var bg = vermoegenAnlage.signum() > 0
+                                ? s.legeBedarfsgemeinschaftAn(az, name, budget, wiedervorlageFinal,
+                                        "DE89370400440532013000", "MARKDEF1100", name, vermoegenAnlage, ich)
+                                : s.legeBedarfsgemeinschaftAn(az, name, budget, wiedervorlageFinal, ich);
+                        ctx.put("bgId", bg.id());
+                        return "Vorgang " + bg.id();
+                    }));
+            aktionen.add(SzenarioAktion.schritt(faelle.size() + " SozialFall/Fälle erfassen",
+                    (s, ich, kollege, ctx) -> {
+                        for (SozialFall f : faelle) {
+                            s.legeSozialFallAn((Long) ctx.get("bgId"), f, ich);
+                        }
+                        return haushalt + ", KdU " + gesamtKdu(miete, betrieb, heizung) + " EUR";
+                    }));
+            String bescheidVon = MONATE_2026[bescheidVonIdx];
+            String bescheidBis = MONATE_2026[bescheidBisIdx];
+            if (mitBescheid) {
+                aktionen.add(SzenarioAktion.schritt("Bewilligungsbescheid erteilen ("
+                        + bescheidVon + " .. " + bescheidBis + ")", (s, ich, kollege, ctx) -> {
+                    var bescheid = s.erteileBescheid((Long) ctx.get("bgId"), bescheidVon, bescheidBis, ich);
+                    return "Bescheid " + bescheid.bescheidNr() + " mit Monatsplan gespeichert";
+                }));
+            }
+            String monatFinal = monat;
+            aktionen.add(SzenarioAktion.schritt("Auszahlung anordnen (" + monatFinal + ")",
+                    (s, ich, kollege, ctx) -> {
+                        String vorgangsNr = UUID.randomUUID().toString();
+                        ctx.put("vorgangsNr", vorgangsNr);
+                        var erg = s.ordneAuszahlungAn(new Auszahlungsauftrag((Long) ctx.get("bgId"),
+                                vorgangsNr, monatFinal, ich));
+                        ctx.put("zahlungId", erg.zahlung().id());
+                        ctx.put("letzteZahlungId", erg.zahlung().id());
+                        return erg.zahlung().auszahlungsbetrag().toPlainString() + " EUR (ANGELEGT)";
+                    }));
+            if (mitDoppelklick) {
+                aktionen.add(SzenarioAktion.schritt("Doppelklick: gleiche Vorgangsnummer erneut",
+                        (s, ich, kollege, ctx) -> {
+                            Auszahlungsergebnis wiederholt = s.ordneAuszahlungAn(new Auszahlungsauftrag(
+                                    (Long) ctx.get("bgId"), (String) ctx.get("vorgangsNr"), monatFinal, ich));
+                            if (!wiederholt.bereitsGebucht()) {
+                                throw new IllegalStateException("Idempotenz verletzt");
+                            }
+                            return "korrekt als bereits gebucht erkannt";
+                        }));
+            }
+            if (mitFreigabe && !mitStornoNeu) {
+                aktionen.add(SzenarioAktion.schritt("Freigabe durch Kollegen (Vier-Augen)",
+                        (s, ich, kollege, ctx) -> {
+                            s.freigebenZahlung((Long) ctx.get("zahlungId"), kollege);
+                            return "freigegeben durch " + kollege;
+                        }));
+            }
+            BigDecimal mieteNeuFinal = mieteNeu;
+            if (mitStornoNeu) {
+                aktionen.add(SzenarioAktion.schritt("Anordnung sofort stornieren (Status ANGELEGT)",
+                        (s, ich, kollege, ctx) -> {
+                            s.storniereZahlung((Long) ctx.get("zahlungId"), ich);
+                            return "storniert — Monat wieder frei";
+                        }));
+                aktionen.add(SzenarioAktion.schritt("Miete auf " + mieteNeuFinal.toPlainString()
+                        + " korrigieren", (s, ich, kollege, ctx) -> {
+                    SozialFall geladen = s.ladeDetail((Long) ctx.get("bgId")).faelle().get(0);
+                    SozialFall korrigiert = new SozialFall(geladen.id(), geladen.bgId(),
+                            geladen.regelbedarfsstufe(), geladen.merkzeichenG(), geladen.schwanger(),
+                            geladen.anzKinderUnter7(), geladen.anzKinderUnter16(),
+                            geladen.anzKinderMinderjaehrig(), geladen.warmwasser(),
+                            mieteNeuFinal, geladen.kduBetriebskosten(), geladen.kduHeizung(),
+                            geladen.einkommenRente(), geladen.einkommenErwerb(),
+                            geladen.abzSteuern(), geladen.abzSozialversicherung(),
+                            geladen.abzVersicherungen(), geladen.abzErwerbsaufwendungen(),
+                            geladen.entbindungsmonat(), geladen.version());
+                    s.aktualisiereSozialFall(korrigiert, geladen.version(), ich);
+                    ctx.put("fallId", geladen.id());
+                    return "Fall " + geladen.id() + " in Version 2";
+                }));
+                aktionen.add(SzenarioAktion.schritt("Korrigierte Auszahlung für denselben Monat",
+                        (s, ich, kollege, ctx) -> {
+                            var erg = s.ordneAuszahlungAn(new Auszahlungsauftrag((Long) ctx.get("bgId"),
+                                    UUID.randomUUID().toString(), monatFinal, ich));
+                            ctx.put("letzteZahlungId", erg.zahlung().id());
+                            return erg.zahlung().auszahlungsbetrag().toPlainString() + " EUR";
+                        }));
+            }
+
+            // ---------------- Erwartungen ----------------
+            List<Erwartung> erwartungen = new ArrayList<>();
+            BigDecimal finalerZahlbetrag = mitStornoNeu ? zahlbetragNeu : zahlbetrag;
+            erwartungen.add(Erwartung.ganzeZahl("alle Personen als eigene SozialFall-Zeilen",
+                    "SELECT COUNT(*) FROM SOZIAL_FALL WHERE BG_ID = ?",
+                    ctx -> List.of(ctx.get("bgId")), faelle.size()));
+            erwartungen.add(Erwartung.einsVon(mitFreigabe && !mitStornoNeu
+                            ? "finale Zahlung freigegeben (oder bereits übergeben)"
+                            : "finale Zahlung wirksam (Vier-Augen-Warteschlange je nach Kassenlauf)",
+                    "SELECT ZAHLUNGSSTATUS FROM ZAHLUNG WHERE ID = ?",
+                    ctx -> List.of(ctx.get("letzteZahlungId")),
+                    mitFreigabe && !mitStornoNeu ? "BEREIT|UEBERGEBEN" : "ANGELEGT|BEREIT|UEBERGEBEN"));
+            erwartungen.add(Erwartung.betrag("Auszahlungsbetrag entspricht der Berechnung",
+                    "SELECT AUSZAHLUNGSBETRAG FROM ZAHLUNG WHERE ID = ?",
+                    ctx -> List.of(ctx.get("letzteZahlungId")), finalerZahlbetrag.toPlainString()));
+            erwartungen.add(Erwartung.betrag("Restbudget korrekt gemindert",
+                    "SELECT BUDGET_REST FROM BEDARFSGEMEINSCHAFT WHERE ID = ?",
+                    ctx -> List.of(ctx.get("bgId")), budget.subtract(finalerZahlbetrag).toPlainString()));
+            if (mitDoppelklick) {
+                erwartungen.add(Erwartung.ganzeZahl("genau eine Zahlung trotz Wiederholung",
+                        "SELECT COUNT(*) FROM ZAHLUNG WHERE BG_ID = ?",
+                        ctx -> List.of(ctx.get("bgId")), 1));
+            }
+            if (mitStornoNeu) {
+                erwartungen.add(Erwartung.ganzeZahl("zwei Zahlungen (stornierte + korrigierte)",
+                        "SELECT COUNT(*) FROM ZAHLUNG WHERE BG_ID = ?",
+                        ctx -> List.of(ctx.get("bgId")), 2));
+                erwartungen.add(Erwartung.text("erste Zahlung STORNIERT",
+                        "SELECT ZAHLUNGSSTATUS FROM ZAHLUNG WHERE ID = ?",
+                        ctx -> List.of(ctx.get("zahlungId")), "STORNIERT"));
+                erwartungen.add(Erwartung.ganzeZahl("Fall in Version 2 (optimistisches Locking)",
+                        "SELECT VERSION FROM SOZIAL_FALL WHERE ID = ?",
+                        ctx -> List.of(ctx.get("fallId")), 2));
+            }
+            if (mitFreigabe && !mitStornoNeu) {
+                erwartungen.add(Erwartung.text("Freigabevermerk nennt den Kollegen (Vier-Augen)",
+                        "SELECT CASE WHEN FREIGEGEBEN_VON = ? THEN 'ok' ELSE 'abweichend' END "
+                                + "FROM ZAHLUNG WHERE ID = ?",
+                        ctx -> List.of(ctx.get("kollege"), ctx.get("letzteZahlungId")), "ok"));
+            }
+            if (mitBescheid) {
+                erwartungen.add(Erwartung.ganzeZahl("genau ein erteilter Bewilligungsbescheid",
+                        "SELECT COUNT(*) FROM BESCHEID WHERE BG_ID = ?",
+                        ctx -> List.of(ctx.get("bgId")), 1));
+            }
+            if (verwertbar.signum() > 0) {
+                erwartungen.add(Erwartung.betrag("Vermögen nach Verbrauchsfortschreibung (§ 90)",
+                        "SELECT VERMOEGEN FROM BEDARFSGEMEINSCHAFT WHERE ID = ?",
+                        ctx -> List.of(ctx.get("bgId")), vermoegen.subtract(verwertbar).toPlainString()));
+                erwartungen.add(Erwartung.betrag("dokumentierter Vermögenseinsatz an der Zahlung",
+                        "SELECT VERMOEGENSEINSATZ FROM ZAHLUNG WHERE ID = ?",
+                        ctx -> List.of(ctx.get("letzteZahlungId")), verwertbar.toPlainString()));
+            }
+            if (mitWiedervorlage) {
+                LocalDate erwartetDatum = wiedervorlage;
+                erwartungen.add(Erwartung.ganzeZahl("Wiedervorlagedatum exakt wie gesetzt",
+                        "SELECT COUNT(*) FROM BEDARFSGEMEINSCHAFT WHERE ID = ? AND WIEDERVORLAGE_AM = ?",
+                        ctx -> List.of(ctx.get("bgId"), java.sql.Date.valueOf(erwartetDatum)), 1));
+            }
+
+            return new Auftrag(nr, "KOMBINATION", az, name,
+                    kombiBeschreibung(haushalt, monat, vermoegen, mitBescheid, bescheidVon,
+                            bescheidBis, mitFreigabe, mitDoppelklick, mitStornoNeu, verwertbar),
+                    aktionen, erwartungen)
+                    .dokumentiere("Ein systematisch gestreuter Kombinationsfall: Haushalt ("
+                            + haushalt + "), Zahlungsmonat " + monat + ", Vermögen "
+                            + vermoegen.toPlainString() + " EUR; Weg: "
+                            + (mitBescheid ? "Bescheid (" + bescheidVon + " .. " + bescheidBis + "), " : "")
+                            + "Anordnung" + (mitDoppelklick ? ", Doppelklick-Wiederholung (Idempotenz)" : "")
+                            + (mitFreigabe && !mitStornoNeu ? ", Vier-Augen-Freigabe" : "")
+                            + (mitStornoNeu ? ", Storno (ANGELEGT) + Mietekorrektur + Neu-Anordnung" : "")
+                            + ". Die Erwartung wird mit derselben Berechnung ermittelt, die auch die "
+                            + "Fachschicht verwendet — einschließlich der Entbindungsmonat-Regel und der "
+                            + "Vermögensverbrauchsfortschreibung. Geprüft wird der vollständige "
+                            + "Datenbank-Endzustand: Personen, Betrag, Status, Budget, Bescheid- und "
+                            + "Vermögensstand.", rechnungen);
+        }
+        throw new IllegalStateException(
+                "Keine weitere eindeutige Positiv-Kombination gefunden (Parameterraum erschöpft)");
+    }
+
+    /** Ein SozialFall-Entwurf mit gestreuten Merkmalen, Einkommen und KdU-Anteilen. */
+    private SozialFall kombiFall(int rbs, int monatIdx, BigDecimal miete, BigDecimal betrieb,
+            BigDecimal heizung, int kinderU16, int kinderU7) {
+        boolean g = random.nextInt(100) < 30;
+        boolean schwanger = rbs <= 2 && random.nextInt(100) < 25;
+        boolean warmwasser = random.nextInt(100) < 35;
+        String entbindungsmonat = null;
+        if (schwanger && random.nextInt(100) < 50) {
+            // Hälfte der Schwangerschaften endet VOR dem Zahlungsmonat: Mehrbedarf entfällt
+            int idx = Math.max(0, monatIdx - 1 - random.nextInt(3));
+            entbindungsmonat = MONATE_2026[idx];
+        } else if (schwanger) {
+            int idx = Math.min(11, monatIdx + 1 + random.nextInt(6));
+            entbindungsmonat = MONATE_2026[idx];
+        }
+        BigDecimal rente = random.nextInt(100) < 60 ? zufallsBetrag(100, 1100, 10) : BigDecimal.ZERO;
+        BigDecimal erwerb = BigDecimal.ZERO;
+        BigDecimal steuern = BigDecimal.ZERO;
+        BigDecimal sv = BigDecimal.ZERO;
+        BigDecimal versicherungen = BigDecimal.ZERO;
+        BigDecimal erwerbsaufwendungen = BigDecimal.ZERO;
+        if (random.nextInt(100) < 40) {
+            erwerb = zufallsBetrag(100, 1400, 10);
+            steuern = zufallsBetrag(0, 200, 10);
+            sv = zufallsBetrag(50, 350, 10);
+            versicherungen = zufallsBetrag(0, 80, 5);
+            erwerbsaufwendungen = zufallsBetrag(0, 100, 10);
+        }
+        return new SozialFall(0, 0, rbs, g, schwanger, kinderU7, kinderU16,
+                Math.max(kinderU16, kinderU7), warmwasser, miete, betrieb, heizung,
+                rente, erwerb, steuern, sv, versicherungen, erwerbsaufwendungen,
+                entbindungsmonat, 1);
+    }
+
+    private String kombiBeschreibung(String haushalt, String monat, BigDecimal vermoegen,
+            boolean mitBescheid, String bescheidVon, String bescheidBis, boolean mitFreigabe,
+            boolean mitDoppelklick, boolean mitStornoNeu, BigDecimal verwertbar) {
+        StringBuilder s = new StringBuilder(haushalt).append(", Zahlmonat ").append(monat);
+        if (vermoegen.signum() > 0) {
+            s.append(", Vermögen ").append(vermoegen.toPlainString()).append(" EUR (verwertbar ")
+                    .append(verwertbar.toPlainString()).append(")");
+        }
+        if (mitBescheid) {
+            s.append(", Bescheid ").append(bescheidVon).append("..").append(bescheidBis);
+        }
+        if (mitDoppelklick) {
+            s.append(", Doppelklick");
+        }
+        if (mitFreigabe && !mitStornoNeu) {
+            s.append(", Freigabe");
+        }
+        if (mitStornoNeu) {
+            s.append(", Storno+Korrektur");
+        }
+        return s.toString();
+    }
+
+    /**
+     * Negativer Kombinationsfall: zufällige, gültige Basis (Vorgang + Fall) und
+     * darauf gesetzte Verstöße aus vier Gruppen — Anlage (SEPA), Anordnung
+     * (Anspruch/Budget/Monat/Bescheid-Deckung), Workflow (Vier-Augen, Zustandskette)
+     * und Daten (Bescheid-Zeitraum, Konkurrenz, unbekannte Objekte). Primärverstoß
+     * und — falls verträglich — ein zweiter Verstoß aus einer anderen Gruppe;
+     * die Signatur-Menge stellt sicher, dass jeder Auftrag eine andere Kombination
+     * prüft. Erwartet werden die jeweiligen Fachfehler plus unveränderter
+     * Datenbank-Endzustand.
+     */
+    private Auftrag kombinationNegativ(int nr) {
+        for (int versuch = 0; versuch < 5000; versuch++) {
+            int rbs = 1 + random.nextInt(3);
+            BigDecimal miete = zufallsBetrag(200, 600, 10);
+            BigDecimal betrieb = zufallsBetrag(20, 120, 5);
+            BigDecimal heizung = zufallsBetrag(30, 150, 5);
+            BigDecimal rente = random.nextInt(100) < 50 ? zufallsBetrag(100, 900, 10) : BigDecimal.ZERO;
+            // Unverstoßene Basis für Erwartungswerte (Budget, WORKFLOW-Beträge)
+            List<SozialFall> basisFaelle = List.of(fallEntwurf(rbs, false, false, 0, false,
+                    miete, betrieb, heizung, rente.toPlainString(), "0"));
+            BigDecimal zahlbetrag = Leistungsberechnung.berechne(0, basisFaelle,
+                    Leistungsberechnung.KduParameter.AUS, BigDecimal.ZERO).zahlbetrag();
+            if (zahlbetrag.signum() <= 0) {
+                continue;
+            }
+
+            // ---------------- Verstöße ziehen ----------------
+            int gruppenWahl = random.nextInt(100);
+            String gruppe = gruppenWahl < 10 ? "ANLAGE"
+                    : gruppenWahl < 50 ? "ANORDNUNG"
+                    : gruppenWahl < 80 ? "WORKFLOW" : "DATEN";
+            String primaer = switch (gruppe) {
+                case "ANLAGE" -> random.nextBoolean() ? "iban" : "bic";
+                case "ANORDNUNG" -> List.of("rente", "erwerb", "vermoegen", "budget",
+                        "ohneFall", "ausserhalbBescheid").get(random.nextInt(6));
+                case "WORKFLOW" -> List.of("doppelt", "selbst", "doppelfreigabe", "stornoKasse")
+                        .get(random.nextInt(4));
+                default -> List.of("bescheidUmgekehrt", "bescheidZuLang", "konkurrenz", "nichtGefunden")
+                        .get(random.nextInt(4));
+            };
+            String sekundaer = null;
+            boolean mitSekundaer = !gruppe.equals("ANLAGE") && !"ohneFall".equals(primaer)
+                    && random.nextInt(100) < 60;
+            if (mitSekundaer) {
+                sekundaer = switch (gruppe) {
+                    case "ANORDNUNG" -> List.of("bescheidUmgekehrt", "bescheidZuLang",
+                            "nichtGefunden", "konkurrenz").get(random.nextInt(4));
+                    case "WORKFLOW" -> List.of("bescheidUmgekehrt", "bescheidZuLang")
+                            .get(random.nextInt(2));
+                    default -> List.of("rente", "erwerb", "budget").get(random.nextInt(3));
+                };
+            }
+
+            // Der ERFASSTE Fall trägt die Verstoß-Einkommen (die unverstoßene Basis
+            // bleibt Maßstab für Budget- und Betragserwartungen).
+            BigDecimal hoheRente = BigDecimal.valueOf(2500 + 500L * random.nextInt(7)).setScale(2);
+            BigDecimal hoherErwerb = BigDecimal.valueOf(4000 + 500L * random.nextInt(9)).setScale(2);
+            String renteErfasst = ("rente".equals(primaer) || "rente".equals(sekundaer))
+                    ? hoheRente.toPlainString() : rente.toPlainString();
+            String erwerbErfasst = ("erwerb".equals(primaer) || "erwerb".equals(sekundaer))
+                    ? hoherErwerb.toPlainString() : "0";
+            List<SozialFall> faelle = List.of(fallEntwurf(rbs, false, false, 0, false,
+                    miete, betrieb, heizung, renteErfasst, erwerbErfasst));
+
+            // Bei ausserhalbBescheid muss der Verstoßmonat NACH dem gedeckten
+            // Zeitraum 2026-01..2026-06 liegen, sonst wäre die Anordnung zulässig.
+            String monat = "ausserhalbBescheid".equals(primaer)
+                    ? MONATE_2026[6 + random.nextInt(6)]
+                    : MONATE_2026[1 + random.nextInt(10)];
+            BigDecimal budget = "budget".equals(primaer) || "budget".equals(sekundaer)
+                    ? zahlbetrag.subtract(zufallsBetrag(10, 90, 10)).max(BigDecimal.TEN).setScale(2)
+                    : BigDecimal.valueOf(2000).setScale(2);
+            BigDecimal hohesVermoegen = BigDecimal.valueOf(16000 + 1000L * random.nextInt(15)).setScale(2);
+            BigDecimal mieteNeu = miete.add(zufallsBetrag(30, 150, 10));
+            long fakeId = List.of(-999L, -1L, 999999L).get(random.nextInt(3));
+            String kaputteIban = List.of("DE00370400440532013000", "DE8937040044053201300",
+                    "DE89370400440532013001").get(random.nextInt(3));
+            String kaputterBic = List.of("MARKDEF", "MARKDEF11", "MARKDEF1100X").get(random.nextInt(3));
+            int bescheidLaenge = 13 + random.nextInt(12);
+            String bescheidBisFalsch = MONATE_2026[0];
+            String bescheidVonFalsch = MONATE_2026[Math.min(11, bescheidLaenge)];
+
+            String sig = primaer + "/" + sekundaer + "|" + monat + "|" + budget + "|" + rbs
+                    + "|" + miete + "/" + betrieb + "/" + heizung + "|" + rente + "|" + fakeId
+                    + "|" + kaputteIban + "|" + kaputterBic + "|" + bescheidLaenge + "|" + mieteNeu
+                    + "|" + hoheRente + hoherErwerb + hohesVermoegen;
+            if (!kombiSignaturen.add(sig)) {
+                continue;
+            }
+
+            // ---------------- Schritte und Erwartungen bauen ----------------
+            String name = hauptperson();
+            String az = aktenzeichen(nr);
+            List<SzenarioAktion> aktionen = new ArrayList<>();
+            List<Erwartung> erwartungen = new ArrayList<>();
+            List<Rechenblock> rechnungen = new ArrayList<>();
+            boolean bescheidGueltigVorhanden = "ausserhalbBescheid".equals(primaer);
+
+            if ("ANLAGE".equals(gruppe)) {
+                aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
+                        "Vorgang anlegen mit ungültiger IBAN (" + kaputteIban + ") — VALIDATION erwartet",
+                        FachlicheException.VALIDATION,
+                        (s, ich, kollege, ctx) -> {
+                            s.legeBedarfsgemeinschaftAn(az, name, budget, null,
+                                    kaputteIban, "MARKDEF1100", name, ich);
+                            return "unerwartet erfolgreich — ungültige IBAN wäre durchgerutscht";
+                        }));
+                aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
+                        "Vorgang anlegen mit ungültigem BIC (" + kaputterBic + ") — VALIDATION erwartet",
+                        FachlicheException.VALIDATION,
+                        (s, ich, kollege, ctx) -> {
+                            s.legeBedarfsgemeinschaftAn(az, name, budget, null,
+                                    "DE89370400440532013000", kaputterBic, name, ich);
+                            return "unerwartet erfolgreich — ungültiger BIC wäre durchgerutscht";
+                        }));
+                erwartungen.add(Erwartung.ganzeZahl("kein Vorgang mit fehlerhaften SEPA-Daten angelegt",
+                        "SELECT COUNT(*) FROM BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN = ?",
+                        ctx -> List.of(az), 0));
+                return new Auftrag(nr, "NEG-KOMBINATION", az, name,
+                        "SEPA-Anlage abgewehrt (IBAN/BIC-Variante " + kaputteIban.length()
+                                + "/" + kaputterBic.length() + " Zeichen)",
+                        aktionen, erwartungen)
+                        .dokumentiere("Kombinierter Abwehrfall der Gruppe Anlage: Für den neuen "
+                                + "Vorgang werden zwei bewusst unbrauchbare Bankverbindungen "
+                                + "versucht — eine IBAN mit gestörter Prüfziffer oder Länge und "
+                                + "ein BIC mit unzulässiger Länge (erlaubt sind genau 8 oder 11 "
+                                + "Zeichen, ISO 9362). Beide Anlagen müssen mit VALIDATION "
+                                + "abgewehrt werden; am Ende darf kein Vorgang unter diesem "
+                                + "Aktenzeichen existieren, denn die Fehler stecken in den "
+                                + "Kerndaten der Anlage selbst.", List.of());
+            }
+
+            // ---- Basis: Vorgang (ohne Fall bei ohneFall) + Fall ----
+            BigDecimal vermoegenAnlage = "vermoegen".equals(primaer) ? hohesVermoegen : BigDecimal.ZERO;
+            BigDecimal budgetFinal = budget;
+            aktionen.add(SzenarioAktion.schritt("Vorgang anlegen (gültige Basis, Budget "
+                    + budget.toPlainString() + " EUR)", (s, ich, kollege, ctx) -> {
+                var bg = vermoegenAnlage.signum() > 0
+                        ? s.legeBedarfsgemeinschaftAn(az, name, budgetFinal, null,
+                                "DE89370400440532013000", "MARKDEF1100", name, vermoegenAnlage, ich)
+                        : s.legeBedarfsgemeinschaftAn(az, name, budgetFinal, null, ich);
+                ctx.put("bgId", bg.id());
+                return "Vorgang " + bg.id();
+            }));
+            if (!"ohneFall".equals(primaer)) {
+                aktionen.add(SzenarioAktion.schritt("SozialFall erfassen (RBS " + rbs + ")",
+                        (s, ich, kollege, ctx) -> {
+                            s.legeSozialFallAn((Long) ctx.get("bgId"), faelle.get(0), ich);
+                            return "RBS " + rbs + ", KdU " + gesamtKdu(miete, betrieb, heizung) + " EUR";
+                        }));
+            }
+
+            // ---- DATEN-Verstöße (primär oder sekundär) ----
+            if ("bescheidUmgekehrt".equals(primaer) || "bescheidUmgekehrt".equals(sekundaer)) {
+                aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
+                        "Bescheid mit 'von' nach 'bis' — VALIDATION erwartet",
+                        FachlicheException.VALIDATION,
+                        (s, ich, kollege, ctx) -> {
+                            s.erteileBescheid((Long) ctx.get("bgId"), "2026-11", "2026-10", ich);
+                            return "unerwartet erfolgreich — umgekehrter Zeitraum wäre durchgerutscht";
+                        }));
+            }
+            if ("bescheidZuLang".equals(primaer) || "bescheidZuLang".equals(sekundaer)) {
+                aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
+                        "Bescheid über " + bescheidLaenge + " Monate — VALIDATION erwartet (max. 12)",
+                        FachlicheException.VALIDATION,
+                        (s, ich, kollege, ctx) -> {
+                            s.erteileBescheid((Long) ctx.get("bgId"), bescheidVonFalsch,
+                                    bescheidBisFalsch, ich);
+                            return "unerwartet erfolgreich — überlanger Zeitraum wäre durchgerutscht";
+                        }));
+            }
+            if ("konkurrenz".equals(primaer) || "konkurrenz".equals(sekundaer)) {
+                aktionen.add(SzenarioAktion.schritt("Miete auf " + mieteNeu.toPlainString()
+                        + " ändern (optimistisches Locking)", (s, ich, kollege, ctx) -> {
+                            SozialFall geladen = s.ladeDetail((Long) ctx.get("bgId")).faelle().get(0);
+                            SozialFall geaendert = new SozialFall(geladen.id(), geladen.bgId(),
+                                    geladen.regelbedarfsstufe(), geladen.merkzeichenG(),
+                                    geladen.schwanger(), geladen.anzKinderUnter7(),
+                                    geladen.anzKinderUnter16(), geladen.anzKinderMinderjaehrig(),
+                                    geladen.warmwasser(), mieteNeu, geladen.kduBetriebskosten(),
+                                    geladen.kduHeizung(), geladen.einkommenRente(),
+                                    geladen.einkommenErwerb(), geladen.abzSteuern(),
+                                    geladen.abzSozialversicherung(), geladen.abzVersicherungen(),
+                                    geladen.abzErwerbsaufwendungen(), geladen.entbindungsmonat(),
+                                    geladen.version());
+                            s.aktualisiereSozialFall(geaendert, geladen.version(), ich);
+                            ctx.put("fallId", geladen.id());
+                            ctx.put("stale", geaendert);
+                            return "gespeichert, Version 2";
+                        }));
+                aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
+                        "Parallel: veralteter Maskenstand speichern — KONKURRENZ erwartet",
+                        FachlicheException.KONKURRENZ,
+                        (s, ich, kollege, ctx) -> {
+                            SozialFall stale = (SozialFall) ctx.get("stale");
+                            s.aktualisiereSozialFall(stale, stale.version(), ich);
+                            return "unerwartet erfolgreich — hätte KONKURRENZ werfen müssen";
+                        }));
+            }
+            if ("nichtGefunden".equals(primaer) || "nichtGefunden".equals(sekundaer)) {
+                aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
+                        "Freigabe der nicht existierenden Zahlung " + fakeId
+                                + " — NICHT_GEFUNDEN erwartet",
+                        FachlicheException.NICHT_GEFUNDEN,
+                        (s, ich, kollege, ctx) -> {
+                            s.freigebenZahlung(fakeId, kollege);
+                            return "unerwartet erfolgreich";
+                        }));
+                aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
+                        "Anordnung auf den nicht existierenden Vorgang " + fakeId
+                                + " — NICHT_GEFUNDEN erwartet",
+                        FachlicheException.NICHT_GEFUNDEN,
+                        (s, ich, kollege, ctx) -> {
+                            s.ordneAuszahlungAn(new Auszahlungsauftrag(fakeId,
+                                    UUID.randomUUID().toString(), monat, ich));
+                            return "unerwartet erfolgreich";
+                        }));
+            }
+
+            // ---- ANORDNUNG / WORKFLOW-Kette ----
+            BigDecimal zahlbetragFinal = zahlbetrag;
+            if ("ausserhalbBescheid".equals(primaer)) {
+                aktionen.add(SzenarioAktion.schritt("Gültigen Bescheid erteilen (2026-01 .. 2026-06)",
+                        (s, ich, kollege, ctx) -> {
+                            var b = s.erteileBescheid((Long) ctx.get("bgId"), "2026-01", "2026-06", ich);
+                            return "Bescheid " + b.bescheidNr() + " erteilt";
+                        }));
+                aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
+                        "Anordnung für " + monat + " außerhalb des Bewilligungszeitraums — "
+                                + "VALIDATION erwartet",
+                        FachlicheException.VALIDATION,
+                        (s, ich, kollege, ctx) -> {
+                            s.ordneAuszahlungAn(new Auszahlungsauftrag((Long) ctx.get("bgId"),
+                                    UUID.randomUUID().toString(), monat, ich));
+                            return "unerwartet erfolgreich — Zahlung außerhalb des Bescheids wäre durchgerutscht";
+                        }));
+            } else if ("ANORDNUNG".equals(gruppe) || (sekundaer != null && sekundaerHauptfaellig(sekundaer))) {
+                String fehlerSchritt;
+                String fehlerCode;
+                if ("rente".equals(primaer) || "rente".equals(sekundaer)) {
+                    fehlerSchritt = "Anordnung mit hoher Rente (" + hoheRente.toPlainString()
+                            + " EUR) — KEIN_ANSPRUCH erwartet (§ 43 Abs. 1)";
+                    fehlerCode = FachlicheException.KEIN_ANSPRUCH;
+                } else if ("erwerb".equals(primaer) || "erwerb".equals(sekundaer)) {
+                    fehlerSchritt = "Anordnung mit hohem Erwerbseinkommen (" + hoherErwerb.toPlainString()
+                            + " EUR) — KEIN_ANSPRUCH erwartet (§ 43 Abs. 1)";
+                    fehlerCode = FachlicheException.KEIN_ANSPRUCH;
+                } else if ("vermoegen".equals(primaer)) {
+                    fehlerSchritt = "Anordnung mit Vermögen " + hohesVermoegen.toPlainString()
+                            + " EUR — KEIN_ANSPRUCH erwartet (§§ 43, 90)";
+                    fehlerCode = FachlicheException.KEIN_ANSPRUCH;
+                } else if ("budget".equals(primaer) || "budget".equals(sekundaer)) {
+                    fehlerSchritt = "Anordnung über das zu kleine Startbudget ("
+                            + budget.toPlainString() + " EUR) — BUDGET_ERSCHOEPFT erwartet";
+                    fehlerCode = FachlicheException.BUDGET_ERSCHOEPFT;
+                } else if ("ohneFall".equals(primaer)) {
+                    fehlerSchritt = "Anordnung ohne jeden SozialFall — VALIDATION erwartet";
+                    fehlerCode = FachlicheException.VALIDATION;
+                } else {
+                    fehlerSchritt = null;
+                    fehlerCode = null;
+                }
+                if (fehlerSchritt != null) {
+                    aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(fehlerSchritt, fehlerCode,
+                            (s, ich, kollege, ctx) -> {
+                                s.ordneAuszahlungAn(new Auszahlungsauftrag((Long) ctx.get("bgId"),
+                                        UUID.randomUUID().toString(), monat, ich));
+                                return "unerwartet erfolgreich — hätte abgewehrt werden müssen";
+                            }));
+                }
+            }
+            if ("WORKFLOW".equals(gruppe)) {
+                aktionen.add(SzenarioAktion.schritt("Auszahlung anordnen (" + monat + ")",
+                        (s, ich, kollege, ctx) -> {
+                            var erg = s.ordneAuszahlungAn(new Auszahlungsauftrag((Long) ctx.get("bgId"),
+                                    UUID.randomUUID().toString(), monat, ich));
+                            ctx.put("zahlungId", erg.zahlung().id());
+                            return erg.zahlung().auszahlungsbetrag().toPlainString() + " EUR (ANGELEGT)";
+                        }));
+                switch (primaer) {
+                    case "doppelt" -> aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
+                            "Zweite Anordnung für " + monat + " (neue Vorgangsnummer) — VALIDATION erwartet",
+                            FachlicheException.VALIDATION,
+                            (s, ich, kollege, ctx) -> {
+                                s.ordneAuszahlungAn(new Auszahlungsauftrag((Long) ctx.get("bgId"),
+                                        UUID.randomUUID().toString(), monat, ich));
+                                return "unerwartet erfolgreich — Doppelzahlung wäre durchgerutscht";
+                            }));
+                    case "selbst" -> aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
+                            "Selbstfreigabe durch den Erfasser — BERECHTIGUNG erwartet",
+                            FachlicheException.BERECHTIGUNG,
+                            (s, ich, kollege, ctx) -> {
+                                s.freigebenZahlung((Long) ctx.get("zahlungId"), ich);
+                                return "unerwartet erfolgreich — Selbstfreigabe wäre durchgerutscht";
+                            }));
+                    case "doppelfreigabe" -> {
+                        aktionen.add(SzenarioAktion.schritt("Freigabe durch Kollegen (Vier-Augen)",
+                                (s, ich, kollege, ctx) -> {
+                                    s.freigebenZahlung((Long) ctx.get("zahlungId"), kollege);
+                                    return "freigegeben durch " + kollege;
+                                }));
+                        aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
+                                "Zweite Freigabe — VALIDATION erwartet",
+                                FachlicheException.VALIDATION,
+                                (s, ich, kollege, ctx) -> {
+                                    s.freigebenZahlung((Long) ctx.get("zahlungId"), kollege);
+                                    return "unerwartet erfolgreich — Doppel-Freigabe wäre durchgerutscht";
+                                }));
+                    }
+                    default -> { // stornoKasse
+                        aktionen.add(SzenarioAktion.schritt("Freigabe + Kassenlauf (UEBERGEBEN)",
+                                (s, ich, kollege, ctx) -> {
+                                    s.freigebenZahlung((Long) ctx.get("zahlungId"), kollege);
+                                    var kasse = s.uebergebeBereiteZahlungen(ich);
+                                    return "Kassenlauf: " + kasse.anzahl() + " Zahlung(en) über "
+                                            + kasse.summe().toPlainString() + " EUR";
+                                }));
+                        aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
+                                "Storno nach Kassenübergabe — VALIDATION erwartet",
+                                FachlicheException.VALIDATION,
+                                (s, ich, kollege, ctx) -> {
+                                    s.storniereZahlung((Long) ctx.get("zahlungId"), ich);
+                                    return "unerwartet erfolgreich — Storno nach Übergabe wäre durchgerutscht";
+                                }));
+                    }
+                }
+            }
+
+            // ---- Erwartungen (konsolidiert über alle Verstöße) ----
+            if ("WORKFLOW".equals(gruppe)) {
+                erwartungen.add(Erwartung.ganzeZahl("genau die eine (erfolgreiche) Zahlung",
+                        "SELECT COUNT(*) FROM ZAHLUNG WHERE BG_ID = ?",
+                        ctx -> List.of(ctx.get("bgId")), 1));
+                erwartungen.add(Erwartung.betrag("Auszahlungsbetrag unverändert korrekt",
+                        "SELECT AUSZAHLUNGSBETRAG FROM ZAHLUNG WHERE ID = ?",
+                        ctx -> List.of(ctx.get("zahlungId")), zahlbetragFinal.toPlainString()));
+                erwartungen.add(Erwartung.einsVon("Status je nach Verstoßstelle im Workflow",
+                        "SELECT ZAHLUNGSSTATUS FROM ZAHLUNG WHERE ID = ?",
+                        ctx -> List.of(ctx.get("zahlungId")),
+                        switch (primaer) {
+                            case "selbst", "doppelt" -> "ANGELEGT";
+                            case "stornoKasse" -> "UEBERGEBEN";
+                            default -> "BEREIT|UEBERGEBEN"; // doppelfreigabe
+                        }));
+                erwartungen.add(Erwartung.betrag("Budget genau einmal gemindert",
+                        "SELECT BUDGET_REST FROM BEDARFSGEMEINSCHAFT WHERE ID = ?",
+                        ctx -> List.of(ctx.get("bgId")), budget.subtract(zahlbetragFinal).toPlainString()));
+            } else {
+                erwartungen.add(Erwartung.ganzeZahl("keine Zahlung entstanden",
+                        "SELECT COUNT(*) FROM ZAHLUNG WHERE BG_ID = ?",
+                        ctx -> List.of(ctx.get("bgId")), 0));
+                erwartungen.add(Erwartung.betrag("Budget unverändert",
+                        "SELECT BUDGET_REST FROM BEDARFSGEMEINSCHAFT WHERE ID = ?",
+                        ctx -> List.of(ctx.get("bgId")), budget.toPlainString()));
+            }
+            int bescheideAmEnde = bescheidGueltigVorhanden ? 1 : 0;
+            erwartungen.add(Erwartung.ganzeZahl("Bescheid-Bestand wie erwartet",
+                    "SELECT COUNT(*) FROM BESCHEID WHERE BG_ID = ?",
+                    ctx -> List.of(ctx.get("bgId")), bescheideAmEnde));
+            if ("konkurrenz".equals(primaer) || "konkurrenz".equals(sekundaer)) {
+                erwartungen.add(Erwartung.betrag("korrigierte Miete steht (kein Lost Update)",
+                        "SELECT KDU_MIETE FROM SOZIAL_FALL WHERE ID = ?",
+                        ctx -> List.of(ctx.get("fallId")), mieteNeu.toPlainString()));
+                erwartungen.add(Erwartung.ganzeZahl("Fall in Version 2",
+                        "SELECT VERSION FROM SOZIAL_FALL WHERE ID = ?",
+                        ctx -> List.of(ctx.get("fallId")), 2));
+            }
+            if ("nichtGefunden".equals(primaer) || "nichtGefunden".equals(sekundaer)) {
+                erwartungen.add(Erwartung.ganzeZahl("echter Vorgang unangetastet vorhanden",
+                        "SELECT COUNT(*) FROM BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN = ?",
+                        ctx -> List.of(az), 1));
+            }
+
+            if ("rente".equals(primaer) || "erwerb".equals(primaer) || "budget".equals(primaer)
+                    || "vermoegen".equals(primaer)) {
+                berechne(rechnungen, "Nachweis: erwartete Abwehr für " + primaer,
+                        faelle, "vermoegen".equals(primaer) ? hohesVermoegen : BigDecimal.ZERO,
+                        budget,
+                        "Die Abwehr ist fachlich begründet: " + switch (primaer) {
+                            case "rente" -> "Die Rente übersteigt den Gesamtbedarf (§ 43 Abs. 1).";
+                            case "erwerb" -> "Das Erwerbseinkommen übersteigt nach Freibetrag den Bedarf.";
+                            case "budget" -> "Das Startbudget liegt unter dem Zahlbetrag.";
+                            default -> "Das verwertbare Vermögen übersteigt den Bedarf (§§ 43, 90).";
+                        });
+            }
+
+            return new Auftrag(nr, "NEG-KOMBINATION", az, name,
+                    "Verstoß-Kombination: " + primaer + (sekundaer != null ? " + " + sekundaer : ""),
+                    aktionen, erwartungen)
+                    .dokumentiere("Kombinierter Abwehrfall: Auf einer gültigen Basis (Vorgang"
+                            + ("ohneFall".equals(primaer) ? " — bewusst OHNE SozialFall" : " und SozialFall")
+                            + ") wird der Verstoß '" + primaer + "'"
+                            + (sekundaer != null ? " zusammen mit '" + sekundaer + "'" : "")
+                            + " provoziert. Erwartet werden die jeweiligen Fachfehler mit klaren "
+                            + "Meldungen — und ein Datenbank-Endzustand ohne unerwünschte Nebenwirkungen: "
+                            + "keine ungewollte Zahlung, Budget nur durch erlaubte Schritte verändert, "
+                            + "Bescheid-Bestand exakt wie fachlich zulässig. Jede Kombination verstößt "
+                            + "gegen eine andere Regel — gemeinsam decken die Fälle die Abwehrseiten "
+                            + "des Systems flächig ab.", rechnungen);
+        }
+        throw new IllegalStateException(
+                "Keine weitere eindeutige Negativ-Kombination gefunden (Parameterraum erschöpft)");
+    }
+
+    /** Sekundär-Verstoß, der selbst eine (fehlgeschlagene) Anordnung auslöst. */
+    private boolean sekundaerHauptfaellig(String sekundaer) {
+        return "rente".equals(sekundaer) || "erwerb".equals(sekundaer) || "budget".equals(sekundaer);
+    }
+
+
 
     /**
      * Berechnet den erwarteten Zahlbetrag vorab (dieselbe reine Berechnung wie in

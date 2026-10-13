@@ -1,0 +1,8 @@
+So wird ein SozialFall berechnet · SDN.Leistung LMG
+6 Schritt 3: Wohnkosten -- die KdU (§§ 42a, 35 SGB XII)
+,,KdU" steht für Kosten der Unterkunft und Heizung: Kaltmiete, kalte Betriebskosten (Müll, Wasser, Treppenhausstrom ...) und Heizkosten. Sie werden je Person erfasst und für die Bedarfsgemeinschaft summiert. Grundsätzlich gilt: Die tatsächliche Höhe wird anerkannt -- aber nur, soweit sie angemessen ist. Zwei Fragen entscheiden:
+Abbildung 4: Flussdiagramm -- von den erfassten Wohnkosten bis zur anerkannten Höhe
+Frage 1 -- Wie wird das Warmwasser erzeugt? Steht im Haushalt ein eigener Boiler oder Durchlauferhitzer (dezentrale Erzeugung), ist das Warmwasser nicht Teil der Heizkosten -- dafür gibt es den Warmwasser-Mehrbedarf aus Kapitel 5. Wird das Warmwasser zentral mit der Heizung erzeugt, steckt es in den Heizkosten; hier kann die Kommune örtlich einen Abzug festlegen (im Sys tem Standard: aus). Der Abzug und der Mehrbedarf schließen sich bewusst gegenseitig aus -- sonst würde die Person doppelt gekürzt. Frage 2 -- Ist die Miete angemessen? Die Kommune kann eine Angemessenheitsgrenze festlegen (im System ein Konfigurationswert). Sie gilt für die ganze Bedarfsgemeinschaft, nicht je Person. Wird sie überschritten, wird nur bis zur Grenze anerkannt; bei mehreren Personen füllt die erste erfasste Person die Grenze zuerst. Der Rest bleibt Eigenanteil -- und im Bescheid wird der gekürzte Betrag mit einem ,,*" gekennzeichnet, damit nachvollziehbar bleibt, dass hier ein Vorbehalt wirkt.
+9
+
+

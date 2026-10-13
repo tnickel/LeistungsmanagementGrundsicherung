@@ -1,0 +1,10 @@
+DIE BERECHNUNG EINFACH ERKLÄRT
+So wird ein SozialFall berechnet
+Die Grundsicherungs-Berechnung (SGB XII) in SDN.Leistung -- einfach erklärt, mit Fluss- und Ablaufdiagrammen
+Projekt Leistungsmanagement Grundsicherung (SGB XII) Vom Antrag über den Bescheid bis zur Auszahlung Alle Beträge: Referenzjahr 2026 (Version 0.5.8) Stand: 13. Oktober 2026
+
+SDN.Leistung LMG
+
+Oktober 2026
+
+

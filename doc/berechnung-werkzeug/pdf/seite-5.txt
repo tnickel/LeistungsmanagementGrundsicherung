@@ -1,0 +1,8 @@
+So wird ein SozialFall berechnet · SDN.Leistung LMG
+3 Die Berechnung im Überblick
+Die monatliche Berechnung selbst besteht aus drei Rechenschritten und einer Formel -- einmal pro Person, dann summiert über die Bedarfsgemeinschaft:
+Abbildung 2: Flussdiagramm -- die drei Rechenschritte A, B, C und die Formel zum Zahlbetrag
+Schritt A baut den Bedarf einer Person auf: der Grundbetrag (Regelbedarf), eventuelle Zuschläge (Mehrbedarfe) und die anerkannten Wohnkosten. Schritt B stellt fest, wie viel vom Einkommen der Person auf die Grundsicherung angerechnet wird -- Rente zählt vollständig, vom Arbeitslohn bleibt ein Teil übrig. Schritt C prüft das Vermögen der Bedarfsgemeinschaft: Nur was über einem geschützten Grundbetrag (Schonvermögen) liegt, mindert die Leistung. Die drei Schritte sind bewusst getrennt: Jeder Schritt ist ein eigenes Kapitel in diesem Dokument (4­8), jede Regel ist in der reinen Rechenklasse Leistungsberechnung umgesetzt und separat getestet. Und am Ende steht immer die Prüfung: Ist der Zahlbetrag positiv, wird bewilligt -- ist er null oder negativ, decken Einkommen und Vermögen den Lebensunterhalt, und es gibt keinen Anspruch.
+5
+
+

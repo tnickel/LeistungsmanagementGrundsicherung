@@ -1,0 +1,19 @@
+So wird ein SozialFall berechnet · SDN.Leistung LMG
+
+4 Schritt 1: Der Regelbedarf -- der Grundbetrag
+
+Jede Person bekommt einen Grundbetrag nach ihrer Regelbedarfsstufe. Welcher Stufe eine Person entspricht, sagt die Anlage zu § 28 SGB XII -- die Stufe 1 ist für alleinstehende Erwachsene, die Stufen 2 und 3 für Partner bzw. weitere Erwachsene im Haushalt und die Stufen 4 bis 6 für Kinder und Jugendliche. Der Sachbearbeiter erfasst die Stufe beim SozialFall; die Geldbeträge je Stufe und Jahr stehen in der Datenbank (Tabelle SATZSTAND). Ein Jahreswechsel ist dadurch nur eine neue Tabellenzeile -- keine Codeänderung.
+
+Tabelle 2: Regelbedarfsstufen 2026 (Anlage zu § 28 SGB XII)
+
+Stufe 1 2 3 4 5 6
+
+2026 563,00 EUR 506,00 EUR 451,00 EUR 471,00 EUR 390,00 EUR 357,00 EUR
+
+Typische Person alleinstehende erwachsene Person Ehegatte/Lebenspartner (je Person im Paar) erwachsene Person ohne eigene Wohnung im Haushalt Jugendliche von 14 bis 17 Jahren Kinder von 6 bis 13 Jahren Kinder bis zur Vollendung des 6. Lebensjahres
+
+Beispiel: Frau B. lebt allein (Stufe 1). Ihr Regelbedarf ist 563,00 EUR -- das ist der Startwert, zu dem im nächsten Schritt Zuschläge und Wohnkosten kommen.
+
+6
+
+

@@ -1,0 +1,14 @@
+testsweet-Handbuch · Mitarbeiter-Simulator SDN.Leistung LMG
+6.3 Lasttest -- viele Fälle, kurzer Bericht
+Der Lasttest fährt schlanke Durchläufe (Vorgang + SozialFall + Anordnung, ohne Freigabe und Storno) in hoher Stückzahl. Weil bei 600+ Fällen eine Einzelfall-Dokumentation ausufern würde, schreibt der Simulator bewusst nur einen Gesamtreport mit Aggregaten: Kennzahlen, Durchsatz (Aufträge/min), Dauer je Auftrag (min/Ø/max), die Summe der verifizierten Auszahlungen und die Verteilung je Szenario-Typ und Sachbearbeiter. Die Einzelnachweise stehen vollständig in den Protokolldateien des Lauf-Verzeichnisses. Referenzlauf: 600 Fälle mit 20 Mitarbeitern in rund 3 Sekunden gegen die Docker-Oracle.
+6.4 Stresstest -- zwei Wellen über dieselben User
+Der Stresstest läuft bewusst nur im Fachschicht-Modus (GUI und Schnittstelle wehren Modus 2 ab) und arbeitet in zwei Wellen über dieselben Bestände: Welle 1 legt je User Vorgang und SozialFall an -- noch ohne Zahlung. Erst wenn Welle 1 vollständig abgeschlossen ist (Phasenbarriere), startet Welle 2: Sie findet die User über das Aktenzeichen wieder, ändert die Miete (optimistisches Locking, Version 1  2) und ordnet die Auszahlung mit dem Betrag der neuen Miete an. Das GUI-Feld Aufträge ist hier die User-Zahl -- je User laufen zwei Tests, das Standard-Preset 20 Mitarbeiter / 2000 User ergibt also 4000 Transaktionsblöcke. Referenzlauf: 4000/4000 verifiziert in 13 Sekunden; der Datenbank-Endzustand wurde per SQL bestätigt (2000 Vorgänge, alle Fälle exakt Version 2, 2000 Zahlungen ANGELEGT, Summe deckungsgleich mit dem Gesamtreport).
+7 Regeln für den sicheren Umgang
+ Nur lokal betreiben: Die Oberfläche lauscht ausschließlich auf 127.0.0.1, hat keine Anmeldung und erlaubt Löschungen (Aufräumen). Sie ist ein Entwicklungswerkzeug -- niemals fernzugänglich betreiben.
+ Datenhygiene: Alle Vorgänge tragen das Aktenzeichen-Präfix SWEET- (je Kategorie mit Zusatz, siehe Tabelle 2). Das Aufräumen vor dem Lauf entfernt nur diese Reste -- komplett, mit Kindtabellen zuerst. Der Seed-Bestand der Fachdatenbank bleibt unberührt.
+ Nur gegen die Test-Datenbank: Die Szenarien buchen echte Zahlungen, Storni und Historisierungen im angeschlossenen Schema. Die Entwickler-Docker-Oracle ist der richtige Ort; gegen Bestands- oder Produktivdaten gehört der Simulator nicht.
+ Globale Prüfungen zählen: Zu jedem Lauf gehören globale Datenbankprüfungen. Eine Abweichung oder ein SQL-Fehler dort setzt den Lauf auf FEHLGESCHLAGEN -- auch wenn einzelne Aufträge grün waren -- und verhindert ein erfolgreiches Ergebnis in GUI, PDF und Markdown.
+ Modus 2 und Chrome: Jedes Selenium-Fenster bekommt ein zufälliges, registriertes Chrome-Profil unter testsweet/logs/browser-profile/. Das Aufräumskript beendet nur
+12
+
+

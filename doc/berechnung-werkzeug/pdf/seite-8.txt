@@ -1,0 +1,27 @@
+So wird ein SozialFall berechnet · SDN.Leistung LMG
+
+Mehrbedarf
+Höchstgrenze dazu (§ 30 Abs. 3)
+Eigener Deckel (§ 30 Abs. 6)
+Warmwasser, eigener Boiler (§ 30 Abs. 7)
+
+Satz 60 % der Stufe 1
+100 % des Regelbedarfs 0,8 % ­ 2,3 % je Stufe
+
+2026 in EUR Bedingung
+
+337,80
+
+der Alleinerziehenden-Zuschlag wird nie höher
+
+Stufe 1: 563,00 die Summe der drei Zuschläge oben ist nie höher als der eigene Regelbedarf
+
+Stufe 1: 12,95 nur bei dezentraler Warmwassererzeugung; zählt NICHT in den Deckel
+
+Zwei fallen gern unter den Tisch. Erstens: Der Alleinerziehenden-Zuschlag rechnet immer mit der Stufe 1 als Basis -- auch wenn die Mutter selbst in einer niedrigeren Stufe steht; die 36 % sind also immer 202,68 EUR. Zweitens: Der Warmwasser-Zuschlag für einen eigenen Boiler liegt außerhalb des Deckels -- § 30 Abs. 6 begrenzt nur die Zuschläge nach Abs. 1 bis 5.
+
+Beispiel (Weiterfall 3 unten): Eine schwangere Frau mit Merkzeichen G in Stufe 1 bekommt 95,71 + 95,71 = 191,42 EUR Zuschlag; die Summe bleibt unter ihrem Regelbedarf (563 EUR), der Deckel greift also nicht. Der Warmwasser-Zuschlag käme noch obendrauf.
+
+8
+
+

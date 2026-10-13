@@ -1,0 +1,12 @@
+5 Die Ergebnisse lesen
+
+testsweet-Handbuch · Mitarbeiter-Simulator SDN.Leistung LMG
+
+5.1 Kenndaten des Laufs
+Die Kenndaten-Karten fassen den Lauf in acht Zahlen zusammen: Aufträge gesamt, offen, in Bearbeitung, fertig gespielt, verifiziert (DB Soll = Ist), beim Spielen fehlgeschlagen, Verifikation nicht in Ordnung, und die Dauer. Zwei Karten werden gern verwechselt -- sie prüfen aber völlig Verschiedenes: Beim Spielen fehlgeschlagen heißt, der Durchlauf des simulierten Sacharbeiters ist abgebrochen (etwa ein eingefrorenes Browser-Fenster im Modus 2); die Datenbank kann trotzdem korrekt sein. Verifikation nicht in Ordnung heißt, der Datenbank-Endzustand weicht von der Erwartung ab -- das ist die ernste Meldung.
+
+Abbildung 3: Kenndaten-Karten und simulierte Sachbearbeiter-Threads, dahinter die Diagramm-Galerie
+Darunter zeigt jede Zeile einen simulierten Sachbearbeiter-Thread (sb-sim-01, sb-sim-02, ...) mit seinem Zustand und der Anzahl abgeschlossener Aufträge -- so erkennt man schnell, ob die Arbeit gleichmäßig verteilt war oder ein Thread hing.
+8
+
+

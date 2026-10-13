@@ -1,0 +1,6 @@
+USER & TECHNICAL HANDBOOK
+testsweet-Handbuch
+Mitarbeiter-Simulator & Integrationstest für SDN.Leistung -- die Anwendung verstehen und technisch durchdringen
+Projekt Leistungsmanagement Grundsicherung (SGB XII) Teil I: Die Anwendung -- Bedienung, Kategorien, Ergebnisse Teil II: Technische Architektur -- Stack, Klassen, Abläufe Stand: 12. Oktober 2026 (Version 0.5.8)
+
+

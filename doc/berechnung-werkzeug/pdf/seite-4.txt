@@ -1,0 +1,8 @@
+So wird ein SozialFall berechnet · SDN.Leistung LMG
+2 Vom Antrag bis zur Zahlung -- wer macht was?
+Bevor es um einzelne Beträge geht, der große Bogen: Welche Schritte durchläuft ein Antrag im System, und wer ist dabei beteiligt? Drei Rollen spielen mit: ein Sachbearbeiter, der den Fall erfährt und bearbeitet, eine zweite Person, die jede Auszahlung freigibt (Vier-Augen-Prinzip), und ein Administrator, der die freigegebenen Zahlungen im Kassenlauf an die Kasse übergibt. Jeder dieser Schritte wird im Buchungsjournal festgehalten -- mit Kennung, Zeitpunkt und Betrag.
+Abbildung 1: Ablaufdiagramm -- die sieben Schritte vom Antrag bis zur ausgezahlten Leistung
+So liest man das Bild: Oben die Erfassungs- und Bescheidphase, unten die Auszahlungsphase. Wichtig ist die Trennung bei Schritt 4: Das Anordnen einer Auszahlung schickt noch kein Geld -- die Zahlung liegt im Status ANGELEGT und wird erst nach der Freigabe durch eine zweite Person (BEREIT) und dem Kassenlauf (UEBERGEBEN) tatsächlich überwiesen. So ist das Vier-Augen-Prinzip im System erzwungen, nicht nur vereinbart. Noch zwei Garantien unterwegs: Ein Doppelklick auf ,,Auszahlung anordnen" ist harmlos, weil jede Zahlung eine eindeutige Vorgangsnummer trägt -- dieselbe Nummer ergibt nie eine zweite Zahlung. Und eine versehentlich angeordnete Zahlung lässt sich bis zur Übergabe stornieren; dann kommt das Restbudget und ein etwaiger Vermögenseinsatz zurück (Details in Kapitel 11).
+4
+
+

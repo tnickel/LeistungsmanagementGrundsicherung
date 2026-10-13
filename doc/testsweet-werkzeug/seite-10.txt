@@ -1,0 +1,19 @@
+testsweet-Handbuch · Mitarbeiter-Simulator SDN.Leistung LMG
+Das Live-Transaktionsprotokoll streamt während des Laufs jedes Ereignis in ein dunkles Konsolenfeld (mit umschaltbarem Auto-Scroll). Nach dem Lauf ist die Box leer -- alles steht dann in den Logdateien des Lauf-Verzeichnisses.
+
+Abbildung 5: Live-Protokoll -- während des Laufs streamt hier das Ereignislog; danach lebt es nur noch in den Logdateien
+
+5.3 Das Log-Verzeichnis -- der eigentliche Zweck
+
+Je Lauf entsteht ein Ordner testsweet/logs/run-<Zeitstempel>/ mit dem vollständigen Material für die gemeinsame Auswertung:
+
+Tabelle 1: Dateien im Lauf-Verzeichnis
+
+Datei simulation.log mitarbeiter-<kürzel>.log auftrag-<id>-<aktenzeichen>.log db-verifikation.log fehler.log zusammenfassung.txt screenshots/ testdokumentation.pdf / .md
+lastreport.pdf / .md
+
+Inhalt alle Ereignisse chronologisch (Millisekunden, Kanal, Mitarbeiter) alles eines simulierten Sachbearbeiters Schrittprotokoll eines einzelnen Auftrags Erwartung vs. Ist je Prüfung (OK/Abweichung) nur Fehler und Abweichungen Kenndaten des Laufs (Modus, Mitarbeiter, Verifikationsquote) nur Modus 2: Screenshot je UI-Schritt (tf-NN-schritt-MM.png) Positiv/Negativ: vollständiger Prüfbericht je Fall (PDF für Menschen, Markdown zur KI-Nachprüfung) Last/Stress: gekürzter Gesamtreport mit Aggregaten statt Einzelfällen
+
+10
+
+

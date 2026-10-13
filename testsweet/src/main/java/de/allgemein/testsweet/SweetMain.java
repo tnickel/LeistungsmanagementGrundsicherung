@@ -25,6 +25,12 @@ public final class SweetMain {
             int seed = args.length > 3 ? Integer.parseInt(args[3]) : 42;
             int denkzeit = args.length > 4 ? Integer.parseInt(args[4]) : 20;
             Simulator.Kategorie kategorie = liesKategorie(args);
+            try {
+                Simulator.pruefeKonfiguration(kategorie, ma, auf);
+            } catch (IllegalStateException e) {
+                System.err.println(e.getMessage());
+                System.exit(2);
+            }
             Simulator simulator = new Simulator();
             System.out.println("testsweet — Starte Batch-Lauf (" + ma + " Mitarbeiter, " + auf
                     + " Aufträge, Seed " + seed + ", Kategorie " + kategorie + ") auf " + simulator.dbUrl);
@@ -43,6 +49,12 @@ public final class SweetMain {
             if (kategorie == Simulator.Kategorie.STRESS) {
                 System.err.println("Der Stresstest (User anlegen + nachbearbeiten) ist nur im "
                         + "Fachschicht-Modus möglich — bitte Kommando 'run' verwenden");
+                System.exit(2);
+            }
+            try {
+                Simulator.pruefeKonfiguration(kategorie, ma, auf);
+            } catch (IllegalStateException e) {
+                System.err.println(e.getMessage());
                 System.exit(2);
             }
             Simulator simulator = new Simulator();

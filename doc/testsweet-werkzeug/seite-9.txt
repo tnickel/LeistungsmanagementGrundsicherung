@@ -1,0 +1,7 @@
+testsweet-Handbuch · Mitarbeiter-Simulator SDN.Leistung LMG
+5.2 Auftragsliste und Live-Protokoll
+Die Auftragsliste führt jeden Auftrag mit Nummer, Szenario-Typ, Aktenzeichen (SWEET-...), Hauptperson, Bearbeiter, Status und Dauer; das Suchfeld filtert nach Aktenzeichen, Name oder Szenario, die Knöpfe Alle, Nur Verifiziert und Auffälligkeiten schneiden die Menge zu. Ein Doppelklick auf eine Zeile öffnet die vollständige Schritt- und Rechenchronologie des Auftrags -- inklusive der Zwischenwerte der Bedarfsberechnung.
+Abbildung 4: Auftragsliste mit Suche, Filtern und dem Sprung zum Log-Verzeichnis des Laufs
+9
+
+

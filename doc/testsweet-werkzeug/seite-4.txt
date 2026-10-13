@@ -1,0 +1,9 @@
+testsweet-Handbuch · Mitarbeiter-Simulator SDN.Leistung LMG
+ Nur für Modus 2: ein installiertes Google Chrome; der passende ChromeDriver wird über WebDriverManager automatisch beschafft.
+2.2 Die Oberfläche starten (empfohlen)
+Unter Windows genügt testsweet\start.bat -- das Fenster bleibt als Konsole offen und der Browser öffnet die Oberfläche automatisch unter http://127.0.0.1:8095/. Alternativ plattformunabhängig: mvn -f testsweet/pom.xml compile exec:java. Ein anderer Port lässt sich über die Umgebungsvariable SWEET_PORT setzen.
+2.3 Ohne Oberfläche: Batch-Läufe
+Für automatisierte Abnahmen gibt es zwei Kommandozeilen-Varianten. Fachschicht (Modus 1): testsweet\start.bat run <mitarbeiter> <auftraege> [seed] [denkzeitMs] [kategorie] -- zum Beispiel start.bat run 10 60 42 0 für zehn parallele Mitarbeiter, 60 Aufträge, Seed 42, Positivfälle. Weboberfläche (Modus 2): start.bat web <mitarbeiter> <auftraege> [seed] [denkzeitMs] [kategorie] -- startet bei Bedarf automatisch den SDN.Leistung-Server auf Port 8080, ordnet die Chrome-Fenster nebeneinander an und spielt die Vorgänge durch. Batch-Läufe beenden sich mit Exitcode 1, wenn der Lauf oder eine globale Prüfung fehlschlägt -- so kann man sie in Skripte und CI einhängen.
+4
+
+

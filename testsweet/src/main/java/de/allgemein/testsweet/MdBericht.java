@@ -77,6 +77,40 @@ final class MdBericht {
                 + "ermittelt; unabhängige Goldwerte-Absicherung: GoldWerteTest im Hauptprojekt "
                 + "(Werte aus doc/regressionstests.md).\n");
         md.append('\n');
+        pruefanleitung(md);
+    }
+
+    /**
+     * Selbst-Instruktion für die Weitergabe an eine prüfende KI: Die Datei soll
+     * ohne weitere Erklärung aus sich heraus verständlich prüfbar sein — der
+     * Nutzer kann sie als Ganzes kopieren und zur Überprüfung vorlegen.
+     */
+    private static void pruefanleitung(StringBuilder md) {
+        md.append("## pruefanleitung_fur_ki\n\n");
+        md.append("Diese Datei ist das maschinenlesbare Protokoll eines testsweet-Laufs der "
+                + "Fachanwendung SDN.Leistung (Grundsicherung im Alter/bei Erwerbsminderung, "
+                + "SGB XII). Bitte unabhängig überprüfen:\n\n");
+        md.append("1. BETRÄGE NACHRECHNEN (Positivfälle): Je Testfall stehen unter '### rechenwege' "
+                + "die Eingaben je Person (p1_eingaben, p2_eingaben, ...) und JEDE Zwischengröße "
+                + "(regelbedarf, mehrbedarfe, kdu, anrechenbar, bg_zahlbetrag, "
+                + "budget_rest_erwartet). Rechne mit den Formeln aus '## rechengrundlagen_2026' "
+                + "jeden Zwischenwert und den Zahlbetrag selbst nach und melde jede Abweichung.\n");
+        md.append("2. ERWARTET/GEGEN IST HALTEN: Unter '### verifikation' steht je Prüfung V1..Vn "
+                + "das prüfende SQL mit konkreten Parametern sowie 'erwartet' und 'ist'. Prüfe, "
+                + "ob die erwarteten Werte fachlich aus den Eingaben folgen und ob ist = erwartet "
+                + "ist (NIO-Zeilen sind Fehler).\n");
+        md.append("3. NEGATIVFÄLLE PLAUSIBILISIEREN: Schritte mit 'ERWARTETER FEHLER (CODE)' "
+                + "müssen fachlich zwingend abgewehrt werden (z. B. KEIN_ANSPRUCH wenn "
+                + "Einkommen/Vermögen den Bedarf übersteigt, VALIDATION bei Doppelanordnung je "
+                + "Monat oder Zahlungsmonat außerhalb des Bewilligungszeitraums, BERECHTIGUNG bei "
+                + "Selbstfreigabe, KONKURRENZ bei veraltetem Maskenstand, BUDGET_ERSCHOEPFT bei "
+                + "zu kleinem Startbudget). Prüfe, dass der Datenbank-Endzustand unverändert "
+                + "geblieben ist (keine Zahlung, Budget unangetastet).\n");
+        md.append("4. GRENZEN: Last-/Stresstests erzeugen nur Aggregate (kein Einzelfall-Nachrechnen); "
+                + "Web-Läufe (modus 2-web) nutzen dieselbe Datenstruktur, dokumentieren aber "
+                + "UI-Schritte. Globale Prüfungen stehen im Kopf als globale_pruefung-Zeilen.\n");
+        md.append("Antworte mit: VERDICT ok|fehlerfund je Testfall (nur Abweichungen im Detail) "
+                + "sowie einer Gesamteinschätzung.\n\n");
     }
 
     private static void grundlagen(StringBuilder md) {
@@ -84,7 +118,9 @@ final class MdBericht {
         md.append("rbs_eur = {1: 563.00, 2: 506.00, 3: 451.00, 4: 471.00, 5: 390.00, 6: 357.00}  "
                 + "(Anlage zu § 28 SGB XII)\n");
         md.append("mehrbedarf_g = 0.17 * regelbedarf  (§ 30 Abs. 1)\n");
-        md.append("mehrbedarf_schwanger = 0.17 * regelbedarf  (§ 30 Abs. 2, ab 13. SSW)\n");
+        md.append("mehrbedarf_schwanger = 0.17 * regelbedarf  (§ 30 Abs. 2, ab 13. SSW; "
+                + "entfaellt automatisch, wenn entbindungsmonat gesetzt und "
+                + "zahlungsmonat > entbindungsmonat)\n");
         md.append("mehrbedarf_alleinerziehend = 0.36 * rbs1 bei kind_u7>=1 oder 2<=kinder_u16<=3, "
                 + "sonst 0.12 * rbs1 je minderjaehrigem kind; deckel 0.60 * rbs1 = 337.80  (§ 30 Abs. 3)\n");
         md.append("mehrbedarf_obergrenze = summe(abs1..5) <= regelbedarf  (§ 30 Abs. 6)\n");
@@ -109,6 +145,10 @@ final class MdBericht {
         kv(md, "status", a.status.name());
         if (a.fehlerText != null) {
             kv(md, "fehler", a.fehlerText);
+        }
+        String fachfehler = erwarteteFachfehler(a);
+        if (!fachfehler.isEmpty()) {
+            kv(md, "erwartete_fachfehler", fachfehler);
         }
         kv(md, "hauptperson", a.hauptperson);
         kv(md, "bearbeiter", a.bearbeiter != null ? a.bearbeiter : "-");
@@ -157,6 +197,9 @@ final class MdBericht {
 
     private static void block(StringBuilder md, Rechenblock block) {
         md.append("block: ").append(block.titel()).append('\n');
+        if (block.zahlungsmonat() != null) {
+            kv(md, "zahlungsmonat", block.zahlungsmonat());
+        }
         kv(md, "vermoegen", z(block.vermoegen()));
         kv(md, "schonvermoegen", z(block.schonvermoegen()));
         kv(md, "budget_start", block.budget() == null ? "-" : z(block.budget()));
@@ -166,6 +209,8 @@ final class MdBericht {
             md.append("p").append(i + 1).append("_eingaben: rbs=").append(fall.regelbedarfsstufe())
                     .append(", merkzeichen_g=").append(fall.merkzeichenG())
                     .append(", schwanger=").append(fall.schwanger())
+                    .append(", entbindungsmonat=")
+                    .append(fall.entbindungsmonat() == null ? "-" : fall.entbindungsmonat())
                     .append(", kinder_u7=").append(fall.anzKinderUnter7())
                     .append(", kinder_u16=").append(fall.anzKinderUnter16())
                     .append(", kinder_minderjaehrig=").append(fall.anzKinderMinderjaehrig())
@@ -258,5 +303,23 @@ final class MdBericht {
     private static String z(BigDecimal betrag) {
         return String.format(java.util.Locale.ROOT, "%.2f",
                 betrag == null ? BigDecimal.ZERO : betrag);
+    }
+
+    /**
+     * Aggregiert die erwarteten Fachfehler-Codes aus dem Schrittprotokoll
+     * („ERWARTETER FEHLER (CODE) — …") zu einer Zeile je Testfall — damit eine
+     * prüfende KI die Abwehr-Erwartung schon im Testfall-Kopf sieht.
+     */
+    private static String erwarteteFachfehler(Auftrag a) {
+        java.util.LinkedHashSet<String> codes = new java.util.LinkedHashSet<>();
+        java.util.regex.Pattern muster = java.util.regex.Pattern
+                .compile("ERWARTETER FEHLER \\(([A-Z_]+)\\)");
+        for (Auftrag.Schritt s : a.schritte()) {
+            java.util.regex.Matcher m = muster.matcher(s.ergebnis());
+            if (m.find()) {
+                codes.add(m.group(1));
+            }
+        }
+        return String.join("+", codes);
     }
 }

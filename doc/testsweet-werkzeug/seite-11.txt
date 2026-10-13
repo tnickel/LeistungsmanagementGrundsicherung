@@ -1,0 +1,45 @@
+testsweet-Handbuch · Mitarbeiter-Simulator SDN.Leistung LMG
+
+6 Die vier Testfallkategorien
+
+Die Kategorie bestimmt, welche Szenarien in den Auftragstopf wandern, welches AktenzeichenPräfix die Daten erhalten (dadurch lassen sich die Mengen in der Datenbank auseinanderhalten) und wie der Bericht aussieht:
+
+Tabelle 2: Kategorien im Überblick
+
+Kategorie Positivfälle Negativfälle Lasttest Stresstest
+
+Modus 1 (Fachschicht) SWEET- · 10 Szenario-Arten SWEET-N- · 9 Abwehr-Arten SWEET-L- · Massendurchläufe SWEET-S- · 2 Wellen
+
+Modus 2 (Web)
+
+Bericht
+
+SWEET-W- · Web-Vari- testdokumentatio-
+
+anten
+
+n.pdf/.md je Fall
+
+SWEET-NW- · 7 WebArten
+
+testdokumentation.pdf/.md je Fall
+
+SWEET-LW-
+
+lastreport.pdf/.md (nur Aggregate)
+
+-- (bewusst nur Fach- lastreport.pdf/.md
+
+schicht)
+
+(nur Aggregate)
+
+6.1 Positivfälle -- die Erfolgswege
+Zehn Szenario-Arten decken das fachliche Herz des Systems ab: Standardrente (die Vier-AugenKette), Paar in gemeinsamer Wohnung, Mehrbedarf nach § 30, Familie/Alleinerziehende, Erwerbstätiger mit Freibeträgen (§ 82), Vermögen mit Schonvermögen (§ 90, inklusive einer Variante mit erwartetem KEIN_ANSPRUCH), Doppelklick (Idempotenz), Storno-Korrektur (Storno und Neuauszahlung im selben Monat), Konkurrenz (erwarteter Lost-Update-Schutz zweier gleichzeitiger Bearbeiter) und Kassenlauf (läuft parallel zu Freigaben). Im Modus 2 kommen Web-Varianten hinzu (WEB-STANDARDRENTE, WEB-MEHRBEDARF, WEB-STORNO). Das Besondere an der Prüfung: Die Erwartungshaltung -- Beträge, Status, Restbudget, Versionen -- wird vor dem Lauf mit derselben reinen Berechnung (Leistungsberechnung) ermittelt, die auch die Fachschicht nutzt. Der Simulator rechnet also nicht mit einer zweiten, abweichenden Logik.
+
+6.2 Negativfälle -- die Abwehrseiten
+Neun Fachschicht-Arten prüfen, dass das System Unzulässiges zuverlässig ablehnt: Rente über Bedarf (§ 43 Abs. 1), Startbudget unter dem Zahlbetrag, Doppelanordnung je Monat, Selbstfreigabe (Vier-Augen-Verletzung), Freigabe einer bereits BEREIT-Zahlung, Storno nach Kassenübergabe, ungültige IBAN-Prüfziffer, umgekehrter oder überlanger Bescheid-Zeitraum (§ 44 Abs. 3) und Operationen auf nicht existierenden IDs. Der erwartete Fachfehler ist Teil des Szenarios -- und zusätzlich wird geprüft, dass die Datenbank unverändert bleibt: keine Zahlung, kein Bescheid, Budget unangetastet. Die sieben Web-Arten machen dasselbe auf der Oberfläche (falsches Passwort, un gültige Bankverbindung, Anordnung ohne Zahlungsmonat, ...) und bewiesen unter anderem, dass der Storno-Knopf einer freigegebenen Zahlung der Sachbearbeiter-Rolle gar nicht angeboten wird.
+
+11
+
+

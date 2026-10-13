@@ -1,0 +1,9 @@
+So wird ein SozialFall berechnet · SDN.Leistung LMG
+Bewusste Vereinfachung: Die Karenzzeit (ein Jahr Übergangsfrist bei unangemessener Wohnung) und die Absenkungsfrist des § 35 SGB XII sind nicht modelliert -- sie stehen in der Doku unter ,,bekannte Grenzen".
+7 Schritt 4: Einkommen anrechnen (§ 82 SGB XII)
+Was die Person selbst einnimmt, wird auf die Grundsicherung angerechnet -- Euro für Euro. Aber nicht das volle Bruttoeinkommen: Vorher werden legitime Abgaben abgezogen und ein Teil des Arbeitslohns bleibt geschützt. Die Kette im Bild:
+Abbildung 5: Flussdiagramm -- von Rente und Brutto-Verdienst zum anrechenbaren Einkommen
+Die Regeln im Einzelnen: 1. Rente zählt vollständig. Betriebliche und gesetzliche Renten sowie ähnliche Einkünfte werden ohne Freibetrag voll angerechnet -- sie sind das, wovon die Grundsicherung eigentlich leben soll. 2. Absetzbeträge zuerst (§ 82 Abs. 2). Vom Einkommen werden abgezogen: Steuern, Pflichtbeiträge zur Sozialversicherung, angemessene Versicherungsbeiträge und Ausgaben, die mit dem Erzielen des Einkommens verbunden sind (z. B. Fahrtkosten). Diese Beträge erfasst der Sachbearbeiter je Person.
+10
+
+

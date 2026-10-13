@@ -1,0 +1,27 @@
+So wird ein SozialFall berechnet · SDN.Leistung LMG
+
+1 Worum geht es?
+
+Die Grundsicherung im Alter und bei Erwerbsminderung ist eine Sozialleistung nach dem Sozialgesetzbuch XII (SGB XII): Wer nicht genug Rente oder Einkommen hat, um zu leben, bekommt vom Sozialamt einen monatlichen Betrag. Dieses Dokument erklärt -- so einfach wie möglich und so genau wie nötig --, wie die Fachanwendung SDN.Leistung diesen Betrag berechnet. Alle Beträge und Regeln entsprechen dem Stand 2026 (Version 0.5.8 des Projekts).
+Zwei Begriffe tragen das ganze Thema und sollten zuerst sitzen:
+
+Tabelle 1: Die Grundbegriffe
+
+Begriff Bedarfsgemeinschaft
+SozialFall Zahlbetrag Bescheid
+
+Was er bedeutet
+Der Haushalt als Ganzes -- der ,,Vorgang" im System. Sie hat ein Aktenzeichen, ein Vermögen, ein Bankkonto und ein monatliches Budget. Eine Bedarfsgemeinschaft kann aus einer Person allein bestehen oder aus mehreren (z. B. Ehepaar, Mutter mit zwei Kindern).
+Eine Person innerhalb der Bedarfsgemeinschaft. Hier werden alles erfasst, was die Berechnung braucht: die Regelbedarfsstufe, Merkmale (Merkzeichen G, Schwangerschaft, Kinder), die Wohnkosten und das Einkommen.
+Das Ergebnis: der Betrag, den die Bedarfsgemeinschaft für einen Monat bekommt. Er gilt immer für die ganze Bedarfsgemeinschaft, nicht für eine einzelne Person.
+Der schriftliche Verwaltungsakt, der den Zahlbetrag für einen Zeitraum (höchstens 12 Monate) feststellt. Das System speichert in ihm den kompletten Rechenweg zum Zeitpunkt der Erteilung -- der spätere Druck zeigt genau diesen Stand.
+
+Die ganze Berechnung -- so kompliziert sie im Detail werden mag -- folgt einer einzigen Grund formel:
+
+Zahlbetrag = Bedarf - Einkommen - verwertbares Vermögen
+
+Der Rest dieses Dokuments füllt die drei Teile dieser Formel mit Leben: Was zählt zum Bedarf (Ka pitel 4 bis 6), was passiert mit Einkommen (Kapitel 7) und Vermögen (Kapitel 8), und wie wird daraus ein Bescheid und schließlich eine Zahlung (Kapitel 2, 9 und 11)? Kapitel 10 rechnet fünf echte Fälle Schritt für Schritt durch.
+
+3
+
+

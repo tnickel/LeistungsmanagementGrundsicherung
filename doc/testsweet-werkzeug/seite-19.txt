@@ -1,0 +1,8 @@
+testsweet-Handbuch · Mitarbeiter-Simulator SDN.Leistung LMG
+Abbildung 8: Die Berechnungskaskade nach SGB XII -- die Grundlage jeder Szenario-Erwartung
+Dieses Bild erklärt, woher die erwarteten Beträge der Szenarien kommen: dieselbe Kaskade von der Regelbedarfsstufe über Mehrbedarfe, Kosten der Unterkunft, Absetzbeträge und Vermögen bis zum Zahlbetrag. Weil Simulator und Fachschicht dieselbe Leistungsberechnung nutzen, ist die Erwartung keine Sekundär-Implementierung, sondern ein Gegencheck derselben Rechtslogik.
+Abbildung 9: Auszahlungs-Workflow mit Vier-Augen-Freigabe und Storno
+Der Vier-Augen-Workflow ist der meistgeprüfte Weg im Simulator: Anordnen (ANGELEGT), Freigabe durch eine zweite Person (BEREIT), Übergabe im Kassenlauf (UEBERGEBEN) -- und als Abzweig das Storno mit Restbudget- und Vermögenseinsatz-Rückbuchung. Genau diese Kette spielen die Positiv-Szenarien Standardrente und die Web-Varianten durch; die Negativ-Varianten prüfen die Abwehrseiten (Selbstfreigabe, Doppel-Freigabe, Storno nach Kasse).
+19
+
+

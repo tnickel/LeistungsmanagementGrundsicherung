@@ -1,0 +1,8 @@
+testsweet-Handbuch · Mitarbeiter-Simulator SDN.Leistung LMG
+11 Abläufe im Detail
+Die folgenden Fachflussdiagramme erzeugt testsweet/generate_diagrams.py automatisch (200 dpi); dieselben Grafiken stecken auch in der Testdokumentation und in der GUI-Galerie.
+Abbildung 7: Ablauf und Testzyklus des Mitarbeiter-Simulators
+So liest man das Bild: Von links nach rechts: Start und Konfiguration (N Sachbearbeiter, M Aufträge im Pool, Seed und Denkzeit, Altdaten-Aufräumen), der gemeinsame Auftragstopf mit den SzenarioArten, die parallelen Worker-Threads, und rechts das Ziel -- Fachschicht und Datenbank. Der Rücklauf unten schließt den Zyklus: Verifikation, Protokolle, Berichte.
+18
+
+

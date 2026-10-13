@@ -1,0 +1,18 @@
+So wird ein SozialFall berechnet · SDN.Leistung LMG
+3. Erwerbsfreibetrag (§ 82 Abs. 3). Wer aus Arbeit bezahlt wird, behält 30 % seines BruttoVerdienstes -- höchstens 281,50 EUR (die Hälfte der Stufe 1, 2026). Der Freibetrag soll Anreize schaffen: Arbeiten lohnt sich auch im Leistungsbezug.
+4. Niemals unter null. Das Ergebnis wird auf mindestens 0 EUR begrenzt -- das System zieht nie Geld ab, das die Person nicht hat. Eine Einkommensquelle kann die Grundsicherung auf null drücken, aber nie zu einer Rückzahlung führen.
+Das Ergebnis heißt anrechenbares Einkommen und wird über alle Personen der Bedarfsgemeinschaft summiert. Es mindert den Zahlbetrag des Schritts C -- nicht direkt den Bedarf: Die Berechnung stellt also immer erst den vollen Bedarf fest und kürzt dann.
+8 Schritt 5: Vermögen prüfen (§§ 43, 90 SGB XII)
+Bevor Leistungen fließen, ist das Vermögen der Bedarfsgemeinschaft dran -- Sparbuch, Girokonto, Festgeld und ähnliches. Auch hier gilt: nicht alles, sondern nur der Teil, der über dem Schonvermögen liegt. Und dieses Vermögen wird nicht einfach weggenommen, sondern verbraucht:
+
+Abbildung 6: Flussdiagramm -- Schonvermögen, verwertbares Vermögen und der Verbrauch über die Monate
+
+Tabelle 4: Das Schonvermögen (§ 90 Abs. 2 Nr. 9 SGB XII i. V. m. Barbetragsverordnung)
+
+Person Person in Regelbedarfsstufe 1­3 (erwachsene Leistungsbezieher)
+
+Geschützter Betrag 10.000,00 EUR je Person
+
+11
+
+

@@ -1,0 +1,24 @@
+testsweet-Handbuch · Mitarbeiter-Simulator SDN.Leistung LMG
+
+Klasse GlobaleVerifikation
+Erwartung
+Rechenblock
+SzenarioAktion WebAktion
+
+Zeilen 49
+48
+42
+38 32
+
+Rolle
+globale Datenbankprüfungen zum Laufresultat (Abweichung  FEHLGESCHLAGEN) Wertobjekt: der erwartete Datenbank-Endzustand eines Auftrags Wertobjekt: Zwischenwerte der Bedarfsberechnung für Dokumentation und Doppelklick-Ansicht eine Aktion eines Fachschicht-Szenarios (Schritt im Auftrag) eine Aktion eines Web-Szenarios (UI-Schritt im Chrome-Fenster)
+
+10.1 Die wichtigsten Klassen im Detail
+SzenarioBibliothek und WebSzenarioBibliothek sind das fachliche Herz: Jedes Szenario trägt seine Erwartungshaltung in sich -- die Beträge, Status und Versionen, die am Ende in der Datenbank stehen müssen. Die Erwartung wird vorab mit derselben Leistungsberechnung gerechnet, die auch die Fachschicht verwendet; deshalb kann ein Verifikationsfehler nur zwei Ursachen haben: rechnet die Fachschicht falsch, oder wurde nicht das gebucht, was gerechnet wurde.
+Simulator ist der Dirigent: Er mischt den Auftragstopf (Seed!), startet die Worker-Threads, setzt beim Stresstest die Phasenbarriere zwischen Anlegen und Bearbeiten, lässt den Kassenlauf bewusst parallel zu den Freigaben laufen, sammelt die Ergebnisse und fährt die globale Verifikation. Mitarbeiter und WebMitarbeiter sind die Arbeiter -- einer kürzer, einer mit Browser: Beide ziehen sich Aufträge aus dem Pool, spielen sie Schritt für Schritt (SzenarioAktion bzw. WebAktion) und schreiben ihre Spuren über SweetLog.
+Verifikator und GlobaleVerifikation sind das Rückgrat des Nachweises: Ersterer prüft je Auftrag den erwarteten Endzustand per SQL (auch negativ: nichts darf entstanden sein), Letztere zusätzlich den Gesamtbestand des Laufs. Ihre Ergebnisse fließen in GUI, zusammenfassung.txt und beide Berichtsketten. Die Berichtskette selbst ist dreigeteilt: Testdokumentation baut den Inhalt (Rechenweg, Erwartung/Ist-SQL je Fall), MdBericht schreibt ihn als Markdown und SweetPdf als PDF; LastBericht erzeugt die schlanke Aggregate-Fassung für Last und Stress.
+WebHelfer und BrowserProzesse kapseln die Sprödigkeit echter Browser: stabile Klick-Hilfen (Element sichtbar machen, per JavaScript klicken), Screenshots je Schritt, Treiber-Neustart mit Ersatztreiber, und das saubere Aufräumen, das ausschließlich Chrome-Prozesse mit registriertem Profilpfad beendet. SweetServer schließlich ist der dünne Web-Faden, der alles zusammenbringt -- CRUD für Status und Auftragsliste, Streaming des Live-Protokolls und die Download-Endpunkte für die Berichte.
+
+17
+
+

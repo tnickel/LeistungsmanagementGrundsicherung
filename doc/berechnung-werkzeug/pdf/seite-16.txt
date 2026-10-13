@@ -1,0 +1,62 @@
+So wird ein SozialFall berechnet · SDN.Leistung LMG
+
+12 Wo rechnet das System das? -- Verweise und Grenzen
+
+Wer tiefer einsteigen will, findet jede in diesem Dokument beschriebene Regel an genau einer Stelle im Code -- und jede davon in automatischen Tests. Die wichtigsten Adressen:
+
+Tabelle 11: Rechenregeln, Code und Tests
+
+Thema
+
+Code
+
+Test / Doku
+
+Regelbedarf, Mehrbedarfe, de.allgemein.lmg.calc.Leistungsbe- LeistungsberechnungTest, Gold-
+
+KdU, Einkommen, Vermögen rechnung
+
+WerteTest
+
+Monatsplan (Satzwechsel, Entbindung, Vermögensverbrauch)
+
+de.allgemein.lmg.calc.Bewilligungs- SzenarioRegressionTest, doc/re-
+
+plan
+
+gressionstests.md
+
+Regelbedarfsstufen je Jahr
+
+Tabelle SATZSTAND, SatzstandDao SatzstandDbTest; ddl/lmg_seed.sql
+
+Vermögenseinsatz und Rück- SozialLeistungsService (Auszahlung, VermoegensfortschriebDbTest
+
+buchung
+
+Storno)
+
+Bescheid mit gespeichertem BescheidDao, BescheidGenerator,
+
+Rechenweg
+
+BerechnungsSnapshot
+
+doc/leistungsmanagement.md
+
+Rechtsgrundlagen aller Be- -- träge und Normen
+
+doc/rechtsgrundlagen.md (amtlich verifiziert 2026-10-10)
+
+Bewusste Vereinfachungen damit niemand Überraschungen erlebt -- diese Regeln des SGB XII sind nicht automatisiert (Stand 0.5.8, alles dokumentiert):
+
+ Karenzzeit und Absenkungsfrist bei unangemessenen Wohnkosten (§ 35 Abs. 1 Satz 2­9, Abs. 3 Satz 2­5 SGB XII)
+ Sonderfreibeträge für zusätzliche Altersvorsorge und Aufwandsentschädigungen (§ 82 Abs. 4, 5 SGB XII)
+ Kapitalerträge bis 26 EUR jährlich und der Unterhaltsrückgriff oberhalb von 100.000 EUR Jahreseinkommen (§ 43 Abs. 2, § 94 Abs. 1a SGB XII)
+ Nachzahlungen und Aufrechnung -- berechnet wird immer der aktuelle Monat, kein Rückwirkungsautomatismus (§ 44 Abs. 2 SGB XII)
+ Warmwasser-Abzug und Angemessenheitsgrenze sind örtliche Parameter und im Standard ausgeschaltet
+Damit schließt sich der Kreis: Die Grundformel aus Kapitel 1 -- Zahlbetrag = Bedarf - Einkommen - verwertbares Vermögen -- ist in der Anwendung keine Abkürzung, sondern der wörtliche Bauplan: Schritt A, B und C erzeugen genau diese drei Größen, der Monatsplan wiederholt sie je Bescheidmonat, und die Auszahlungskette sorgt dafür, dass am Ende genau dieser Betrag -- und kein anderer -- ankommt.
+
+16
+
+

@@ -1,0 +1,50 @@
+{
+ "bedarfsberechnung_sgb12.png": {
+  "w": 1907,
+  "h": 1280
+ },
+ "diagramm_klassen.png": {
+  "w": 1548,
+  "h": 998
+ },
+ "gui_architektur.png": {
+  "w": 1600,
+  "h": 1000
+ },
+ "gui_auftragsliste.png": {
+  "w": 1600,
+  "h": 1000
+ },
+ "gui_kenndaten.png": {
+  "w": 1600,
+  "h": 1000
+ },
+ "gui_konfiguration.png": {
+  "w": 1600,
+  "h": 1000
+ },
+ "gui_liveprotokoll.png": {
+  "w": 1600,
+  "h": 1000
+ },
+ "gui_testfaelle_detail.png": {
+  "w": 1600,
+  "h": 1000
+ },
+ "simulator_zyklus.png": {
+  "w": 1907,
+  "h": 1218
+ },
+ "stresstest_zwei_wellen.png": {
+  "w": 1907,
+  "h": 1618
+ },
+ "transaktionsarchitektur.png": {
+  "w": 1907,
+  "h": 1126
+ },
+ "vier_augen_workflow.png": {
+  "w": 1907,
+  "h": 1187
+ }
+}

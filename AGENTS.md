@@ -23,9 +23,13 @@ Redo-Logging, Recovery) — wir programmieren nur die Steuerungsschicht darüber
   **Modus 2 (Weboberfläche/Selenium)** und je **Testfallkategorie** (Positivfälle,
   Negativfälle = erwartete Fachfehler mit unverändertem DB-Endzustand, Lasttest =
   schlanke Massendurchläufe mit gekürztem Gesamtreport, Stresstest = zwei Wellen über
-  dieselben User mit Phasenbarriere, nur Fachschicht); GUI auf Port 8095, Logfiles
-  je Lauf, Testdokumentation als PDF (lesbar) und Markdown (KI-nachprüfbar)
-  (Details: testsweet/README.md)
+  dieselben User mit Phasenbarriere, nur Fachschicht); seit 2026-10-13 füllt ein
+  **Kombinationsgenerator** Positiv- und Negativtöpfe über die kuratierten Arten hinaus
+  mit garantiert verschiedenen Konstellationen (Haushalte, Merkmale inkl. Entbindungs-
+  monat, Einkommen, Vermögen, Wege bzw. Verstoß-Kombinationen aus vier Gruppen —
+  Signatur-Menge gegen Wiederholungen); Referenz: 500 Positiv + 500 Negativ je 500/500
+  verifiziert; GUI auf Port 8095 mit Abschnitt 7 „LLM-Nachrechnung & Testzertifikat“ (Prüfpaket aus Prüfmenge + Gesetzesgrundlagen + Prüfauftrag konfigurierbar erzeugen, Prompt einsehbar, Protokoll-Stand überwacht; die KI selbst läuft außerhalb); Logfiles
+  je Lauf, Testdokumentation als PDF (lesbar) und Markdown (KI-nachprüfbar) (Details: testsweet/README.md)
 - `doc/roadmap.md` — aktueller Stand und geplante Etappen
 
 ## Namenskonventionen für die Fachschicht (wichtig)

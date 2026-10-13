@@ -1,0 +1,47 @@
+So wird ein SozialFall berechnet · SDN.Leistung LMG
+
+Man beachte: Die Wohnkosten stehen einmal im Vorgang und werden nicht auf die Personen aufgeteilt -- der Zahlbetrag gilt für die ganze Bedarfsgemeinschaft.
+
+10.3 Frau S. -- alleinerziehend mit zwei Kindern
+
+Tabelle 7: Beispiel C -- Alleinerziehende (Basis des Zuschlags ist immer die Stufe 1)
+
+Schritt Mutter: Regelbedarf (Stufe 1) Mutter: + Alleinerziehenden-Zuschlag (2 Kinder unter 16  36 % der Stufe 1) Mutter: + Wohnkosten (Miete 500, Betriebskosten 90, Heizung 120) Mutter gesamt
+Kind 1 (Stufe 6) -- ohne eigene Wohnkosten Kind 2 (Stufe 6) = Zahlbetrag der Bedarfsgemeinschaft
+
+Rechnung -- 0,36 × 563,00
+500 + 90 + 120
+563,00 + 202,68 + 710,00 -- -- 1.475,68 + 357,00 + 357,00
+
+Ergebnis 563,00 202,68
+710,00
+1.475,68
+357,00 357,00 2.189,68
+
+10.4 Herr E. -- RBS 1 mit Berufstätigkeit (Erwerbsfreibetrag)
+
+Tabelle 8: Beispiel D -- Erwerbstätiger mit Absetzbeträgen und Freibetrag
+
+Schritt Regelbedarf (Stufe 1) + Wohnkosten (Miete 400, Betriebskosten 70, Heizung 90) = Gesamtbedarf Brutto-Erwerbseinkommen - Absetzbeträge (Steuern 150, Sozialversicherung 200) - Erwerbsfreibetrag: 30 % von 1.200 = 360, aber höchstens 281,50 = anrechenbares Einkommen = Zahlbetrag
+
+Rechnung -- 400 + 70 + 90
+563,00 + 560,00 -- 150 + 200 min(360,00; 281,50)
+1.200 - 350 - 281,50 1.123,00 - 568,50
+
+Ergebnis 563,00 560,00
+1.123,00 1.200,00 350,00 281,50
+568,50 554,50
+
+10.5 Frau V. -- mit Vermögen über dem Schonvermögen
+
+Tabelle 9: Beispiel E -- Vermögensverbrauch über den Bewilligungszeitraum
+
+Schritt Bedarf (Stufe 1 + Wohnkosten 300)
+
+Rechnung 563,00 + 300,00
+
+Ergebnis 863,00
+
+14
+
+

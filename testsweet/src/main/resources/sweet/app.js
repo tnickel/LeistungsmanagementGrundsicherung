@@ -59,6 +59,93 @@ window.addEventListener("DOMContentLoaded", () => {
     $("preset-standard").addEventListener("click", () => wendePresetAn("standard"));
     $("preset-gross").addEventListener("click", () => wendePresetAn("gross"));
 
+    // Testzertifikat: Knopf stößt den Generator an (einmalig registriert); der
+    // Öffnen-Link erscheint erst nach der ersten Erstellung in dieser Sitzung.
+    const zertKnopf = $("zertifikatknopf");
+    if (zertKnopf) {
+        zertKnopf.addEventListener("click", async () => {
+            zertKnopf.disabled = true;
+            zertKnopf.textContent = "🏅 Zertifikat wird erstellt …";
+            try {
+                const antwort = await fetch("/api/zertifikat", { method: "POST" });
+                const ergebnis = await antwort.json();
+                if (ergebnis.fehler) {
+                    alert("Zertifikat konnte nicht erstellt werden: " + ergebnis.fehler);
+                } else {
+                    const zertLink = $("zertifikatlink");
+                    if (zertLink) zertLink.style.display = "inline-block";
+                    let meldung = "Testzertifikat erstellt und nach doc/ kopiert:\n" + ergebnis.pdf;
+                    if (ergebnis.verdict) {
+                        meldung += "\n\nVerdict: " + ergebnis.verdict;
+                    }
+                    if (ergebnis.llm) {
+                        meldung += "\n\nNachrechnung (100 Kombinationsfälle, unabhängige Zweitimplementierung): "
+                            + (ergebnis.llm.nachgerechnet
+                                ? "ERNEUT AUSGEFÜHRT für Lauf " + ergebnis.llm.lauf
+                                  + (ergebnis.llm.ergebnis ? "\n  " + ergebnis.llm.ergebnis : "")
+                                  + "\n  Protokoll: " + ergebnis.llm.protokoll
+                                : "aktuell (Lauf " + ergebnis.llm.lauf + " bereits nachgerechnet, Protokoll "
+                                  + (ergebnis.llm.protokoll || "") + ")");
+                    }
+                    if (ergebnis.warnungen && ergebnis.warnungen.length) {
+                        meldung += "\n\nHINWEISE vor einer belastbaren Ausstellung:";
+                        for (const w of ergebnis.warnungen) meldung += "\n• " + w;
+                        meldung += "\n\n(LLM-Nachrechnung erneuern: testdokumentation.md + gesetzesgrundlagen-2026.md "
+                            + "+ llm-pruefauftrag.txt aus doc/testzertifikat-werkzeug einer KI geben; "
+                            + "Protokoll dort als llm-nachrechnung-<Datum>.md ablegen.)";
+                    }
+                    alert(meldung);
+                }
+            } catch (e) {
+                alert("Serverfehler beim Erstellen: " + e.message);
+            } finally {
+                zertKnopf.disabled = false;
+                zertKnopf.textContent = "🏅 Testzertifikat erstellen";
+            }
+        });
+    }
+
+    // LLM-Nachrechnung & Testzertifikat (Abschnitt 7): Status anzeigen,
+    // Prüfpaket erzeugen, Prompt einsehen — einmalig registriert.
+    const llmAktualisieren = $("llm-aktualisieren");
+    if (llmAktualisieren) {
+        llmAktualisieren.addEventListener("click", ladeLlmPruefung);
+        const paketKnopf = $("llm-paket-knopf");
+        if (paketKnopf) {
+            paketKnopf.addEventListener("click", async () => {
+                paketKnopf.disabled = true;
+                paketKnopf.textContent = "🤖 Prüfpaket wird erstellt …";
+                try {
+                    const anzahl = Math.min(500, Math.max(1, Math.floor(Number($("llm-faelle").value) || 100)));
+                    const antwort = await fetch("/api/llmpruefung/paket", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ faelle: anzahl })
+                    });
+                    const erg = await antwort.json();
+                    const ziel = $("llm-paket-ergebnis");
+                    if (erg.fehler) {
+                        ziel.textContent = "Paket konnte nicht erstellt werden: " + erg.fehler;
+                    } else {
+                        ziel.innerHTML =
+                            "<strong>Prüfpaket bereit — diese drei Dateien einer KI geben:</strong><br>" +
+                            `1. Prüfmenge (${erg.faelle} Fälle): <code>${esc(erg.pruefmenge)}</code><br>` +
+                            `2. Gesetzesgrundlagen: <code>${esc(erg.grundlagen)}</code><br>` +
+                            `3. Prüfauftrag: <code>${esc(erg.pruefauftrag)}</code><br>` +
+                            "<em>" + esc(erg.anleitung) + "</em>";
+                    }
+                } catch (e) {
+                    alert("Serverfehler beim Erstellen des Prüfpakets: " + e.message);
+                } finally {
+                    paketKnopf.disabled = false;
+                    paketKnopf.textContent = "🤖 Prüfpaket erstellen";
+                    ladeLlmPruefung();
+                }
+            });
+        }
+        ladeLlmPruefung();
+    }
+
     // Testfallkategorie-Reiter (zwischen Moduswahl und Laufkonfiguration)
     document.querySelectorAll("#kategorie-abschnitt .d-tab").forEach(tab => {
         tab.addEventListener("click", () => {
@@ -181,12 +268,12 @@ const KATEGORIE_PRESETS = {
     POSITIV: {
         klein: { label: "Schnell (5 MA / 15 Fälle)", ma: 5, auf: 15, seed: 42, denkzeit: 20 },
         standard: { label: "Standard (10 MA / 60 Fälle)", ma: 10, auf: 60, seed: 42, denkzeit: 20 },
-        gross: { label: "Erweitert (20 MA / 120 Fälle)", ma: 20, auf: 120, seed: 42, denkzeit: 10 }
+        gross: { label: "Breite 500 (20 MA / 500 Kombinationen)", ma: 20, auf: 500, seed: 42, denkzeit: 5 }
     },
     NEGATIV: {
         klein: { label: "Schnell (5 MA / 15 Fälle)", ma: 5, auf: 15, seed: 42, denkzeit: 20 },
         standard: { label: "Standard (10 MA / 60 Fälle)", ma: 10, auf: 60, seed: 42, denkzeit: 20 },
-        gross: { label: "Erweitert (20 MA / 120 Fälle)", ma: 20, auf: 120, seed: 42, denkzeit: 10 }
+        gross: { label: "Breite 500 (20 MA / 500 Kombinationen)", ma: 20, auf: 500, seed: 42, denkzeit: 5 }
     },
     LAST: {
         klein: { label: "Lasttest klein (10 MA / 120 Fälle)", ma: 10, auf: 120, seed: 42, denkzeit: 0 },
@@ -205,7 +292,18 @@ function wendePresetAn(name) {
     setzePreset(p.ma, p.auf, p.seed, p.denkzeit);
 }
 
-/** Preset-Knöpfe je Kategorie beschriften (klein/standard/gross). */
+/** Zulässige Auftrags-Obergrenze je Kategorie (gleiche Werte wie
+ *  Simulator.auftraegeLimit im Java-Code): 500 Positiv-/Negativ-Kombinationen,
+ *  1200 Lastdurchläufe, 3000 Stress-User. */
+const KATEGORIE_LIMITEN = {
+    POSITIV: 500,
+    NEGATIV: 500,
+    LAST: 1200,
+    STRESS: 3000
+};
+
+/** Preset-Knöpfe je Kategorie beschriften (klein/standard/gross) und das
+ *  Aufträge-Feld auf die Kategorie-Grenze setzen (min/max + Hinweistext). */
 function renderePresets() {
     const defs = KATEGORIE_PRESETS[gewaehlteKategorie];
     $("preset-klein").textContent = defs.klein.label;
@@ -213,6 +311,18 @@ function renderePresets() {
     $("preset-gross").textContent = defs.gross.label;
     const hinweis = $("kategorie-hinweis");
     if (hinweis) hinweis.textContent = KATEGORIE_HINWEISE[gewaehlteKategorie];
+    const limit = KATEGORIE_LIMITEN[gewaehlteKategorie] || 500;
+    const feld = $("auftraege");
+    feld.min = 1;
+    feld.max = limit;
+    const range = $("auftraege-range");
+    if (range) range.textContent = "1–" + limit;
+    const wert = Math.floor(Number(feld.value));
+    if (!Number.isFinite(wert) || wert < 1) {
+        feld.value = 1;
+    } else if (wert > limit) {
+        feld.value = limit;
+    }
 }
 
 function setzePreset(ma, auf, seed, denkzeit) {
@@ -232,11 +342,19 @@ async function starteSimulation() {
             + "vorgesehen — bitte Modus 1 (Fachschicht) wählen.");
         return;
     }
+    const limit = KATEGORIE_LIMITEN[gewaehlteKategorie] || 500;
+    const auftraege = Math.floor(Number($("auftraege").value));
+    if (!Number.isFinite(auftraege) || auftraege < 1 || auftraege > limit) {
+        alert("Die Auftragszahl muss zwischen 1 und " + limit + " liegen (Kategorie "
+            + gewaehlteKategorie + ") — der Testfallbestand ist bewusst begrenzt.");
+        $("auftraege").value = Math.min(Math.max(isFinite(auftraege) ? auftraege : 1, 1), limit);
+        return;
+    }
     const body = {
         modus: gewaehlterModus,
         kategorie: gewaehlteKategorie,
         mitarbeiter: Number($("mitarbeiter").value),
-        auftraege: Number($("auftraege").value),
+        auftraege: auftraege,
         seed: Number($("seed").value),
         denkzeitMs: Number($("denkzeit").value),
         aufraeumen: $("aufraeumen").checked
@@ -328,7 +446,9 @@ async function aktualisiere() {
         pdfKnopf.href = "/api/pdf";
         pdfLeiste.style.display = "block";
         pdfHinweis.innerHTML = "📄 Generierte Testdokumentation (PDF): "
-            + `<a href="/api/pdf" target="_blank">${esc(status.pdf)}</a>`;
+            + `<a href="/api/pdf" target="_blank">${esc(status.pdf)}</a>`
+            + "<br>{ } Markdown für KI-Review (maschinenlesbar, zum Nachrechnen geben): "
+            + `<a href="/api/md" target="_blank">${esc(status.md || "/api/md")}</a>`;
     } else {
         pdfLeiste.style.display = "none";
         pdfHinweis.textContent = "";
@@ -463,4 +583,61 @@ async function oeffneDetail(id) {
             </tr>`).join("");
 
     $("overlay").classList.add("offen");
+}
+
+// ------------------------------------------------------------------
+// LLM-Nachrechnung & Testzertifikat (Abschnitt 7)
+// ------------------------------------------------------------------
+
+/** Stand der KI-Prüfung laden und darstellen: Protokolle (mit Ablageort),
+ *  MD-Datenstand mit Alter-Warnung, Prompt und mitgegebene Dateien. */
+async function ladeLlmPruefung() {
+    const statusZiel = $("llm-status");
+    const promptZiel = $("llm-prompt");
+    const dateiZiel = $("llm-dateien");
+    if (!statusZiel) return;
+    try {
+        const daten = await (await fetch("/api/llmpruefung")).json();
+        const zeilen = [];
+        const protokolle = daten.protokolle || [];
+        if (protokolle.length === 0) {
+            zeilen.push("⚠ Noch kein Nachrechnprotokoll abgelegt — Prüfpaket erstellen, einer KI geben, "
+                + "Antwort als llm-nachrechnung-&lt;Datum&gt;.md in doc/testzertifikat-werkzeug/ ablegen.");
+        } else {
+            const neuestes = protokolle[protokolle.length - 1];
+            zeilen.push(`✓ Neuestes Protokoll: <code>${esc(neuestes.datei)}</code> `
+                + `(Ablageort: <code>${esc(neuestes.ablageort || "doc/testzertifikat-werkzeug")}</code>)`);
+            if (neuestes.ergebnis) zeilen.push(`&nbsp;&nbsp;Ergebnis: ${esc(neuestes.ergebnis)}`);
+            if (neuestes.pruefumfang) zeilen.push(`&nbsp;&nbsp;Umfang: ${esc(neuestes.pruefumfang)}`);
+            if (neuestes.modell) zeilen.push(`&nbsp;&nbsp;Modell: ${esc(neuestes.modell)}`);
+            if (protokolle.length > 1) {
+                zeilen.push(`&nbsp;&nbsp;(insgesamt ${protokolle.length} Protokolle im Ordner)`);
+            }
+        }
+        if (daten.md_datenstand) {
+            zeilen.push(`Testdokumentation (Datenstand): ${esc(daten.md_datenstand)}`);
+            const neuestes = protokolle[protokolle.length - 1];
+            if (neuestes && neuestes.datei) {
+                const llmDatum = (neuestes.datei.match(/\d{4}-\d{2}-\d{2}/) || [""])[0];
+                const mdDatum = (daten.md_datenstand.match(/\d{4}-\d{2}-\d{2}/) || [""])[0];
+                if (llmDatum && mdDatum && mdDatum > llmDatum) {
+                    zeilen.push(`⚠ Die Testdokumentation (${mdDatum}) ist NEUER als die Nachrechnung (${llmDatum}) `
+                        + "— vor einer belastbaren Zertifikats-Ausstellung erneuern.");
+                }
+            }
+        }
+        statusZiel.innerHTML = zeilen.map(z => `<div>${z}</div>`).join("");
+        if (promptZiel && daten.prompt) promptZiel.textContent = daten.prompt;
+        if (dateiZiel) {
+            const eintraege = Object.entries(daten.dateien || {});
+            dateiZiel.innerHTML = eintraege.length === 0
+                ? "<em>Noch keine Prüfpaket-Dateien vorhanden.</em>"
+                : "<table class='tabelle'><tbody>" + eintraege.map(([label, d]) =>
+                    `<tr><td>${esc(label)}</td><td><code>${esc(d.datei)}</code></td>` +
+                    `<td><code>${esc(d.ablageort)}</code></td><td>${(d.bytes / 1024).toFixed(0)} KB</td></tr>`).join("")
+                  + "</tbody></table>";
+        }
+    } catch (e) {
+        statusZiel.textContent = "Status konnte nicht geladen werden: " + e.message;
+    }
 }
