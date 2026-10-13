@@ -1,51 +1,58 @@
 {
  "erhoben_am": "2026-10-13",
- "verdict": "BESTANDEN",
+ "verdict": "BEDINGT",
  "laeufe": {
   "POSITIV": {
-   "verifiziert": 500,
-   "gesamt": 500,
-   "ordner": "testsweet/logs/run-20261013-112039",
+   "verifiziert": 120,
+   "gesamt": 120,
+   "erfolgreich": true,
+   "modus": "Fachschicht",
+   "ordner": "testsweet/logs/run-20261013-170451-16952134072093421681",
    "zeit": "2026-10-13"
   },
   "NEGATIV": {
    "verifiziert": 500,
    "gesamt": 500,
-   "ordner": "testsweet/logs/run-20261013-111840",
+   "erfolgreich": true,
+   "modus": "Fachschicht",
+   "ordner": "testsweet/logs/run-20261013-164334-16012917256956894678",
    "zeit": "2026-10-13"
   },
   "LAST": {
    "verifiziert": 600,
    "gesamt": 600,
-   "ordner": "testsweet/logs/run-20261013-122937",
+   "erfolgreich": true,
+   "modus": "Fachschicht",
+   "ordner": "testsweet/logs/run-20261013-161636-5710361899363220549",
    "zeit": "2026-10-13"
   },
   "STRESS": {
    "verifiziert": 4000,
    "gesamt": 4000,
-   "ordner": "testsweet/logs/run-20261013-122957",
+   "erfolgreich": true,
+   "modus": "Fachschicht",
+   "ordner": "testsweet/logs/run-20261013-161641-4439267983664349385",
    "zeit": "2026-10-13"
   }
  },
  "llm": {
-  "datei": "llm-nachrechnung-2026-10-13-auto-1328.md",
-  "datum": "2026-10-13",
-  "meta": {
-   "pruefumfang": "49 Faelle einzeln nachgerechnet (TF 11-60, Kombinationfaelle; 54 Rechenbloecke)",
-   "mitgegeben": "gesetzesgrundlagen-2026.md (vollstaendig) · llm-pruefauftrag.txt · Pruefmenge = die ersten 49 Kombinationfaelle aus run-20261013-112949/testdokumentation.md",
-   "modell": "GLM-5.3 (ZCode) — unabhaengige Zweitimplementierung der Rechenkette (nachrechnen_100.py, nur aus den Gesetzestexten entwickelt)",
-   "methode": "je Person und je Bedarfsgemeinschaft jeder Zwischenwert selbst gerechnet (Decimal, HALF_UP je Zuschlag); 1117 Werte verglichen",
-   "ergebnis": "54/54 Rechenbloecke bestaetigt · 0 Abweichungen",
-   "abdeckung": "Stufen 1,2,4,5,6 · Merkzeichen G in 24 Faellen · Schwangerschaft wirksam in 7 Faellen · Entbindungsmonat erfasst in 18 Faellen (entfallen im Zahlungsmonat in 11 Faellen) · Alleinerziehend in 17 Faellen · Warmwasser in 26 Faellen · Vermoegen>0 in 22 Faellen · Storno-Korrektur (2 Bloecke) in 5 Faellen"
-  }
+  "datei": "testsweet/logs/llm-review-1ee87b27-2d1d-4744-8e93-a72c9950c406/result.json",
+  "datum": "",
+  "valid": false,
+  "transportVerified": false,
+  "state": "UNVERIFIED",
+  "reason": "Unvollständige Fallabdeckung",
+  "meta": {}
  },
  "md_datenstand": {
-  "ordner": "testsweet/logs/run-20261013-115159",
+  "ordner": "testsweet/logs/run-20261013-170451-16952134072093421681",
   "datum": "2026-10-13"
  },
  "manuell": {
-  "mvn_tests": "249/249",
-  "mvn_stand": "2026-10-12"
+  "mvn_tests": "249/249 geprüft (Oracle-Lauf plus isolierter Konfigurationstest)",
+  "mvn_stand": "2026-10-13"
  },
- "warnungen": []
+ "warnungen": [
+  "Echte LLM-Prüfung nicht bestanden oder nicht mehr gültig: Unvollständige Fallabdeckung (testsweet/logs/llm-review-1ee87b27-2d1d-4744-8e93-a72c9950c406/result.json)"
+ ]
 }

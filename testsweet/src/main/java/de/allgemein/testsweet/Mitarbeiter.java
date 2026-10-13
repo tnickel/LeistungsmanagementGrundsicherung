@@ -71,7 +71,7 @@ final class Mitarbeiter implements Runnable {
                 break;
             }
             try {
-                String detail = aktion.funktion().ausfuehren(service, kuerzel, kollege, kontext);
+                String detail = aktion.execute(service, kuerzel, kollege, kontext);
                 schritt(auftrag, aktion.name(), "OK" + (detail == null || detail.isBlank()
                         ? "" : " — " + detail));
                 denkzeit();

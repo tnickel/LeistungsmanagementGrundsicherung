@@ -1,6 +1,28 @@
 # Roadmap: Transaktionssteuerung
 
-*Stand: 2026-10-12, Version 0.5.8*
+*Stand: 2026-10-13, Version 0.5.8*
+
+## testsweet: Review und echte Modell-Nachprüfung (2026-10-13)
+
+- [x] Simulator-Prüfungen nachgebessert: erwartete Fachfehler, Mengen-/Ganzzahlvergleiche,
+      wirksame Szenariovariation, Status-/Budgetnachweise und auf Testdaten begrenzter Kassenlauf.
+- [x] Webläufe mit einem Mitarbeiter, gemeinsamem Web-/DB-Ziel, angewendeter Denkzeit,
+      geprüften Antwortdialogen und geordnetem Worker-Abbruch; eindeutige Laufverzeichnisse.
+- [x] Echte GLM-5.3-Nachprüfung über konfigurierbare API; Zahnrad für Modell, Endpunkt,
+      lokalen Zugang, Zeit-/Antwortlimit, 2–1000 ausgewählte Fälle und 1–10 Fälle je Batch.
+      Auswahl aus erfolgreichen Positiv-/Negativberichten einschließlich kuratierter Fälle.
+- [x] Vollständige benannte Dokumenttexte je Anfrage, Manifest und Quell-/Request-/Response-
+      Snapshots mit SHA-256. Dateiübergabe und fachliches `PASS` werden getrennt ausgewiesen;
+      ungültige/veraltete Belege erhalten kein grünes Gesamturteil.
+- [x] Neuer KI-Reportanhang ohne Änderung des originalen hashgebundenen Quellberichts.
+      Historische Freitext-/Python-Protokolle gelten nicht als Modellnachweis.
+- [x] Verifiziert: **55/55 testsweet-Tests**, zusätzlich **6 echte GLM-5.3-Fälle in 2 Batches**
+      mit `PASS` und bestätigter Dateiübergabe. Dies ist eine dokumentierte Stichprobe,
+      keine vollständige Regelabdeckung; die frühere Python-Nachrechnung 100/108 bleibt getrennt.
+
+Bedienung und Nachweisformat: `testsweet/README.md`,
+`doc/testzertifikat-werkzeug/README.md`. Ausgangsreview:
+`doc/codereview/testsweet-codereview-2026-10-13.md`.
 
 ## Nachprüfung der Codereview-Fixes v0.5.8
 

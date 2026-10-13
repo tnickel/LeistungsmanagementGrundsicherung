@@ -70,6 +70,19 @@ public final class Systemdiagnose {
                 Duration.between(serverStart, Instant.now()).toSeconds());
     }
 
+    /** Lesender Zielabgleich für Simulatoren; ausschließlich über die Admin-API. */
+    public Map<String, String> databaseIdentity() {
+        return txManager.execute(TxOptions.DEFAULT.withTimeout(PRUEF_TIMEOUT).withMaxAttempts(1),
+                ctx -> {
+                    Map<String, String> identity = new LinkedHashMap<>();
+                    identity.put("databaseName", abfrage(ctx, "SELECT SYS_CONTEXT('USERENV','DB_NAME') FROM DUAL"));
+                    identity.put("containerName", abfrage(ctx, "SELECT SYS_CONTEXT('USERENV','CON_NAME') FROM DUAL"));
+                    identity.put("schema", abfrage(ctx, "SELECT SYS_CONTEXT('USERENV','CURRENT_SCHEMA') FROM DUAL"));
+                    identity.put("serviceName", abfrage(ctx, "SELECT SYS_CONTEXT('USERENV','SERVICE_NAME') FROM DUAL"));
+                    return Map.copyOf(identity);
+                });
+    }
+
     /**
      * Wiederanlauf: beendet halbfertige Sagas über ALLE bekannten Definitionen — auch die
      * produktive Fach-Saga (SGB-XII-Antragsverarbeitung), nicht nur die Demo (Fund K4).

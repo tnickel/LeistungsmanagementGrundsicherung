@@ -19,6 +19,8 @@ Thumbs.db
 # Lokale Konfiguration/Secrets: lmg.properties enthält DB-Zugangsdaten
 # (Vorlage: lmg.properties.example)
 lmg.properties
+testsweet/llm.local.properties
+testsweet/.llm-config-*.tmp
 
 # Logs
 *.log

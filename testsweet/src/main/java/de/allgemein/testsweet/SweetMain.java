@@ -72,6 +72,7 @@ public final class SweetMain {
         Simulator simulator = new Simulator();
         SweetServer server = new SweetServer(simulator, port);
         server.start();
+        Runtime.getRuntime().addShutdownHook(new Thread(server::close, "testsweet-shutdown"));
 
         String url = "http://127.0.0.1:" + port + "/";
         System.out.println("testsweet — Mitarbeiter-Simulator läuft auf " + url);

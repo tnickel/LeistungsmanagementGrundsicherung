@@ -508,8 +508,23 @@ public final class SozialLeistungsService implements LeistungsService {
 
     @Override
     public Kassenlaeufergebnis uebergebeBereiteZahlungen(String sachbearbeiterId) {
+        return uebergebeBereiteZahlungenIntern(sachbearbeiterId, null);
+    }
+
+    /** Kassenübergabe ausschließlich für Vorgänge mit diesem wörtlichen Präfix. */
+    public Kassenlaeufergebnis uebergebeBereiteZahlungen(String sachbearbeiterId,
+            String aktenzeichenPraefix) {
+        if (aktenzeichenPraefix == null || aktenzeichenPraefix.isBlank()) {
+            throw new FachlicheException(FachlicheException.VALIDATION,
+                    "Für eine begrenzte Kassenübergabe ist ein Aktenzeichen-Präfix erforderlich");
+        }
+        return uebergebeBereiteZahlungenIntern(sachbearbeiterId, aktenzeichenPraefix);
+    }
+
+    private Kassenlaeufergebnis uebergebeBereiteZahlungenIntern(String sachbearbeiterId,
+            String aktenzeichenPraefix) {
         return txManager.execute(TxOptions.DEFAULT, ctx -> {
-            List<Zahlung> bereite = zahlungDao.bereiteZahlungenGesperrt(ctx);
+            List<Zahlung> bereite = zahlungDao.bereiteZahlungenGesperrt(ctx, aktenzeichenPraefix);
             // Die SELECT-Unterabfrage allein sperrt den BG-Status nicht. Vor der
             // Übergabe erneut unter BG-Sperre prüfen und sie bis zum Commit halten.
             java.util.Map<Long, Boolean> aktiv = new java.util.HashMap<>();

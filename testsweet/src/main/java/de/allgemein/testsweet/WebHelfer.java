@@ -32,15 +32,18 @@ public final class WebHelfer {
     public static volatile String basisUrl = liesBasisUrl();
 
     private static String liesBasisUrl() {
+        String wert = expliziteBasisUrl();
+        if (wert == null) wert = "http://localhost:8080";
+        wert = wert.trim();
+        return wert.endsWith("/") ? wert : wert + "/";
+    }
+
+    static String expliziteBasisUrl() {
         String wert = System.getProperty("sweet.baseurl");
         if (wert == null || wert.isBlank()) {
             wert = System.getenv("SWEET_BASE_URL");
         }
-        if (wert == null || wert.isBlank()) {
-            wert = "http://localhost:8080";
-        }
-        wert = wert.trim();
-        return wert.endsWith("/") ? wert : wert + "/";
+        return wert == null || wert.isBlank() ? null : wert.trim();
     }
 
     private WebHelfer() {}
@@ -82,7 +85,7 @@ public final class WebHelfer {
             List<SozialFall> faelle, BigDecimal vermoegen) {
         var ergebnis = Leistungsberechnung.berechne(0, faelle,
                 Leistungsberechnung.KduParameter.AUS, vermoegen);
-        rechnungen.add(new Rechenblock(titel, faelle, vermoegen, BigDecimal.ZERO, ergebnis, List.of()));
+        rechnungen.add(new Rechenblock(titel, "2026-10", faelle, vermoegen, BigDecimal.ZERO, ergebnis, List.of()));
         return ergebnis.zahlbetrag();
     }
 
@@ -163,7 +166,7 @@ public final class WebHelfer {
 
         // Warten bis Vorgangsmaske geladen ist
         wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("view-vorgang")));
-        schliesseModalFallsOffen(treiber);
+        wait.until(ExpectedConditions.textToBe(By.id("kopf-aktenzeichen"), aktenzeichen));
         ctx.put("vorgangErstellt", true); // Marker für den globalen Konsistenzcheck
         return "Vorgang " + aktenzeichen + " (" + name + ") mit Startbudget "
                 + budget.toPlainString() + " EUR angelegt";
@@ -199,7 +202,7 @@ public final class WebHelfer {
 
         klick(treiber, treiber.findElement(By.id("btn-fall-speichern")));
 
-        schliesseModalFallsOffen(treiber);
+        erfolgsDialogPruefen(treiber, "SozialFall angelegt");
 
         // Kurz warten bis Berechnungstabelle aktualisiert wurde
         wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("#tabelle-bedarf tbody tr")));
@@ -222,7 +225,7 @@ public final class WebHelfer {
 
         klickAufButton(treiber, By.id("btn-auszahlung"));
 
-        schliesseModalFallsOffen(treiber);
+        erfolgsDialogPruefen(treiber, "Auszahlung erfasst");
 
         // Erfolg beweisen: nur eine wirklich angeordnete Zahlung erzeugt die
         // Aktionsknöpfe — die Platzhalterzeile «Noch keine Auszahlungen angeordnet»
@@ -287,7 +290,6 @@ public final class WebHelfer {
         klick(treiber, oeffnenBtn);
 
         wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("view-vorgang")));
-        schliesseModalFallsOffen(treiber);
     }
 
     public static String freigeben(WebDriver treiber, Map<String, Object> ctx) {
@@ -296,7 +298,7 @@ public final class WebHelfer {
 
         klickAufButton(treiber, By.cssSelector("#tabelle-zahlungen button.freigeben"));
 
-        schliesseModalFallsOffen(treiber);
+        erfolgsDialogPruefen(treiber, "Zahlung freigegeben");
 
         // Warten bis der Status-Chip 'bereit' anzeigt
         wait.until(ExpectedConditions.presenceOfElementLocated(
@@ -320,7 +322,7 @@ public final class WebHelfer {
 
         klickAufButton(treiber, By.cssSelector("#tabelle-zahlungen button.storno"));
 
-        schliesseModalFallsOffen(treiber);
+        erfolgsDialogPruefen(treiber, "Storno gebucht");
 
         wait.until(ExpectedConditions.presenceOfElementLocated(
                 By.cssSelector("#tabelle-zahlungen .chip.storniert")));
@@ -468,7 +470,7 @@ public final class WebHelfer {
             klick(treiber, chkWw);
         }
         klick(treiber, treiber.findElement(By.id("btn-fall-speichern")));
-        schliesseModalFallsOffen(treiber);
+        erfolgsDialogPruefen(treiber, "SozialFall angelegt");
         wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("#tabelle-bedarf tbody tr")));
         return "SozialFall (RBS " + rbs + ", KdU " + miete.add(betrieb).add(heizung).toPlainString()
                 + " EUR, Rente " + rente.toPlainString() + " EUR) gespeichert";
@@ -495,8 +497,8 @@ public final class WebHelfer {
     /** Liest den Fehlerdialog, prüft ihn auf einen der erwarteten Teilausschnitte
      *  und schließt ihn. Ohne Treffer: IllegalStateException — der Schritt scheitert. */
     private static String fehlerDialogPruefen(WebDriver treiber, String... erwarteteTeiltexte) {
-        WebDriverWait wait = new WebDriverWait(treiber, Duration.ofSeconds(5));
-        wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("dialog-rahmen")));
+        WebDriverWait wait = new WebDriverWait(treiber, TIMEOUT);
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("#dialog-rahmen .dialog.fehler")));
         String text = treiber.findElement(By.id("dialog-text")).getText();
         boolean passt = erwarteteTeiltexte.length == 0;
         for (String teil : erwarteteTeiltexte) {
@@ -529,13 +531,17 @@ public final class WebHelfer {
         } catch (Exception ignored) {}
     }
 
-    private static void schliesseModalFallsOffen(WebDriver treiber) {
-        try {
-            WebDriverWait waitKurz = new WebDriverWait(treiber, Duration.ofMillis(800));
-            WebElement okBtn = waitKurz.until(ExpectedConditions.elementToBeClickable(By.id("dialog-ok")));
-            if (okBtn.isDisplayed()) {
-                klick(treiber, okBtn);
-            }
-        } catch (Exception ignored) {}
+    /** Der Antwortdialog gehört zum Schreibschritt und muss auch bei langsamer Antwort bestätigt werden. */
+    static void erfolgsDialogPruefen(WebDriver treiber, String titel) {
+        WebDriverWait wait = new WebDriverWait(treiber, TIMEOUT);
+        wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("dialog-rahmen")));
+        String actual = treiber.findElement(By.id("dialog-titel")).getText();
+        if (!titel.equals(actual)
+                || !treiber.findElements(By.cssSelector("#dialog-rahmen .dialog.fehler")).isEmpty()) {
+            throw new IllegalStateException("Erfolgsdialog '" + titel + "' erwartet, erhalten: " + actual
+                    + " — " + treiber.findElement(By.id("dialog-text")).getText());
+        }
+        klick(treiber, treiber.findElement(By.id("dialog-ok")));
+        wait.until(ExpectedConditions.invisibilityOfElementLocated(By.id("dialog-rahmen")));
     }
 }

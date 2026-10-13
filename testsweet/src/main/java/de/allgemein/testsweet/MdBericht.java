@@ -27,14 +27,20 @@ final class MdBericht {
     }
 
     static void schreibe(Path ziel, Simulator simulator) throws IOException {
+        schreibe(ziel, simulator, Map.of());
+    }
+
+    static void schreibe(Path ziel, Simulator simulator, Map<String, Object> evidence) throws IOException {
         StringBuilder md = new StringBuilder();
         kopf(md, simulator);
         grundlagen(md);
         for (Auftrag a : simulator.auftraege()) {
             testfall(md, a);
         }
+        KiPruefAnhang.md(md, evidence);
         Files.writeString(ziel, md.toString(), StandardCharsets.UTF_8);
-        simulator.log().ereignis("SIMULATOR", "",
+        SweetLog log = simulator.log();
+        if (log != null) log.ereignis("SIMULATOR", "",
                 "Maschinenlesbare Datenfassung geschrieben: " + ziel);
     }
 
@@ -93,7 +99,11 @@ final class MdBericht {
         md.append("1. BETRÄGE NACHRECHNEN (Positivfälle): Je Testfall stehen unter '### rechenwege' "
                 + "die Eingaben je Person (p1_eingaben, p2_eingaben, ...) und JEDE Zwischengröße "
                 + "(regelbedarf, mehrbedarfe, kdu, anrechenbar, bg_zahlbetrag, "
-                + "budget_rest_erwartet). Rechne mit den Formeln aus '## rechengrundlagen_2026' "
+                + "budget_rest_hypothetisch). Das hypothetische Restbudget beschreibt nur "
+                + "Startbudget minus Anspruch, keine tatsächliche Buchung. Ein explizites "
+                + "budget_rest_erwartet bzw. die SQL-Erwartung beschreibt den Buchungsendzustand; "
+                + "bei Abweisung bleibt das Budget unverändert, Storno gibt den Betrag zurück. "
+                + "Rechne mit den Formeln aus '## rechengrundlagen_2026' "
                 + "jeden Zwischenwert und den Zahlbetrag selbst nach und melde jede Abweichung.\n");
         md.append("2. ERWARTET/GEGEN IST HALTEN: Unter '### verifikation' steht je Prüfung V1..Vn "
                 + "das prüfende SQL mit konkreten Parametern sowie 'erwartet' und 'ist'. Prüfe, "
@@ -109,8 +119,8 @@ final class MdBericht {
         md.append("4. GRENZEN: Last-/Stresstests erzeugen nur Aggregate (kein Einzelfall-Nachrechnen); "
                 + "Web-Läufe (modus 2-web) nutzen dieselbe Datenstruktur, dokumentieren aber "
                 + "UI-Schritte. Globale Prüfungen stehen im Kopf als globale_pruefung-Zeilen.\n");
-        md.append("Antworte mit: VERDICT ok|fehlerfund je Testfall (nur Abweichungen im Detail) "
-                + "sowie einer Gesamteinschätzung.\n\n");
+        md.append("Das verbindliche Antwortschema steht im übergeordneten Prüfauftrag. "
+                + "Dieser Datenanhang legt kein abweichendes Antwortformat fest.\n\n");
     }
 
     private static void grundlagen(StringBuilder md) {
@@ -245,8 +255,11 @@ final class MdBericht {
                 .append(z(block.ergebnis().verwertbaresVermoegen())).append('\n');
         md.append("bg_zahlbetrag=").append(z(block.ergebnis().zahlbetrag())).append('\n');
         if (block.budget() != null) {
-            md.append("budget_rest_erwartet=")
+            md.append("budget_rest_hypothetisch=")
                     .append(z(block.budget().subtract(block.ergebnis().zahlbetrag()))).append('\n');
+        }
+        if (block.budgetRestExpected() != null) {
+            md.append("budget_rest_erwartet=").append(z(block.budgetRestExpected())).append('\n');
         }
         md.append('\n');
     }

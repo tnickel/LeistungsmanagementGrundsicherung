@@ -28,16 +28,30 @@ import java.util.Map;
  *   GET  /api/auftrag/{id}    Auftrag im Detail: Schritte + Verifikationsprüfungen
  * </pre>
  */
-final class SweetServer {
+final class SweetServer implements AutoCloseable {
 
+    private final Object operationLock = new Object();
+    private final Object reportLock = new Object();
+    private volatile String reviewedPdf, reviewedMd, reviewedSource, reviewedKey;
     private final Simulator simulator;
     private final HttpServer server;
+    private final java.util.concurrent.ExecutorService executor;
+    private final LlmReviewService llm;
+    private final java.nio.file.Path repository;
+    private final java.util.concurrent.atomic.AtomicBoolean certificateBusy = new java.util.concurrent.atomic.AtomicBoolean();
 
     SweetServer(Simulator simulator, int port) throws IOException {
+        this(simulator, port, repositoryRoot());
+    }
+
+    SweetServer(Simulator simulator, int port, java.nio.file.Path repository) throws IOException {
         this.simulator = simulator;
+        this.repository = repository.toAbsolutePath().normalize();
+        this.llm = new LlmReviewService(this.repository);
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
         server.createContext("/", this::bearbeite);
-        server.setExecutor(java.util.concurrent.Executors.newFixedThreadPool(4));
+        executor = java.util.concurrent.Executors.newFixedThreadPool(4);
+        server.setExecutor(executor);
     }
 
     void start() {
@@ -47,16 +61,21 @@ final class SweetServer {
     private void bearbeite(HttpExchange exchange) throws IOException {
         String pfad = exchange.getRequestURI().getPath();
         try {
+            if (!localRequest(exchange)) {
+                sendeFehler(exchange, 403, "Nur Anfragen derselben lokalen Oberfläche sind zulässig");
+                return;
+            }
             switch (pfad) {
                 case "/api/status" -> sendeJson(exchange, status());
                 case "/api/start" -> {
                     if ("POST".equals(exchange.getRequestMethod())) {
-                        starteLauf(exchange);
+                        synchronized (operationLock) { starteLauf(exchange); }
                     } else {
                         sendeFehler(exchange, 405, "nur POST");
                     }
                 }
                 case "/api/stop" -> {
+                    if (!"POST".equals(exchange.getRequestMethod())) { sendeFehler(exchange, 405, "nur POST"); return; }
                     simulator.stoppe();
                     sendeJson(exchange, Map.of("ok", true, "phase", simulator.phase().name()));
                 }
@@ -72,6 +91,29 @@ final class SweetServer {
                 case "/api/zertifikat/pdf" -> liefereZertifikatPdf(exchange);
                 case "/api/auftraege" -> sendeJson(exchange, Map.of("auftraege", auftragsliste()));
                 case "/api/testfaelle" -> sendeJson(exchange, testfallKatalog(exchange));
+                case "/api/llm/config" -> {
+                    if ("GET".equals(exchange.getRequestMethod())) sendeJson(exchange, llm.configuration());
+                    else if ("POST".equals(exchange.getRequestMethod())) {
+                        llm.saveConfiguration(readJsonBody(exchange));
+                        sendeJson(exchange, llm.configuration());
+                    } else sendeFehler(exchange, 405, "nur GET oder POST");
+                }
+                case "/api/llm/test" -> {
+                    if ("POST".equals(exchange.getRequestMethod())) sendeJson(exchange, llm.testConnection());
+                    else sendeFehler(exchange, 405, "nur POST");
+                }
+                case "/api/llm/start" -> {
+                    if (!"POST".equals(exchange.getRequestMethod())) { sendeFehler(exchange, 405, "nur POST"); return; }
+                    synchronized (operationLock) {
+                    if (simulator.laufAktiv() || certificateBusy.get()) {
+                        sendeFehler(exchange, 409, "Zuerst den Simulator-Lauf abschließen"); return;
+                    }
+                    Map<?, ?> body = readJsonBody(exchange);
+                    sendeJson(exchange, 202, llm.start(zahl(body, "faelle", ((Number) llm.configuration().get("cases")).intValue())));
+                    }
+                }
+                case "/api/llm/status" -> sendeJson(exchange, llm.status());
+                case "/api/llm/report/pdf" -> liefereKiNachweis(exchange);
                 case "/api/llmpruefung" -> liefereLlmPruefung(exchange);
                 case "/api/llmpruefung/paket" -> {
                     if ("POST".equals(exchange.getRequestMethod())) {
@@ -90,8 +132,12 @@ final class SweetServer {
                     }
                 }
             }
+        } catch (IllegalArgumentException e) {
+            sendeFehler(exchange, 400, e.getMessage());
+        } catch (IllegalStateException e) {
+            sendeFehler(exchange, 409, e.getMessage());
         } catch (Exception e) {
-            sendeFehler(exchange, 500, e.getClass().getSimpleName() + ": " + e.getMessage());
+            sendeFehler(exchange, 500, "Vorgang fehlgeschlagen (" + e.getClass().getSimpleName() + ")");
         } finally {
             exchange.close();
         }
@@ -102,8 +148,11 @@ final class SweetServer {
     // ------------------------------------------------------------------
 
     private void starteLauf(HttpExchange exchange) throws IOException {
-        String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
-        Map<?, ?> wunsch = (Map<?, ?>) Json.parse(body);
+        if (certificateBusy.get() || Boolean.TRUE.equals(llm.status().get("running"))) {
+            sendeFehler(exchange, 409, "Die GLM-Prüfung muss vor einem neuen Simulator-Lauf abgeschlossen sein");
+            return;
+        }
+        Map<?, ?> wunsch = readJsonBody(exchange);
         if (wunsch == null) {
             sendeFehler(exchange, 400, "kein JSON-Body");
             return;
@@ -250,281 +299,102 @@ final class SweetServer {
     // LLM-Nachrechnung: Status/Prompt/Dateien anzeigen, Prüfpaket erzeugen
     // ------------------------------------------------------------------
 
-    /** Protokoll-Kopf (pruefumfang = ..., ergebnis = ...) aus einer Protokolldatei lesen. */
-    private static Map<String, String> liesProtokollKopf(java.nio.file.Path datei) {
-        Map<String, String> kopf = new java.util.HashMap<>();
-        try {
-            for (String zeile : java.nio.file.Files.readAllLines(datei, java.nio.charset.StandardCharsets.UTF_8)) {
-                java.util.regex.Matcher m = java.util.regex.Pattern
-                        .compile("^(\\w+) = (.+)$").matcher(zeile.trim());
-                if (m.matches() && kopf.size() < 8) {
-                    kopf.put(m.group(1), m.group(2).trim());
-                }
-            }
-        } catch (Exception ignored) {
-            // Protokoll bleibt dann ohne Kopfangaben
-        }
-        return kopf;
-    }
-
-    /** GET /api/llmpruefung — Stand der KI-Prüfung, Prompt-Text, mitzugebende Dateien. */
+    /** Stand der echten GLM-Prüfung und der tatsächlich eingesetzte Prüfauftrag. */
     private void liefereLlmPruefung(HttpExchange exchange) throws IOException {
-        java.nio.file.Path werkzeug = werkzeugOrdner();
-        Map<String, Object> antwort = new java.util.HashMap<>();
-        java.util.List<Map<String, Object>> protokolle = new java.util.ArrayList<>();
-        String mdPfad = simulator.letztesMd();
-        String mdDatenstand = null;
-        if (werkzeug != null && java.nio.file.Files.isDirectory(werkzeug)) {
-            java.util.List<java.nio.file.Path> dateien = new java.util.ArrayList<>();
-            try (var stream = java.nio.file.Files.list(werkzeug)) {
-                stream.filter(p -> {
-                    String n = p.getFileName().toString();
-                    return n.matches("llm-nachrechnung-\\d{4}-\\d{2}-\\d{2}(-\\S+)?\\.md");
-                }).forEach(dateien::add);
-            }
-            dateien.sort(Comparator.comparing((java.nio.file.Path p) ->
-                    p.getFileName().toString().replaceAll(".*?(\\d{4}-\\d{2}-\\d{2}).*", "$1")
-                            + String.format("%4d", p.getFileName().toString().length())));
-            for (java.nio.file.Path p : dateien) {
-                Map<String, Object> eintrag = new java.util.HashMap<>();
-                eintrag.put("datei", p.getFileName().toString());
-                eintrag.put("ablageort", werkzeug.getParent().getFileName() + "/"
-                        + werkzeug.getFileName() + "/" + p.getFileName());
-                eintrag.putAll(liesProtokollKopf(p));
-                protokolle.add(eintrag);
-            }
-        }
-        antwort.put("protokolle", protokolle);
-        if (mdPfad != null) {
-            java.nio.file.Path md = java.nio.file.Path.of(mdPfad);
-            if (java.nio.file.Files.exists(md)) {
-                mdDatenstand = md.getParent().getFileName().toString()
-                        .replaceFirst("^run-(\\d{8}).*$", "$1")
-                        .replaceFirst("^(\\d{4})(\\d{2})(\\d{2})$", "$1-$2-$3")
-                        + " (" + md.getParent().getFileName() + ")";
-            }
-        }
-        antwort.put("md_datenstand", mdDatenstand);
-        antwort.put("md_pfad", mdPfad);
-        Map<String, Object> dateienMap = new java.util.LinkedHashMap<>();
-        if (werkzeug != null && java.nio.file.Files.isDirectory(werkzeug)) {
-            String[][] hinzu = {
-                    {"Prüfauftrag (Prompt)", "llm-pruefauftrag.txt"},
-                    {"Gesetzesgrundlagen", "gesetzesgrundlagen-2026.md"}};
-            for (String[] paar : hinzu) {
-                java.nio.file.Path p = werkzeug.resolve(paar[1]);
-                if (java.nio.file.Files.exists(p)) {
-                    dateienMap.put(paar[0], Map.of(
-                            "datei", paar[1],
-                            "ablageort", "doc/testzertifikat-werkzeug/" + paar[1],
-                            "bytes", java.nio.file.Files.size(p)));
-                }
-            }
-            try (var stream = java.nio.file.Files.list(werkzeug)) {
-                stream.filter(p -> p.getFileName().toString().startsWith("pruefmenge-"))
-                        .forEach(p -> {
-                            try {
-                                dateienMap.put("Prüfmenge " + p.getFileName(), Map.of(
-                                        "datei", p.getFileName().toString(),
-                                        "ablageort", "doc/testzertifikat-werkzeug/" + p.getFileName(),
-                                        "bytes", java.nio.file.Files.size(p)));
-                            } catch (Exception ignored) {
-                            }
-                        });
-            }
-        }
-        antwort.put("dateien", dateienMap);
-        String prompt = null;
-        java.nio.file.Path auftrag = werkzeug == null ? null : werkzeug.resolve("llm-pruefauftrag.txt");
-        if (auftrag != null && java.nio.file.Files.exists(auftrag)) {
-            prompt = java.nio.file.Files.readString(auftrag, java.nio.charset.StandardCharsets.UTF_8);
-        }
-        antwort.put("prompt", prompt);
-        antwort.put("werkzeug_ordner", werkzeug == null ? null
-                : "doc/testzertifikat-werkzeug (absolut: " + werkzeug + ")");
-        sendeJson(exchange, antwort);
+        Map<String, Object> response = new LinkedHashMap<>(llm.status());
+        refreshReviewedReport(response);
+        response.put("reportPdf", response.get("reviewId") == null ? null : "/api/llm/report/pdf");
+        response.put("configuration", llm.configuration());
+        java.nio.file.Path prompt = repository.resolve("doc/testzertifikat-werkzeug/llm-pruefauftrag.txt");
+        response.put("prompt", java.nio.file.Files.exists(prompt)
+                ? java.nio.file.Files.readString(prompt, StandardCharsets.UTF_8) : null);
+        sendeJson(exchange, response);
     }
 
-    /**
-     * POST /api/llmpruefung/paket (Body {"faelle": N}) — schnürt die drei mitzugebenden
-     * Dateien: die Prüfmenge wird aus der neuesten testdokumentation.md erzeugt (Kopf +
-     * die ersten N Kombinationsfälle) und im Werkzeugordner abgelegt. Die KI selbst wird
-     * bewusst NICHT aus der Anwendung gerufen — das Paket gibt man einer KI, deren
-     * Antwort als llm-nachrechnung-<Datum>.md zurückgelegt wird.
-     */
     private void erzeugePruefpaket(HttpExchange exchange) throws IOException {
-        java.nio.file.Path werkzeug = werkzeugOrdner();
-        if (werkzeug == null) {
-            sendeFehler(exchange, 404, "Werkzeugordner doc/testzertifikat-werkzeug nicht gefunden");
-            return;
-        }
-        String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
-        int faelle = 100;
-        try {
-            Map<?, ?> wunsch = (Map<?, ?>) Json.parse(body);
-            if (wunsch != null && wunsch.get("faelle") instanceof Number n) {
-                faelle = Math.max(1, Math.min(500, n.intValue()));
-            }
-        } catch (Exception ignored) {
-            // Standard 100 bleibt
-        }
-        String mdPfad = letztesMdMitKombination();
-        if (mdPfad == null) {
-            sendeFehler(exchange, 404, "Noch keine testdokumentation.md mit Kombinationsfällen "
-                    + "vorhanden — zuerst einen Positiv-Lauf mit Kombinationsgenerator fahren "
-                    + "(kleine Smoke-Läufe ohne Kombinationsfälle reichen nicht als Prüfgrundlage)");
-            return;
-        }
-        String inhalt = java.nio.file.Files.readString(java.nio.file.Path.of(mdPfad), java.nio.charset.StandardCharsets.UTF_8);
-        java.util.List<String> bloecke = new java.util.ArrayList<>();
-        String kopf;
-        int pos = inhalt.indexOf("\n## TF ");
-        kopf = pos >= 0 ? inhalt.substring(0, pos + 1) : inhalt;
-        String rest = pos >= 0 ? inhalt.substring(pos + 1) : "";
-        for (String block : rest.split("(?m)(?=^## TF )")) {
-            if (!block.startsWith("## TF ")) {
-                continue;
-            }
-            String[] wort = block.split("\\s+", 4); // ## TF <nr> <TYP> ...
-            if (wort.length >= 4 && wort[3].startsWith("KOMBINATION") && bloecke.size() < faelle) {
-                bloecke.add(block);
-            }
-        }
-        if (bloecke.isEmpty()) {
-            sendeFehler(exchange, 404, "In der neuesten Testdokumentation wurden keine "
-                    + "Kombinationsfälle gefunden — bitte einen Positiv-Lauf mit Kombinationsgenerator fahren");
-            return;
-        }
-        String heute = java.time.LocalDate.now().toString();
-        int gesamtKombi = (int) java.util.regex.Pattern.compile("(?m)^## TF \\d+ KOMBINATION ")
-                .matcher(inhalt).results().count();
-        String hinweis = "> Prüfmenge für die LLM-Nachrechnung — erzeugt am " + heute
-                + " über die testsweet-GUI (Prüfpaket, " + faelle + " Fälle).\n"
-                + "> Grundlage: testdokumentation.md des neuesten Laufs (" + mdPfad + ").\n"
-                + "> Kürzung: Lauf- und Rechengrundlagen-Kopf vollständig + die ersten "
-                + bloecke.size() + " Kombinationsfälle von insgesamt " + gesamtKombi
-                + " (kuratierte Fälle und Kassenläufe sind NICHT enthalten).\n"
-                + "> Mitgegeben werden außerdem vollständig: gesetzesgrundlagen-2026.md und "
-                + "llm-pruefauftrag.txt (beide im Werkzeugordner doc/testzertifikat-werkzeug/).\n\n";
-        java.nio.file.Path ziel = werkzeug.resolve("pruefmenge-positiv-" + bloecke.size() + "faelle.md");
-        java.nio.file.Files.writeString(ziel, hinweis + kopf + String.join("", bloecke),
-                java.nio.charset.StandardCharsets.UTF_8);
-        Map<String, Object> antwort = new java.util.HashMap<>();
-        antwort.put("ok", true);
-        antwort.put("faelle", bloecke.size());
-        antwort.put("pruefmenge", ziel.toString());
-        antwort.put("pruefauftrag", werkzeug.resolve("llm-pruefauftrag.txt").toString());
-        antwort.put("grundlagen", werkzeug.resolve("gesetzesgrundlagen-2026.md").toString());
-        antwort.put("anleitung", "Diese drei Dateien einer KI geben. Ihre Bestätigung als "
-                + "llm-nachrechnung-<Datum>.md in doc/testzertifikat-werkzeug/ ablegen — "
-                + "Kopfzeilen (pruefumfang/mitgegeben/modell/methode/ergebnis) beibehalten; "
-                + "das Zertifikat liest sie automatisch ein.");
-        sendeJson(exchange, antwort);
+        Map<?, ?> body = readJsonBody(exchange);
+        sendeJson(exchange, llm.buildPackage(zahl(body, "faelle", ((Number) llm.configuration().get("cases")).intValue())));
     }
 
-    /**
-     * Stößt die unabhängige Nachrechnung an, falls nötig: Vergleicht den Lauf der
-     * neuesten Testdokumentation (mit Kombinationsfällen) mit dem Datenstand des
-     * neuesten Nachrechnprotokolls. Bei Abweichung (oder ohne Protokoll) läuft
-     * nachrechnen_100.py über die ersten 100 Kombinationsfälle und schreibt ein
-     * neues Protokoll llm-nachrechnung-<Datum>-auto-<HHMM>.md; bei gleichem Lauf
-     * wird nichts erneut gerechnet ("nur wenn neue Testfälle dazukommen").
-     */
-    private Map<String, Object> aktualisiereNachrechnung(java.nio.file.Path werkzeug) {
-        Map<String, Object> status = new java.util.HashMap<>();
-        String mdPfad = letztesMdMitKombination();
-        if (mdPfad == null) {
-            status.put("fehler", "Keine testdokumentation.md mit Kombinationsfällen vorhanden — "
-                    + "zuerst einen Positiv-Lauf fahren");
-            return status;
-        }
-        String lauf = java.nio.file.Path.of(mdPfad).getParent().getFileName().toString();
-        String mdAbsolut = java.nio.file.Path.of(mdPfad).toAbsolutePath().normalize().toString();
-        // neuestes Protokoll + dessen dokumentierten Datenstand lesen
-        java.nio.file.Path neuestes = null;
-        try (var stream = java.nio.file.Files.list(werkzeug)) {
-            java.util.List<java.nio.file.Path> kandidaten = new java.util.ArrayList<>(stream
-                    .filter(p -> p.getFileName().toString()
-                            .matches("llm-nachrechnung-\\d{4}-\\d{2}-\\d{2}(-\\S+)?\\.md"))
-                    .toList());
-            kandidaten.sort(Comparator.comparing((java.nio.file.Path p) -> p.getFileName().toString()
-                    .replaceAll(".*?(\\d{4}-\\d{2}-\\d{2}).*", "$1")
-                    + p.getFileName().toString().replaceAll(".*?\\d{4}-\\d{2}-\\d{2}(-\\S+)?\\.md", "$1")));
-            if (!kandidaten.isEmpty()) {
-                neuestes = kandidaten.get(kandidaten.size() - 1);
+    /** Ursprüngliche Prüfdaten bleiben unverändert; der Anhang bekommt eine eigene Ausgabe. */
+    private void refreshReviewedReport(Map<String, Object> evidence) throws IOException {
+        synchronized (operationLock) {
+        if (Boolean.TRUE.equals(evidence.get("running")) || evidence.get("artifactDirectory") == null || simulator.laufAktiv()) return;
+        String key = LlmReviewService.sha256(Json.write(evidence).getBytes(StandardCharsets.UTF_8));
+        synchronized (reportLock) {
+            java.nio.file.Path directory = java.nio.file.Path.of(String.valueOf(evidence.get("artifactDirectory"))).toAbsolutePath().normalize();
+            if (!directory.startsWith(repository.resolve("testsweet/logs"))) throw new IOException("Ungültiger Nachweispfad");
+            java.nio.file.Path appendix = directory.resolve("testreport-ki-anhang.pdf");
+            if (!key.equals(reviewedKey) || !java.nio.file.Files.isRegularFile(appendix)) {
+                Testdokumentation.schreibeKiNachweis(appendix, evidence);
+                StringBuilder md = new StringBuilder("# KI-Prüfnachweis zum Testreport\n");
+                KiPruefAnhang.md(md, evidence);
+                java.nio.file.Files.writeString(directory.resolve("testreport-ki-anhang.md"), md, StandardCharsets.UTF_8);
             }
-        } catch (Exception ignored) {
-            // dann wird neu gerechnet
-        }
-        if (neuestes != null) {
-            Map<String, String> kopf = liesProtokollKopf(neuestes);
-            String datenstand = kopf.get("datenstand");
-            if (lauf.equals(datenstand)) {
-                status.put("nachgerechnet", false);
-                status.put("protokoll", neuestes.getFileName().toString());
-                status.put("ergebnis", kopf.getOrDefault("ergebnis", ""));
-                status.put("lauf", lauf);
-                return status;
+            String source = simulator.letztesMd();
+            boolean bound = false;
+            if (source != null && evidence.get("sources") instanceof List<?> sources) {
+                java.nio.file.Path actual = java.nio.file.Path.of(source).toAbsolutePath().normalize();
+                bound = sources.stream().anyMatch(item -> item instanceof Map<?, ?> row
+                        && actual.equals(repository.resolve(String.valueOf(row.get("path"))).toAbsolutePath().normalize()));
             }
-        }
-        // Nachrechnung anstoßen: python nachrechnen_100.py <md> --max 100 --protokoll <ziel>
-        String zeit = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HHmm"));
-        String heute = java.time.LocalDate.now().toString();
-        java.nio.file.Path ziel = werkzeug.resolve("llm-nachrechnung-" + heute + "-auto-" + zeit + ".md");
-        try {
-            Process rechner = new ProcessBuilder("python", "nachrechnen_100.py", mdAbsolut,
-                    "--max", "100", "--protokoll", ziel.toString())
-                    .directory(werkzeug.toFile()).redirectErrorStream(true).start();
-            String ausgabe = new String(rechner.getInputStream().readAllBytes(),
-                    java.nio.charset.StandardCharsets.UTF_8);
-            int code = rechner.waitFor();
-            if (code != 0 || !java.nio.file.Files.exists(ziel)) {
-                status.put("fehler", "Exit " + code + " — " + ausgabe.trim()
-                        + " (python im PATH? Skript nachrechnen_100.py im Werkzeugordner?)");
-                return status;
+            if (bound && !simulator.auftraege().isEmpty() && (!key.equals(reviewedKey) || !java.util.Objects.equals(source, reviewedSource))) {
+                java.nio.file.Path run = java.nio.file.Path.of(source).toAbsolutePath().getParent();
+                java.nio.file.Path pdf = run.resolve("testdokumentation-geprueft.pdf"), md = run.resolve("testdokumentation-geprueft.md");
+                Testdokumentation.schreibe(pdf, simulator, evidence);
+                MdBericht.schreibe(md, simulator, evidence);
+                reviewedPdf = pdf.toString(); reviewedMd = md.toString(); reviewedSource = source;
             }
-            Map<String, String> kopf = liesProtokollKopf(ziel);
-            status.put("nachgerechnet", true);
-            status.put("protokoll", ziel.getFileName().toString());
-            status.put("ergebnis", kopf.getOrDefault("ergebnis", ""));
-            status.put("pruefumfang", kopf.getOrDefault("pruefumfang", ""));
-            status.put("lauf", lauf);
-        } catch (Exception e) {
-            status.put("fehler", e.getClass().getSimpleName() + ": " + e.getMessage());
+            reviewedKey = key;
         }
-        return status;
+        }
     }
 
-    /**
-     * Neueste testdokumentation.md, die Kombinationsfälle enthält — kleine Smoke-Läufe
-     * (nur kuratierte Fälle) sollen die Prüfgrundlage nicht verdrängen. Sucht in den
-     * Laufordnern absteigend und prüft auf einen „## TF n KOMBINATION“-Block.
-     */
-    private String letztesMdMitKombination() {
-        java.nio.file.Path logs = java.nio.file.Path.of("testsweet", "logs");
-        if (!java.nio.file.Files.isDirectory(logs)) {
-            logs = java.nio.file.Path.of("..", "testsweet", "logs");
+    private void liefereKiNachweis(HttpExchange exchange) throws IOException {
+        Map<String, Object> evidence = llm.status();
+        refreshReviewedReport(evidence);
+        if (evidence.get("artifactDirectory") == null || Boolean.TRUE.equals(evidence.get("running"))) {
+            sendeFehler(exchange, 404, "Noch kein abgeschlossener KI-Prüfnachweis vorhanden"); return;
         }
-        if (!java.nio.file.Files.isDirectory(logs)) {
-            return simulator.letztesMd();
-        }
-        try (var ordner = java.nio.file.Files.list(logs)) {
-            java.util.List<java.nio.file.Path> kandidaten = new java.util.ArrayList<>(ordner.toList());
-            kandidaten.sort(Comparator.reverseOrder());
-            for (java.nio.file.Path lauf : kandidaten) {
-                java.nio.file.Path md = lauf.resolve("testdokumentation.md");
-                if (!java.nio.file.Files.exists(md)) {
-                    continue;
-                }
-                String inhalt = java.nio.file.Files.readString(md, java.nio.charset.StandardCharsets.UTF_8);
-                if (inhalt.contains(" KOMBINATION SWEET-")) {
-                    return md.toString();
-                }
-            }
-        } catch (Exception ignored) {
-            // Fallback unten
-        }
-        return simulator.letztesMd();
+        java.nio.file.Path pdf = java.util.Objects.equals(reviewedSource, simulator.letztesMd()) && reviewedPdf != null
+                ? java.nio.file.Path.of(reviewedPdf) : java.nio.file.Path.of(String.valueOf(evidence.get("artifactDirectory"))).resolve("testreport-ki-anhang.pdf");
+        byte[] bytes = java.nio.file.Files.readAllBytes(pdf);
+        exchange.getResponseHeaders().set("Content-Type", "application/pdf");
+        exchange.getResponseHeaders().set("Cache-Control", "no-store");
+        exchange.sendResponseHeaders(200, bytes.length);
+        try (OutputStream out = exchange.getResponseBody()) { out.write(bytes); }
+    }
+
+    private static java.nio.file.Path repositoryRoot() {
+        java.nio.file.Path cwd = java.nio.file.Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
+        return cwd.getFileName() != null && cwd.getFileName().toString().equalsIgnoreCase("testsweet")
+                ? cwd.getParent() : cwd;
+    }
+
+    private boolean localRequest(HttpExchange exchange) {
+        String host = exchange.getRequestHeaders().getFirst("Host");
+        int port = server.getAddress().getPort();
+        if (!("127.0.0.1:" + port).equals(host) && !("localhost:" + port).equals(host)) return false;
+        String origin = exchange.getRequestHeaders().getFirst("Origin");
+        return origin == null || origin.equals("http://" + host);
+    }
+
+    private static Map<?, ?> readJsonBody(HttpExchange exchange) throws IOException {
+        byte[] bytes = exchange.getRequestBody().readNBytes(1_048_577);
+        if (bytes.length > 1_048_576) throw new IllegalArgumentException("Anfrage ist zu groß");
+        if (bytes.length == 0) return Map.of();
+        Object value = Json.parse(new String(bytes, StandardCharsets.UTF_8));
+        if (!(value instanceof Map<?, ?> map)) throw new IllegalArgumentException("JSON-Objekt erwartet");
+        return map;
+    }
+
+    int port() { return server.getAddress().getPort(); }
+
+    @Override public void close() {
+        simulator.stoppe();
+        server.stop(0);
+        llm.close();
+        executor.shutdownNow();
     }
 
     private void auftragDetail(HttpExchange exchange, String idText) throws IOException {
@@ -570,7 +440,9 @@ final class SweetServer {
 
     /** Maschinenlesbare Markdown-Fassung (für Nachprüfung durch KI/Dritte). */
     private void liefereMd(HttpExchange exchange) throws IOException {
-        String pfad = simulator.letztesMd();
+        Map<String, Object> evidence = llm.status();
+        refreshReviewedReport(evidence);
+        String pfad = java.util.Objects.equals(reviewedSource, simulator.letztesMd()) ? reviewedMd : simulator.letztesMd();
         if (pfad == null) {
             sendeFehler(exchange, 404, "Noch keine Markdown-Fassung vorhanden — zuerst einen Lauf starten");
             return;
@@ -588,7 +460,9 @@ final class SweetServer {
      * eingebettete Browser blockiert file://-Links, daher dieser Umweg.
      */
     private void lieferePdf(HttpExchange exchange) throws IOException {
-        String pfad = simulator.letztesPdf();
+        Map<String, Object> evidence = llm.status();
+        refreshReviewedReport(evidence);
+        String pfad = java.util.Objects.equals(reviewedSource, simulator.letztesMd()) && reviewedPdf != null ? reviewedPdf : simulator.letztesPdf();
         if (pfad == null) {
             sendeFehler(exchange, 404, "Noch keine Testdokumentation vorhanden — zuerst einen Lauf starten");
             return;
@@ -613,7 +487,9 @@ final class SweetServer {
     // ------------------------------------------------------------------
 
     /** Ort des Zertifikat-Werkzeugs relativ zum Arbeitsverzeichnis suchen. */
-    private static java.nio.file.Path werkzeugOrdner() {
+    private java.nio.file.Path werkzeugOrdner() {
+        java.nio.file.Path own = repository.resolve("doc/testzertifikat-werkzeug");
+        if (java.nio.file.Files.isDirectory(own)) return own;
         for (String basis : new String[] { ".", ".." }) {
             java.nio.file.Path kandidat = java.nio.file.Path.of(basis, "doc", "testzertifikat-werkzeug");
             if (java.nio.file.Files.isDirectory(kandidat)) {
@@ -629,6 +505,14 @@ final class SweetServer {
      * Prüfzahlen stehen im Generator-Skript (vor dem Ausstellen aktuell halten).
      */
     private void erzeugeZertifikat(HttpExchange exchange) throws IOException {
+        synchronized (operationLock) {
+            if (simulator.laufAktiv() || Boolean.TRUE.equals(llm.status().get("running"))) { sendeFehler(exchange, 409, "Lauf oder GLM-Prüfung zuerst abschließen"); return; }
+            if (!certificateBusy.compareAndSet(false, true)) { sendeFehler(exchange, 409, "Ein Zertifikat wird bereits erzeugt"); return; }
+        }
+        try { erzeugeZertifikatIntern(exchange); } finally { certificateBusy.set(false); }
+    }
+
+    private void erzeugeZertifikatIntern(HttpExchange exchange) throws IOException {
         java.nio.file.Path werkzeug = werkzeugOrdner();
         if (werkzeug == null) {
             sendeFehler(exchange, 404, "Zertifikat-Werkzeug nicht gefunden "
@@ -636,46 +520,28 @@ final class SweetServer {
             return;
         }
         try {
-            // Automatische Nachrechnung: Nur wenn der zu prüfende Lauf (neueste
-            // Testdokumentation mit Kombinationsfällen) ein ANDERER ist als der im
-            // neuesten Protokoll dokumentierte Datenstand — gleicher Lauf bedeutet:
-            // Nachrechnung ist noch aktuell und wird nicht erneut ausgeführt.
-            Map<String, Object> llmStatus = aktualisiereNachrechnung(werkzeug);
-            if (llmStatus.get("fehler") != null) {
-                sendeFehler(exchange, 500, "Automatische Nachrechnung fehlgeschlagen: "
-                        + llmStatus.get("fehler"));
-                return;
+            Map<String, Object> llmStatus = llm.status();
+            if (Boolean.TRUE.equals(llmStatus.get("running"))) {
+                sendeFehler(exchange, 409, "Die GLM-Prüfung läuft noch"); return;
             }
-            java.nio.file.Path docx = werkzeug.resolve("testzertifikat.docx");
-            Process generator = new ProcessBuilder("node", "generate.js", docx.getFileName().toString())
-                    .directory(werkzeug.toFile()).redirectErrorStream(true).start();
-            String ausgabe = new String(generator.getInputStream().readAllBytes(),
-                    java.nio.charset.StandardCharsets.UTF_8);
-            int code = generator.waitFor();
-            if (code != 0 || !java.nio.file.Files.exists(docx)) {
-                sendeFehler(exchange, 500, "Zertifikat-Generator fehlgeschlagen (Exit " + code
-                        + "): " + ausgabe.trim());
-                return;
+            if (!"PASS".equals(llmStatus.get("state"))) {
+                sendeFehler(exchange, 409, "Vor der Zertifikatserstellung muss eine vollständige GLM-Prüfung erfolgreich abgeschlossen sein"); return;
             }
-            String soffice = java.nio.file.Files.exists(
-                    java.nio.file.Path.of("C:\\Program Files\\LibreOffice\\program\\soffice.exe"))
-                    ? "C:\\Program Files\\LibreOffice\\program\\soffice.exe" : "soffice";
-            Process export = new ProcessBuilder(soffice, "--headless", "--convert-to", "pdf",
-                    "--outdir", ".", docx.getFileName().toString())
-                    .directory(werkzeug.toFile()).redirectErrorStream(true).start();
-            String exportAusgabe = new String(export.getInputStream().readAllBytes(),
-                    java.nio.charset.StandardCharsets.UTF_8);
-            int exportCode = export.waitFor();
-            java.nio.file.Path pdf = werkzeug.resolve("testzertifikat.pdf");
-            if (exportCode != 0 || !java.nio.file.Files.exists(pdf)) {
-                sendeFehler(exchange, 500, "PDF-Export fehlgeschlagen (Exit " + exportCode
-                        + "): " + exportAusgabe.trim());
-                return;
-            }
-            java.nio.file.Files.copy(pdf, werkzeug.getParent().resolve("SDN-Leistung-LMG-Testzertifikat.pdf"),
-                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            java.nio.file.Files.copy(docx, werkzeug.getParent().resolve("SDN-Leistung-LMG-Testzertifikat.docx"),
-                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            java.nio.file.Path staging = repository.resolve("testsweet/logs/certificate-" + java.util.UUID.randomUUID());
+            java.nio.file.Files.createDirectories(staging);
+            java.nio.file.Path docx = staging.resolve("testzertifikat.docx");
+            runProcess(new ProcessBuilder("node", "generate.js", docx.toString()).directory(werkzeug.toFile()), 90);
+            if (!java.nio.file.Files.isRegularFile(docx)) throw new IOException("DOCX wurde nicht erzeugt");
+            String soffice = java.nio.file.Files.exists(java.nio.file.Path.of("C:/Program Files/LibreOffice/program/soffice.exe"))
+                    ? "C:/Program Files/LibreOffice/program/soffice.exe" : "soffice";
+            runProcess(new ProcessBuilder(soffice, "--headless", "--convert-to", "pdf", "--outdir",
+                    staging.toString(), docx.toString()).directory(werkzeug.toFile()), 90);
+            java.nio.file.Path pdf = staging.resolve("testzertifikat.pdf");
+            if (!java.nio.file.Files.isRegularFile(pdf)) throw new IOException("PDF wurde nicht erzeugt");
+            java.nio.file.Files.copy(pdf, werkzeug.resolve("testzertifikat.pdf"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            java.nio.file.Files.copy(docx, werkzeug.resolve("testzertifikat.docx"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            java.nio.file.Files.copy(pdf, werkzeug.getParent().resolve("SDN-Leistung-LMG-Testzertifikat.pdf"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            java.nio.file.Files.copy(docx, werkzeug.getParent().resolve("SDN-Leistung-LMG-Testzertifikat.docx"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             // Erhebungsstand (stand.json vom Generator) für den Dialog aufbereiten
             Map<String, Object> antwort = new java.util.HashMap<>();
             antwort.put("ok", true);
@@ -702,6 +568,18 @@ final class SweetServer {
             sendeFehler(exchange, 500, "Zertifikat konnte nicht erzeugt werden: "
                     + e.getClass().getSimpleName() + ": " + e.getMessage());
         }
+    }
+
+    private static void runProcess(ProcessBuilder builder, int timeoutSeconds) throws Exception {
+        java.nio.file.Path output = java.nio.file.Files.createTempFile("testsweet-export-", ".log");
+        try {
+            Process process = builder.redirectErrorStream(true).redirectOutput(output.toFile()).start();
+            if (!process.waitFor(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                throw new IOException("Dokumenterzeugung hat das Zeitlimit überschritten");
+            }
+            if (process.exitValue() != 0) throw new IOException("Dokumenterzeugung fehlgeschlagen (Exit " + process.exitValue() + ")");
+        } finally { java.nio.file.Files.deleteIfExists(output); }
     }
 
     /** Liefert das erzeugte Zertifikat-PDF aus (wie /api/pdf für die Testdokumentation). */

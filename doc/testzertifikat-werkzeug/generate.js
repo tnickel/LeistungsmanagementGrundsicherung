@@ -3,25 +3,24 @@
 // Seite 2 ff: was jede Schicht tut und wo sie nachlesbar ist.
 //
 // Ehrlichkeitsprinzip: Was automatisiert prüfbar ist, wird automatisiert erhoben —
-// die testsweet-Laufzahlen aus testsweet/logs/run-*/zusammenfassung.txt (je Kategorie
-// der neueste erfolgreiche Lauf) und das Datum des neuesten LLM-Nachrechnprotokolls.
-// Nicht selbst prüfbar (und klar so gekennzeichnet): die mvn-Testzahl (manuell zu
-// pflegen) und die LLM-Nachrechnung selbst — sie ist ein Prozessschritt außerhalb
-// der Anwendung (MD + gesetzesgrundlagen-2026.md + llm-pruefauftrag.txt einer KI geben;
-// Ergebnis als llm-nachrechnung-<Datum>.md hier ablegen).
+// die neuesten testsweet-Laufzahlen einschließlich Fehlern und strukturierte echte LLM-Prüfbelege.
+// Die mvn-Testzahl und historische Webreferenzen sind als manuell gepflegt markiert.
+// LLM-Nachweise werden ausschließlich über strukturierte echte API-Artefakte mit
+// vollständiger Fallabdeckung und SHA-256-Bindungen ausgewertet.
 // Aufruf: node generate.js [ausgabe.docx]  — schreibt zusätzlich stand.json.
 const path = require("path");
 const fs = require("fs");
 const {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
   PageNumber, AlignmentType, HeadingLevel, WidthType, BorderStyle,
-  ShadingType, SectionType, TableLayoutType, Footer,
-} = require("D:/AntiGravitySoftware/GitWorkspace/LeistungsmanagementGrundsicherung/doc/handbuch-werkzeug/node_modules/docx");
+  ShadingType, SectionType, TableLayoutType, Footer, LevelFormat,
+} = require("../handbuch-werkzeug/node_modules/docx");
 
 const WERKZEUG = __dirname;
 const REPO = path.resolve(WERKZEUG, "..", "..");
 const P = {
   bg: "162235", accent: "37DCF2", gruen: "1E8E3E", gruenHell: "E6F4EA",
+  aufDunkel: "F1F5F9", aufDunkelNeben: "CBD5E1", aufDunkelGruen: "86EFAC", aufDunkelWarn: "FDE68A",
   warn: "B45309", warnHell: "FEF3C7", rot: "B3261E",
   primary: "0E2A33", h2: "1B6B7A", body: "000000", secondary: "5A6B73",
   table: { headerBg: "1B6B7A", headerText: "FFFFFF", accentLine: "1B6B7A", innerLine: "C8DDE2", surface: "EDF3F5" },
@@ -44,15 +43,15 @@ function liesLaufzahlen() {
     const erfolgreich = /^Lauf erfolgreich\s*:\s*true/m.test(txt);
     const zeit = /^Zeitraum\s*:\s*(\S+)/m.exec(txt)?.[1] || "";
     if (!kategorie) continue;
-    if (!erfolgreich) continue;
-    // je Kategorie den umfassendsten erfolgreichen Nachweis führen (meiste Aufträge;
-    // bei Gleichstand der neuere Ordner) — Smoke-Läufe verdrängen keinen Referenzlauf
+
+    // Neuere fehlgeschlagene Läufe dürfen ältere grüne Ergebnisse nicht verdecken.
     const bisher = laeufe[kategorie];
     const kandidat = {
-      verifiziert: Number(verifiziert), gesamt: Number(gesamt),
+      verifiziert: Number(verifiziert), gesamt: Number(gesamt), erfolgreich,
+      modus: /^Modus\s*:\s*(.+)$/m.exec(txt)?.[1]?.trim() || "nicht angegeben",
       ordner: "testsweet/logs/" + ordner, zeit: zeit.slice(0, 10),
     };
-    if (!bisher || kandidat.gesamt >= bisher.gesamt) {
+    if (!bisher || kandidat.ordner > bisher.ordner) {
       laeufe[kategorie] = kandidat;
     }
   }
@@ -60,24 +59,7 @@ function liesLaufzahlen() {
 }
 
 function liesLlmProtokoll() {
-  if (!fs.existsSync(WERKZEUG)) return null;
-  const kandidaten = fs.readdirSync(WERKZEUG)
-    .filter(f => /^llm-nachrechnung-\d{4}-\d{2}-\d{2}(-\S+)?\.md$/.test(f));
-  if (kandidaten.length === 0) return null;
-  // Sortierung nach Datum; bei Gleichstand gewinnt der größere Prüfungsumfang
-  // (längerer Dateiname, z. B. "-100faelle" schlägt das Basis-Protokoll)
-  const key = f => f.match(/\d{4}-\d{2}-\d{2}/)[0] + String(f.length).padStart(4, "0");
-  const neueste = kandidaten.sort((a, b) => key(a).localeCompare(key(b)))[kandidaten.length - 1];
-  const datum = neueste.match(/\d{4}-\d{2}-\d{2}/)[0];
-  // maschinenlesbarer Kopf (pruefumfang/mitgegeben/modell/ergebnis) auswerten
-  const meta = {};
-  for (const zeile of fs.readFileSync(path.join(WERKZEUG, neueste), "utf8").split("\n")) {
-    const m = /^(\w+) = (.+)$/.exec(zeile.trim());
-    if (m && ["pruefumfang", "mitgegeben", "modell", "methode", "ergebnis", "abdeckung"].includes(m[1])) {
-      meta[m[1]] = m[2].trim();
-    }
-  }
-  return { datei: neueste, datum, meta };
+  return require("./llm-evidence").latestEvidence(REPO);
 }
 
 function liesMdDatenstand(laeufe) {
@@ -104,26 +86,34 @@ function laufZeile(kat, label) {
     return { haken: "!", farbe: P.warn, flaeche: P.warnHell,
       titel: `testsweet ${label} — kein Lauf gefunden`, zeile: "Automatisch erhoben: kein erfolgreicher Lauf in testsweet/logs/ vorhanden" };
   }
+  if (!l.erfolgreich || !Number.isFinite(l.gesamt) || l.verifiziert !== l.gesamt) {
+    warnungen.push(`Neuester Lauf ${label} ist fehlgeschlagen oder unvollständig: ${l.ordner}`);
+    return {haken:"!",farbe:P.warn,flaeche:P.warnHell,titel:`testsweet ${label} — neuester Lauf nicht bestanden`,zeile:l.ordner};
+  }
   return { haken: "✓", farbe: P.gruen, flaeche: P.gruenHell,
     titel: `testsweet ${label} — ${l.verifiziert}/${l.gesamt} verifiziert`,
-    zeile: `Automatisch erhoben am ${HEUTE} aus ${l.ordner} (Lauf vom ${l.zeit})` };
+    zeile: `Automatisch erhoben am ${HEUTE} aus ${l.ordner} (Lauf vom ${l.zeit}; Modus ${l.modus})` };
 }
 
 // Manuell zu pflegende Prüfergebnisse (nicht automatisch erhebbar):
-const MVN_TESTS = "249/249";           // mvn test im Hauptprojekt — nach jedem Testlauf hier aktualisieren
-const MVN_STAND = "2026-10-12";        // Datum des letzten bekannten grünen mvn-Laufs
+const MVN_TESTS = "249/249 geprüft (Oracle-Lauf plus isolierter Konfigurationstest)";
+const MVN_STAND = "2026-10-13";
 
-const pos = laufZeile("POSITIV", "Positivfälle (Fachschicht)");
-const neg = laufZeile("NEGATIV", "Negativfälle (Fachschicht)");
+const pos = laufZeile("POSITIV", "Positivfälle");
+const neg = laufZeile("NEGATIV", "Negativfälle");
 const last = laufZeile("LAST", "Lasttest");
 const stress = laufZeile("STRESS", "Stresstest");
 
 let llm;
 if (!LLM) {
-  warnungen.push("Kein LLM-Nachrechnprotokoll (llm-nachrechnung-<Datum>.md) im Werkzeugordner — MD + gesetzesgrundlagen-2026.md + llm-pruefauftrag.txt einer KI geben und Protokoll ablegen.");
+  warnungen.push("Keine gültige strukturierte echte LLM-Prüfung unter testsweet/logs/llm-review-*/result.json. Historische Freitext- und Python-Protokolle gelten nicht als Modellnachweis.");
   llm = { haken: "!", farbe: P.warn, flaeche: P.warnHell,
     titel: "LLM-Nachrechnung der Testdokumentation — kein Protokoll vorhanden",
-    zeile: "Prozessschritt außerhalb der Anwendung: Prüfauftrag + Gesetzesgrundlagen im Werkzeugordner" };
+    zeile: "Echte LLM-Prüfung in der testsweet-Oberfläche starten; Zugang und Modell konfigurieren" };
+ } else if (!LLM.valid) {
+  warnungen.push(`Echte LLM-Prüfung nicht bestanden oder nicht mehr gültig: ${LLM.reason} (${LLM.datei})`);
+  llm = {haken:"!",farbe:P.warn,flaeche:P.warnHell,
+    titel:`LLM-Nachprüfung — ${LLM.state}`,zeile:LLM.reason};
 } else {
   const m = LLM.meta || {};
   // Kompakte Darstellung für die Zertifikatsseite (Details auf den Erklärseiten):
@@ -140,14 +130,13 @@ if (!LLM) {
     zeile: `Geprüft: ${kurz(m.pruefumfang, 1)} · Unterlagen: ${unterlagen}`
       + (m.datenstand ? ` · Datenstand: ${m.datenstand}` : "") };
 }
-if (LLM && MD && MD.datum > LLM.datum) {
-  warnungen.push(`Die Testdokumentation (${MD.ordner}, ${MD.datum}) ist NEUER als die LLM-Nachrechnung (${LLM.datum}) — Nachrechnung erneuern, bevor das Zertifikat belastbar ist.`);
-}
+// Aktualität wird im Belegprüfer über konkrete Quelldateien und SHA-256 geprüft.
+
 
 const PRUEFSCHICHTEN = [
   { haken: "✓", farbe: P.gruen, flaeche: P.gruenHell,
     titel: `Unit-Tests der Fach- und Kernschicht — ${MVN_TESTS} grün (manuell gepflegt, Stand ${MVN_STAND})`,
-    zeile: "Version 0.5.8 (Commit 6199fc3); mvn test — Zahl hier im Generator nach jedem Testlauf aktualisieren",
+    zeile: "Version 0.5.8 mit aktuellen Arbeitskopie-Änderungen; 248 bestanden mit Oracle, 1 dort übersprungen und ohne TX_URL separat bestanden",
     detail: "Die gesamte Berechnungs- und Transaktionslogik ist ohne Fenstereingaben testbar: TxManager (Rollback auch bei OOM, Retry bei ORA-00054/60/08177 inkl. echtem Deadlock-Test), SagaEngine mit Journal und Wiederanlauf, TaskController mit Wachhund, jeden §-30-Zuschlag mit Deckel, die KdU-Dreiteilung, § 82-Kette mit Freibetragskappung, Vermögensanrechnung und -verbrauch, HTTP-Schicht (401/403/404/405/400-Matrix), JSON-Grenzen, Einsichtsprotokoll. Diese Zahl kann die Anwendung nicht selbst erheben (ein Testlauf dauert zu lange für den Knopfdruck) — sie ist im Generator markiert und nach jedem mvn test zu pflegen. Nachlesbar: Maven-Konsole; Testklassen unter src/test/java." },
   { haken: "✓", farbe: P.gruen, flaeche: P.gruenHell,
     titel: "Goldwerte — 9 von Hand gerechnete Referenzfälle",
@@ -170,11 +159,18 @@ const PRUEFSCHICHTEN = [
   { ...stress,
     detail: "Zwei Wellen über dieselben User mit Phasenbarriere: Welle 2 beweist den Lost-Update-Schutz (alle Fälle exakt Version 2) und korrekte Budgetführung unter Konkurrenz; SQL-Endprüfung über den Gesamtbestand. Automatisch aus dem neuesten erfolgreichen STRESS-Lauf erhoben." },
   { ...llm,
-    detail: `Eine KI hat Fälle aus der maschinenlesbaren Testdokumentation unabhängig nachgerechnet — nur nach den mitgegebenen Gesetzestexten, nicht nach dem Code. Im Protokollkopf stehen Umfang, Methode und die mitgegebenen Dokumente; der Generator liest sie automatisch hier ein. Aktueller Stand: ${LLM && LLM.meta && LLM.meta.pruefumfang ? LLM.meta.pruefumfang + " — " + (LLM.meta.methode || "") : "siehe Protokoll"} ${LLM && LLM.meta && LLM.meta.abdeckung ? "Abgedeckte Regel-Äste: " + LLM.meta.abdeckung + "." : ""} WICHTIG — so wird diese Schicht erneuert: die testdokumentation.md (bei Bedarf auf eine Prüfmenge gekürzt, siehe pruefmenge-*.md) ZUSAMMEN mit gesetzesgrundlagen-2026.md und llm-pruefauftrag.txt einer KI geben; ihre Bestätigung als llm-nachrechnung-<Datum>.md hier ablegen (Kopfzeilen beibehalten). Der Generator nimmt automatisch das neueste Protokoll (Ablageort: doc/testzertifikat-werkzeug/) und warnt, wenn die Testdokumentation neuer ist als die Nachrechnung. Das Prüfpaket (Prüfmenge + Gesetzesgrundlagen + Prüfauftrag) lässt sich direkt aus der testsweet-GUI schnüren (Abschnitt 7 „LLM-Nachrechnung", Knopf „Prüfpaket erstellen") — dort sind auch Prompt und mitgegebene Dateien einsehbar.` },
+    detail: `Die Nachprüfung verwendet echte konfigurierte Modellaufrufe. Je Fallgruppe werden der vollständige Prüfauftrag, vollständige Gesetzesgrundlagen und vollständige ausgewählte Fälle übertragen. Positiv- und Negativfälle einschließlich kuratierter Arten werden ausgewählt. Zertifiziert wird nur PASS mit exakter Fallabdeckung, Modellübereinstimmung, vollständigen Antworten und gültigen SHA-256-Bindungen von Eingaben, Request, Response und Ergebnis. Artefakte: ${LLM ? LLM.datei : "keine"}. Dateiübergabe und fachliches Ergebnis sind getrennte Nachweise. Ein erfolgreicher Transport allein bestätigt keine Berechnung. Historische Python-Protokolle zählen ausdrücklich nicht als LLM-Prüfung.` },
   { haken: "✓", farbe: P.gruen, flaeche: P.gruenHell,
     titel: "Code-Reviews durch unterschiedliche KIs — wiederholt, gegengeprüft, behoben",
     zeile: "Allumfassendes Review 2026-10-12 (75 Befunde → alle behoben) + Gegenprüfungen + zweite Fremd-Härtung",
-    detail: "Der Code wurde wiederholt von KI-Instanzen unabhängig gelesen und kritisiert — bewusst mit unterschiedlichen KIs, damit nicht dieselbe Blindstelle durchgeht: (1) allumfassendes Codereview nach strukturiertem Prüfauftrag (Prüffelder A–J, 48 Verdachtsspuren, 25 Testlücken; doc/codereview/codereviewPrompt.txt) mit 75 Befunden, alle bis v0.5.7 behoben; (2) Gegenprüfung der Fixes zu v0.5.8 (Nachbesserungsbericht); (3) weitere, andere KI härtete nach (Body-Cache, Audit-Redaktion, Saga-Korrelation, Bescheidmonat-Prüfung) — auch gegengeprüft, 249/249 Tests grün. Nachlesbar: Berichte unter doc/codereview/." },
+    detail: "Der Code wurde wiederholt von KI-Instanzen unabhängig gelesen und kritisiert — bewusst mit unterschiedlichen KIs, damit nicht dieselbe Blindstelle durchgeht:",
+    detailListe: [
+      { titel: "Allumfassendes Codereview", text: "Strukturierter Prüfauftrag (Prüffelder A–J, 48 Verdachtsspuren, 25 Testlücken; doc/codereview/codereviewPrompt.txt). Die 75 Befunde wurden bis v0.5.7 behoben." },
+      { titel: "Gegenprüfung", text: "Die Fixes zu v0.5.8 wurden erneut geprüft (Nachbesserungsbericht)." },
+      { titel: "Weitere Härtung", text: "Body-Cache, Audit-Redaktion, Saga-Korrelation und Bescheidmonat-Prüfung wurden zusätzlich gehärtet." },
+      { titel: "testsweet-Review", text: "Am 2026-10-13 durchgeführt, mit dokumentierten Fehlerkorrekturen." },
+    ],
+    detailQuelle: "Nachlesbar: Berichte unter doc/codereview/." },
 ];
 
 const allesBestanden = warnungen.length === 0;
@@ -190,14 +186,14 @@ const zertifikat = [
     children: [new TextRun({ text: "Leistungsmanagement Grundsicherung (SGB XII) — Berechnung, Bescheid und Auszahlung", size: 22, color: "B0B8C0", font: FONT })] }),
   new Paragraph({ spacing: { before: 100, after: 30 },
     children: [
-      new TextRun({ text: "Gegenstand: ", bold: true, size: 22, color: P.primary, font: FONT }),
-      new TextRun({ text: "Berechnung, Bescheiderteilung und Auszahlungskette wurden in zehn Qualitätsschichten geprüft (inkl. Code-Reviews durch unterschiedliche KIs); Laufzahlen und LLM-Datum automatisch erhoben.", size: 21, color: P.body, font: FONT }),
+      new TextRun({ text: "Gegenstand: ", bold: true, size: 22, color: "FFFFFF", font: FONT }),
+      new TextRun({ text: "Nachweise zu Berechnung, Bescheiderteilung und Auszahlungskette aus zehn Qualitätsschichten; aktuelle Laufresultate und strukturierte Belege echter LLM-Aufrufe werden automatisch geprüft.", size: 21, color: P.aufDunkel, font: FONT }),
     ] }),
   new Paragraph({ spacing: { before: 90, after: 100 },
     children: [
-      new TextRun({ text: allesBestanden ? "Prüfungsverdict: BESTANDEN — 0 offene Befunde über alle Schichten."
-                                          : `Prüfungsverdict: BEDINGT — ${warnungen.length} Hinweis(se), siehe unten.`,
-        bold: true, size: 24, color: allesBestanden ? P.gruen : P.warn, font: FONT }),
+      new TextRun({ text: allesBestanden ? "Prüfungsverdict: BESTANDEN — vorliegende Nachweise gültig; LLM-Prüfung ist eine Stichprobe."
+                                          : `Prüfungsverdict: BEDINGT — ${warnungen.length} ${warnungen.length === 1 ? "Hinweis" : "Hinweise"}, siehe unten.`,
+        bold: true, size: 24, color: allesBestanden ? P.aufDunkelGruen : P.aufDunkelWarn, font: FONT }),
     ] }),
 ];
 
@@ -238,14 +234,14 @@ const hakenTabelle = new Table({
 
 const erhebungsBlock = [
   new Paragraph({ spacing: { before: 120, after: 20, line: 252 },
-    children: [new TextRun({ text: `Erhebungsstand (automatisch): erhoben am ${HEUTE} aus testsweet/logs (je Kategorie der umfassendste erfolgreiche Lauf). LLM-Nachrechnung: ${LLM ? LLM.datum + " (" + LLM.datei + ", Ablageort doc/testzertifikat-werkzeug/)" : "keine"}. MD-Datenstand: ${MD ? MD.datum + " (" + MD.ordner + ")" : "keiner"}. Manuell gepflegt: mvn-Testzahl ${MVN_TESTS} (Stand ${MVN_STAND}), Web-Modus-Referenzläufe.`, size: 17, color: "B0B8C0", font: FONT })] }),
+    children: [new TextRun({ text: `Erhebungsstand (automatisch): erhoben am ${HEUTE} aus testsweet/logs (je Kategorie der neueste Lauf einschließlich Fehlern). LLM-Nachrechnung: ${LLM ? LLM.datum + " (" + LLM.datei + ")" : "keine"}. MD-Datenstand: ${MD ? MD.datum + " (" + MD.ordner + ")" : "keiner"}. Manuell gepflegt: mvn-Testzahl ${MVN_TESTS} (Stand ${MVN_STAND}), Web-Modus-Referenzläufe.`, size: 17, color: P.aufDunkelNeben, font: FONT })] }),
 ];
 if (warnungen.length > 0) {
   erhebungsBlock.push(new Paragraph({ spacing: { before: 80, after: 20 },
-    children: [new TextRun({ text: "Hinweise vor einer belastbaren Ausstellung:", bold: true, size: 20, color: P.warn, font: FONT })] }));
+    children: [new TextRun({ text: "Hinweise vor einer belastbaren Ausstellung:", bold: true, size: 20, color: P.aufDunkelWarn, font: FONT })] }));
   for (const w of warnungen) {
     erhebungsBlock.push(new Paragraph({ spacing: { after: 30, line: 264 },
-      children: [new TextRun({ text: "• " + w, size: 18, color: P.warn, font: FONT })] }));
+      children: [new TextRun({ text: "• " + w, size: 18, color: P.aufDunkelWarn, font: FONT })] }));
   }
 }
 
@@ -253,11 +249,7 @@ const fuss = [
   new Paragraph({ spacing: { before: 140 },
     border: { top: { style: BorderStyle.SINGLE, size: 2, color: P.table.innerLine, space: 8 } },
     children: [
-      new TextRun({ text: "Version 0.5.8 (Commit 6199fc3) · Referenzjahr 2026 · Beträge gegen gesetze-im-internet.de verifiziert (doc/rechtsgrundlagen.md, 2026-10-10) · Ausgestellt am " + HEUTE, size: 18, color: P.secondary, font: FONT }),
-    ] }),
-  new Paragraph({ spacing: { before: 120, after: 0 }, alignment: AlignmentType.LEFT,
-    children: [
-      new TextRun({ text: "Fortsetzung auf Seite 2: Was jede Prüfschicht tut, wie sie arbeitet und wo ihr Ergebnis nachlesbar ist.", italics: true, size: 18, color: P.secondary, font: FONT }),
+      new TextRun({ text: "Referenzjahr 2026 · Rechtsquellenstand: doc/rechtsgrundlagen.md (2026-10-10) · Ausgestellt am " + HEUTE, size: 18, color: P.aufDunkelNeben, font: FONT }),
     ] }),
 ];
 
@@ -274,43 +266,64 @@ function h1(text, ersteSeite) {
 function h2(text) {
   return new Paragraph({
     heading: HeadingLevel.HEADING_2, keepNext: true,
-    spacing: { before: 300, after: 120, line: 312 },
+    spacing: { before: 190, after: 90, line: 288 },
     children: [new TextRun({ text, bold: true, size: 25, color: P.h2, font: FONT_ARIAL })] });
 }
 function para(runs, opts = {}) {
   return new Paragraph({
-    alignment: AlignmentType.JUSTIFIED,
-    spacing: { line: 312, after: opts.after !== undefined ? opts.after : 120, before: opts.before || 0 },
+    alignment: AlignmentType.LEFT,
+    spacing: { line: 280, after: opts.after !== undefined ? opts.after : 80, before: opts.before || 0 },
     children: runs.map(r => new TextRun({ text: r.t, bold: !!r.b, italics: !!r.i, size: 22,
       color: r.warn ? P.warn : (r.b ? P.primary : P.body), font: FONT })),
+  });
+}
+function listenpunkt(reference, titel, text) {
+  return new Paragraph({
+    numbering: { reference, level: 0 },
+    alignment: AlignmentType.LEFT,
+    keepLines: true,
+    spacing: { line: 280, after: 100 },
+    children: [
+      new TextRun({ text: titel + ": ", bold: true, size: 22, color: P.primary, font: FONT }),
+      new TextRun({ text, size: 22, color: P.body, font: FONT }),
+    ],
   });
 }
 
 const details = [
   h1("Die zehn Qualitätsschichten im Einzelnen", true),
   para([{ t: "Zehn Prüfungen mit bewusst unterschiedlicher Fehlerabdeckung: Formelfehler (Goldwerte, LLM-Nachrechnung), Zusammenspiel mit Datenbank und Parallelität (Regression, testsweet, Last/Stress), Bedienoberfläche (Modus 2), Transaktionssteuerung (Unit-Tests) und Schwächen, die Tests nicht sehen (Reviews durch unterschiedliche KIs)." }]),
-  para([{ t: "Ehrlichkeitsprinzip: ", b: true }, { t: "Die testsweet-Zeilen und das LLM-Protokolldatum werden beim Erzeugen automatisch aus testsweet/logs bzw. dem Werkzeugordner erhoben. Die mvn-Testzahl und die Web-Modus-Referenzläufe sind als manuell gepflegt gekennzeichnet. Fehlt etwas oder ist die LLM-Nachrechnung älter als die Testdokumentation, erscheint ein gelbes Ausrufezeichen statt des grünen Häkchens und ein Hinweis — dann ist das Zertifikat noch nicht belastbar." }]),
+  para([{ t: "Nachweisprinzip: ", b: true }, { t: "Die neuesten Laufresultate werden einschließlich Fehlern berücksichtigt. Die LLM-Schicht benötigt strukturierte echte API-Belege mit exakter Fallabdeckung und unveränderten Quelldateien, Prüfauftrag und Gesetzesgrundlagen. Fehlende, abgebrochene, veraltete oder abweichende Nachweise erhalten keine Freigabe. Die mvn-Testzahl und Web-Modus-Referenzläufe bleiben ausdrücklich manuell gepflegt." }]),
 ];
 PRUEFSCHICHTEN.forEach((s, i) => {
   details.push(h2(`${i + 1}. ${s.titel}`));
   details.push(para([{ t: s.zeile, i: true }], { after: 100 }));
   details.push(para([{ t: s.detail }]));
+  if (s.detailListe) {
+    for (const punkt of s.detailListe) details.push(listenpunkt("reviews", punkt.titel, punkt.text));
+    details.push(para([{ t: s.detailQuelle }]));
+  }
 });
 details.push(h2("Wie das Zertifikat erneuert wird"));
-details.push(para([
-  { t: "Reihenfolge: " },
-  { t: "(1)", b: true }, { t: " Läufe fahren (testsweet-GUI oder start.bat) — der Generator findet die neuesten erfolgreichen Läufe je Kategorie automatisch. " },
-  { t: "(2)", b: true }, { t: " mvn test im Hauptprojekt; Testzahl und Stand oben im Generator (MVN_TESTS/MVN_STAND) aktualisieren. " },
-  { t: "(3)", b: true }, { t: " LLM-Nachrechnung erneuern: die neueste testdokumentation.md ZUSAMMEN mit gesetzesgrundlagen-2026.md und llm-pruefauftrag.txt aus diesem Ordner einer KI geben; ihre Bestätigung als llm-nachrechnung-<Datum>.md hier ablegen. " },
-  { t: "(4)", b: true }, { t: " Knopf „Testzertifikat erstellen“ in der GUI oder erstelle-zertifikat.bat ausführen. Warnungen bedeuten: vorher Schritt 1–3 nachziehen." }]));
+details.push(para([{ t: "Das Zertifikat wird in dieser Reihenfolge erneuert:" }]));
+details.push(listenpunkt("erneuerung", "Testläufe fahren", "Die testsweet-GUI oder start.bat nutzen. Der Generator bewertet die neuesten Läufe je Kategorie einschließlich Fehlern."));
+details.push(listenpunkt("erneuerung", "mvn test ausführen", "Im Hauptprojekt starten; Testzahl und Stand oben im Generator (MVN_TESTS/MVN_STAND) aktualisieren."));
+details.push(listenpunkt("erneuerung", "LLM-Prüfung starten", "In testsweet konfigurieren und ausführen. Der Generator prüft strukturierte Request-/Response-Belege und Quelldatei-Hashes."));
+details.push(listenpunkt("erneuerung", "Zertifikat erstellen", "Den Knopf in der GUI oder erstelle-zertifikat.bat nutzen. Bei Warnungen zuerst die Schritte 1–3 nachziehen."));
 details.push(h2("Grenzen des Zertifikats"));
 details.push(para([
-  { t: "Die LLM-Nachrechnung ist eine Stichprobe je Regel-Ast, keine Vollprüfung aller Fälle; die vollständigen je-Fall-Rechenwege stehen in den Markdown-Berichten der Läufe und können jederzeit vollständig nachgerechnet werden. Bewusste Vereinfachungen des Fachrechts (Karenzzeit § 35, §§ 82 Abs. 4/5, § 43 Abs. 2, § 44 Abs. 2) sind in der Fachdokumentation als nicht modelliert ausgewiesen und kein Gegenstand dieses Zertifikats. Die Web-Modus- und mvn-Zahlen sind manuell gepflegt (gekennzeichnet)." }]));
+  { t: "Die LLM-Nachrechnung ist eine dokumentierte Stichprobe, keine Vollprüfung aller Fälle und Regeläste. Die vollständigen je-Fall-Rechenwege stehen in den Markdown-Laufberichten. Nicht modellierte Fachrechtsregeln (Karenzzeit § 35, §§ 82 Abs. 4/5, § 43 Abs. 2, § 44 Abs. 2) sind kein Zertifikatsgegenstand. Web-Modus- und mvn-Zahlen sind als manuell gepflegt markiert." }]));
 
 // ─── Dokument ────────────────────────────────────────────────────────────────
 const doc = new Document({
   creator: "SDN.Leistung LMG",
   title: "Testzertifikat SDN.Leistung LMG",
+  numbering: { config: [
+    { reference: "reviews", levels: [{ level: 0, format: LevelFormat.DECIMAL, text: "%1.", alignment: AlignmentType.LEFT,
+      style: { paragraph: { indent: { left: 620, hanging: 360 } } } }] },
+    { reference: "erneuerung", levels: [{ level: 0, format: LevelFormat.DECIMAL, text: "%1.", alignment: AlignmentType.LEFT,
+      style: { paragraph: { indent: { left: 620, hanging: 360 } } } }] },
+  ] },
   styles: { default: { document: {
     run: { font: FONT, size: 22, color: P.body },
     paragraph: { spacing: { line: 312 } },
@@ -368,5 +381,5 @@ Packer.toBuffer(doc).then(buf => {
     manuell: { mvn_tests: MVN_TESTS, mvn_stand: MVN_STAND },
     warnungen,
   }, null, 1));
-  console.log("OK geschrieben:", OUT, buf.length, "Bytes; verdict:", allesBestanden ? "BESTANDEN" : "BEDINGT (" + warnungen.length + " Hinweise)");
+  console.log("OK geschrieben:", OUT, buf.length, "Bytes; verdict:", allesBestanden ? "BESTANDEN" : `BEDINGT (${warnungen.length} ${warnungen.length === 1 ? "Hinweis" : "Hinweise"})`);
 }).catch(e => { console.error("FEHLER:", e); process.exit(1); });

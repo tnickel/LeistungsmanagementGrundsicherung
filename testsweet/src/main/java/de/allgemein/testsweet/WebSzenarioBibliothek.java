@@ -68,7 +68,8 @@ public final class WebSzenarioBibliothek {
         BigDecimal zahlbetrag = WebHelfer.berechne(rechnungen, "Anordnung über die Weboberfläche",
                 faelle, BigDecimal.ZERO);
         BigDecimal budget = zahlbetrag.add(BigDecimal.valueOf(100 + 10 * random.nextInt(21)));
-        rechnungen.replaceAll(b -> b.mitBudget(budget));
+        rechnungen.replaceAll(b -> b.mitBudget(budget).mitBudgetRestExpected(
+                mitFreigabeEnde ? budget.subtract(zahlbetrag) : budget));
         String aktenzeichen = String.format("%s%04d", praefix, nr);
         String monat = "2026-10";
 
@@ -351,7 +352,7 @@ public final class WebSzenarioBibliothek {
                 faelle, BigDecimal.ZERO);
         BigDecimal budget = zahlbetrag.subtract(BigDecimal.valueOf(20 + 10L * random.nextInt(9)))
                 .max(BigDecimal.valueOf(10)).setScale(2);
-        rechnungen.replaceAll(b -> b.mitBudget(budget));
+        rechnungen.replaceAll(b -> b.mitBudget(budget).mitBudgetRestExpected(budget));
         return new Auftrag(nr, "WEB-NEG-BUDGET", az, "Web, Negativ " + nr,
                 "Anordnung über dem Startbudget wird abgewehrt (BUDGET_ERSCHOEPFT)",
                 List.of(), List.of(
@@ -408,7 +409,7 @@ public final class WebSzenarioBibliothek {
         BigDecimal zahlbetrag = WebHelfer.berechne(rechnungen, "Erste Anordnung",
                 faelle, BigDecimal.ZERO);
         BigDecimal budget = zahlbetrag.add(BigDecimal.valueOf(100 + 10 * random.nextInt(21)));
-        rechnungen.replaceAll(b -> b.mitBudget(budget));
+        rechnungen.replaceAll(b -> b.mitBudget(budget).mitBudgetRestExpected(budget.subtract(zahlbetrag)));
         return new Auftrag(nr, "WEB-NEG-DOPPELMONAT", az, "Web, Negativ " + nr,
                 "Zweite Anordnung für denselben Monat wird abgewehrt",
                 List.of(), List.of(
@@ -465,7 +466,7 @@ public final class WebSzenarioBibliothek {
         BigDecimal zahlbetrag = WebHelfer.berechne(rechnungen, "Anordnung + Freigabe",
                 faelle, BigDecimal.ZERO);
         BigDecimal budget = zahlbetrag.add(BigDecimal.valueOf(100 + 10 * random.nextInt(21)));
-        rechnungen.replaceAll(b -> b.mitBudget(budget));
+        rechnungen.replaceAll(b -> b.mitBudget(budget).mitBudgetRestExpected(budget.subtract(zahlbetrag)));
         return new Auftrag(nr, "WEB-NEG-STORNO-SB", az, "Web, Negativ " + nr,
                 "Storno einer freigegebenen Zahlung ist der Sachbearbeiter-Rolle nicht möglich",
                 List.of(), List.of(
@@ -536,7 +537,7 @@ public final class WebSzenarioBibliothek {
         BigDecimal zahlbetrag = WebHelfer.berechne(rechnungen, "Lasttest-Durchlauf",
                 faelle, BigDecimal.ZERO);
         BigDecimal budget = zahlbetrag.add(BigDecimal.valueOf(100 + 10 * random.nextInt(21)));
-        rechnungen.replaceAll(b -> b.mitBudget(budget));
+        rechnungen.replaceAll(b -> b.mitBudget(budget).mitBudgetRestExpected(budget.subtract(zahlbetrag)));
         return new Auftrag(nr, "WEB-LAST-DURCHLAUF", az, "Web, Last " + nr,
                 "Schlanker UI-Durchlauf (Anordnung ohne Freigabe)",
                 List.of(), List.of(
@@ -544,7 +545,7 @@ public final class WebSzenarioBibliothek {
                                 "SELECT ZAHLUNGSSTATUS FROM ZAHLUNG WHERE ZAHLUNGSMONAT = ? "
                                         + "AND BG_ID = (SELECT ID FROM BEDARFSGEMEINSCHAFT "
                                         + "WHERE AKTENZEICHEN = ?)",
-                                ctx -> List.of("2026-10", az), "ANGELEGT|BEREIT|UEBERGEBEN"),
+                                ctx -> List.of("2026-10", az), "ANGELEGT"),
                         Erwartung.betrag("Auszahlungsbetrag entspricht der Berechnung",
                                 "SELECT AUSZAHLUNGSBETRAG FROM ZAHLUNG WHERE ZAHLUNGSMONAT = ? "
                                         + "AND BG_ID = (SELECT ID FROM BEDARFSGEMEINSCHAFT "

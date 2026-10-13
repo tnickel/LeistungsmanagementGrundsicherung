@@ -83,7 +83,7 @@ final class Verifikator {
         }
     }
 
-    private boolean vergleiche(Erwartung erwartung, String ist) {
+    boolean vergleiche(Erwartung erwartung, String ist) {
         return switch (erwartung.art()) {
             case TEXT -> erwartung.erwartet().equals(ist);
             case BETRAG -> {
@@ -93,7 +93,14 @@ final class Verifikator {
                     yield false;
                 }
             }
-            case GANZZAHL -> erwartung.erwartet().equals(ist.replaceAll("\\..*$", ""));
+            case GANZZAHL -> {
+                try {
+                    yield new BigDecimal(erwartung.erwartet()).toBigIntegerExact()
+                            .equals(new BigDecimal(ist).toBigIntegerExact());
+                } catch (NumberFormatException | ArithmeticException e) {
+                    yield false;
+                }
+            }
             case TEXT_IN -> {
                 boolean treffer = false;
                 for (String alternative : erwartung.erwartet().split("\\|")) {

@@ -65,14 +65,26 @@ public final class ZahlungDao {
 
     /** Alle bereitgestellten Zahlungen aktiver Vorgänge mit Zeilensperre — der Kassenlauf übergibt sie gesammelt. */
     public List<Zahlung> bereiteZahlungenGesperrt(TxContext ctx) throws SQLException {
+        return bereiteZahlungenGesperrt(ctx, null);
+    }
+
+    /** Optional auf ein wörtliches Aktenzeichen-Präfix begrenzte, gesperrte Menge. */
+    public List<Zahlung> bereiteZahlungenGesperrt(TxContext ctx, String aktenzeichenPraefix)
+            throws SQLException {
         try (PreparedStatement stmt = ctx.connection().prepareStatement(
                 "SELECT z.ID, z.BG_ID, z.FALL_ID, z.VORGANGS_NR, z.ZAHLUNGSMONAT, z.AUSZAHLUNGSBETRAG, "
                         + "z.ZAHLUNGSSTATUS, z.ERSTELLT_AM, z.SACHBEARBEITER_ID, z.FREIGEGEBEN_VON, "
                         + "z.EMPFAENGER_IBAN, z.EMPFAENGER_BIC, z.EMPFAENGER_NAME, z.VERMOEGENSEINSATZ "
                         + "FROM ZAHLUNG z WHERE z.ZAHLUNGSSTATUS = 'BEREIT' "
                         + "AND EXISTS (SELECT 1 FROM BEDARFSGEMEINSCHAFT b "
-                        + "WHERE b.ID = z.BG_ID AND b.STATUS_AKTIV = 1) "
+                        + "WHERE b.ID = z.BG_ID AND b.STATUS_AKTIV = 1"
+                        + (aktenzeichenPraefix == null ? "" : " AND SUBSTR(b.AKTENZEICHEN, 1, ?) = ?")
+                        + ") "
                         + "FOR UPDATE ORDER BY z.ID")) {
+            if (aktenzeichenPraefix != null) {
+                stmt.setInt(1, aktenzeichenPraefix.length());
+                stmt.setString(2, aktenzeichenPraefix);
+            }
             return leseListe(stmt.executeQuery());
         }
     }

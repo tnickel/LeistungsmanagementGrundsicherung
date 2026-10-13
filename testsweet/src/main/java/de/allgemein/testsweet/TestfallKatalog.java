@@ -290,14 +290,13 @@ final class TestfallKatalog {
                         """
                         Nur Fachschicht (Selenium läuft bewusst nicht): In Welle 1 legen alle Mitarbeiter parallel \
                         N Vorgänge an, die Phasenbarriere hält Welle 2 an, bis Welle 1 vollständig committet ist. \
-                        Dann bearbeitet Welle 2 dieselben User wieder. Ziel ist die Belastungsprobe von Sperrverhalten, \
-                        Verbindungspool und Wiederholungslogik unter hoher Parallelität (Referenz: 20 Mitarbeiter / \
-                        2000 User in rund 13 Sekunden, 0 Retries). Nach dem Lauf verifiziert eine unabhängige \
-                        SQL-Endprüfung über ALLE Vorgänge: N aktive Vorgänge, ALLE Fälle genau in Version 2 \
-                        (Mietkorrektur durch Welle 2), N Zahlungen ANGELEGT für den Bezugsmonat, Summe der Zahlungen \
-                        deckungsgleich mit der Summe der Budget-Minderungen, 4 Journaleinträge je User, kein negatives \
-                        Budget. Ein Bruchteil dieser Prüfungen würde bei massenhaft gleichen Aufträgen nichts \
-                        beweisen — deshalb die globale Aggregatprüfung statt Einzelfall-Seiten im Bericht."""),
+                        Dann bearbeitet Welle 2 dieselben User wieder. Jeder User hat einen eigenen Vorgang; \
+                        eine reproduzierbare Konkurrenz zweier Mitarbeiter um dieselbe Zeile ist damit nicht \
+                        nachgewiesen. Nach dem Lauf prüfen die Einzel- und globalen SQL-Abfragen Vorgangsanzahl, \
+                        Version 2, exakt eine ANGELEGT-Zahlung je User ohne Freigabevermerk, Zahlungssumme gegen \
+                        die erwarteten Anordnungen, vier Journalzeilen je User und nichtnegative Budgets. \
+                        Sperrwartezeiten und Retry-Anzahlen werden nicht separat gemessen. Die Budgetkorrektheit \
+                        wird je User gegen den Szenario-Sollwert geprüft; Lastberichte fassen die Ergebnisse zusammen."""),
                 new Eintrag("Welle 1 — STRESS-ANLEGEN: Vorgang und Fall neu anlegen",
                         "N Aufträge (jeder Mitarbeiter bearbeitet einen Teil)",
                         """

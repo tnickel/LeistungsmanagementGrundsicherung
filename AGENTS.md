@@ -18,7 +18,7 @@ Redo-Logging, Recovery) — wir programmieren nur die Steuerungsschicht darüber
   Verifikationsprotokoll (maßgeblich für Fach-Reviews; Stand 2026-10-10)
 - `doc/regressionstests.md` — die zehn Testfälle der Szenario-Regression mit Akteuren,
   Abläufen und erwartetem Datenbank-Endzustand (Stand 2026-10-11)
-- `testsweet/` — Mitarbeiter-Simulator (keine Unit-Tests): N Sachbearbeiter arbeiten
+- `testsweet/` — eigenständiger Mitarbeiter-Simulator mit eigenen Tests: N Sachbearbeiter arbeiten
   parallel einen Auftragstopf ab, je Lauf in **Modus 1 (Fachschicht)** oder
   **Modus 2 (Weboberfläche/Selenium)** und je **Testfallkategorie** (Positivfälle,
   Negativfälle = erwartete Fachfehler mit unverändertem DB-Endzustand, Lasttest =
@@ -28,7 +28,17 @@ Redo-Logging, Recovery) — wir programmieren nur die Steuerungsschicht darüber
   mit garantiert verschiedenen Konstellationen (Haushalte, Merkmale inkl. Entbindungs-
   monat, Einkommen, Vermögen, Wege bzw. Verstoß-Kombinationen aus vier Gruppen —
   Signatur-Menge gegen Wiederholungen); Referenz: 500 Positiv + 500 Negativ je 500/500
-  verifiziert; GUI auf Port 8095 mit Abschnitt 7 „LLM-Nachrechnung & Testzertifikat“ (Prüfpaket aus Prüfmenge + Gesetzesgrundlagen + Prüfauftrag konfigurierbar erzeugen, Prompt einsehbar, Protokoll-Stand überwacht; die KI selbst läuft außerhalb); Logfiles
+  verifiziert; GUI auf Port 8095 mit Abschnitt 7 „LLM-Nachrechnung & Testzertifikat“:
+  echter GLM-5.3-API-Aufruf, Zugang/Modell über Zahnrad, 2–1000 ausgewählte Positiv-/Negativfälle
+  in Batches mit 1–10 Fällen. Prüfauftrag, Gesetzesgrundlagen und vollständige Fallgruppen
+  werden als benannte Dokumenttexte übertragen; Request-/Response-/Quellsnapshots mit SHA-256
+  und Reportanhang belegen Dateiübergabe und fachliches Urteil getrennt. Bei formal
+  ungültiger Modellantwort höchstens drei identische Sendeversuche mit 30 Sekunden Pause;
+  danach Abbruch mit protokolliertem Fehler. Lokale Schlüsseldatei
+  ist Git-ignoriert. Verifikation 2026-10-13: 55 testsweet-Tests grün (1 übersprungen);
+  einzelne GLM-Fallgruppen wurden gültig beantwortet, aber der 100-Fälle-Gesamtlauf
+  ist wegen Antwortformatfehlern bislang nicht abgeschlossen. Historische Python-
+  Nachrechnung 100/108 ist kein GLM-Nachweis. Logfiles
   je Lauf, Testdokumentation als PDF (lesbar) und Markdown (KI-nachprüfbar) (Details: testsweet/README.md)
 - `doc/roadmap.md` — aktueller Stand und geplante Etappen
 

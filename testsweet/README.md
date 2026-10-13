@@ -1,16 +1,18 @@
 # testsweet — Mitarbeiter-Simulator für SDN.Leistung LMG
 
-Eigenständiger Simulator (**keine Unit-Tests**, nicht Teil von `mvn test` im
-Hauptprojekt): N simulierte Sachbearbeiter arbeiten parallel einen Pool von
+Eigenständiger Szenariosimulator mit eigenem Maven-Projekt und eigenen Tests
+(nicht Teil von `mvn test` im Hauptprojekt): N simulierte Sachbearbeiter arbeiten parallel einen Pool von
 Anwenderszenarien ab; danach wird geprüft, ob das Erwartete in der Oracle-
-Datenbank angekommen ist. Alles wird für die **manuelle Auswertung** (zusammen
-mit dem Nutzer) mitgeloggt.
+Datenbank angekommen ist. SQL-Prüfung, deterministische Nachrechnung und echte
+LLM-Nachprüfung liefern getrennte Nachweise; die Protokolle bleiben zur fachlichen
+Auswertung verfügbar.
 
 ## Modi
 
 1. **Fachschicht / Transaktionstest** (implementiert): Die simulierten
    Mitarbeiter rufen direkt `SozialLeistungsService` → `TxManager` → Oracle auf.
-   Belastet Sperren, Deadlock-Wiederholung, Budget-Führung, Vier-Augen-Logik.
+   Prüft persistierte Beträge, Budget-Führung, Vier-Augen-Logik und ausgewählte
+   Konkurrenz-/Idempotenzfälle. Last- und Stressläufe erzwingen keinen Deadlock.
 2. **Weboberfläche / Selenium** (implementiert): Die simulierten Sachbearbeiter
    steuern jeweils ein eigenes sichtbares Chrome-Fenster über Selenium WebDriver.
    Sie bedienen interaktiv die echte SDN.Leistung-Weboberfläche (Anmeldung,
@@ -69,15 +71,23 @@ Beispiel (2 parallele Browserfenster, 4 Aufträge, Seed 42, 200 ms Denkzeit):
 ```cmd
 testsweet\start.bat web 2 4 42 200
 ```
-*Ablauf: Startet bei Bedarf automatisch den SDN.Leistung-Server auf Port 8080, ordnet die Chrome-Fenster nebeneinander an, spielt die Vorgänge mit Screenshot-Erfassung durch, verifiziert 100 % per SQL gegen Oracle und schreibt PDF (`/api/pdf`) sowie Markdown (`/api/md`).*
+*Ablauf: Startet bei Bedarf den eingebetteten SDN.Leistung-Server auf dem konfigurierten `LMG_PORT` (Standard 8080), ordnet die Chrome-Fenster nebeneinander an, spielt die Vorgänge mit Screenshots durch, prüft die Aufträge per SQL gegen Oracle und schreibt PDF (`/api/pdf`) sowie Markdown (`/api/md`). Ein eigener Freigabebenutzer steht auch bei nur einem Browserarbeiter zur Verfügung.*
 
 ## Konfiguration
 
 - GUI: Mitarbeiterzahl, Anzahl Aufträge, Seed (0 = zufällig; fester Seed =
   reproduzierbare Szenarien), Denkzeit je Schritt, Altdaten-Aufräumatik.
 - Datenbank: `TX_URL` / `TX_USER` / `TX_PASS` (Standard: Docker-DB
-  `jdbc:oracle:thin:@//localhost:1521/FREEPDB1`, tx_demo/tx_demo).
+  `jdbc:oracle:thin:@//localhost:1521/FREEPDB1`, tx_demo/tx_demo); Systemproperties
+  `tx.url` / `tx.user` / `tx.pass` haben Vorrang. Eingebetteter Webserver und
+  SQL-Verifikation verwenden dieselbe Simulator-Datenbank.
 - Port: `SWEET_PORT` (Standard 8095).
+- Externer Webserver: `sweet.baseurl` beziehungsweise `SWEET_BASE_URL`. Vor Cleanup
+  und Browserstart werden Datenbank, Container, Schema und Service über den
+  adminpflichtigen Endpunkt `/api/system/db-identity` abgeglichen. Fehlender Endpunkt,
+  fehlgeschlagene Anmeldung oder abweichende Identität verhindern den Lauf. Dieser
+  Pfad verwendet die Standardkonten des externen SDN.Leistung-Servers.
+- LLM: Zahnrad oben rechts; Konfiguration und Nachweismodell siehe Abschnitt 7 unten.
 
 ## Szenario-Arten (Auftragstopf)
 
@@ -107,7 +117,8 @@ außerhalb des Bescheids, Workflow/Vier-Augen, Daten wie Konkurrenz und unbekann
 zu verträglichen Primär-/Sekundär-Kombinationen gesetzt. Eine Signatur-Menge stellt
 sicher, dass **keine Konstellation zweimal vorkommt**; die Erwartungshaltung entsteht
 weiterhin mit derselben reinen Berechnung wie die Fachschicht (inkl. Entbindungsmonat-
-Regel und Vermögensverbrauch). Referenzläufe (2026-10-13, Docker-Oracle):
+Regel und Vermögensverbrauch). Historische Referenzläufe vor der Nachbesserung
+(2026-10-13, Docker-Oracle):
 500 Positiv (480 Kombinationen) und 500 Negativ (491 Kombinationen) — jeweils
 500/500 verifiziert in 4 bzw. 3 Sekunden; GUI-Preset „Breite 500“ setzt beide ein.
 
@@ -135,16 +146,18 @@ NEG-DOPPELFREIGABE (Freigabe einer BEREIT-Zahlung), NEG-STORNO-KASSE (Storno nac
 Kassenübergabe), NEG-BANKVERBINDUNG (ungültige IBAN-Prüfziffer / BIC),
 NEG-BESCHEID-ZEITRAUM (umgekehrter und 13-Monats-Zeitraum, § 44 Abs. 3),
 NEG-NICHTGEFUNDEN (Operationen auf IDs, die nicht existieren). Der erwartete
-Fachfehler ist jeweils Bestandteil des Szenarios; geprüft wird zusätzlich, dass
-die Datenbank **unverändert** bleibt (keine Zahlung, kein Bescheid, Budget unangetastet).
+Fachfehler ist jeweils Bestandteil des Szenarios. Der Fehlversuch muss den zuvor
+vorbereiteten Zustand unverändert lassen: etwa keine zusätzliche Zahlung oder
+Budgetminderung. Rechtmäßige Vorbereitungen, beispielsweise eine erste Zahlung
+vor einer Doppelanordnung, dürfen bestehen bleiben.
 
 **Negativfälle** (Weboberfläche, 7 Arten): WEB-NEG-LOGIN (falsches Passwort),
 WEB-NEG-BANKVERBINDUNG, WEB-NEG-OHNE-MONAT (Anordnung ohne Zahlungsmonat),
 WEB-NEG-KEINANSPRUCH, WEB-NEG-BUDGET, WEB-NEG-DOPPELMONAT und
 WEB-NEG-STORNO-SB (Beweis, dass die Oberfläche den Storno-Knopf einer
 freigegebenen Zahlung der Sachbearbeiter-Rolle vorenthält). Bewiesen wird
-jeweils zweifach: Fehlerdialog mit erwartetem Text **und** unveränderter
-Datenbank-Endzustand per SQL.
+jeweils über die erwartete UI-Abwehr und den Datenbank-Endzustand per SQL;
+beim Storno-Rollentest ist die Abwehr der fehlende Storno-Knopf.
 
 **Stresstest** (nur Fachschicht-Modus; GUI und API wehren Modus 2 ab): **zwei
 Wellen über dieselben User**. Welle 1 (`STRESS-ANLEGEN`) legt je User Vorgang und
@@ -171,7 +184,7 @@ Referenzlauf: 600/600 verifiziert in 3 s gegen die Docker-Oracle.
 
 ## Logfiles (der eigentliche Zweck)
 
-Je Lauf ein Verzeichnis `testsweet/logs/run-<Zeitstempel>/`:
+Je Lauf ein atomar neu angelegtes Verzeichnis `testsweet/logs/run-<Zeitstempel>-<eindeutiger Suffix>/`:
 
 | Datei | Inhalt |
 |-------|--------|
@@ -183,52 +196,94 @@ Je Lauf ein Verzeichnis `testsweet/logs/run-<Zeitstempel>/`:
 | `zusammenfassung.txt` | Kenndaten des Laufs (Modus, Mitarbeiter, Verifikationsquote) |
 | `screenshots/` | Modus 2: Screenshot je UI-Schritt (`tf-NN-schritt-MM.png`) |
 | `lastreport.pdf` / `lastreport.md` | LAST-Kategorie: gekürzter Gesamtreport (Aggregate statt Einzelfälle) |
-| `testdokumentation.pdf` | hochprofessionelle Testdokumentation (repräsentatives Deckblatt mit Titelbild, Fachflussdiagramme zu Architektur, SGB-XII-Rechenkaskade und Vier-Augen-Workflow, Inhaltsverzeichnis mit exakter Pagination, je Testfall nachrechenbarer Rechenweg + Erwartung/Ist-SQL-Prüfung + Ablauf); in der GUI per Button abrufbar (`/api/pdf`) |
+| `testdokumentation.pdf` | Testdokumentation mit Deckblatt, Fachflussdiagrammen, Inhaltsverzeichnis, Rechenwegen, SQL-Soll/Ist und Ablauf; KI-Anhang zunächst ausstehend (`/api/pdf`) |
 | `testdokumentation.md` | maschinenlesbare Fassung derselben Daten inkl. der vergebenen DB-IDs und der Prüf-SQLs — zum unabhängigen Nachprüfen durch KI/Dritte (`/api/md`). Seit 2026-10-13 trägt die Datei ihren Prüfkontext in sich: Block „pruefanleitung_fur_ki" (Nachrechen-Anweisung), je Rechenweg `zahlungsmonat` und je Person `entbindungsmonat` (Regel: Mehrbedarf Schwangerschaft entfällt, wenn Zahlungsmonat nach Entbindungsmonat liegt), je Testfall `erwartete_fachfehler` (aggregierte Codes der abgewehrten Schritte) sowie für Positiv-/Negativläufe mit Storno-Korrektur einen zweiten Rechenweg für die Neuanordnung. Die Datei kann einer KI als Ganzes zur Überprüfung übergeben werden (nur Positiv/Negativ — Last/Stress liefern bewusst nur Aggregate). |
+| `testdokumentation-geprueft.pdf` / `.md` | Neue Fassung des gebundenen Reports mit KI-Prüfnachweis; die Originaldateien bleiben unverändert. Hypothetisches Restbudget und expliziter Buchungsendzustand werden getrennt ausgewiesen. |
 
 
 ## Qualitätssicherung: LLM-Nachrechnung & Testzertifikat (GUI-Abschnitt 7)
 
-Damit die Prüfungen nicht nur laufen, sondern nachweisbar richtig sind, verzahnt testsweet
-den gesamten Kontroll-Workflow (die KI selbst wird bewusst NICHT aus der Anwendung gerufen —
-kein API-Aufruf, keine Schlüssel; das Paket gibt man einer KI seiner Wahl):
+Die Anwendung ruft das konfigurierte Modell tatsächlich über eine Chat-Completions-API
+auf. Standard sind **GLM-5.3** (`glm-5.3`) und die Basisadresse
+`https://api.z.ai/api/coding/paas/v4`; ein anderer kompatibler Endpunkt ist konfigurierbar.
 
-1. **Läufe fahren** (Positiv/Negativ, ggf. Last/Stress) — je Lauf entsteht die maschinenlesbare
-   `testdokumentation.md` (Button „{ } Markdown für KI-Review").
-2. **Prüfpaket schnüren** (GUI Abschnitt 7): Knopf „🤖 Prüfpaket erstellen" mit konfigurierbarer
-   Fallzahl (1–500, Standard 100) erzeugt die Prüfmenge `pruefmenge-positiv-<N>faelle.md`
-   (Kopf vollständig + die ersten N Kombinationsfälle der neuesten Testdokumentation; die
-   Kürzung ist im Dateikopf dokumentiert). Zusammen mit `gesetzesgrundlagen-2026.md`
-   (vollständige Gesetzestexte mit Fundstellen) und `llm-pruefauftrag.txt` (der Prompt —
-   in der GUI unter „Prüfauftrag ansehen" vollständig einsehbar) ergeben sich die drei
-   mitzugebenden Dateien; die GUI listet Pfade und Größen auf.
-3. **KI antworten lassen**: Die Antwort/Bestätigung als `llm-nachrechnung-<Datum>.md` in
-   `doc/testzertifikat-werkzeug/` ablegen — die Kopfzeilen (pruefumfang / mitgegeben /
-   modell / methode / ergebnis / abdeckung) werden von Generator und Zertifikat automatisch
-   eingelesen. Der Abschnitt zeigt Status, Modell, Umfang und warnt, wenn die
-   Testdokumentation neuer ist als die Nachrechnung.
-4. **Testzertifikat erstellen** (Knopf im Banner, Abschnitt 7): erzeugt das Zertifikat mit
-   zehn grünen Häkchen; Laufzahlen und LLM-Stand werden automatisch erhoben
-   (`doc/testzertifikat-werkzeug/`, Details im dortigen README).
+1. **Quellläufe erstellen:** erfolgreiche vollständige POSITIV- und NEGATIV-Berichte
+   müssen vorliegen. Die Auswahl wechselt zwischen beiden Kategorien in Berichtreihenfolge
+   und berücksichtigt auch kuratierte Arten. LAST/STRESS enthalten nur Aggregate und
+   gehören nicht zur LLM-Fallnachrechnung.
+2. **Zahnrad konfigurieren:** Endpunkt, Modell, API-Schlüssel, Zeitlimit (5–900 s),
+   Antwortlimit (1024–131072 Tokens), **1–10 Fälle je Anfrage** und **2–1000 Prüffälle**.
+   Standard: 180 s, 16000 Tokens, 3 Fälle je Anfrage und 100 Prüffälle. Ein leeres
+   Schlüsselfeld behält den vorhandenen Schlüssel; die Checkbox entfernt den lokal
+   gespeicherten Wert. „Verbindung zu GLM testen“ führt einen echten kleinen API-Aufruf aus,
+   ersetzt aber keine Fachprüfung.
+3. **Prüfung starten:** Abschnitt 7 zeigt die gewählte Fallzahl, den Prüfauftrag und
+   „Prüfpaket ansehen“. „GLM-5.3-Prüfung starten“ sendet je Batch den vollständigen
+   Prüfauftrag, die vollständigen Gesetzesgrundlagen und die vollständigen ausgewählten
+   Fälle als drei **benannte Dokumenttexte im Request**. Es werden keine bloßen Dateipfade
+   übermittelt. Reichen die Quellfälle nicht aus, wird abgebrochen; es gibt keine stille
+   Kürzung. Die Auswahl ist eine dokumentierte Stichprobe, kein Nachweis aller Regelzweige.
+   Ist eine Modellantwort formal ungültig (zum Beispiel falsche Fall-IDs, unvollständiges
+   JSON, falsches Modell oder abgebrochene Ausgabe), wird dieselbe Fallgruppe mit allen
+   drei Dokumenttexten nach **30 Sekunden** erneut gesendet. Pro Fallgruppe gibt es
+   höchstens **drei Sendeversuche insgesamt**. Nur eine vollständig validierte Antwort
+   erhöht den angezeigten Fall- und Fallgruppenfortschritt. Nach dem dritten Fehlversuch
+   endet die gesamte Prüfung mit `ERROR`; ein fachliches `FAIL`-Urteil ist dagegen eine
+   gültige Antwort und löst keine Wiederholung aus. HTTP-/Verbindungs- und
+   Konfigurationsfehler werden nicht als formale Modellantworten wiederholt.
+4. **Nachweise prüfen:** `testsweet/logs/llm-review-<UUID>/` enthält `manifest.json`,
+   `source-POSITIV.md`, `source-NEGATIV.md`, Prüfauftrag, Gesetzesgrundlagen, Gesamtprüfmenge,
+   `pruefmenge-batch-N.md`, die gesendeten `request-N-attempt-M.json`, empfangenen
+   `response-N-attempt-M.json`, `result.json` und `protocol.md`. Fehlversuche stehen
+   mit Ursache und Dateinamen in `protocol.md` und strukturiert unter `attemptChecks`
+   in `result.json`; bei ausgeschöpften Versuchen steht dort `retryExhausted: true`.
+   SHA-256 bindet Quellen, Dokumente, Anfragen und Antworten;
+   Review-ID, Modell, Batch-/Fall-IDs und API-Request-IDs machen die Übergabe nachvollziehbar.
+   Etwaige Schlüssel-Echos werden vor der Ablage bereinigt; Authentifizierungsheader werden
+   nicht als Teil der Anfrageprotokolle gespeichert.
+5. **Ergebnisse getrennt bewerten:** „Dateiübergabe geprüft“ bestätigt den belegten
+   Transport und die validierten Antworten. Fachliches **PASS** verlangt zusätzlich eine
+   vollständige Einzelantwort für jede ausgewählte Fall-ID, passende Modellkennung,
+   vollständigen Antwortabschluss und keine Befunde oder ungeprüften Fälle. `FAIL`,
+   `UNVERIFIED`, `ERROR` oder veränderte Quellen ergeben keine fachliche Freigabe.
+   Eine erfolgreiche Dateiübergabe allein bestätigt keine Berechnung.
+6. **Report und Zertifikat öffnen:** Der KI-Nachweis erscheint im separaten Reportanhang
+   beziehungsweise in einer neuen `testdokumentation-geprueft.pdf`/`.md`. Das ursprüngliche
+   Quell-MD bleibt wegen seiner Hashbindung unverändert. Nach einem Serverneustart ist der
+   gesicherte Nachweis auch als eigenständiger Anhang verfügbar (`/api/llm/report/pdf`).
+   „Testzertifikat erstellen“ wertet die aktuellen Laufresultate und strukturierten echten
+   API-Nachweise aus; fehlende, veraltete oder fehlgeschlagene Prüfungen erhalten kein
+   grünes Gesamturteil. Details: [Werkzeug-README](../doc/testzertifikat-werkzeug/README.md).
 
-Referenz (2026-10-13): 100 Fälle (108 Rechenblöcke) von GLM-5.3 einzeln nachgerechnet —
-0 Abweichungen; Protokoll `llm-nachrechnung-2026-10-13-100faelle.md`.
+Die lokale Datei `testsweet/llm.local.properties` und ihre temporären Schreibdateien sind
+Git-ignoriert. Alternativ liefern `SWEET_LLM_API_KEY` oder `GLM_API_KEY` den Schlüssel
+(in dieser Reihenfolge vor dem gespeicherten Wert). Die Konfigurations-API gibt nur zurück,
+ob ein Schlüssel vorhanden ist. Die lokale Datei ist keine verschlüsselte Schlüsselablage.
+
+**Verifikationsstand 2026-10-13:** 55 testsweet-Tests grün. Zusätzlich wurde GLM-5.3 real mit
+**6 ausgewählten Positiv-/Negativfällen in 2 Batches** geprüft: `PASS`, Dateiübergabe bestätigt;
+lokale Review-ID `9f7fb043-be1b-4c33-aae4-4c417fd50da4`. Der vollständige HTTP-Lauf
+lieferte außerdem den Report `run-20261013-164334-16012917256956894678/testdokumentation-geprueft.pdf`
+mit grünem Hash-Anhang. Das belegt genau diese Stichprobe
+und den damaligen Quellenstand. Die historische Nachrechnung **100 Fälle / 108 Rechenblöcke**
+war eine deterministische Python-Zweitimplementierung und **kein GLM-API-Nachweis**.
+Historische Freitextprotokolle mit einer Modellbezeichnung werden nicht als solche anerkannt.
 
 ## Grafik- und Diagramm-Generierung
 
 Die Testdokumentation und Weboberfläche nutzen ein automatisiertes Grafiksystem:
 - **Titelbild (`titelbild.jpg`)**: Repräsentatives Deckblatt-Titelbild in `testsweet/assets/` bzw. `testsweet/src/main/resources/sweet/assets/`.
-- **Fach- und Ablaufdiagramme**: Vektorscharfe Ablaufdiagramme (200 dpi), die automatisiert über `python testsweet/generate_diagrams.py` generiert werden:
+- **Fach- und Ablaufdiagramme**: Ablaufdiagramme (200 dpi), die automatisiert über `python testsweet/generate_diagrams.py` generiert werden:
   1. `simulator_zyklus.png` / `.jpg`: Ablauf & Testzyklus des Simulators
   2. `bedarfsberechnung_sgb12.png` / `.jpg`: Gesetzliche Berechnungskaskade (SGB XII, Stand 2026)
   3. `vier_augen_workflow.png` / `.jpg`: Auszahlungs-Workflow, Vier-Augen-Freigabe & Storno
   4. `transaktionsarchitektur.png` / `.jpg`: Transaktionssteuerung & Oracle-ACID-Kern
   5. `stresstest_zwei_wellen.png` / `.jpg`: Stresstest-Szenario (Welle 1 → Phasenbarriere → Welle 2, Oracle-Kern, SQL-Endprüfung) — eingebettet in den Stresstest-Gesamtreport
-- **Eingebauter PDF-Generator (`SweetPdf`)**: Vollständige Eigenentwicklung ohne Drittbibliotheken; bindet Grafiken als native PDF-1.4 XObjects (`/Filter /DCTDecode`) ein und optimiert die Seitenumbruchslogik, sodass Testfälle exakt auf Einzelseiten formatiert werden.
+- **Eingebauter PDF-Generator (`SweetPdf`)**: Eigenentwicklung ohne Drittbibliotheken; bindet Grafiken als PDF-1.4 XObjects (`/Filter /DCTDecode`) ein und berechnet automatische Seitenumbrüche.
 - **Weboberfläche (Port 8095)**: Modernes Dashboard mit interaktiver Diagramm-Showcase-Galerie, Live-Statusindikator, Schnell-Presets (15 / 60 / 120 Fälle) und Volltext-Such- und Filterleiste.
 
-Die Auswertung erfolgt bewusst **manuell und gemeinsam** — der Simulator
-liefert nur das Rohmaterial.
+Automatische SQL-, Rechen- und LLM-Ergebnisse stehen zusammen mit den Rohprotokollen
+zur fachlichen Auswertung zur Verfügung; ihre unterschiedliche Abdeckung bleibt erkennbar.
 
 ## Datenhygiene
 

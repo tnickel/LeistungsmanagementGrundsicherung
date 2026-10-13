@@ -31,6 +31,10 @@ final class Testdokumentation {
     }
 
     static void schreibe(Path ziel, Simulator simulator) throws IOException {
+        schreibe(ziel, simulator, Map.of());
+    }
+
+    static void schreibe(Path ziel, Simulator simulator, Map<String, Object> evidence) throws IOException {
         List<Auftrag> auftraege = simulator.auftraege();
 
         // ------------------------------------------------------------
@@ -47,6 +51,8 @@ final class Testdokumentation {
         for (Auftrag auftrag : auftraege) {
             einzelfall(inhalt, auftrag);
         }
+        inhalt.seitenUmbruch();
+        KiPruefAnhang.pdf(inhalt, evidence);
         Map<String, Integer> markenSeiten = inhalt.seitenDerMarken();
 
         // Kopf zweimal bauen: erst ohne Seitenzahlen (zur Offset-Bestimmung),
@@ -68,8 +74,17 @@ final class Testdokumentation {
 
         inhalt.uebernehmeVorn(kopf.eintraegeKopie());
         int seiten = inhalt.schreiben(ziel);
-        simulator.log().ereignis("SIMULATOR", "",
+        SweetLog log = simulator.log();
+        if (log != null) log.ereignis("SIMULATOR", "",
                 "Testdokumentation geschrieben: " + ziel + " (" + seiten + " Seiten)");
+    }
+
+    /** Separater Nachweis aus gesicherten Prüfdaten, auch nach einem Serverneustart. */
+    static void schreibeKiNachweis(Path ziel, Map<String, Object> evidence) throws IOException {
+        SweetPdf pdf = new SweetPdf();
+        pdf.setzeKopfzeile("testsweet — KI-Prüfnachweis");
+        KiPruefAnhang.pdf(pdf, evidence);
+        pdf.schreiben(ziel);
     }
 
     // ==================================================================
@@ -121,12 +136,11 @@ final class Testdokumentation {
             fehl += a.status == Auftrag.Status.FEHLGESCHLAGEN ? 1 : 0;
         }
 
-        String ergebnisText = "GESAMTERGEBNIS: " + verifiziert + " von " + simulator.auftraege().size()
-                + " Testfällen vollständig verifiziert"
-                + (nok + fehl == 0 ? " — keine Abweichungen (100 % Konformität)." : " — "
-                + (nok + fehl) + " Auffälligkeit(en), siehe Zusammenfassung.");
+        String ergebnisText = "GESAMTERGEBNIS: "
+                + (simulator.laufErfolgreich() ? "BESTANDEN" : "NICHT BESTANDEN / UNVOLLSTÄNDIG")
+                + " — " + verifiziert + " von " + simulator.auftraege().size() + " verifiziert";
         pdf.kasten(ergebnisText, true, SweetPdf.WEISS,
-                nok + fehl == 0 ? SweetPdf.FUELL_GRUEN : SweetPdf.FUELL_ROT, 10.5f);
+                simulator.laufErfolgreich() ? SweetPdf.FUELL_GRUEN : SweetPdf.FUELL_ROT, 10.5f);
         pdf.leereZeile(6f);
 
         pdf.text("Dieses Dokument wurde vollautomatisch aus dem Simulator-Lauf erzeugt. "
@@ -513,8 +527,12 @@ final class Testdokumentation {
         if (block.budget() != null) {
             schritt(pdf, "Budgetführung: Startbudget " + euro(block.budget())
                             + " – Zahlbetrag " + euro(block.ergebnis().zahlbetrag())
-                            + " = erwartetes Restbudget",
+                            + " = hypothetisches Restbudget bei wirksamer Anordnung",
                     block.budget().subtract(block.ergebnis().zahlbetrag()));
+        }
+        if (block.budgetRestExpected() != null) {
+            schritt(pdf, "Erwartetes Restbudget nach dem beschriebenen Buchungsablauf",
+                    block.budgetRestExpected());
         }
         if (block.ergebnis().zahlbetrag().signum() <= 0) {
             pdf.text("Hinweis: Der Zahlbetrag ist null oder negativ — Einkommen/Vermögen "

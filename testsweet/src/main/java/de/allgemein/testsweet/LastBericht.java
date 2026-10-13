@@ -125,14 +125,14 @@ final class LastBericht {
         if (stress) {
             inhalt.text("Zweck dieses Stresstests ist der Belastungsnachweis der "
                     + "Transaktionssteuerung unter realistischer Massenarbeit: Nicht ein "
-                    + "Einzelvorgang wird probiert, sondern dieselben 2000 User werden von "
-                    + "20 parallelen Sachbearbeiter-Strängen zuerst angelegt und — in einer "
+                    + "Einzelvorgang wird probiert, sondern dieselben " + (agg.gesamt() / 2) + " User werden von "
+                    + simulator.konfiguration().mitarbeiter() + " parallelen Sachbearbeiter-Strängen zuerst angelegt und — in einer "
                     + "zweiten, scharf getrennten Welle — wieder aufgenommen und verändert. "
                     + "Je User entstehen so zwei vollwertige Transaktionsblöcke, insgesamt "
-                    + "4000; das entspricht einem Arbeitstag einer kleinen Behörde, "
-                    + "zusammengedrängt auf Sekunden.", SweetPdf.SCHWARZ, 9.5f);
+                    + agg.gesamt() + ". Jeder User gehört einem eigenen Vorgang; eine konkurrierende "
+                    + "Bearbeitung desselben Vorgangs wird hier nicht erzwungen.", SweetPdf.SCHWARZ, 9.5f);
             inhalt.leereZeile(2f);
-            inhalt.fettZeile("Welle 1 — STRESS-ANLEGEN (2000 User)", SweetPdf.DUNKELBLAU, 10f);
+            inhalt.fettZeile("Welle 1 — STRESS-ANLEGEN (" + (agg.gesamt() / 2) + " User)", SweetPdf.DUNKELBLAU, 10f);
             inhalt.text("Für jeden User legt ein simulierter Sachbearbeiter den Vorgang mit "
                     + "Aktenzeichen, Startbudget und SEPA-Bankverbindung an und erfasst den "
                     + "SozialFall mit Regelbedarfsstufe und Wohnkosten (Kaltmiete, "
@@ -146,16 +146,15 @@ final class LastBericht {
             inhalt.fettZeile("Phasenbarriere — saubere Trennung der Wellen", SweetPdf.DUNKELBLAU, 10f);
             inhalt.text("Zwischen den Wellen wacht eine Barriere im Simulator: Die "
                     + "Nachbearbeitung eines Users startet erst, wenn der letzte Anlage-"
-                    + "Auftrag vollständig abgeschlossen und committet ist (im Referenzlauf "
-                    + "liegen Abschluss und Neustart zwei Millisekunden auseinander). Damit "
-                    + "ist garantiert, dass Welle 2 ausschließlich auf persistenten, "
-                    + "abgeschlossenen Daten arbeitet — genau wie eine Behörde am Folgetag "
+                    + "Auftrag beendet ist. Ob die Anlage erfolgreich war, zeigen die "
+                    + "Einzelergebnisse; eine fehlgeschlagene Anlage wird nicht durch die Barriere repariert. "
+                    + "Die regulär angelegten Daten sind dann persistent — genau wie eine Behörde am Folgetag "
                     + "Akten wieder vorlegt, die am Vortag abgeschlossen wurden. Ohne diese "
                     + "Barriere könnte eine Nachbearbeitung einen noch nicht existierenden "
                     + "User treffen; die Trennung macht den Ablauf reproduzierbar und die "
                     + "Erwartungen eindeutig.", SweetPdf.SCHWARZ, 9.5f);
             inhalt.leereZeile(2f);
-            inhalt.fettZeile("Welle 2 — STRESS-BEARBEITEN (2000 Nacharbeiten)", SweetPdf.DUNKELBLAU, 10f);
+            inhalt.fettZeile("Welle 2 — STRESS-BEARBEITEN (" + (agg.gesamt() / 2) + " Nacharbeiten)", SweetPdf.DUNKELBLAU, 10f);
             inhalt.text("Jeder User wird über sein eindeutiges Aktenzeichen wieder gefunden "
                     + "(indizierter Zugriff auf die Vorgangstabelle). Dann erhöht der "
                     + "Sachbearbeiter die Miete: Das optimistische Locking über die VERSION-"
@@ -169,11 +168,10 @@ final class LastBericht {
                     + "Status ANGELEGT.", SweetPdf.SCHWARZ, 9.5f);
             inhalt.leereZeile(2f);
             inhalt.fettZeile("Was hier unter Stress bewiesen wird", SweetPdf.DUNKELBLAU, 10f);
-            inhalt.text("Unter der Haube arbeiten 20 Threads gleichzeitig auf denselben "
-                    + "2000 Vorgängen: Es entstehen Zeilensperren (FOR UPDATE) und Wartezeiten "
-                    + "statt Chaos — die längste Einzelzeit des Referenzlaufs (1,19 s) ist "
-                    + "genau solche Sperrwarte, ohne dass ein einziger Deadlock-Retry nötig "
-                    + "wurde. Geprüft wird danach je Auftrag der Datenbank-Endzustand per "
+            inhalt.text("Die Worker verarbeiten verschiedene Vorgänge parallel. "
+                    + "Einzelzeiten allein belegen weder Sperrwartezeiten noch Deadlocks; "
+                    + "hierfür wären gezielte Konkurrenztests und entsprechende Messdaten nötig. "
+                    + "Geprüft wird danach je Auftrag der Datenbank-Endzustand per "
                     + "SQL: User existiert dauerhaft, Fall exakt in Version 2, Auszahlung mit "
                     + "dem Betrag nach neuer Miete, Restbudget korrekt gemindert. Dieser "
                     + "Bericht fasst die Einzelergebnisse bewusst nur als Aggregate zusammen "
@@ -201,9 +199,9 @@ final class LastBericht {
                     + "— eine Transaktion: Sie gelingt vollständig, oder sie wird "
                     + "vollständig zurückgenommen, wie ein Formular, das man bei einem "
                     + "Fehler komplett neu ausfüllt, statt es halb ausgefüllt abzuheften. "
-                    + "Halbfertige Einträge darf es niemals geben; genau das überwacht die "
-                    + "Transaktionssteuerung bei jeder der Tausenden Buchungen dieses "
-                    + "Laufs.", SweetPdf.SCHWARZ, 9.5f);
+                    + "Ein späterer fehlgeschlagener Fachschritt darf frühere, bereits "
+                    + "committete Schritte bestehen lassen; die Laufprüfung meldet diesen "
+                    + "Auftrag als fehlgeschlagen.", SweetPdf.SCHWARZ, 9.5f);
             inhalt.leereZeile(2f);
             inhalt.fettZeile("Warum die Fälle bewusst schlank sind", SweetPdf.DUNKELBLAU, 10f);
             inhalt.text("Die Durchläufe verzichten absichtlich auf Freigabe, Storno und "
@@ -211,19 +209,16 @@ final class LastBericht {
                     + "Positiv- und Negativtestfälle mit eigenen Prüfberichten), sondern "
                     + "damit in kurzer Zeit möglichst viele Buchungen durch System und "
                     + "Datenbank laufen. Der Lasttest misst die Masse, nicht die Vielfalt: "
-                    + "Im Referenzlauf schaffte das System rund 12.000 Fälle je Minute "
-                    + "(600 Fälle in etwa 3 Sekunden), im Schnitt 32 bis 36 Millisekunden "
-                    + "pro Fall — also weniger als ein Wimpernschlag von der Anlage des "
-                    + "Vorgangs bis zur verbuchten Auszahlungsanordnung.", SweetPdf.SCHWARZ, 9.5f);
+                    + "Die gemessenen Zeiten dieses Laufs stehen in den Kennzahlen; sie "
+                    + "umfassen auch Simulator-, Protokoll- und gegebenenfalls Browserarbeit.", SweetPdf.SCHWARZ, 9.5f);
             inhalt.leereZeile(2f);
             inhalt.fettZeile("Was dabei unter Belastung steht", SweetPdf.DUNKELBLAU, 10f);
-            inhalt.text("Zwanzig Arbeitsstränge greifen gleichzeitig auf dieselbe Datenbank "
+            inhalt.text(simulator.konfiguration().mitarbeiter() + " Arbeitsstränge greifen gleichzeitig auf dieselbe Datenbank "
                     + "zu. Bildlich muss sich das System wie ein gut organisiertes Amt "
                     + "verhalten: Wenn zwei Kräfte zeitgleich denselben Topf anfassen "
-                    + "wollen, bildet sich eine geordnete Warteschlange (technisch: "
-                    + "Zeilensperren) statt eines Gedrängels — niemand überschreibt "
-                    + "heimlich die Arbeit eines anderen, kein Budget wird doppelt "
-                    + "abgebucht. Zusätzlich schreibt die Steuerung für jede Buchung "
+                    + "wollen, muss die Transaktionssteuerung Konkurrenz behandeln. "
+                    + "Dieser Lasttopf bearbeitet verschiedene Vorgänge und beweist solche "
+                    + "Konfliktfälle daher nicht. Zusätzlich schreibt die Steuerung für jede Buchung "
                     + "Verwaltungsdaten mit (eindeutige Nummern, Versionsschutz gegen "
                     + "verlorene Änderungen, ein revisionssicheres Journal). All das "
                     + "kostet Zeit — und genau diese Zeit messen die Kennzahlen dieses "
@@ -269,8 +264,7 @@ final class LastBericht {
                         + "  —  Verifikation n.i.O.: " + agg.verifikationNio()
                         + "  —  beim Spielen fehlgeschlagen: " + agg.fehlgeschlagen(),
                 false, SweetPdf.WEISS,
-                agg.verifikationNio() + agg.fehlgeschlagen() > 0
-                        ? SweetPdf.FUELL_ROT : SweetPdf.FUELL_GRUEN,
+                simulator.laufErfolgreich() ? SweetPdf.FUELL_GRUEN : SweetPdf.FUELL_ROT,
                 10f);
         inhalt.leereZeile(2f);
         inhalt.paar("Summe verifizierter Auszahlungen", agg.summe().toPlainString() + " EUR");

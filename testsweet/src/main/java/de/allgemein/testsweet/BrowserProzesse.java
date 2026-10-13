@@ -86,7 +86,6 @@ final class BrowserProzesse {
         try (var ordner = Files.list(basis)) {
             List<Path> profile = ordner.filter(Files::isDirectory)
                     .filter(p -> Files.isRegularFile(p.resolve(".testsweet-profile"))).toList();
-            String eigeneBasis = basis().getParent().toAbsolutePath().normalize().toString();
             ProcessHandle.allProcesses().forEach(p -> {
                 var info = p.info();
                 String command = info.command().orElse(null);
@@ -94,11 +93,6 @@ final class BrowserProzesse {
                 if (profile.stream().anyMatch(profil -> gehoertZuProfil(command, args, profil))) {
                     // Chrome-Unterprozesse dieses exakt identifizierten Profilprozesses.
                     p.descendants().forEach(ProcessHandle::destroy);
-                    p.destroy();
-                } else if (command != null && Path.of(command).getFileName() != null
-                        && Path.of(command).getFileName().toString().equalsIgnoreCase("chromedriver.exe")
-                        && command.contains("testsweet")) {
-                    // Verwaister Treiber dieses Werkzeugs (WebDriverManager-Ablage im Projekt).
                     p.destroy();
                 }
             });

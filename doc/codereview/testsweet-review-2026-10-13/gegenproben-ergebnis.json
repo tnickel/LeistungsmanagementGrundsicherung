@@ -1,0 +1,42 @@
+{
+  "mehrbedarf_null": {
+    "exit": 0,
+    "summary": [
+      "Gepruefte Rechenbloecke: 2 in 1 Faellen",
+      "Abweichungen: 0"
+    ],
+    "protocol_result": [
+      "ergebnis = 2/2 Rechenbloecke bestaetigt · 0 Abweichungen"
+    ]
+  },
+  "personenzahlbetrag_falsch": {
+    "exit": 0,
+    "summary": [
+      "Gepruefte Rechenbloecke: 2 in 1 Faellen",
+      "Abweichungen: 0"
+    ],
+    "protocol_result": [
+      "ergebnis = 2/2 Rechenbloecke bestaetigt · 0 Abweichungen"
+    ]
+  },
+  "rechenblock_fehlend": {
+    "exit": 0,
+    "summary": [
+      "Gepruefte Rechenbloecke: 0 in 1 Faellen",
+      "Abweichungen: 0"
+    ],
+    "protocol_result": [
+      "ergebnis = 0/0 Rechenbloecke bestaetigt · 0 Abweichungen"
+    ]
+  },
+  "zwei_bg_fehler": {
+    "exit": 0,
+    "summary": [
+      "Gepruefte Rechenbloecke: 2 in 1 Faellen",
+      "Abweichungen: 1"
+    ],
+    "protocol_result": [
+      "ergebnis = 1/2 Rechenbloecke bestaetigt · 1 Abweichungen"
+    ]
+  }
+}

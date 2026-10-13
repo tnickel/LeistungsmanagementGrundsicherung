@@ -19,6 +19,17 @@ import java.util.Map;
  */
 public record SzenarioAktion(String name, String erwarteterFehler, Aktion funktion) {
 
+    /** Ein Negativschritt darf niemals durch eine normale Rückkehr bestehen. */
+    public String execute(SozialLeistungsService service, String selbst, String kollege,
+            Map<String, Object> kontext) throws Exception {
+        String detail = funktion.ausfuehren(service, selbst, kollege, kontext);
+        if (erwarteterFehler != null) {
+            throw new IllegalStateException("Erwarteter Fachfehler " + erwarteterFehler
+                    + " blieb aus: " + name);
+        }
+        return detail;
+    }
+
     @FunctionalInterface
     public interface Aktion {
         String ausfuehren(SozialLeistungsService service, String selbst, String kollege,

@@ -62,9 +62,9 @@ public final class SweetLog implements AutoCloseable {
     private volatile boolean geschlossen = false;
 
     public SweetLog(Path basisVerzeichnis) throws IOException {
-        this.runVerzeichnis = basisVerzeichnis.resolve("run-" +
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")));
-        Files.createDirectories(runVerzeichnis);
+        Files.createDirectories(basisVerzeichnis);
+        this.runVerzeichnis = Files.createTempDirectory(basisVerzeichnis, "run-" +
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + "-");
         simulation = oeffne("simulation.log");
         verifikation = oeffne("db-verifikation.log");
         fehler = oeffne("fehler.log");
@@ -147,7 +147,7 @@ public final class SweetLog implements AutoCloseable {
         reiheRoherEin(datei, LocalDateTime.now(), kanal, mitarbeiter, meldung);
     }
 
-    private void reiheRoherEin(BufferedWriter datei, LocalDateTime zeit,
+    private synchronized void reiheRoherEin(BufferedWriter datei, LocalDateTime zeit,
             String kanal, String mitarbeiter, String meldung) {
         if (geschlossen) {
             return;
@@ -170,6 +170,7 @@ public final class SweetLog implements AutoCloseable {
             return datei;
         }
         synchronized (dateiSchloss) {
+            if (geschlossen) return simulation;
             return dateien.computeIfAbsent(name, n -> {
                 try {
                     return oeffne(n);
@@ -256,15 +257,18 @@ public final class SweetLog implements AutoCloseable {
      * Writer würde still verworfen).
      */
     @Override
-    public void close() {
+    public synchronized void close() {
         if (geschlossen) {
             return;
         }
         geschlossen = true;
-        try {
-            writerThread.join(2000); // laufenden Batch und Reste abholen lassen
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+        boolean interrupted = false;
+        while (writerThread.isAlive()) {
+            try {
+                writerThread.join(1000); // keinen Writer schließen, solange ein Batch ihn noch benutzt
+            } catch (InterruptedException e) {
+                interrupted = true;
+            }
         }
         // Was (bei Timeout/Interrupt) noch in der Queue liegt, synchron wegschreiben
         List<Eintrag> rest = new ArrayList<>(queue.size());
@@ -289,6 +293,7 @@ public final class SweetLog implements AutoCloseable {
                 }
             }
         }
+        if (interrupted) Thread.currentThread().interrupt();
     }
 
     /** Kleiner Helfer, um IOException aus Lambda-Konstruktoren zu tragen. */

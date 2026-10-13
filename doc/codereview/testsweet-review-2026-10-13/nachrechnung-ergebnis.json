@@ -1,0 +1,23 @@
+{
+  "source": "C:\\Users\\tnickel\\AppData\\Local\\Temp\\testsweet-review-runs-20261013\\testsweet\\logs\\run-20261013-141634\\testdokumentation.md",
+  "cases_with_calculation": 488,
+  "blocks": 524,
+  "persons": 1233,
+  "numeric_comparisons": 16707,
+  "branches": [
+    "Alleinerziehend",
+    "Entbindungsmonat",
+    "Erwerb",
+    "G",
+    "RBS1",
+    "RBS2",
+    "RBS3",
+    "RBS4",
+    "RBS5",
+    "RBS6",
+    "Schwangerschaft",
+    "Vermoegenseinsatz",
+    "Warmwasser"
+  ],
+  "errors": []
+}

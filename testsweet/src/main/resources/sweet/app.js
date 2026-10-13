@@ -78,21 +78,12 @@ window.addEventListener("DOMContentLoaded", () => {
                     if (ergebnis.verdict) {
                         meldung += "\n\nVerdict: " + ergebnis.verdict;
                     }
-                    if (ergebnis.llm) {
-                        meldung += "\n\nNachrechnung (100 Kombinationsfälle, unabhängige Zweitimplementierung): "
-                            + (ergebnis.llm.nachgerechnet
-                                ? "ERNEUT AUSGEFÜHRT für Lauf " + ergebnis.llm.lauf
-                                  + (ergebnis.llm.ergebnis ? "\n  " + ergebnis.llm.ergebnis : "")
-                                  + "\n  Protokoll: " + ergebnis.llm.protokoll
-                                : "aktuell (Lauf " + ergebnis.llm.lauf + " bereits nachgerechnet, Protokoll "
-                                  + (ergebnis.llm.protokoll || "") + ")");
-                    }
+                    if (ergebnis.llm) meldung += "\nGLM-Prüfung: " + (ergebnis.llm.state || "unbekannt")
+                        + " · " + (ergebnis.llm.completedCases || 0) + " Fälle";
                     if (ergebnis.warnungen && ergebnis.warnungen.length) {
                         meldung += "\n\nHINWEISE vor einer belastbaren Ausstellung:";
                         for (const w of ergebnis.warnungen) meldung += "\n• " + w;
-                        meldung += "\n\n(LLM-Nachrechnung erneuern: testdokumentation.md + gesetzesgrundlagen-2026.md "
-                            + "+ llm-pruefauftrag.txt aus doc/testzertifikat-werkzeug einer KI geben; "
-                            + "Protokoll dort als llm-nachrechnung-<Datum>.md ablegen.)";
+                        meldung += "\n\nGLM-Prüfung in Abschnitt 7 aktualisieren.";
                     }
                     alert(meldung);
                 }
@@ -105,46 +96,7 @@ window.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // LLM-Nachrechnung & Testzertifikat (Abschnitt 7): Status anzeigen,
-    // Prüfpaket erzeugen, Prompt einsehen — einmalig registriert.
-    const llmAktualisieren = $("llm-aktualisieren");
-    if (llmAktualisieren) {
-        llmAktualisieren.addEventListener("click", ladeLlmPruefung);
-        const paketKnopf = $("llm-paket-knopf");
-        if (paketKnopf) {
-            paketKnopf.addEventListener("click", async () => {
-                paketKnopf.disabled = true;
-                paketKnopf.textContent = "🤖 Prüfpaket wird erstellt …";
-                try {
-                    const anzahl = Math.min(500, Math.max(1, Math.floor(Number($("llm-faelle").value) || 100)));
-                    const antwort = await fetch("/api/llmpruefung/paket", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ faelle: anzahl })
-                    });
-                    const erg = await antwort.json();
-                    const ziel = $("llm-paket-ergebnis");
-                    if (erg.fehler) {
-                        ziel.textContent = "Paket konnte nicht erstellt werden: " + erg.fehler;
-                    } else {
-                        ziel.innerHTML =
-                            "<strong>Prüfpaket bereit — diese drei Dateien einer KI geben:</strong><br>" +
-                            `1. Prüfmenge (${erg.faelle} Fälle): <code>${esc(erg.pruefmenge)}</code><br>` +
-                            `2. Gesetzesgrundlagen: <code>${esc(erg.grundlagen)}</code><br>` +
-                            `3. Prüfauftrag: <code>${esc(erg.pruefauftrag)}</code><br>` +
-                            "<em>" + esc(erg.anleitung) + "</em>";
-                    }
-                } catch (e) {
-                    alert("Serverfehler beim Erstellen des Prüfpakets: " + e.message);
-                } finally {
-                    paketKnopf.disabled = false;
-                    paketKnopf.textContent = "🤖 Prüfpaket erstellen";
-                    ladeLlmPruefung();
-                }
-            });
-        }
-        ladeLlmPruefung();
-    }
+    initialisiereLlm();
 
     // Testfallkategorie-Reiter (zwischen Moduswahl und Laufkonfiguration)
     document.querySelectorAll("#kategorie-abschnitt .d-tab").forEach(tab => {
@@ -589,55 +541,179 @@ async function oeffneDetail(id) {
 // LLM-Nachrechnung & Testzertifikat (Abschnitt 7)
 // ------------------------------------------------------------------
 
-/** Stand der KI-Prüfung laden und darstellen: Protokolle (mit Ablageort),
- *  MD-Datenstand mit Alter-Warnung, Prompt und mitgegebene Dateien. */
-async function ladeLlmPruefung() {
-    const statusZiel = $("llm-status");
-    const promptZiel = $("llm-prompt");
-    const dateiZiel = $("llm-dateien");
-    if (!statusZiel) return;
+// GLM-Konfiguration und echte Prüfung. API-Schlüssel bleibt ausschließlich im Eingabefeld.
+let llmPolling = null;
+let llmPackage = null;
+let llmStatusRequestId = 0;
+const llmRetryPopupShown = new Set();
+
+async function llmRequest(path, body) {
+    const response = await fetch(path, body === undefined ? {} : {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+    });
+    const result = await response.json();
+    if (!response.ok || result.fehler || result.ok === false) throw new Error(result.fehler || result.message || "Anfrage fehlgeschlagen");
+    return result;
+}
+
+function fillLlmConfig(config) {
+    $("llm-base-url").value = config.baseUrl || "";
+    $("llm-model").value = config.model || "glm-5.3";
+    $("llm-timeout").value = config.timeoutSeconds || 300;
+    $("llm-max-tokens").value = config.maxTokens || 16384;
+    $("llm-batch-size").value = config.batchSize || 3;
+    $("llm-cases").value = config.cases || 100;
+    $("llm-faelle").value = config.cases || 100;
+    $("llm-api-key").value = "";
+    $("llm-clear-key").checked = false;
+    $("llm-key-status").textContent = config.apiKeyConfigured ? "API-Schlüssel vorhanden." : "Noch kein API-Schlüssel vorhanden.";
+}
+
+function initialisiereLlm() {
+    $("llm-retry-close").addEventListener("click", () => $("llm-retry-dialog").close());
+    $("llm-config-open").addEventListener("click", async () => {
+        const dialog = $("llm-config-dialog");
+        $("llm-config-message").textContent = "Konfiguration wird geladen …";
+        dialog.showModal();
+        try { fillLlmConfig(await llmRequest("/api/llm/config")); $("llm-config-message").textContent = ""; }
+        catch (error) { $("llm-config-message").textContent = error.message; }
+    });
+    $("llm-config-close").addEventListener("click", () => $("llm-config-dialog").close());
+    $("llm-config-dialog").addEventListener("close", () => { $("llm-api-key").value = ""; });
+    $("llm-config-form").addEventListener("submit", async event => {
+        event.preventDefault();
+        const button = $("llm-config-save"); button.disabled = true;
+        try {
+            const config = await llmRequest("/api/llm/config", {
+                baseUrl: $("llm-base-url").value.trim(), model: $("llm-model").value.trim(),
+                apiKey: $("llm-api-key").value, clearApiKey: $("llm-clear-key").checked,
+                timeoutSeconds: Number($("llm-timeout").value), maxTokens: Number($("llm-max-tokens").value),
+                batchSize: Number($("llm-batch-size").value), cases: Number($("llm-cases").value)
+            });
+            fillLlmConfig(config); $("llm-config-message").textContent = "Konfiguration gespeichert.";
+            await ladeLlmPruefung();
+        } catch (error) { $("llm-config-message").textContent = error.message; }
+        finally { button.disabled = false; }
+    });
+    $("llm-config-test").addEventListener("click", async () => {
+        const button = $("llm-config-test"); button.disabled = true;
+        $("llm-config-message").textContent = "Gespeicherte Konfiguration wird mit einem echten Modellaufruf geprüft …";
+        try {
+            const result = await llmRequest("/api/llm/test", {});
+            $("llm-config-message").textContent = result.message || "GLM-Verbindung erfolgreich.";
+        } catch (error) { $("llm-config-message").textContent = error.message; }
+        finally { button.disabled = false; }
+    });
+    $("llm-aktualisieren").addEventListener("click", ladeLlmPruefung);
+    $("llm-paket-knopf").addEventListener("click", async () => {
+        const button = $("llm-paket-knopf"); button.disabled = true;
+        try {
+            llmPackage = await llmRequest("/api/llmpruefung/paket", {faelle: Number($("llm-faelle").value)});
+            $("llm-paket-ergebnis").textContent = "Prüfpaket: " + llmPackage.faelle + " Fälle · " + llmPackage.directory;
+            renderLlmFiles(llmPackage);
+        } catch (error) { $("llm-paket-ergebnis").textContent = error.message; }
+        finally { button.disabled = false; }
+    });
+    $("llm-start-knopf").addEventListener("click", async () => {
+        const button = $("llm-start-knopf"); button.disabled = true;
+        llmStatusRequestId++;
+        try {
+            await llmRequest("/api/llm/start", {faelle: Number($("llm-faelle").value)});
+            llmPackage = null;
+            await ladeLlmPruefung();
+        } catch (error) { $("llm-paket-ergebnis").textContent = error.message; button.disabled = false; }
+    });
+    ladeLlmPruefung();
+}
+
+function renderLlmFiles(data) {
+    const files = data.documents || data.files || [];
+    const rows = Array.isArray(files) ? files : Object.values(files);
+    const fallback = [data.pruefmenge, data.grundlagen, data.pruefauftrag].filter(Boolean);
+    $("llm-dateien").innerHTML = rows.length
+        ? rows.map(file => `<div><strong>${esc(file.name || file.path || "Datei")}</strong><br><code>${esc(file.path || "")}</code><br>SHA-256: <code>${esc(file.sha256 || "")}</code></div>`).join("")
+        : fallback.map(file => `<div><code>${esc(file)}</code></div>`).join("") || "Noch kein Prüfpaket erstellt.";
+}
+
+function renderLlmFortschritt(data) {
+    const container = $("llm-fortschritt");
+    const progress = $("llm-progress");
+    const label = $("llm-progress-label");
+    const percent = $("llm-progress-prozent");
+    const details = $("llm-progress-details");
+    const total = Number(data.totalCases);
+    const state = data.state || "IDLE";
+
+    container.hidden = state === "IDLE" || (state !== "PREPARING" && !(total > 0));
+    if (container.hidden) return;
+    container.classList.toggle("llm-fortschritt-fertig", state === "PASS");
+    container.classList.toggle("llm-fortschritt-fehler", ["FAIL", "UNVERIFIED", "ERROR"].includes(state));
+
+    if (state === "PREPARING") {
+        progress.removeAttribute("value");
+        label.textContent = "Prüfdateien werden vorbereitet";
+        percent.textContent = "…";
+        details.textContent = "Die Fallzahl wird ermittelt.";
+        progress.textContent = "Prüfdateien werden vorbereitet";
+        return;
+    }
+
+    const completed = Math.max(0, Math.min(total, Number(data.completedCases) || 0));
+    const percentage = Math.round(completed / total * 100);
+    const batches = Math.max(0, Number(data.completedBatches) || 0);
+    const batchTotal = Math.max(0, Number(data.totalBatches) || 0);
+    progress.max = total;
+    progress.value = completed;
+    label.textContent = `${completed} von ${total} Fällen vollständig beantwortet`;
+    percent.textContent = `${percentage} %`;
+    details.textContent = batchTotal > 0 ? `${batches} von ${batchTotal} Fallgruppen abgeschlossen` : "";
+    progress.textContent = `${percentage} %`;
+}
+
+function zeigeLlmRetryFehler(data) {
+    if (data.state !== "ERROR" || data.retryExhausted !== true || !data.reviewId) return;
+    const storageKey = "llm-retry-popup-" + data.reviewId;
+    if (llmRetryPopupShown.has(storageKey)) return;
     try {
-        const daten = await (await fetch("/api/llmpruefung")).json();
-        const zeilen = [];
-        const protokolle = daten.protokolle || [];
-        if (protokolle.length === 0) {
-            zeilen.push("⚠ Noch kein Nachrechnprotokoll abgelegt — Prüfpaket erstellen, einer KI geben, "
-                + "Antwort als llm-nachrechnung-&lt;Datum&gt;.md in doc/testzertifikat-werkzeug/ ablegen.");
-        } else {
-            const neuestes = protokolle[protokolle.length - 1];
-            zeilen.push(`✓ Neuestes Protokoll: <code>${esc(neuestes.datei)}</code> `
-                + `(Ablageort: <code>${esc(neuestes.ablageort || "doc/testzertifikat-werkzeug")}</code>)`);
-            if (neuestes.ergebnis) zeilen.push(`&nbsp;&nbsp;Ergebnis: ${esc(neuestes.ergebnis)}`);
-            if (neuestes.pruefumfang) zeilen.push(`&nbsp;&nbsp;Umfang: ${esc(neuestes.pruefumfang)}`);
-            if (neuestes.modell) zeilen.push(`&nbsp;&nbsp;Modell: ${esc(neuestes.modell)}`);
-            if (protokolle.length > 1) {
-                zeilen.push(`&nbsp;&nbsp;(insgesamt ${protokolle.length} Protokolle im Ordner)`);
-            }
-        }
-        if (daten.md_datenstand) {
-            zeilen.push(`Testdokumentation (Datenstand): ${esc(daten.md_datenstand)}`);
-            const neuestes = protokolle[protokolle.length - 1];
-            if (neuestes && neuestes.datei) {
-                const llmDatum = (neuestes.datei.match(/\d{4}-\d{2}-\d{2}/) || [""])[0];
-                const mdDatum = (daten.md_datenstand.match(/\d{4}-\d{2}-\d{2}/) || [""])[0];
-                if (llmDatum && mdDatum && mdDatum > llmDatum) {
-                    zeilen.push(`⚠ Die Testdokumentation (${mdDatum}) ist NEUER als die Nachrechnung (${llmDatum}) `
-                        + "— vor einer belastbaren Zertifikats-Ausstellung erneuern.");
-                }
-            }
-        }
-        statusZiel.innerHTML = zeilen.map(z => `<div>${z}</div>`).join("");
-        if (promptZiel && daten.prompt) promptZiel.textContent = daten.prompt;
-        if (dateiZiel) {
-            const eintraege = Object.entries(daten.dateien || {});
-            dateiZiel.innerHTML = eintraege.length === 0
-                ? "<em>Noch keine Prüfpaket-Dateien vorhanden.</em>"
-                : "<table class='tabelle'><tbody>" + eintraege.map(([label, d]) =>
-                    `<tr><td>${esc(label)}</td><td><code>${esc(d.datei)}</code></td>` +
-                    `<td><code>${esc(d.ablageort)}</code></td><td>${(d.bytes / 1024).toFixed(0)} KB</td></tr>`).join("")
-                  + "</tbody></table>";
-        }
-    } catch (e) {
-        statusZiel.textContent = "Status konnte nicht geladen werden: " + e.message;
+        if (sessionStorage.getItem(storageKey)) return;
+    } catch (_) { /* Sitzungspeicher kann im Browser gesperrt sein. */ }
+    const dialog = $("llm-retry-dialog");
+    if (dialog.open) return;
+    $("llm-retry-log").textContent = data.artifactDirectory
+        ? data.artifactDirectory + "\\protocol.md"
+        : "Laufverzeichnis in Abschnitt 7 prüfen";
+    dialog.showModal();
+    llmRetryPopupShown.add(storageKey);
+    try { sessionStorage.setItem(storageKey, "1"); }
+    catch (_) { /* Einmalige Anzeige bleibt für diesen Seitenaufruf erhalten. */ }
+}
+
+async function ladeLlmPruefung() {
+    const requestId = ++llmStatusRequestId;
+    try {
+        const data = await llmRequest("/api/llmpruefung");
+        if (requestId !== llmStatusRequestId) return;
+        const labels = {IDLE:"Bereit",PREPARING:"Prüfpaket wird vorbereitet",RUNNING:"GLM prüft",PASS:"Geprüfte Fälle bestanden",FAIL:"Abweichungen gefunden",UNVERIFIED:"Prüfung unvollständig",ERROR:"Technischer Fehler"};
+        const target = $("llm-status");
+        target.className = data.state === "PASS" ? "ok" : ["FAIL","UNVERIFIED","ERROR"].includes(data.state) ? "nok" : "";
+        const lines = [labels[data.state] || data.state || "Bereit", data.message || ""];
+        if (data.totalCases) lines.push(`${data.completedCases || 0}/${data.totalCases} Fälle · ${data.completedBatches || 0}/${data.totalBatches || 0} Anfragen`);
+        if (data.model) lines.push("Modell: " + data.model);
+        if (data.artifactDirectory) lines.push("Nachweise: " + data.artifactDirectory);
+        target.textContent = lines.filter(Boolean).join(" · ");
+        renderLlmFortschritt(data);
+        zeigeLlmRetryFehler(data);
+        const transport = $("llm-transport-check");
+        transport.textContent = data.transportVerified ? "✓ Dateiübergabe geprüft: alle Prüfdokumente vollständig gesendet, SHA-256 und API-Antworten validiert." : "Dateiübergabe: noch nicht vollständig bestätigt.";
+        transport.className = data.transportVerified ? "ok" : "hinweis";
+        $("llm-report-link").style.display = data.reportPdf && !data.running ? "inline-block" : "none";
+        if (data.prompt) $("llm-prompt").textContent = data.prompt;
+        if (data.documents || data.files || data.pruefmenge) renderLlmFiles(data);
+        else if (llmPackage) renderLlmFiles(llmPackage);
+        $("llm-start-knopf").disabled = Boolean(data.running);
+        if (data.running && !llmPolling) llmPolling = setInterval(ladeLlmPruefung, 3000);
+        if (!data.running && llmPolling) { clearInterval(llmPolling); llmPolling = null; }
+    } catch (error) {
+        if (requestId === llmStatusRequestId) $("llm-status").textContent = "GLM-Status konnte nicht geladen werden: " + error.message;
     }
 }

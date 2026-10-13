@@ -6,6 +6,7 @@ import de.allgemein.lmg.service.SozialLeistungsService;
 import de.allgemein.lmg.service.Systemdiagnose;
 import de.allgemein.lmg.web.Benutzerverwaltung;
 import de.allgemein.lmg.web.LmgServer;
+import de.allgemein.lmg.web.Json;
 import de.allgemein.tx.ConnectionPool;
 import de.allgemein.tx.SimpleConnectionPool;
 import de.allgemein.tx.TaskController;
@@ -14,6 +15,10 @@ import de.allgemein.tx.saga.SagaEngine;
 import de.allgemein.tx.saga.SagaJournal;
 
 import java.net.ServerSocket;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 
@@ -83,6 +88,7 @@ public final class Simulator {
             if (kategorie == null) {
                 kategorie = Kategorie.POSITIV;
             }
+            if (denkzeitMs < 0) throw new IllegalArgumentException("Denkzeit darf nicht negativ sein");
         }
     }
 
@@ -131,11 +137,12 @@ public final class Simulator {
     private ConnectionPool webPool;
     private TaskController webTasks;
     private LmgServer webServer;
+    private volatile ExecutorService laufExecutor;
 
     public Simulator() {
-        this.dbUrl = umgebung("TX_URL", "jdbc:oracle:thin:@//localhost:1521/FREEPDB1");
-        this.dbUser = umgebung("TX_USER", "tx_demo");
-        this.dbPass = umgebung("TX_PASS", "tx_demo");
+        this.dbUrl = System.getProperty("tx.url", umgebung("TX_URL", "jdbc:oracle:thin:@//localhost:1521/FREEPDB1"));
+        this.dbUser = System.getProperty("tx.user", umgebung("TX_USER", "tx_demo"));
+        this.dbPass = System.getProperty("tx.pass", umgebung("TX_PASS", "tx_demo"));
         try {
             // Treiber explizit registrieren (SPI-Autoregistrierung ist im
             // exec:java-Kontext nicht zuverlässig; gleiche Praxis wie in den DB-Tests)
@@ -157,6 +164,8 @@ public final class Simulator {
     public Phase phase() {
         return phase;
     }
+
+    boolean laufAktiv() { return laufAktiv.get(); }
 
     public List<Auftrag> auftraege() {
         return auftraege;
@@ -313,6 +322,9 @@ public final class Simulator {
     /** Bricht den Lauf ab: Mitarbeiter beenden den aktuellen Auftrag nicht mehr weiter. */
     public void stoppe() {
         abgebrochen = true;
+        ExecutorService executor = laufExecutor;
+        if (executor != null) executor.shutdownNow();
+        else webMitarbeiter.forEach(WebMitarbeiter::schliesse);
     }
 
     // ------------------------------------------------------------------
@@ -372,6 +384,7 @@ public final class Simulator {
             this.letzteFehlermeldung = null;
             laufWebAusfuehren(konfig);
         } finally {
+            schliesseWebServer();
             if (log != null) {
                 log.close(); // auch im Fehlerpfad: Logdateien sauber schließen
                 log = null;
@@ -429,6 +442,8 @@ public final class Simulator {
         if (konfig.kategorie() == Kategorie.STRESS) {
             throw new IllegalStateException(webStressMeldung());
         }
+        phase = Phase.BEREIT;
+        auftraege = List.of();
         modusLetzter = "WEB";
         kategorieLetzter = konfig.kategorie();
         laufStart = LocalDateTime.now();
@@ -442,6 +457,21 @@ public final class Simulator {
                 + " sichtbare Browserfenster, " + konfig.auftraege() + " Aufträge, Seed "
                 + konfig.seed() + ", Oberfläche " + WebHelfer.basisUrl);
 
+        LmgConfig webConfig = LmgConfig.load();
+        boolean extern = WebHelfer.expliziteBasisUrl() != null;
+        WebHelfer.basisUrl = webZiel(webConfig.port(), WebHelfer.expliziteBasisUrl());
+        boolean eingebettet = !extern && starteEingebettetenLmgServer(konfig.mitarbeiter(), webConfig);
+        if (!eingebettet) {
+            webKonten.clear();
+            webKonten.put("sb-01", "sb-01");
+            webKonten.put("sb-02", "sb-02");
+            webAdminKennung = "admin-01";
+            webAdminPasswort = "admin";
+            pruefeExternesWebziel(); // vor Cleanup, Browserstart und fachlichen Schreibzugriffen
+            log.ereignis("SIMULATOR", "", "Externes Webziel und SQL-Datenbank abgeglichen: "
+                    + WebHelfer.basisUrl);
+        }
+
         // Fenster eines früheren Laufs schließen — inklusive verwaister Fenster aus
         // gestorbenen Server-Prozessen — bevor neue geöffnet werden
         webMitarbeiter.forEach(WebMitarbeiter::schliesse);
@@ -452,26 +482,6 @@ public final class Simulator {
             phase = Phase.AUFRAEUMEN;
             log.ereignis("SIMULATOR", "", "Altdaten aufgeräumt: "
                     + raeumeAltdatenAuf() + " SWEET-Vorgänge entfernt");
-        }
-
-        // LMG-Server einbetten (eigene Sim-Konten) oder laufenden externen nutzen
-        boolean eingebettet = starteEingebettetenLmgServer(konfig.mitarbeiter());
-        if (!eingebettet) {
-            webKonten.clear();
-            webKonten.put("sb-01", "sb-01");
-            webKonten.put("sb-02", "sb-02");
-            webAdminKennung = "admin-01";
-            webAdminPasswort = "admin";
-            if (konfig.mitarbeiter() > webKonten.size()) {
-                log.fehler("SIMULATOR", "Mehr Fenster (" + konfig.mitarbeiter()
-                        + ") als verfügbare Konten (" + webKonten.size()
-                        + ") — Fenster teilen sich Kennungen, Vier-Augen-Konflikte "
-                        + "(z. B. Selbstfreigabe-Abwehr) sind möglich. Für eigene Konten "
-                        + "den externen Server beenden.");
-            }
-            log.ereignis("SIMULATOR", "", "Port 8080 ist belegt — es wird der bereits laufende "
-                    + "SDN.Leistung-Server genutzt (Standard-Konten sb-01/sb-02, Admin admin-01). "
-                    + "Für eigene Sim-Konten den externen Server beenden.");
         }
 
         WebMitarbeiter.bereiteTreiberVor();
@@ -487,25 +497,35 @@ public final class Simulator {
                     ? String.format("sb-web-%02d", i + 1)
                     : kennungen.get(i % kennungen.size());
             webMitarbeiter.add(new WebMitarbeiter(this, kennung, webPasswort(kennung),
-                    i, konfig.mitarbeiter()));
+                    i, konfig.mitarbeiter(), konfig.denkzeitMs()));
         }
         log.ereignis("SIMULATOR", "", "Chrome-Fenster werden geöffnet und nebeneinander "
                 + "angeordnet — die Oberfläche läuft unter " + WebHelfer.basisUrl);
 
         phase = Phase.LAUF;
         ExecutorService executor = Executors.newFixedThreadPool(konfig.mitarbeiter());
+        laufExecutor = executor;
         try {
             for (WebMitarbeiter m : webMitarbeiter) {
                 executor.submit(m);
             }
             executor.shutdown();
-            boolean fertig = executor.awaitTermination(30, TimeUnit.MINUTES);
+            boolean fertig = beendeExecutor(executor, TimeUnit.MINUTES.toMillis(30), () -> {
+                abgebrochen = true;
+                webMitarbeiter.forEach(WebMitarbeiter::schliesse);
+            });
             if (!fertig) {
                 log.fehler("SIMULATOR", "Laufzeit-Limit (30 min) überschritten — Zwangsabbruch");
                 executor.shutdownNow();
                 abgebrochen = true;
             }
         } finally {
+            if (!executor.isTerminated()) {
+                abgebrochen = true;
+                beendeExecutor(executor, 0, () -> webMitarbeiter.forEach(WebMitarbeiter::schliesse));
+            }
+            laufExecutor = null;
+            if (abgebrochen) webMitarbeiter.forEach(WebMitarbeiter::schliesse);
             schliesseWebServer();
         }
 
@@ -517,8 +537,8 @@ public final class Simulator {
             phase = Phase.VERIFIKATION;
             int verifiziert = new Verifikator(dbUrl, dbUser, dbPass).verifiziereAlle(auftraege, log);
             globalerKonsistenzcheck();
-            phase = globalePruefungen.stream().allMatch(Auftrag.Pruefung::ok)
-                    ? Phase.FERTIG : Phase.FEHLGESCHLAGEN;
+            verifiziert = (int) auftraege.stream().filter(a -> a.status == Auftrag.Status.VERIFIZIERT).count();
+            aktualisiereAbschlussphase();
             log.ereignis("SIMULATOR", "", "Web-Verifikation abgeschlossen: " + verifiziert
                     + " von " + auftraege.size() + " Aufträgen vollständig verifiziert");
         }
@@ -535,33 +555,15 @@ public final class Simulator {
      * Startet den SDN.Leistung-Server im eigenen Prozess (Port 8080) mit eigenen
      * Sim-Konten sb-web-NN — nur wenn der Port frei ist. Rückgabe: true = eingebettet.
      */
-    private boolean starteEingebettetenLmgServer(int anzahlMitarbeiter) throws Exception {
-        try (ServerSocket test = new ServerSocket(8080)) {
+    private boolean starteEingebettetenLmgServer(int anzahlMitarbeiter, LmgConfig config) throws Exception {
+        try (ServerSocket test = new ServerSocket(config.port())) {
             // Port frei — wir starten selbst
         } catch (Exception belegt) {
             return false;
         }
-        StringBuilder konten = new StringBuilder();
-        webKonten.clear();
-        for (int i = 1; i <= anzahlMitarbeiter; i++) {
-            String kennung = String.format("sb-web-%02d", i);
-            if (konten.length() > 0) {
-                konten.append(';');
-            }
-            konten.append(kennung).append(":sim:sachbearbeiter");
-            webKonten.put(kennung, "sim");
-        }
-        // Administrationskonto für Rollenwechsel-Abläufe (Storno freigegebener
-        // Zahlungen erfordert die Admin-Rolle) — bewusst NICHT im Kollegen-Pool
-        konten.append(";web-admin:sim:admin");
-        webAdminKennung = "web-admin";
-        webAdminPasswort = "sim";
-        // Konten über die Konfigurationskaskade (System-Property lmg.benutzer)
-        System.setProperty("lmg.benutzer", konten.toString());
-        LmgConfig config = LmgConfig.load();
-        System.clearProperty("lmg.benutzer");
+        String konten = initialisiereWebKonten(anzahlMitarbeiter);
         Class.forName("oracle.jdbc.OracleDriver");
-        webPool = new SimpleConnectionPool(config.url(), config.user(), config.password(),
+        webPool = new SimpleConnectionPool(dbUrl, dbUser, dbPass,
                 Math.max(8, anzahlMitarbeiter + 2));
         TxManager txManager = new TxManager(webPool);
         webTasks = new TaskController(txManager, config.maxTasks(), config.queueCapacity());
@@ -569,14 +571,30 @@ public final class Simulator {
                 config.rechtsbehelf());
         SagaEngine sagas = new SagaEngine(txManager, new SagaJournal(webPool));
         Systemdiagnose diagnose = new Systemdiagnose(txManager, webTasks, sagas, Instant.now());
-        Benutzerverwaltung benutzerverwaltung = new Benutzerverwaltung(konten.toString(),
+        Benutzerverwaltung benutzerverwaltung = new Benutzerverwaltung(konten,
                 Duration.ofMinutes(config.sessionTimeoutMinuten()));
         webServer = new LmgServer(webTasks, service, diagnose, sagas, benutzerverwaltung,
-                config.port());
+                java.net.InetAddress.getByName("127.0.0.1"), config.port());
         webServer.start();
         log.ereignis("SIMULATOR", "", "Eingebetteter SDN.Leistung-Server gestartet auf Port "
                 + config.port() + " mit " + anzahlMitarbeiter + " Sim-Konten (sb-web-01…)");
         return true;
+    }
+
+    /** Ein separates Freigabekonto ist auch für ein einziges Browserfenster nötig. */
+    String initialisiereWebKonten(int anzahlMitarbeiter) {
+        StringBuilder konten = new StringBuilder();
+        webKonten.clear();
+        for (int i = 1; i <= Math.max(2, anzahlMitarbeiter); i++) {
+            String kennung = String.format("sb-web-%02d", i);
+            if (konten.length() > 0) konten.append(';');
+            konten.append(kennung).append(":sim:sachbearbeiter");
+            webKonten.put(kennung, "sim");
+        }
+        konten.append(";web-admin:sim:admin");
+        webAdminKennung = "web-admin";
+        webAdminPasswort = "sim";
+        return konten.toString();
     }
 
     private void schliesseWebServer() {
@@ -611,6 +629,8 @@ public final class Simulator {
     // ------------------------------------------------------------------
 
     private void laufAusfuehren(LaufKonfiguration konfig) throws Exception {
+        phase = Phase.BEREIT;
+        auftraege = List.of();
         modusLetzter = "FACHSCHICHT";
         kategorieLetzter = konfig.kategorie();
         laufStart = LocalDateTime.now();
@@ -655,18 +675,24 @@ public final class Simulator {
 
         phase = Phase.LAUF;
         ExecutorService executor = Executors.newFixedThreadPool(konfig.mitarbeiter());
+        laufExecutor = executor;
         try {
             for (Mitarbeiter m : mitarbeiter) {
                 executor.submit(m);
             }
             executor.shutdown();
-            boolean fertig = executor.awaitTermination(30, TimeUnit.MINUTES);
+            boolean fertig = beendeExecutor(executor, TimeUnit.MINUTES.toMillis(30), () -> abgebrochen = true);
             if (!fertig) {
                 log.fehler("SIMULATOR", "Laufzeit-Limit (30 min) überschritten — Zwangsabbruch");
                 executor.shutdownNow();
                 abgebrochen = true;
             }
         } finally {
+            if (!executor.isTerminated()) {
+                abgebrochen = true;
+                beendeExecutor(executor, 0, () -> { });
+            }
+            laufExecutor = null;
             schliesseRessourcen();
         }
 
@@ -677,13 +703,13 @@ public final class Simulator {
         } else {
             phase = Phase.VERIFIKATION;
             log.ereignis("SIMULATOR", "", "Alle Mitarbeiter fertig — verifiziere Erwartungshaltung gegen die Datenbank …");
-            int verifiziert = new Verifikator(dbUrl, dbUser, dbPass)
-                    .verifiziereAlle(auftraege, log);
             int gespielt = (int) auftraege.stream()
                     .filter(a -> a.status == Auftrag.Status.FERTIG_GESPIELT).count();
+            int verifiziert = new Verifikator(dbUrl, dbUser, dbPass)
+                    .verifiziereAlle(auftraege, log);
             globalerKonsistenzcheck();
-            phase = globalePruefungen.stream().allMatch(Auftrag.Pruefung::ok)
-                    ? Phase.FERTIG : Phase.FEHLGESCHLAGEN;
+            verifiziert = (int) auftraege.stream().filter(a -> a.status == Auftrag.Status.VERIFIZIERT).count();
+            aktualisiereAbschlussphase();
             log.ereignis("SIMULATOR", "", "Verifikation abgeschlossen: " + verifiziert + " von "
                     + gespielt + " erfolgreich gespielten Aufträgen vollständig verifiziert");
         }
@@ -814,6 +840,108 @@ public final class Simulator {
     public boolean laufErfolgreich() {
         return phase == Phase.FERTIG && auftraege.stream().allMatch(a -> a.status == Auftrag.Status.VERIFIZIERT)
                 && globalePruefungen.stream().allMatch(Auftrag.Pruefung::ok);
+    }
+
+    /** Einzelfälle und globale Prüfungen bestimmen gemeinsam den Laufstatus. */
+    void aktualisiereAbschlussphase() {
+        phase = abgebrochen ? Phase.ABGEBROCHEN
+                : !auftraege.isEmpty()
+                && auftraege.stream().allMatch(a -> a.status == Auftrag.Status.VERIFIZIERT)
+                && globalePruefungen.stream().allMatch(Auftrag.Pruefung::ok)
+                ? Phase.FERTIG : Phase.FEHLGESCHLAGEN;
+    }
+
+    /** Gibt die Laufsperre erst frei, wenn auch unterbrochene Worker wirklich beendet sind. */
+    static boolean beendeExecutor(ExecutorService executor, long timeoutMs, Runnable abbrechen) {
+        boolean interrupted = false;
+        boolean regular = false;
+        try {
+            try {
+                regular = executor.awaitTermination(timeoutMs, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                interrupted = true;
+            }
+            if (!regular) {
+                executor.shutdownNow();
+                abbrechen.run();
+                while (!executor.isTerminated()) {
+                    try {
+                        executor.awaitTermination(1, TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        interrupted = true;
+                    }
+                }
+            }
+            return regular;
+        } finally {
+            if (interrupted) Thread.currentThread().interrupt();
+        }
+    }
+
+    static String webZiel(int port, String explicitUrl) {
+        URI uri = URI.create(explicitUrl == null ? "http://127.0.0.1:" + port + "/" : explicitUrl.trim());
+        if (!("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme()))
+                || uri.getHost() == null || uri.getUserInfo() != null || uri.getQuery() != null
+                || uri.getFragment() != null) {
+            throw new IllegalArgumentException("Webziel muss eine HTTP(S)-Basis-URL ohne Zugangsdaten/Query sein");
+        }
+        String value = uri.toString();
+        return value.endsWith("/") ? value : value + "/";
+    }
+
+    private void pruefeExternesWebziel() throws Exception {
+        Map<String, String> expected;
+        try (Connection c = DriverManager.getConnection(dbUrl, dbUser, dbPass)) {
+            expected = databaseIdentity(c);
+        }
+        HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+        URI base = URI.create(WebHelfer.basisUrl);
+        String token = null;
+        try {
+            var login = client.send(HttpRequest.newBuilder(base.resolve("api/anmeldung"))
+                    .timeout(Duration.ofSeconds(15)).header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(Json.write(Map.of(
+                            "kennung", webAdminKennung, "passwort", webAdminPasswort)))).build(),
+                    HttpResponse.BodyHandlers.ofString());
+            if (login.statusCode() != 200) throw new IllegalStateException(
+                    "Webziel-Prüfung: Admin-Anmeldung fehlgeschlagen (HTTP " + login.statusCode() + ")");
+            Object parsed = Json.parse(login.body());
+            if (!(parsed instanceof Map<?, ?> object) || !(object.get("token") instanceof String value)) {
+                throw new IllegalStateException("Webziel-Prüfung: Anmeldetoken fehlt");
+            }
+            token = value;
+            var identity = client.send(HttpRequest.newBuilder(base.resolve("api/system/db-identity"))
+                    .timeout(Duration.ofSeconds(15)).header("Authorization", "Bearer " + token).GET().build(),
+                    HttpResponse.BodyHandlers.ofString());
+            if (identity.statusCode() != 200) throw new IllegalStateException(
+                    "Webziel-Prüfung: DB-Identitätsendpunkt fehlt/ist unzugänglich (HTTP "
+                            + identity.statusCode() + "); kein mutierender Testlauf");
+            pruefeDatabaseIdentity(expected, Json.parse(identity.body()));
+        } finally {
+            if (token != null) {
+                try {
+                    client.send(HttpRequest.newBuilder(base.resolve("api/abmeldung"))
+                            .timeout(Duration.ofSeconds(5)).header("Authorization", "Bearer " + token)
+                            .POST(HttpRequest.BodyPublishers.noBody()).build(), HttpResponse.BodyHandlers.discarding());
+                } catch (Exception ignored) { /* kurzlebige Prüfsitzung läuft sonst regulär ab */ }
+            }
+        }
+    }
+
+    static Map<String, String> databaseIdentity(Connection c) throws Exception {
+        try (Statement st = c.createStatement(); ResultSet rs = st.executeQuery(
+                "SELECT SYS_CONTEXT('USERENV','DB_NAME'), SYS_CONTEXT('USERENV','CON_NAME'), "
+                        + "SYS_CONTEXT('USERENV','CURRENT_SCHEMA'), SYS_CONTEXT('USERENV','SERVICE_NAME') FROM DUAL")) {
+            if (!rs.next()) throw new IllegalStateException("Datenbankidentität fehlt");
+            return Map.of("databaseName", rs.getString(1), "containerName", rs.getString(2),
+                    "schema", rs.getString(3), "serviceName", rs.getString(4));
+        }
+    }
+
+    static void pruefeDatabaseIdentity(Map<String, String> expected, Object actual) {
+        if (!(actual instanceof Map<?, ?> map) || !expected.equals(map)) {
+            throw new IllegalStateException("Webziel und SQL-Verifikation verwenden unterschiedliche Datenbankidentitäten");
+        }
     }
 
     private void globalerKonsistenzcheck() {

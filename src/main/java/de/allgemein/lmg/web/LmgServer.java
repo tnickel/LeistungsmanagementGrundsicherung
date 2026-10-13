@@ -484,6 +484,9 @@ public final class LmgServer implements AutoCloseable {
         if (pfad.equals("/api/system/status") && "GET".equals(methode)) {
             return statusMap(diagnose.status());
         }
+        if (pfad.equals("/api/system/db-identity") && "GET".equals(methode)) {
+            return new java.util.LinkedHashMap<>(diagnose.databaseIdentity());
+        }
         if (pfad.equals("/api/system/wiederanlauf") && "POST".equals(methode)) {
             int kompensiert = diagnose.wiederanlauf();
             return Map.of("kompensiert", kompensiert,
@@ -517,7 +520,7 @@ public final class LmgServer implements AutoCloseable {
     private static final List<Route> ROUTEN = List.of(
             new Route("/api/anmeldung|/api/abmeldung|/api/auszahlung|/api/kassenlauf|/api/saga/antrag|/api/drucktoken|/api/system/wiederanlauf",
                     List.of("POST")),
-            new Route("/api/werbin|/api/bedarfsgemeinschaften|/api/zahlungen|/api/journal|/api/system/status",
+            new Route("/api/werbin|/api/bedarfsgemeinschaften|/api/zahlungen|/api/journal|/api/system/status|/api/system/db-identity",
                     List.of("GET")),
             new Route("/api/bedarfsgemeinschaften/\\d+", List.of("GET", "PUT")),
             new Route("/api/bedarfsgemeinschaften/\\d+/bescheid", List.of("GET", "POST")),

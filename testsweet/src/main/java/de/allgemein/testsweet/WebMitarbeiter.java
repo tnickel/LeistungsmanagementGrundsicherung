@@ -16,7 +16,6 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Ein simulierter Sachbearbeiter des Weboberflächen-Modus: arbeitet in einem
@@ -33,6 +32,7 @@ final class WebMitarbeiter implements Runnable {
     private final Simulator simulator;
     private final int fensterIndex;
     private final int fensterAnzahl;
+    private final long denkzeitMs;
 
     volatile WebDriver treiber;
     volatile String aktuellerAuftrag;
@@ -41,11 +41,17 @@ final class WebMitarbeiter implements Runnable {
 
     WebMitarbeiter(Simulator simulator, String kuerzel, String passwort,
             int fensterIndex, int fensterAnzahl) {
+        this(simulator, kuerzel, passwort, fensterIndex, fensterAnzahl, 0);
+    }
+
+    WebMitarbeiter(Simulator simulator, String kuerzel, String passwort,
+            int fensterIndex, int fensterAnzahl, long denkzeitMs) {
         this.simulator = simulator;
         this.kuerzel = kuerzel;
         this.passwort = passwort;
         this.fensterIndex = fensterIndex;
         this.fensterAnzahl = fensterAnzahl;
+        this.denkzeitMs = denkzeitMs;
     }
 
     @Override
@@ -73,6 +79,10 @@ final class WebMitarbeiter implements Runnable {
                     + e.getClass().getSimpleName() + ": " + e.getMessage());
         } finally {
             aktiv = false;
+            if (treiber == null) {
+                BrowserProzesse.loescheProfil(fensterProfil);
+                fensterProfil = null;
+            }
         }
     }
 
@@ -96,6 +106,7 @@ final class WebMitarbeiter implements Runnable {
         optionen.setExperimentalOption("excludeSwitches", List.of("enable-automation"));
         optionen.setExperimentalOption("useAutomationExtension", false);
         WebDriver d = new ChromeDriver(optionen);
+        try {
         // Bildschirm-Raster: Spalten × Zeilen, Aufgabe unten 48 px für die Taskleiste
         java.awt.Dimension bild = java.awt.Toolkit.getDefaultToolkit().getScreenSize();
         int spalten = (int) Math.min(Math.ceil(Math.sqrt(fensterAnzahl)),
@@ -108,12 +119,20 @@ final class WebMitarbeiter implements Runnable {
         d.manage().window().setPosition(new Point(spalte * breite, reihe * hoehe));
         d.manage().window().setSize(new Dimension(breite, hoehe));
         return d;
+        } catch (RuntimeException failure) {
+            try { d.quit(); } catch (RuntimeException cleanup) { failure.addSuppressed(cleanup); }
+            BrowserProzesse.loescheProfil(fensterProfil);
+            fensterProfil = null;
+            throw failure;
+        }
     }
 
     @FunctionalInterface
     interface Neustart { WebDriver erzeuge() throws Exception; }
     @FunctionalInterface
     interface Wiederherstellung { void ausfuehren(WebDriver treiber, Map<String, Object> kontext) throws Exception; }
+    @FunctionalInterface
+    interface Denkpause { void warten(long millis) throws InterruptedException; }
 
     private void spieleAuftrag(Auftrag auftrag) {
         spieleAuftrag(auftrag, this::erzeugeFenster, WebHelfer::sitzungWiederherstellen);
@@ -123,6 +142,11 @@ final class WebMitarbeiter implements Runnable {
      * Ausgang eines Schreibschritts scheitert der Auftrag; der neue Treiber steht
      * für Folgeaufträge bereit. Nur ausdrücklich wiederholbare Schritte laufen erneut. */
     void spieleAuftrag(Auftrag auftrag, Neustart neustart, Wiederherstellung wiederherstellung) {
+        spieleAuftrag(auftrag, neustart, wiederherstellung, Thread::sleep);
+    }
+
+    void spieleAuftrag(Auftrag auftrag, Neustart neustart, Wiederherstellung wiederherstellung,
+            Denkpause pause) {
         aktuellerAuftrag = "#" + auftrag.id + " " + auftrag.aktenzeichen;
         auftrag.status = Auftrag.Status.IN_BEARBEITUNG;
         auftrag.bearbeiter = kuerzel;
@@ -147,11 +171,14 @@ final class WebMitarbeiter implements Runnable {
                 break;
             }
             try {
+                if (index > 0 && denkzeitMs > 0) pause.warten(denkzeitMs);
+                if (simulator.abgebrochen()) throw new InterruptedException("Lauf gestoppt");
                 String detail = aktion.funktion().ausfuehren(treiber, kontext);
                 auftrag.kontext = kontextOhnePasswoerter(kontext);
                 protokolliere(auftrag, index + 1, aktion.name(), "OK — " + detail,
                         screenshot(auftrag, index + 1));
             } catch (Exception e) {
+                if (e instanceof InterruptedException) Thread.currentThread().interrupt();
                 if (istToterTreiber(e) && !neuGestartet) {
                     neuGestartet = true;
                     schliesse();

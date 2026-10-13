@@ -16,6 +16,7 @@
         </div>
     </div>
     <div class="header-status">
+        <button type="button" id="llm-config-open" class="gear-button" aria-label="LLM-Konfiguration öffnen" title="LLM-Konfiguration">⚙</button>
         <span class="phase" id="phase"><span class="puls-punkt"></span><span id="phase-text">BEREIT</span></span>
         <span class="db-pill" id="db" title="Oracle Datenbank-Verbindung">jdbc:oracle:thin:@//localhost:1521/FREEPDB1</span>
     </div>
@@ -248,19 +249,28 @@
             <button type="button" class="btn-chip" id="llm-aktualisieren">↻ Aktualisieren</button>
         </div>
         <p class="hinweis">
-            Die KI-Prüfung läuft bewusst außerhalb dieser Anwendung (kein API-Aufruf): Hier wird das
-            Prüfpaket geschnürt und überwacht. Der Prüfmenge liegen die neueste
-            <code>testdokumentation.md</code>, die vollständigen Gesetzesgrundlagen und der
-            Prüfauftrag (Prompt) bei — deren Antwort als <code>llm-nachrechnung-&lt;Datum&gt;.md</code>
-            in <code>doc/testzertifikat-werkzeug/</code> ablegen; das Zertifikat liest sie automatisch ein.
+            GLM-5.3 prüft ausgewählte vollständige Positiv- und Negativfälle über die Z.ai-API.
+            Prüfmenge, Gesetzesgrundlagen und Prüfauftrag werden vollständig als benannte
+            Dokumenttexte gesendet. Manifest, Dateihashes und Modellantworten bleiben im Laufverzeichnis nachprüfbar.
         </p>
         <div id="llm-status">Lade …</div>
+        <div id="llm-fortschritt" class="llm-fortschritt" hidden>
+            <div class="llm-fortschritt-kopf">
+                <label for="llm-progress" id="llm-progress-label">Prüffortschritt</label>
+                <strong id="llm-progress-prozent">0 %</strong>
+            </div>
+            <progress id="llm-progress" max="100" value="0" aria-describedby="llm-progress-details">0 %</progress>
+            <div id="llm-progress-details" class="hinweis" aria-live="polite"></div>
+        </div>
+        <p id="llm-transport-check" class="hinweis">Dateiübergabe: noch nicht geprüft.</p>
+        <a id="llm-report-link" class="btn btn-sekundaer" href="/api/llm/report/pdf" target="_blank" style="display:none">Testreport mit KI-Prüfnachweis öffnen</a>
         <div class="konfig" style="margin-top:10px">
-            <label>Fälle für die Prüfmenge
-                <input type="number" id="llm-faelle" value="100" min="1" max="500">
+            <label>Maximale Prüffälle
+                <input type="number" id="llm-faelle" value="100" min="2" max="1000">
             </label>
             <div class="aktions-knöpfe">
-                <button type="button" class="btn btn-primaer" id="llm-paket-knopf">🤖 Prüfpaket erstellen</button>
+                <button type="button" class="btn btn-primaer" id="llm-start-knopf">GLM-5.3-Prüfung starten</button>
+                <button type="button" class="btn btn-sekundaer" id="llm-paket-knopf">Prüfpaket ansehen</button>
             </div>
         </div>
         <div id="llm-paket-ergebnis" class="hinweis" style="margin-top:8px"></div>
@@ -269,11 +279,44 @@
             <pre id="llm-prompt" style="white-space:pre-wrap;background:#0f172a;color:#d1e3ea;padding:10px;border-radius:6px;font-size:12px;max-height:340px;overflow:auto"></pre>
         </details>
         <details style="margin-top:8px">
-            <summary style="cursor:pointer">📄 Mitgegebene Dateien &amp; Ablageorte</summary>
+            <summary style="cursor:pointer">📄 Prüfdateien und Übergabenachweis</summary>
             <div id="llm-dateien"></div>
         </details>
     </section>
 </main>
+
+<dialog id="llm-config-dialog" class="llm-config-dialog" aria-labelledby="llm-config-title">
+    <form id="llm-config-form">
+        <div class="abschnitt-kopf">
+            <h2 id="llm-config-title">GLM-5.3 konfigurieren</h2>
+            <button type="button" id="llm-config-close" class="schliessen" aria-label="Konfiguration schließen">✕</button>
+        </div>
+        <p class="hinweis">Der API-Schlüssel wird lokal gespeichert und vom Server nicht zurückgegeben. Ein leeres Feld behält den vorhandenen Schlüssel.</p>
+        <div class="llm-config-grid">
+            <label>API-Endpunkt<input type="url" id="llm-base-url" required placeholder="https://api.z.ai/api/coding/paas/v4"></label>
+            <label>Modell<input type="text" id="llm-model" required value="glm-5.3"></label>
+            <label class="llm-wide">API-Schlüssel<input type="password" id="llm-api-key" autocomplete="new-password" placeholder="Vorhandenen Schlüssel behalten"></label>
+            <label class="llm-wide checkbox-label"><input type="checkbox" id="llm-clear-key"> Lokal gespeicherten Schlüssel entfernen</label>
+            <label>Zeitlimit je Anfrage (Sekunden)<input type="number" id="llm-timeout" min="5" max="900" required></label>
+            <label>Antwortlimit (Tokens)<input type="number" id="llm-max-tokens" min="1024" max="131072" required></label>
+            <label>Fälle je Anfrage<input type="number" id="llm-batch-size" min="1" max="10" required></label>
+            <label>Maximale Prüffälle<input type="number" id="llm-cases" min="2" max="1000" required></label>
+        </div>
+        <p id="llm-key-status" class="hinweis" role="status"></p>
+        <div class="aktions-knöpfe">
+            <button type="submit" id="llm-config-save" class="btn btn-primaer">Speichern</button>
+            <button type="button" id="llm-config-test" class="btn btn-sekundaer">Verbindung zu GLM testen</button>
+        </div>
+        <p id="llm-config-message" class="hinweis" role="status" aria-live="polite"></p>
+    </form>
+</dialog>
+
+<dialog id="llm-retry-dialog" class="llm-retry-dialog" aria-labelledby="llm-retry-title" aria-describedby="llm-retry-message">
+    <h2 id="llm-retry-title">GLM-Prüfung abgebrochen</h2>
+    <p id="llm-retry-message">3 Versuche fehlgeschlagen. Bitte das Laufprotokoll auswerten.</p>
+    <p><strong>Protokolldatei:</strong><br><code id="llm-retry-log"></code></p>
+    <button type="button" class="btn btn-primaer" id="llm-retry-close">Schließen</button>
+</dialog>
 
 <!-- Detail-Dialog (Doppelklick auf Auftrag) -->
 <div id="overlay">
