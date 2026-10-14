@@ -1,8 +1,10 @@
 package de.allgemein.testsweet;
 
 import de.allgemein.lmg.service.SozialLeistungsService;
+import de.allgemein.lmg.service.FachlicheException;
 
 import java.util.Map;
+import java.util.List;
 
 /**
  * Ein benannter Arbeitsschritt eines Szenarios über die Fachschicht.
@@ -17,12 +19,36 @@ import java.util.Map;
  * Ergebnis (z. B. KONKURRENZ beim Speichern eines veralteten Maskenstands) und das
  * Szenario läuft weiter. Jeder andere Fehler bricht den Auftrag als FEHLGESCHLAGEN ab.</p>
  */
-public record SzenarioAktion(String name, String erwarteterFehler, Aktion funktion) {
+public record SzenarioAktion(String name, String erwarteterFehler, Aktion funktion, List<String> erwarteteFehlergruende) {
+
+    public SzenarioAktion(String name, String erwarteterFehler, Aktion funktion) {
+        this(name, erwarteterFehler, funktion, List.of());
+    }
+
+    public SzenarioAktion {
+        erwarteteFehlergruende = List.copyOf(erwarteteFehlergruende);
+        if (erwarteteFehlergruende.stream().anyMatch(String::isBlank))
+            throw new IllegalArgumentException("Leere Fehlergrund-Fragmente sind keine Abwehrprüfung");
+    }
+
+    public boolean akzeptiert(FachlicheException fehler) {
+        return erwarteterFehler != null && erwarteterFehler.equals(fehler.code())
+                && (erwarteteFehlergruende.isEmpty() || fehler.getMessage() != null
+                && erwarteteFehlergruende.stream().anyMatch(fehler.getMessage()::contains));
+    }
 
     /** Ein Negativschritt darf niemals durch eine normale Rückkehr bestehen. */
     public String execute(SozialLeistungsService service, String selbst, String kollege,
             Map<String, Object> kontext) throws Exception {
-        String detail = funktion.ausfuehren(service, selbst, kollege, kontext);
+        String detail;
+        try {
+            detail = funktion.ausfuehren(service, selbst, kollege, kontext);
+        } catch (FachlicheException fehler) {
+            if (erwarteterFehler != null && erwarteterFehler.equals(fehler.code()) && !akzeptiert(fehler))
+                throw new IllegalStateException("Fachfehler " + fehler.code() + " hat den falschen Grund: "
+                        + fehler.getMessage() + "; erwartet mindestens einer von " + erwarteteFehlergruende, fehler);
+            throw fehler;
+        }
         if (erwarteterFehler != null) {
             throw new IllegalStateException("Erwarteter Fachfehler " + erwarteterFehler
                     + " blieb aus: " + name);
@@ -45,5 +71,12 @@ public record SzenarioAktion(String name, String erwarteterFehler, Aktion funkti
     public static SzenarioAktion schrittMitErwartetemFehler(
             String name, String fehlerCode, Aktion funktion) {
         return new SzenarioAktion(name, fehlerCode, funktion);
+    }
+
+    /** Code und einer der ausdrücklich zulässigen Gründe müssen gemeinsam zutreffen. */
+    public static SzenarioAktion schrittMitErwartetemFehler(
+            String name, String fehlerCode, List<String> erlaubteGruende, Aktion funktion) {
+        if (erlaubteGruende.isEmpty()) throw new IllegalArgumentException("Ein Negativszenario braucht einen erwarteten Fehlergrund");
+        return new SzenarioAktion(name, fehlerCode, funktion, erlaubteGruende);
     }
 }

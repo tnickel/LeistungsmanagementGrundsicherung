@@ -25,11 +25,20 @@ public record Rechenblock(
         BigDecimal budget,
         Leistungsberechnung.Berechnungsergebnis ergebnis,
         List<String> zusatzHinweise,
-        BigDecimal budgetRestExpected) {
+        BigDecimal budgetRestExpected,
+        Leistungsberechnung.KduParameter kduParameter) {
 
     public Rechenblock {
         faelle = List.copyOf(faelle);
         zusatzHinweise = zusatzHinweise == null ? List.of() : List.copyOf(zusatzHinweise);
+        kduParameter = java.util.Objects.requireNonNull(kduParameter, "kduParameter");
+    }
+
+    public Rechenblock(String titel, String zahlungsmonat, List<SozialFall> faelle,
+            BigDecimal vermoegen, BigDecimal budget, Leistungsberechnung.Berechnungsergebnis ergebnis,
+            List<String> zusatzHinweise, BigDecimal budgetRestExpected) {
+        this(titel, zahlungsmonat, faelle, vermoegen, budget, ergebnis, zusatzHinweise,
+                budgetRestExpected, Leistungsberechnung.KduParameter.AUS);
     }
 
     public Rechenblock(String titel, String zahlungsmonat, List<SozialFall> faelle,
@@ -53,12 +62,12 @@ public record Rechenblock(
     /** Kopie mit gesetztem Budget (das Budget steht erst nach der Berechnung fest). */
     public Rechenblock mitBudget(BigDecimal neuesBudget) {
         return new Rechenblock(titel, zahlungsmonat, faelle, vermoegen, neuesBudget, ergebnis,
-                zusatzHinweise, budgetRestExpected);
+                zusatzHinweise, budgetRestExpected, kduParameter);
     }
 
     /** Expliziter Buchungsendzustand; der rechnerische Anspruch allein beweist keine Buchung. */
     public Rechenblock mitBudgetRestExpected(BigDecimal expected) {
         return new Rechenblock(titel, zahlungsmonat, faelle, vermoegen, budget, ergebnis,
-                zusatzHinweise, expected);
+                zusatzHinweise, expected, kduParameter);
     }
 }

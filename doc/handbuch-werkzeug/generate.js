@@ -3,7 +3,8 @@
 const {
   Document, Packer, Paragraph, TextRun, Header, Footer, PageNumber, NumberFormat,
   AlignmentType, HeadingLevel, SectionType, TableOfContents, PageBreak, BorderStyle,
-} = require("docx");
+  TabStopType, LeaderType,
+} = require("./runtime").dependency("docx");
 const fs = require("fs");
 const path = require("path");
 const { P, FONT, FONT_HEAD, buildCoverR1, h1, abs, hinweis, teilSeite } = require("./lib");
@@ -11,6 +12,8 @@ const teil1 = require("./teil1");
 const teil2 = require("./teil2");
 
 const AUSGABE = path.join(__dirname, "..", "SDN-Leistung-LMG-Benutzerhandbuch.docx");
+const tocPath = path.join(__dirname, "inhaltsverzeichnis.json");
+const toc = fs.existsSync(tocPath) ? JSON.parse(fs.readFileSync(tocPath, "utf8")) : [];
 
 // ---------------------------------------------------------------- Kopf-/Fußzeilen
 function kopfzeile() {
@@ -43,21 +46,18 @@ const vorwort = [
     children: [new TextRun({ text: "Über dieses Handbuch", bold: true, size: 30, color: P.primary, font: FONT_HEAD })],
   }),
   abs("Dieses Handbuch beschreibt die Fachanwendung SDN.Leistung Leistungsmanagement Grundsicherung in zwei Teilen: Teil I ist die Anwenderdokumentation für die sachbearbeitende Ebene — von der Anmeldung über die Fallbearbeitung bis zu Bescheid, Vier-Augen-Freigabe und Kassenlauf. Teil II ist die technische Dokumentation: Architektur, Transaktionssteuerung, Saga-Muster, Datenmodell, Sicherheit und Konfiguration."),
-  abs("Alle Screenshots entstanden an der laufenden Anwendung gegen eine echte Oracle-Datenbank; alle Fachwerte entsprechen dem Referenzjahr 2026 und dem Softwarestand Version 0.5.3."),
-  hinweis("Inhaltsverzeichnis aktualisieren", "Das Inhaltsverzeichnis ist als Word-Feld angelegt. Nach dem Öffnen bitte mit Rechtsklick auf das Verzeichnis „Felder aktualisieren“ wählen, damit die Seitennummern endgültig stimmen."),
+  abs("Dieses Handbuch beschreibt Version 0.5.8 einschließlich der Review-Nachbesserungen vom 13. Oktober 2026. Ältere Abbildungen bleiben als ausdrücklich gekennzeichnete Orientierung erhalten. Verbindlich für Bedienung und Grenzen ist der aktualisierte Text. Kapitel 21 erklärt testsweet, die GLM-Anbindung und die Belege des Testzertifikats."),
   new Paragraph({
-    alignment: AlignmentType.CENTER,
+    pageBreakBefore: true,
     spacing: { before: 360, after: 240 },
     children: [new TextRun({ text: "Inhaltsverzeichnis", bold: true, size: 30, color: P.primary, font: FONT_HEAD })],
   }),
-  new TableOfContents("Inhaltsverzeichnis", { hyperlink: true, headingStyleRange: "1-3" }),
-  new Paragraph({
-    spacing: { before: 200 },
-    children: [new TextRun({
-      text: "Hinweis: Dieses Inhaltsverzeichnis wird über Feldcodes erzeugt. Nach Änderungen bitte mit Rechtsklick „Felder aktualisieren“ wählen.",
-      italics: true, size: 18, color: "888888", font: FONT,
-    })],
-  }),
+  ...toc.map(entry => new Paragraph({
+    spacing: { after: 95, line: 276 },
+    tabStops: [{ type: TabStopType.RIGHT, position: 8788, leader: LeaderType.DOT }],
+    children: [new TextRun({ text: entry.title, size: 22, font: FONT }),
+      new TextRun({ text: `\t${entry.page}`, size: 22, font: FONT })],
+  })),
 ];
 
 // ---------------------------------------------------------------- Dokument
@@ -83,7 +83,7 @@ const dokument = new Document({
         paragraph: { spacing: { before: 280, after: 140, line: 340 }, outlineLevel: 1 },
       },
       heading3: {
-        run: { font: FONT_HEAD, size: 24, bold: true, color: "1F3A4D" },
+        run: { font: FONT_HEAD, size: 24, bold: true, color: "000000" },
         paragraph: { spacing: { before: 220, after: 100, line: 312 }, outlineLevel: 2 },
       },
     },
@@ -92,16 +92,16 @@ const dokument = new Document({
     // Abschnitt 1: Deckblatt — ohne Seitenzahl, ohne Kopf-/Fußzeile
     {
       properties: {
-        page: { size: seitenFormat, margin: { top: 0, bottom: 0, left: 0, right: 0 } },
+        page: { size: seitenFormat, margin: rand },
       },
       children: buildCoverR1({
         title: "SDN.Leistung Benutzerhandbuch",
         subtitle: "Leistungsmanagement Grundsicherung (SGB XII) — Anwenderdokumentation und technische Dokumentation",
         englishLabel: "BENUTZERHANDBUCH",
         metaLines: [
-          "Version 0.5.3 · Stand: 10. Oktober 2026",
+          "Version 0.5.8 · Stand: 13. Oktober 2026",
           "Modul: Leistungsmanagement Grundsicherung (SDN.Leistung LMG)",
-          "Rechtsgrundlage: SGB XII · Bescheidverfahren nach § 37 SGB X",
+          "Berechnungsmodell: SGB XII · Verwaltungsverfahren: SGB X",
           "Zielgruppen: Sachbearbeitung, Administration, Fachbetreuung",
         ],
         footerLeft: "SDN.Leistung — Leistungsmanagement Grundsicherung",

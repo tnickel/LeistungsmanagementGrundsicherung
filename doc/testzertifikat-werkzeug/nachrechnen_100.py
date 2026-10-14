@@ -19,11 +19,12 @@ def parse_eingabe(zeile):
         u7=int(feld["kinder_u7"]), u16=int(feld["kinder_u16"]), mind=int(feld["kinder_minderjaehrig"]),
         ww=feld["warmwasser"] == "true",
         kdu=sum(D(feld[k]) for k in ("kdu_miete", "kdu_betrieb", "kdu_heizung")),
+        heizung=D(feld["kdu_heizung"]),
         rente=D(feld["rente"]), erwerb=D(feld["erwerb"]),
         abz=sum(D(feld[k]) for k in ("abz_steuern", "abz_sv", "abz_vers", "abz_erwerb")),
     )
 
-def rechne_person(p, monat):
+def rechne_person(p, monat, abzug_anteil=D("0"), kdu_rest=None, neue_parameter=False):
     rb = RBS[p["rbs"]]
     # § 30 Abs. 2: endet mit dem Folgemonat der Entbindung -> im Zahlungsmonat
     # NACH der Entbindung kein Zuschlag mehr
@@ -40,13 +41,20 @@ def rechne_person(p, monat):
     if summe15 > rb:                                            # § 30 Abs. 6 (Kappung)
         summe15 = rb
     zww = R2(rb * WW_PROZENT[p["rbs"]]) if p["ww"] else D("0.00")  # § 30 Abs. 7
-    gesamt = rb + summe15 + zww + p["kdu"]
+    abzug = R2(p["heizung"] * abzug_anteil) if not p["ww"] else D("0.00")
+    kdu = max(D("0.00"), p["kdu"] - abzug)
+    if kdu_rest is not None:
+        kdu = min(kdu, max(D("0.00"), kdu_rest))
+    gesamt = rb + summe15 + zww + kdu
     frei = min(R2(p["erwerb"] * D("0.30")), R2(RBS[1] * D("0.50")))  # § 82 Abs. 3
     anr = max(D("0.00"), p["rente"] + p["erwerb"] - frei - p["abz"])  # § 82 Abs. 2
-    return dict(regelbedarf=rb, mehrbedarf_g=z1, mehrbedarf_schwanger=z2,
+    result = dict(regelbedarf=rb, mehrbedarf_g=z1, mehrbedarf_schwanger=z2,
                 mehrbedarf_alleinerziehend=z3, mehrbedarf_warmwasser=zww,
-                kdu=p["kdu"], gesamtbedarf=gesamt, freibetrag_erwerb=frei,
+                kdu=kdu, gesamtbedarf=gesamt, freibetrag_erwerb=frei,
                 absetzbetaetrag=p["abz"], anrechenbar=R2(anr), zahlbetrag=gesamt-R2(anr))
+    if neue_parameter:
+        result["kdu_warmwasser_abzug"] = abzug
+    return result
 
 def rechne_block(blocktext):
     monat = re.search(r"^zahlungsmonat = (\S+)", blocktext, re.M).group(1)
@@ -57,11 +65,26 @@ def rechne_block(blocktext):
     nummern = re.findall(r"^p(\d+)_eingaben: ", blocktext, re.M)
     if not eingaben or nummern != [str(i) for i in range(1, len(eingaben)+1)]:
         raise ValueError("Personeneingaben fehlen, sind doppelt oder nicht lückenlos")
-    personen = [rechne_person(parse_eingabe(z), monat) for z in eingaben]
+    rate = re.search(r"^kdu_warmwasser_abzug_anteil = ([^\r\n]+)", blocktext, re.M)
+    limit = re.search(r"^kdu_bg_grenze = ([^\r\n]+)", blocktext, re.M)
+    if bool(rate) != bool(limit):
+        raise ValueError("KdU-Parameter unvollständig")
+    rate_value, limit_value = D(rate.group(1)) if rate else D("0"), D(limit.group(1)) if limit else D("0")
+    if not rate_value.is_finite() or not limit_value.is_finite() or not D("0") <= rate_value <= D("1") or limit_value < 0:
+        raise ValueError("KdU-Parameter ungültig")
+    remaining = limit_value if limit_value > 0 else None
+    personen = []
+    for zeile in eingaben:
+        person = rechne_person(parse_eingabe(zeile), monat, rate_value, remaining, bool(rate))
+        personen.append(person)
+        if remaining is not None:
+            remaining -= person["kdu"]
     gesamt = sum(p["gesamtbedarf"] for p in personen)
     anr = sum(p["anrechenbar"] for p in personen)
     erwachsene = sum(1 for z in eingaben if parse_eingabe(z)["rbs"] <= 3)
     schon = D("10000") * erwachsene + D("500") * (len(personen) - erwachsene)  # § 90 Abs. 2 Nr. 9
+    if erwachsene == 0:
+        schon = D("10000")  # Produktvertrag: Grundbetrag einmal, unabhängig von der Kinderzahl.
     verw = max(D("0.00"), vermoegen - schon)
     zahl = gesamt - anr - verw
     return dict(

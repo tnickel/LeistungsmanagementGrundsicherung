@@ -60,6 +60,24 @@ public final class SweetLog implements AutoCloseable {
     private final LinkedBlockingQueue<Eintrag> queue = new LinkedBlockingQueue<>();
     private final Thread writerThread;
     private volatile boolean geschlossen = false;
+    /** Erster I/O-Fehler bleibt auch nach einem später erfolgreichen Schreibaufruf bestehen. */
+    private volatile IOException schreibfehler;
+    private final Object fehlerSchloss = new Object();
+
+    public IOException schreibfehler() { return schreibfehler; }
+
+    public boolean vollstaendig() { return geschlossen && schreibfehler == null; }
+
+    private void merkeSchreibfehler(IOException fehler) {
+        boolean erster;
+        synchronized (fehlerSchloss) {
+            erster = schreibfehler == null;
+            if (erster) schreibfehler = fehler;
+            else if (schreibfehler != fehler && schreibfehler.getSuppressed().length < 8)
+                schreibfehler.addSuppressed(fehler);
+        }
+        if (erster) System.err.println("Lognachweis unvollständig: " + fehler);
+    }
 
     public SweetLog(Path basisVerzeichnis) throws IOException {
         Files.createDirectories(basisVerzeichnis);
@@ -120,8 +138,13 @@ public final class SweetLog implements AutoCloseable {
     /** Schreibt die Laufzusammenfassung (Kenndaten) in zusammenfassung.txt. */
     public void zusammenfassung(String text) throws IOException {
         Path datei = runVerzeichnis.resolve("zusammenfassung.txt");
-        Files.writeString(datei, text, StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        try {
+            Files.writeString(datei, text, StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        } catch (IOException e) {
+            merkeSchreibfehler(e);
+            throw e;
+        }
         reiheEin(simulation, "SIMULATOR", "", "Zusammenfassung geschrieben: " + datei);
     }
 
@@ -175,6 +198,7 @@ public final class SweetLog implements AutoCloseable {
                 try {
                     return oeffne(n);
                 } catch (IOException e) {
+                    merkeSchreibfehler(e);
                     throw new UncheckedIOException2(e);
                 }
             });
@@ -213,18 +237,18 @@ public final class SweetLog implements AutoCloseable {
             try {
                 datei.flush();
             } catch (IOException e) {
-                System.err.println("Logfehler (flush): " + e);
+                merkeSchreibfehler(e);
             }
         }
     }
 
-    /** Synchroner Fallback/Schluss-Schreibweg — Logverlust darf den Lauf nicht brechen. */
+    /** Asynchrone Fehler brechen Worker nicht ab, entwerten aber dauerhaft den Nachweis. */
     private void schreibeDirekt(BufferedWriter datei, String zeile) {
         try {
             datei.write(zeile);
             datei.newLine();
         } catch (IOException e) {
-            System.err.println("Logfehler: " + e);
+            merkeSchreibfehler(e);
         }
     }
 
@@ -280,16 +304,16 @@ public final class SweetLog implements AutoCloseable {
             for (BufferedWriter datei : dateien.values()) {
                 try {
                     datei.close();
-                } catch (IOException ignored) {
-                    // beim Aufräumen egal
+                } catch (IOException e) {
+                    merkeSchreibfehler(e);
                 }
             }
             dateien.clear();
             for (BufferedWriter datei : new BufferedWriter[]{simulation, verifikation, fehler}) {
                 try {
                     datei.close();
-                } catch (IOException ignored) {
-                    // beim Aufräumen egal
+                } catch (IOException e) {
+                    merkeSchreibfehler(e);
                 }
             }
         }

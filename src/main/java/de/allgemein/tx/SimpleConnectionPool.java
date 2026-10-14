@@ -189,16 +189,16 @@ public final class SimpleConnectionPool implements ConnectionPool {
             }
             if (!connection.getAutoCommit()) {
                 // JDBC-Spezifikation: setAutoCommit(true) committet eine offene
-                // Transaktion implizit. Erst zurückrollen (quietly), dann in den
+                // Transaktion implizit. Erst erfolgreich zurückrollen, dann in den
                 // Autocommit-Modus schalten — release() darf keinen Teilstand
                 // festschreiben (z. B. wenn der TxManager einen Error durchreicht).
-                rollbackQuietly(connection);
+                connection.rollback();
                 connection.setAutoCommit(true);
             }
             if (!idle.offer(connection)) {
                 closeQuietly(connection);
             }
-        } catch (SQLException e) {
+        } catch (SQLException | RuntimeException e) {
             // Defekte Verbindung: verwerfen statt zurücklegen — das Permit wird
             // unten in jedem Fall genau einmal zurückgegeben.
             closeQuietly(connection);
@@ -230,14 +230,6 @@ public final class SimpleConnectionPool implements ConnectionPool {
         } catch (SQLException | RuntimeException e) {
             LOG.fine(() -> "Verbindung besteht die Gültigkeitsprüfung nicht, wird verworfen: " + e);
             return false;
-        }
-    }
-
-    private void rollbackQuietly(Connection connection) {
-        try {
-            connection.rollback();
-        } catch (SQLException e) {
-            LOG.fine(() -> "Rollback vor dem Zurückstellen fehlgeschlagen: " + e.getMessage());
         }
     }
 

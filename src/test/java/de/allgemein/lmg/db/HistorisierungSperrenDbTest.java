@@ -33,13 +33,12 @@ import static org.junit.jupiter.api.Assertions.*;
 class HistorisierungSperrenDbTest {
     private static final BigDecimal ZERO = BigDecimal.ZERO;
 
-    /** Der Proxy beobachtet SQL; nur der globale Kassen-Select wird auf den eigenen Testfall begrenzt. */
+    /** Der Proxy beobachtet die echte SQL-Ausführung, ohne die getesteten Queries umzuschreiben. */
     private static final class ProbePool implements ConnectionPool {
         private final SimpleConnectionPool delegate = new SimpleConnectionPool(
                 System.getenv("TX_URL"), System.getenv("TX_USER"), System.getenv("TX_PASS"), 4);
         private final Map<Connection, Connection> originals = Collections.synchronizedMap(new IdentityHashMap<>());
         private volatile CountDownLatch bgRead;
-        private volatile long onlyBg;
 
         @Override
         public Connection getConnection() throws java.sql.SQLException {
@@ -48,10 +47,6 @@ class HistorisierungSperrenDbTest {
                     new Class<?>[]{Connection.class}, (p, method, args) -> {
                         try {
                             if (method.getName().equals("prepareStatement") && args[0] instanceof String sql) {
-                                if (onlyBg != 0 && sql.startsWith("SELECT z.ID")) {
-                                    sql = sql.replace("FOR UPDATE ORDER BY z.ID",
-                                            "AND z.BG_ID = " + onlyBg + " FOR UPDATE ORDER BY z.ID");
-                                }
                                 PreparedStatement statement = raw.prepareStatement(sql);
                                 String query = sql;
                                 return Proxy.newProxyInstance(getClass().getClassLoader(),
@@ -184,11 +179,11 @@ class HistorisierungSperrenDbTest {
                 var payment = service.ordneAuszahlungAn(new Auszahlungsauftrag(bgId, "HSP-" + UUID.randomUUID(),
                         "2026-10", "sb-sperre", false, null, null, null)).zahlung();
                 service.freigebenZahlung(payment.id(), "sb-zweit");
-                pool.onlyBg = bgId;
+                String scope = service.ladeDetail(bgId).bedarfsgemeinschaft().aktenzeichen();
                 try (Connection historian = connect(); var executor = Executors.newSingleThreadExecutor()) {
                     historizeUncommitted(historian, bgId);
                     pool.bgRead = new CountDownLatch(1);
-                    var future = executor.submit(() -> service.uebergebeBereiteZahlungen("admin-test"));
+                    var future = executor.submit(() -> service.uebergebeBereiteZahlungen("admin-test", scope));
                     try {
                         assertTrue(pool.bgRead.await(5, TimeUnit.SECONDS), "Kassenlauf prüft Aktivität unter BG-Sperre");
                         assertThrows(TimeoutException.class, () -> future.get(300, TimeUnit.MILLISECONDS));

@@ -7,6 +7,7 @@ import java.sql.Connection;
 import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 
@@ -151,6 +152,47 @@ class TaskControllerTest {
         TaskStats stats = controller.stats();
         assertEquals(1, stats.completed());
         assertEquals(0, stats.active());
+    }
+
+    @Test
+    void erzwungenesCloseBrichtAuchVerworfeneQueueTasksAb() throws Exception {
+        TaskController controller = new TaskController(new TxManager(STUB_POOL), 1, 4);
+        CountDownLatch running = new CountDownLatch(1);
+        try {
+            TaskHandle<String> active = controller.submit("aktiv", TxOptions.DEFAULT, ctx -> {
+                running.countDown();
+                new CountDownLatch(1).await();
+                return "unerreichbar";
+            });
+            assertTrue(running.await(5, TimeUnit.SECONDS));
+            TaskHandle<String> queued = controller.submit("wartend", TxOptions.DEFAULT, ctx -> "nie");
+            Thread.currentThread().interrupt();
+            controller.close(); // dieselbe shutdownNow-Entleerung wie nach Drain-Timeout
+            assertTrue(Thread.interrupted(), "close muss den Interrupt des Aufrufers erhalten");
+            assertTrue(queued.isDone(), "ein verworfener Future darf nicht dauerhaft offen bleiben");
+            assertThrows(TxException.class, queued::result);
+            assertThrows(TxException.class, active::result);
+            assertTrue(warteAuf(() -> controller.stats().active() == 0));
+            assertEquals(2, controller.stats().failed(), "jeden Abbruch genau einmal abrechnen");
+            assertEquals(0, controller.stats().completed());
+        } finally {
+            Thread.interrupted();
+            controller.close();
+        }
+    }
+
+    @Test
+    void abgeschlosseneTasksEntfernenWatchdogTimerSofort() throws Exception {
+        try (TaskController controller = new TaskController(new TxManager(STUB_POOL), 1, 4)) {
+            for (int i = 0; i < 250; i++) {
+                assertEquals("ok", controller.submit("kurz", TxOptions.DEFAULT.withTimeout(Duration.ofHours(1)),
+                        ctx -> "ok").result());
+            }
+            var field = TaskController.class.getDeclaredField("watchdog");
+            field.setAccessible(true);
+            ScheduledThreadPoolExecutor watchdog = (ScheduledThreadPoolExecutor) field.get(controller);
+            assertEquals(0, watchdog.getQueue().size(), "keine 250 abbestellten Ein-Stunden-Timer behalten");
+        }
     }
 
     @Test

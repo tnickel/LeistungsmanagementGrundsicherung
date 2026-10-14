@@ -33,99 +33,44 @@ final class TestfallKatalog {
     }
 
     // ------------------------------------------------------------------
-    // POSITIV — Fachschicht (10 Szenario-Arten, gewichtet)
+    // POSITIV — Fachschicht (10 Grundarten, 9 feste Grenzfälle, Kombinationsgenerator)
     // ------------------------------------------------------------------
 
     private static List<Eintrag> positivFachschicht() {
         return List.of(
-                new Eintrag("Standardrente mit Vier-Augen-Kette", "ca. 22 % der Aufträge",
-                        """
-                        Der Grunddurchlauf des Systems: Anlage eines Vorgangs (Budget 1.200 EUR) mit einem \
-                        SozialFall der Regelbedarfsstufe 1 und Kosten der Unterkunft (Kaltmiete 350, Betriebskosten 60, \
-                        Heizung 80 = 490 EUR). Anordnung der Auszahlung für den laufenden Monat durch den Erfasser, \
-                        dann versucht derselbe Erfasser die eigene Freigabe — das muss mit dem Fachfehler BERECHTIGUNG \
-                        abgewehrt werden (Vier-Augen-Prinzip). Erst der Kollege gibt frei (ANGELEGT → BEREIT). \
-                        Erwarteter DB-Endzustand: genau eine Zahlung mit 1.053,00 EUR (563 Regelbedarf + 490 KdU), \
-                        Status BEREIT, SACHBEARBEITER_ID = Erfasser, FREIGEGEBEN_VON = Kollege, Restbudget 147,00 EUR, \
-                        Journaleintrag der Freigabe zugeordnet."""),
-                new Eintrag("Paar in gemeinsamer Wohnung", "ca. 10 %",
-                        """
-                        Zwei SozialFälle (je Regelbedarfsstufe 2 = 506,00 EUR) in einem Vorgang; die Kosten der \
-                        Unterkunft (650,00 EUR) stehen am ersten Fall und gelten vorgangsweit. Erwartet: Zahlbetrag \
-                        1.662,00 EUR (506 + 506 + 650), FALL_ID der Zahlung bleibt NULL, weil bei zwei Personen kein \
-                        eindeutiger Fall zugeordnet werden kann; Restbudget und Journaleinträge nur den eigenen \
-                        Bearbeitern zugeordnet."""),
-                new Eintrag("Mehrbedarfe nach § 30 SGB XII", "ca. 10 %",
-                        """
-                        Einzelfall mit Merkzeichen-G- und/oder Schwangerschafts-Mehrbedarf (je 17 % der Regelbedarfs-\
-                        stufe) und/oder dezentraler Warmwassererzeugung (stufenabhängig 2,3 bis 0,8 %; Stufe 3 ohne \
-                        Satz). Die Summe der Mehrbedarfe nach Abs. 1–5 darf die Regelbedarfsstufe nie übersteigen \
-                        (§ 30 Abs. 6), der Warmwasser-Anteil liegt außerhalb dieses Deckels. Erwartet: Zahlbetrag = \
-                        Regelbedarf + Mehrbedarfe, persistierte Merkmals-Flags am SozialFall, Betrag exakt wie \
-                        vorab berechnet."""),
-                new Eintrag("Familie / Alleinerziehende", "ca. 10 %",
-                        """
-                        Mutter (Regelbedarfsstufe 1) mit zwei Kindern unter 16 als eigene SozialFälle der Stufe 6. \
-                        Der Alleinerziehenden-Mehrbedarf wird mit 36 % der Regelbedarfsstufe 1 angesetzt (zwei bis drei \
-                        Kinder unter 16, § 30 Abs. 3 Nr. 1), die Kinder zählen als eigene Fälle. Erwartet: drei \
-                        SozialFall-Zeilen, Zahlbetrag 2.189,68 EUR im Referenzfall, FALL_ID NULL, Wiedervorlagedatum \
-                        am Vorgang persistiert."""),
-                new Eintrag("Erwerbstätiger mit Freibetrag und Absetzbeträgen", "ca. 10 %",
-                        """
-                        Erwerbseinkommen (z. B. 1.200 EUR brutto) wird nach § 82 SGB XII bereinigt: erst die \
-                        Absetzbeträge nach Abs. 2 (Steuern, Sozialversicherung, Versicherungen, Erwerbsaufwendungen), \
-                        dann der Erwerbsfreibetrag nach Abs. 3 (30 % des Bruttos, gedeckelt auf 50 % der \
-                        Regelbedarfsstufe 1 = 281,50 EUR). Erwartet: anrechenbares Einkommen exakt nach dieser \
-                        Reihenfolge, Zahlbetrag = Bedarf − anrechenbar, persistierte Absetz-Felder."""),
-                new Eintrag("Vermögen über dem Schonvermögen", "ca. 10 % (mit Zufallszweig)",
-                        """
-                        Vorgang mit deklariertem Vermögen. Liegt es über dem Schonvermögen (10.000 EUR je erwachsener \
-                        Person, § 90 Abs. 2 Nr. 9 SGB XII), wird der übersteigende Teil auf den Bedarf angerechnet und \
-                        mit der Auszahlung verbraucht (Verbrauchsfortschreibung: der Bestand sinkt auf das \
-                        Schonvermögen). Ein Zufallszweig legt das Vermögen so hoch, dass Einkommen/Vermögen den Bedarf \
-                        übersteigen — dann muss die Anordnung mit KEIN_ANSPRUCH abgewiesen werden und die Datenbank \
-                        unverändert bleiben (keine Zahlung, Budget unangetastet)."""),
-                new Eintrag("Doppelklick / Netzwerk-Wiederholung (Idempotenz)", "ca. 7 %",
-                        """
-                        Derselbe Auszahlungsauftrag wird zweimal mit identischer VORGANGS_NR gesendet — wie bei einem \
-                        Doppelklick oder einem Netzwerk-Timeout mit Wiederholung. Erwartet: der zweite Aufruf erkennt \
-                        die bereits gebuchte Zahlung (Antwort „bereits gebucht“, dieselbe Zahlungs-ID), die Datenbank \
-                        enthält genau EINE Zahlung, genau einen Journaleintrag und das Restbudget ist nur EINMAL \
-                        gemindert."""),
-                new Eintrag("Storno und korrigierte Neuauszahlung im selben Monat", "ca. 10 %",
-                        """
-                        Anordnung und Freigabe für einen Monat, dann Storno (ANGELEGT/BEREIT → STORNIERT) mit \
-                        vollständiger Budget-Rückbuchung und Vermögens-Rückbuchung des dokumentierten Einsatzes. Danach \
-                        Korrektur des Falls (Miete ändern, optimistisches Locking hebt die Version an) und erneute \
-                        Anordnung für denselben Monat — zulässig, weil der Storno den Monat freigibt. Erwartet: zwei \
-                        Zahlungszeilen (alte STORNIERT mit altem Betrag, neue mit korrigiertem), Budget konsistent, \
-                        Fall-Version erhöht."""),
-                new Eintrag("Konkurrenz beim Masken speichern (Lost-Update)", "ca. 6 %",
-                        """
-                        Zwei Sachbearbeiter öffnen denselben Fall. Der erste speichert eine Mietkorrektur erfolgreich \
-                        (Version 1 → 2), der zweite sendet danach mit dem veralteten Maskenstand (Version 1). Erwartet: \
-                        der zweite Speicherversuch wird mit dem Fachfehler KONKURRENZ abgewiesen, die Korrektur des \
-                        ersten Bearbeiters bleibt unangetastet (KDU_MIETE = neuer Wert, VERSION = 2) — kein \
-                        Lost Update."""),
-                new Eintrag("Kassenlauf parallel zu Freigaben", "ca. 6 %",
-                        """
-                        Der Kassenläufer läuft bewusst parallel zu laufenden Freigaben: Er sperrt die BEREIT-Zahlungen, \
-                        übergibt exakt diese gesperrte Menge (ANGELEGT-Beginner und Freigaben, die währenddessen \
-                        committen, gehören zum nächsten Lauf). Erwartet: Anzahl == Summe der Übergabe konsistent, \
-                        Status UEBERGEBEN nur mit gesetztem FREIGEGEBEN_VON, kein Zahlungszustand „kaputt“."""),
-                new Eintrag("Kombinationsfälle (KOMBINATION) — systematisch gestreut", "Rest des Topfs",
-                        """
-                        Der Kombinationsgenerator füllt den Auftragstopf über die kuratierten Arten hinaus mit \
-                        garantiert VERSCHIEDENEN Konstellationen: Haushaltsform (Single, Paar, Alleinerziehende mit \
-                        Kindern, Paar mit Kindern), je Person gezogene Regelbedarfsstufe, Merkzeichen G, Schwangerschaft \
-                        (mit und ohne Entbindungsmonat — der Mehrbedarf entfällt dann im Zahlungsmonat automatisch), \
-                        dezentrales Warmwasser, Wohnkosten (am ersten Fall oder aufgeteilt), Renten- und Erwerbs- \
-                        einkommen mit Absetzbeträgen, Vermögen im und über dem Schonvermögen sowie zufällig gewählte \
-                        Wege (Bewilligungsbescheid mit Zeitraum, Vier-Augen-Freigabe, Doppelklick-Wiederholung, \
-                        Storno mit Mietekorrektur und Neu-Anordnung). Eine Signatur-Menge stellt sicher, dass keine \
-                        Konstellation zweimal vorkommt. Erwartet wird der vollständige Datenbank-Endzustand je \
-                        Kombination — gerechnet mit derselben Berechnung wie die Fachschicht, inklusive Vermögens- \
-                        verbrauchsfortschreibung (§ 90) und Fall-Versionierung."""));
+                new Eintrag("Standardrente mit Vier-Augen-Kette", "Auftrag 1, sofern im Topf",
+                        "Einzelfall mit gestreuter Regelbedarfsstufe 1–3 und Wohnkosten. Nach der Anordnung wird die Selbstfreigabe ausdrücklich abgewehrt; anschließend gibt der Kollege frei. SQL prüft Betrag, Restbudget, Stufe, Freigabevermerk und genau ein Freigabejournal."),
+                new Eintrag("Paar in gemeinsamer Wohnung", "Auftrag 2, sofern im Topf",
+                        "Zwei Personen der Regelbedarfsstufe 2, Wohnkosten nur am ersten Fall. Geprüft werden die gemeinsame Auszahlung, das Restbudget und die fehlende Freigabe; die Beträge ergeben sich aus den tatsächlich gezogenen Eingaben."),
+                new Eintrag("Mehrbedarfe nach § 30 SGB XII", "Auftrag 3, sofern im Topf",
+                        "Gestreute Merkmale für Merkzeichen G, Schwangerschaft und Warmwasser. Die dokumentierten Rechenblöcke einschließlich Zwischenwerten werden unabhängig nachgerechnet; SQL prüft den persistierten Betrag, die Stufe, Budget und fehlende Freigabe."),
+                new Eintrag("Familie / Alleinerziehende", "Auftrag 4, sofern im Topf",
+                        "Alleinerziehende Person und Kinder als eigene SozialFälle. Der konkrete Kinderbestand bestimmt den Mehrbedarf. SQL prüft Auszahlung und Restbudget; die unabhängige Referenz prüft sämtliche dokumentierten Personen und Rechenwerte."),
+                new Eintrag("Erwerbstätiger mit Freibetrag und Absetzbeträgen", "Auftrag 5, sofern im Topf",
+                        "Gestreutes Erwerbseinkommen mit Absetzbeträgen. Freibetrag, anrechenbares Einkommen und Zahlbetrag werden mit einer unabhängigen BigDecimal-Referenz kontrolliert; SQL prüft Auszahlung, Budget, Stufe und fehlende Freigabe."),
+                new Eintrag("Vermögen über dem Schonvermögen", "Auftrag 6, sofern im Topf",
+                        "Gestreuter Vermögensbestand führt zur Auszahlung mit Verbrauchsfortschreibung oder zur erwarteten KEIN_ANSPRUCH-Abwehr. Vor und nach jedem Fehlversuch wird der gesamte Fachbestand einschließlich Versionen und Fachjournal verglichen."),
+                new Eintrag("Doppelklick / Netzwerk-Wiederholung (Idempotenz)", "Auftrag 7, sofern im Topf",
+                        "Derselbe Auftrag wird zweimal mit derselben Vorgangsnummer gesendet. Geprüft werden die Wiederholungsantwort, genau eine Zahlung, genau eine Zahlungsbuchung, nur einmal gemindertes Budget und keine unbeabsichtigte Freigabe."),
+                new Eintrag("Storno und korrigierte Neuauszahlung im selben Monat", "Auftrag 8, sofern im Topf",
+                        "Storno, Mietkorrektur und Neuanordnung für denselben Monat. Geprüft werden zwei Zahlungszeilen, alte STORNIERT-Zahlung, korrigierter Betrag, Restbudget und Fallversion. Vermögenseinsatz wird zusätzlich in Kombinationsfällen mit Storno geprüft."),
+                new Eintrag("Konkurrenz beim Masken speichern (Lost-Update)", "Auftrag 9, sofern im Topf",
+                        "Eine gültige Mietkorrektur wird gespeichert; ein veralteter Maskenstand muss danach KONKURRENZ auslösen. SQL prüft neue Miete und Version 2; der vollständige Vorher/Nachher-Vergleich sichert den abgewehrten Versuch ab."),
+                new Eintrag("Kassenlauf mit eigener deterministischer Zahlung", "Auftrag 10 sowie jeder 50. Auftrag",
+                        "Jeder Kassenauftrag bereitet eine eigene BEREIT-Zahlung vor und übergibt nur diesen Vorgang. Rückgabeanzahl, Summe, Zahlungsidentität, Freigebender und genau ein Journal unter einer eindeutigen Kennung müssen stimmen. Parallele fremde Freigaben verändern die Sollmenge nicht."),
+                new Eintrag("Entbindungsmonat und Folgemonat", "Auftrag 11",
+                        "Zwei tatsächliche Monatszahlungen mit Bescheid: Schwangerschaftsmehrbedarf gilt im Entbindungsmonat und entfällt danach. Beide Zahlbeträge, Vermögenseinsätze und das Endbudget werden per SQL geprüft."),
+                new Eintrag("Vermögensverbrauch im Folgemonat", "Auftrag 12",
+                        "10.500 EUR Vermögen bei einer erwachsenen Person: Einsatz 500 EUR nur im ersten Monat, danach null. Zwei Monatszahlungen, Restvermögen und Budget werden separat geprüft."),
+                new Eintrag("Alleinerziehend mit vier Kindern", "Auftrag 13", "Feste vier minderjährige Kinder ohne U7-/U16-Merkmal: 48 % der RBS 1; vollständiger Haushalt und Zahlbetrag."),
+                new Eintrag("Alleinerziehend mit fünf Kindern", "Auftrag 14", "Feste fünf minderjährige Kinder: 60 % der RBS 1; vollständiger Haushalt und Zahlbetrag."),
+                new Eintrag("Alleinerziehend mit sechs Kindern", "Auftrag 15", "Feste sechs minderjährige Kinder: 72 % roh, auf 60 % der RBS 1 gekappt; vollständiger Haushalt und Zahlbetrag."),
+                new Eintrag("Mehrbedarfsobergrenze Abs. 6", "Auftrag 16", "Synthetische RBS-2-Merkmalskombination: G, Schwangerschaft, sechs Kinder und dezentrales Warmwasser. Abs. 1–5 werden auf den Regelbedarf gekappt; Abs. 7 kommt hinzu. Technischer Rechenzweig, keine Behauptung juristischer Zulässigkeit aller Merkmale."),
+                new Eintrag("Örtlicher zentraler Warmwasserabzug", "Auftrag 17", "Eigene unveränderliche Servicekonfiguration: 10 % der Heizkosten bei zentralem Warmwasser. Parameter und Abzug stehen im Rechenblock; keine globale Konfigurationsmutation."),
+                new Eintrag("Gemeinsame KdU-Grenze", "Auftrag 18", "Zwei Personen mit zusammen 1.000 EUR KdU, BG-Grenze 600 EUR. Das Restlimit wird in Personenreihenfolge verteilt und unabhängig nachgerechnet."),
+                new Eintrag("Minderjährige ohne Erwachsene", "Auftrag 19", "Produktvertrag: Grundbetrag einmal 10.000 EUR statt 500 EUR. Die unabhängigen Java-, JavaScript- und Python-Referenzen prüfen denselben ausdrücklich dokumentierten Vertrag."),
+                new Eintrag("Kombinationsfälle (KOMBINATION) — systematisch gestreut", "Alle übrigen Aufträge ab 20; bei 500 Fällen: 471",
+                        "Garantiert verschiedene Haushalte, Merkmale, Einkommen, Vermögen und Abläufe. Jeder numerische Rechenblock wird mit einer unabhängigen Referenz 2026 nachgerechnet. SQL prüft den geplanten Endzustand, Bescheid von/bis und bei Vermögens-Storno die Rückbuchung sowie den Einsatz beider Zahlungen."));
     }
 
     // ------------------------------------------------------------------

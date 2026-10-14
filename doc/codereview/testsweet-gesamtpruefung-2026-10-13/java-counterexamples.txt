@@ -1,0 +1,6 @@
+GLM_FAIL_MD: lauf_erfolgreich_true=true, fachpruefung_false=true, finding_present=false
+GLM_FAIL_PDF_COVER: BESTANDEN=true
+MULTIPLE_ROWS: accepted=true, next_calls=1
+HOLLOW_LLM_PASS: accepted=true
+REPORT_WRITE_FAILURE: lauf_erfolgreich=true, old_report_retained=true
+LOG_WRITE_FAILURE: propagated=false, lauf_erfolgreich=true

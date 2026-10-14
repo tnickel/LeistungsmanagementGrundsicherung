@@ -226,8 +226,8 @@ class EchteDbVerifikationTest {
         var freigegeben = service.freigebenZahlung(zahlung.id(), "sb-freigabe");
         assertEquals("BEREIT", freigegeben.status());
 
-        var ergebnis = service.uebergebeBereiteZahlungen("admin-01");
-        assertTrue(ergebnis.anzahl() >= 1, "mindestens die eigene Zahlung sollte übergeben werden");
+        var ergebnis = service.uebergebeBereiteZahlungen("admin-01", bg.aktenzeichen());
+        assertEquals(1, ergebnis.anzahl(), "genau die eigene Zahlung wird übergeben");
         var pruefung = service.letzteZahlungen(50).stream()
                 .filter(z -> z.id() == zahlung.id()).findFirst().orElseThrow();
         assertEquals("UEBERGEBEN", pruefung.status());
@@ -498,6 +498,8 @@ class EchteDbVerifikationTest {
                             + "VALUES (SEQ_JOURNAL.NEXTVAL, ?, ?, 'saga-engine', SYSTIMESTAMP)")) {
                 journal.setLong(1, bgId);
                 journal.setString(2, "Antrags-Saga " + sagaId + ": Vorgang " + az + " erfasst");
+                journal.executeUpdate();
+                journal.setString(2, "Antrags-Saga " + sagaId + ": Bescheid-ID " + bescheidId);
                 journal.executeUpdate();
             }
             c.commit();

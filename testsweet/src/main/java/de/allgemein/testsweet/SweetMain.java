@@ -10,7 +10,7 @@ import java.net.URI;
  * Projektordner:
  *
  * <pre>
- *   mvn -f testsweet/pom.xml compile exec:java
+ *   mvn -f testsweet/pom.xml process-classes exec:java
  * </pre>
  *
  * Voraussetzung: das Hauptprojekt wurde einmalig mit {@code mvn install} ins lokale
@@ -19,6 +19,19 @@ import java.net.URI;
 public final class SweetMain {
 
     public static void main(String[] args) throws Exception {
+        BuildEvidence.initialize();
+        try { run(args); }
+        catch (IllegalArgumentException error) {
+            System.err.println("Ungültige Konfiguration: " + error.getMessage());
+            System.exit(2);
+        }
+    }
+
+    private static void run(String[] args) throws Exception {
+        if(args.length>0&&"certificate-worker".equals(args[0])) {
+            if(args.length!=2)throw new IllegalArgumentException("Zertifikatsworker benötigt genau ein Laufverzeichnis");
+            CertificateSuiteWorker.run(java.nio.file.Path.of(args[1]));return;
+        }
         if (args.length > 0 && "run".equalsIgnoreCase(args[0])) {
             int ma = args.length > 1 ? Integer.parseInt(args[1]) : 10;
             int auf = args.length > 2 ? Integer.parseInt(args[2]) : 60;
@@ -69,6 +82,7 @@ public final class SweetMain {
         }
 
         int port = ganzeZahlAusUmgebung("SWEET_PORT", 8095);
+        if (port < 1 || port > 65535) throw new IllegalArgumentException("SWEET_PORT muss zwischen 1 und 65535 liegen");
         Simulator simulator = new Simulator();
         SweetServer server = new SweetServer(simulator, port);
         server.start();
@@ -119,7 +133,7 @@ public final class SweetMain {
         try {
             return Integer.parseInt(wert.trim());
         } catch (NumberFormatException e) {
-            return standard;
+            throw new IllegalArgumentException(name + " muss eine Ganzzahl sein");
         }
     }
 

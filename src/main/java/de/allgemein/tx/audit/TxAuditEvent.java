@@ -19,8 +19,8 @@ public record TxAuditEvent(
 
     public String toLogLine() {
         StringBuilder sb = new StringBuilder();
-        sb.append(timestamp).append(" [").append(threadName).append("] ")
-          .append(category).append(".").append(eventType)
+        sb.append(timestamp).append(" [").append(bereinige(threadName)).append("] ")
+          .append(bereinige(category)).append(".").append(bereinige(eventType))
           .append(" id=").append(bereinige(correlationId));
         if (attempt > 0) {
             sb.append(" attempt=").append(attempt);

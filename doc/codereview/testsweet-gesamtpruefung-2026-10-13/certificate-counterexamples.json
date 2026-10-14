@@ -1,0 +1,92 @@
+{
+  "method": "Produktiver Aggregations-/Auswahlcode in isolierter Node-VM mit virtuellem Dateisystem; keine echten Zertifikate oder Nachweise erzeugt/verändert.",
+  "repository": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung",
+  "generatedAt": "2026-10-13T16:03:40.916Z",
+  "allCounterexamplesReproduced": true,
+  "count": 5,
+  "tests": [
+    {
+      "id": "failed-web-hidden-by-later-successful-fachschicht",
+      "input": "WEB/POSITIV 11:00 fehlgeschlagen; FACH/POSITIV 12:00 erfolgreich; übrige Kategorien erfolgreich; gültiger LLM-Nachweis",
+      "actualVerdict": "BESTANDEN",
+      "warnings": [],
+      "selectedPositiveRun": {
+        "verifiziert": 1,
+        "gesamt": 1,
+        "erfolgreich": true,
+        "modus": "Fachschicht",
+        "ordner": "testsweet/logs/run-20261013-120000-POSITIV",
+        "zeit": "2026-10-13"
+      },
+      "webRow": {
+        "haken": "✓",
+        "titel": "testsweet über die Weboberfläche (Selenium) — 60/60 + 60/60 verifiziert (manuell gepflegt)"
+      },
+      "expectedForStrictCertification": "Fehlerhafter WEB/POSITIV-Lauf muss separat sichtbar bleiben und ein grünes Gesamturteil verhindern."
+    },
+    {
+      "id": "newest-run-without-summary-ignored",
+      "input": "Erfolgreiche ältere Läufe; neuester run-Ordner ohne zusammenfassung.txt (z. B. Ausnahmeabbruch); gültiger LLM-Nachweis",
+      "actualVerdict": "BESTANDEN",
+      "warnings": [],
+      "expectedForStrictCertification": "Ein gestarteter, abgebrochener Lauf benötigt einen auswertbaren Status; ältere Erfolge dürfen ihn nicht verdecken."
+    },
+    {
+      "id": "zero-of-zero-accepted-as-passed",
+      "input": "Neueste POSITIV-Zusammenfassung behauptet Lauf erfolgreich:true bei Aufträge:0 und verifiziert:0",
+      "actualVerdict": "BESTANDEN",
+      "selectedPositiveRun": {
+        "verifiziert": 0,
+        "gesamt": 0,
+        "erfolgreich": true,
+        "modus": "Fachschicht",
+        "ordner": "testsweet/logs/run-20261013-130000-POSITIV",
+        "zeit": "2026-10-13"
+      },
+      "expectedForStrictCertification": "Ein leerer Prüfumfang darf keine bestandene Prüfschicht liefern.",
+      "scope": "Robustheitsprobe für widersprüchliche Eingabebelege; reguläre GUI erzwingt positive Auftragszahlen."
+    },
+    {
+      "id": "automatic-test-results-never-read",
+      "input": "Virtuelles Dateisystem enthält keinerlei Surefire-/JUnit-Belege",
+      "unitRow": {
+        "haken": "✓",
+        "titel": "Unit-Tests der Fach- und Kernschicht — 249/249 geprüft (Oracle-Lauf plus isolierter Konfigurationstest) grün (manuell gepflegt, Stand 2026-10-13)"
+      },
+      "goldValuesRow": {
+        "haken": "✓",
+        "titel": "Goldwerte — 9 von Hand gerechnete Referenzfälle"
+      },
+      "scenarioRow": {
+        "haken": "✓",
+        "titel": "Szenario-Regression — 10 Nutzer-Szenarien mit SQL-Endzustandsprüfung"
+      },
+      "ownSimulatorTestsCovered": false,
+      "actualVerdict": "BESTANDEN",
+      "expectedForStrictCertification": "Aktuelle Ergebnisse aus Hauptprojekt und testsweet inklusive Fehlern/Skips müssen nachgewiesen sein."
+    },
+    {
+      "id": "new-interrupted-glm-review-hidden-by-old-pass",
+      "input": "Korrekt validierbarer alter PASS mit result.json; neuer gestarteter Review ohne result.json, etwa nach Prozessabbruch",
+      "actual": {
+        "datei": "testsweet/logs/llm-review-old-pass/result.json",
+        "datum": "2026-10-13",
+        "valid": true,
+        "transportVerified": true,
+        "state": "PASS",
+        "reason": "",
+        "meta": {
+          "pruefumfang": "2 vollständige Fälle (Positiv/Negativ; Stichprobe)",
+          "mitgegeben": "gesetzesgrundlagen-2026.md · llm-pruefauftrag.txt · vollständige Fallgruppen",
+          "modell": "glm-5.3",
+          "ergebnis": "PASS",
+          "datenstand": "",
+          "methode": "Echte API-Aufrufe; genaue Fallabdeckung, Request-/Response- und Dokumenthashes geprüft",
+          "abdeckung": "siehe Manifest und Einzelfallbegründungen"
+        }
+      },
+      "expectedForStrictCertification": "Neuer gestarteter, nicht abgeschlossener Review muss UNVOLLSTÄNDIG/ABGEBROCHEN bleiben.",
+      "scope": "Isoliert ausschließlich Kandidatenauswahl. verify() ist in diesem VM-Kontext als gültiger Vorgänger-PASS ersetzt. Für Vorschaupakete und gestartete Reviews fehlt ein persistenter Unterscheidungsmarker."
+    }
+  ]
+}

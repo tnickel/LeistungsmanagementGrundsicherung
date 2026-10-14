@@ -21,6 +21,24 @@ class TxMonitoringTest {
     private final MBeanServer server = ManagementFactory.getPlatformMBeanServer();
 
     @Test
+    void zweiteSteuerungErsetztNichtDieMBeanDerErsten() throws Exception {
+        try (var first = new TaskController(new TxManager(new de.allgemein.tx.FakePool(1)), 1, 2);
+             var second = new TaskController(new TxManager(new de.allgemein.tx.FakePool(1)), 1, 3)) {
+            ObjectName firstName = first.registerJmx();
+            ObjectName secondName = second.registerJmx();
+            assertNotNull(firstName);
+            assertNotNull(secondName);
+            assertFalse(firstName.equals(secondName));
+            assertEquals(2, server.getAttribute(firstName, "QueueRemainingCapacity"));
+            assertEquals(3, server.getAttribute(secondName, "QueueRemainingCapacity"));
+            first.close();
+            assertFalse(server.isRegistered(firstName));
+            assertTrue(server.isRegistered(secondName));
+            assertEquals(3, server.getAttribute(secondName, "QueueRemainingCapacity"));
+        }
+    }
+
+    @Test
     void taskControllerWirdRegistriertUndLiefertStatistikenUeberJmx() throws Exception {
         var stubPool = new de.allgemein.tx.ConnectionPool() {
             @Override

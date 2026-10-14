@@ -28,6 +28,45 @@ Auswertung verfügbar.
 
 ## Start & Ausführung
 
+### Alle Zertifikatstests mit einem Klick
+
+In Abschnitt 7 auf **„Mache alle Zertifikatstests“** klicken. Derselbe Knopf steht
+auch im Dialog für fehlende oder veraltete Prüfbelege. Der Ablauf erledigt:
+
+1. Hauptprogramm neu bauen, installieren und mit der eingerichteten Testdatenbank
+   testen; die Konfigurationsprüfung zusätzlich ohne DB-Umgebungsüberschreibungen.
+2. testsweet neu bauen und seine automatischen Tests mit der Testdatenbank ausführen.
+3. Die sieben Pflichtkombinationen prüfen: Web Positiv 60, Negativ 60, Last 30;
+   Fachschicht Positiv 500, Negativ 500, Last 120, Stress 21 Nutzer in zwei Wellen
+   (42 Aufträge). Insgesamt sind das 1.312 Simulatoraufträge.
+4. GLM mit der im Feld „Maximale Prüffälle“ gewählten Fallzahl auf den frischen
+   Positiv-/Negativberichten starten. Dies bleibt eine ausgewiesene Stichprobe.
+5. Bei vollständigem Erfolg das Zertifikat automatisch erstellen und dessen PDF
+   zum Öffnen anbieten.
+
+Benötigt werden Maven/Java, die erreichbare Testdatenbank, Chrome für Selenium
+und der über das Zahnrad gespeicherte GLM-Zugang. Der Ablauf verwendet einen
+frisch gebauten separaten Prüfprozess und eigene lokale Webserver-Ports;
+eine parallel laufende Hauptanwendung auf Port 8080 muss dafür nicht beendet
+werden. Ein ausdrücklich konfiguriertes externes Webziel wird abgewiesen, weil
+dessen Programmstand nicht durch den lokalen Neubuild belegt wird.
+
+Die Fortschrittsanzeige zeigt 13 Phasen, tatsächliche Fälle innerhalb der
+Simulator-/GLM-Phase und die bisherige Laufzeit. Bei Maven ist der Teilfortschritt
+unbestimmt. Prozentwerte beschreiben erledigte Phasen, keine garantierte Restzeit.
+Die Browserseite darf geschlossen oder neu geladen werden; der testsweet-Server
+muss weiterlaufen. **„Ablauf abbrechen“** beendet den eigenen Prüfprozess.
+
+Während des Gesamtlaufs sind Einzelstarts, Konfigurationsänderungen und manueller
+Export gesperrt. Fehler oder Quellenänderungen stoppen den Ablauf; GLM und Export
+werden dann nicht einfach übersprungen. Ein neu gestarteter, fehlgeschlagener oder
+abgebrochener Gesamtlauf sperrt ältere grüne Zertifikate. Der Dialog nennt den
+betroffenen Schritt und den Protokollpfad unter
+`testsweet/logs/certificate-suite-<ID>/`. Vor einem erneuten Start die Ursache
+beheben; alte Belege werden nicht nachträglich gültig.
+
+### Einzelne Läufe manuell starten
+
 Voraussetzung (einmalig und nach Änderungen am Hauptprojekt):
 
 ```bash
@@ -41,8 +80,23 @@ testsweet\start.bat
 ```
 oder plattformunabhängig per Maven:
 ```bash
-mvn -f testsweet/pom.xml compile exec:java
+mvn -f testsweet/pom.xml process-classes exec:java
 ```
+
+`process-classes` ist beim Start erforderlich: Erst diese Maven-Phase erstellt nach
+Kompilierung und Ressourcen-Kopie den Buildstempel. `compile exec:java` allein kann
+nach Änderungen einen veralteten oder fehlenden Nachweis hinterlassen. Änderungen
+am Hauptprodukt müssen weiterhin zuerst im Hauptordner mit `mvn clean install`
+gebaut und installiert werden; anschließend testsweet neu starten.
+
+Fehlerdialoge unterscheiden Testabweichung, technischen Nachweisfehler, KI-Fehler
+nach drei Sendeversuchen und Abbruch. Sie nennen Bedeutung, nächste Schritte und
+Protokollpfad. Identische Diagnosezeilen werden nur einmal angezeigt. Ein
+Build-/Quellstandfehler beweist allein keinen Rechenfehler oder GLM-Ausfall; er
+sperrt den Erfolgsnachweis. Neubuild und Neustart machen alte Testbelege nicht
+nachträglich gültig. Für ein vollständiges Zertifikat sind aktuelle Nachweise
+beider automatischer Testsuiten, aller sieben unterstützten Simulator-Kombinationen
+und der GLM-Stichprobe nötig.
 Die Oberfläche öffnet sich automatisch unter <http://127.0.0.1:8095/> (Port über `SWEET_PORT`).
 Dort kann zwischen **Modus 1 (Fachschicht)** und **Modus 2 (Weboberfläche/Selenium)** gewählt
 werden — und darüber hinaus über die Reiterleiste **Testfallkategorie** (zwischen Moduswahl und
@@ -193,6 +247,7 @@ Je Lauf ein atomar neu angelegtes Verzeichnis `testsweet/logs/run-<Zeitstempel>-
 | `auftrag-<id>-<aktenzeichen>.log` | Schrittprotokoll eines Auftrags |
 | `db-verifikation.log` | Erwartung vs. Ist je Prüfung (OK/ABW) |
 | `fehler.log` | nur Fehler und Abweichungen |
+| `run-state.json` | Start, Zwischenstände, terminales Urteil, geplante Fallzahl, aktuelle Quell-/Buildbindung und Reporthashes; ein jüngerer abgebrochener Lauf verdrängt ältere Erfolge. |
 | `zusammenfassung.txt` | Kenndaten des Laufs (Modus, Mitarbeiter, Verifikationsquote) |
 | `screenshots/` | Modus 2: Screenshot je UI-Schritt (`tf-NN-schritt-MM.png`) |
 | `lastreport.pdf` / `lastreport.md` | LAST-Kategorie: gekürzter Gesamtreport (Aggregate statt Einzelfälle) |
@@ -244,23 +299,29 @@ auf. Standard sind **GLM-5.3** (`glm-5.3`) und die Basisadresse
 5. **Ergebnisse getrennt bewerten:** „Dateiübergabe geprüft“ bestätigt den belegten
    Transport und die validierten Antworten. Fachliches **PASS** verlangt zusätzlich eine
    vollständige Einzelantwort für jede ausgewählte Fall-ID, passende Modellkennung,
-   vollständigen Antwortabschluss und keine Befunde oder ungeprüften Fälle. `FAIL`,
+   vollständigen Antwortabschluss, vollständige strukturierte Personen-/Rechenblock-/V-/S-Abdeckung,
+   unabhängige centgenaue Zahlenprüfung und keine Befunde oder ungeprüften Fälle. Freitext allein
+   ergibt kein PASS. `FAIL`,
    `UNVERIFIED`, `ERROR` oder veränderte Quellen ergeben keine fachliche Freigabe.
-   Eine erfolgreiche Dateiübergabe allein bestätigt keine Berechnung.
+   Eine erfolgreiche Dateiübergabe allein bestätigt keine Berechnung. Konkrete Befunde bleiben
+   auch nach einem technischen Folgefehler erhalten und lösen einen roten Dialog aus.
 6. **Report und Zertifikat öffnen:** Der KI-Nachweis erscheint im separaten Reportanhang
    beziehungsweise in einer neuen `testdokumentation-geprueft.pdf`/`.md`. Das ursprüngliche
    Quell-MD bleibt wegen seiner Hashbindung unverändert. Nach einem Serverneustart ist der
    gesicherte Nachweis auch als eigenständiger Anhang verfügbar (`/api/llm/report/pdf`).
    „Testzertifikat erstellen“ wertet die aktuellen Laufresultate und strukturierten echten
    API-Nachweise aus; fehlende, veraltete oder fehlgeschlagene Prüfungen erhalten kein
-   grünes Gesamturteil. Details: [Werkzeug-README](../doc/testzertifikat-werkzeug/README.md).
+   grünes Gesamturteil. Auch negative und unvollständige Zertifikate lassen sich erzeugen;
+   konkrete Fälle, Rechnungen und Befunde werden im Anhang ausgewiesen. GUI und Batch verwenden
+   denselben Exportweg mit Staging, geprüftem Prozessabschluss und abschließendem READY-Marker.
+   Ein veraltetes oder verändertes Zertifikat wird über die API nicht ausgeliefert. Details: [Werkzeug-README](../doc/testzertifikat-werkzeug/README.md).
 
 Die lokale Datei `testsweet/llm.local.properties` und ihre temporären Schreibdateien sind
 Git-ignoriert. Alternativ liefern `SWEET_LLM_API_KEY` oder `GLM_API_KEY` den Schlüssel
 (in dieser Reihenfolge vor dem gespeicherten Wert). Die Konfigurations-API gibt nur zurück,
 ob ein Schlüssel vorhanden ist. Die lokale Datei ist keine verschlüsselte Schlüsselablage.
 
-**Verifikationsstand 2026-10-13:** 55 testsweet-Tests grün. Zusätzlich wurde GLM-5.3 real mit
+**Historischer Verifikationsstand vor dem erneuten Gesamt-Review:** 55 testsweet-Tests grün. Zusätzlich wurde GLM-5.3 real mit
 **6 ausgewählten Positiv-/Negativfällen in 2 Batches** geprüft: `PASS`, Dateiübergabe bestätigt;
 lokale Review-ID `9f7fb043-be1b-4c33-aae4-4c417fd50da4`. Der vollständige HTTP-Lauf
 lieferte außerdem den Report `run-20261013-164334-16012917256956894678/testdokumentation-geprueft.pdf`
@@ -268,6 +329,58 @@ mit grünem Hash-Anhang. Das belegt genau diese Stichprobe
 und den damaligen Quellenstand. Die historische Nachrechnung **100 Fälle / 108 Rechenblöcke**
 war eine deterministische Python-Zweitimplementierung und **kein GLM-API-Nachweis**.
 Historische Freitextprotokolle mit einer Modellbezeichnung werden nicht als solche anerkannt.
+
+### Automatische Rechenprüfung, Buildbindung und Zertifikatsumfang
+
+Jeder erzeugte Rechenblock wird im Verifikator zusätzlich mit einer eigenständigen
+BigDecimal-Referenz für den dokumentierten Rechenstand 2026 nachgerechnet. Diese Referenz
+verwendet die Produktionsberechnung nicht. Fehlende Eingaben oder abweichende Ergebnisse
+machen den Auftrag fehlerhaft. Die unabhängigen Goldwerttests bleiben zusätzlich erhalten.
+Das prüft die implementierten Regeln; deren fachliche Vollständigkeit ist damit nicht bewiesen.
+
+Positivfälle **TF11–TF19** sind feste, seedunabhängige Grenzfälle: Entbindungsmonat und
+Folgezahlung, Vermögensverbrauch über zwei Monate, vier/fünf/sechs minderjährige Kinder,
+Mehrbedarfskappung nach Abs. 6, zentraler Heizkostenabzug, gemeinsame KdU-Grenze und ein
+Haushalt ohne Erwachsene. Bei 500 Positivfällen verbleiben 471 unterschiedliche
+Kombinationsfälle. Die KdU-Fälle verwenden jeweils eine eigene unveränderliche
+Servicekonfiguration am selben Transaktionsmanager; parallele Standardfälle behalten
+ihre Parameter. Jeder Rechenblock nennt Abzugsanteil, BG-Grenze und tatsächlich
+anerkannten Betrag. Fehlende Parameter historischer Blöcke bedeuten ausschließlich
+den damaligen Standard AUS; ein teilweise dokumentierter Parametersatz ist ungültig.
+Die Web-Szenarien decken diese beiden aktiven lokalen KdU-Konfigurationen nicht ab.
+Synthetische Merkmalskombinationen beweisen technische Rechenzweige, keine juristische
+Zulässigkeit sämtlicher Merkmale oder vollständige Rechtsprüfung.
+
+`stop.bat` verwendet `SWEET_PORT` (Standard 8095), prüft Java-/SweetMain- bzw.
+Maven-Projektidentität und beendet nur die verifizierte Prozesskette dieses Projekts.
+Ein fremder Portinhaber wird nicht beendet; der Aufruf benötigt keine Tastatureingabe.
+`powershell -NoProfile -ExecutionPolicy Bypass -File testsweet/stop.test.ps1` prüft die
+Eigentumsentscheidung mit synthetischen Prozessdaten und beendet keine Prozesse.
+
+Die GLM-Auswahl priorisiert vorhandene feste Fach-Grenzfälle, anschließend weitere
+Fälle in Berichtreihenfolge, weiterhin abwechselnd positiv/negativ. **18 ausgewählte Fälle**
+aus aktuellen Fachquellen mit mindestens 19 Positivfällen umfassen alle neun festen
+Grenzfälle und neun Negativfälle. Kleinere Stichproben decken nur einen Teil davon ab.
+Die Auswahl und sämtliche Fall-IDs stehen im Manifest. Laufzeitstempel werden als
+eindeutige UTC-Instants gespeichert; lokale Altzeitstempel sind unbestätigt. Bei einer
+mehrdeutigen Reihenfolge darf ein alter PASS einen möglicherweise neueren FAIL nicht
+verdrängen. Ein eindeutig neuer vollständiger Lauf kann den historischen Konflikt lösen.
+
+Maven schreibt Start- und Abschlussbelege der JUnit-Läufe einschließlich tatsächlicher
+XML-Ergebnisse, Quellinventar und Buildhashes. Hauptprojekt: `mvn install` mit Tests;
+anschließend `mvn -f testsweet/pom.xml test`. Ein übersprungener Test ist kein Erfolg.
+DB-Tests benötigen `TX_URL`, `TX_USER`, `TX_PASS`; der Konfigurationsdatei-Test braucht einen
+separaten Lauf ohne diese Umgebungsüberschreibungen. `mvn compile` oder `-DskipTests` erzeugt
+keinen vollständigen Testnachweis. Nach einem Neubuild muss der testsweet-Prozess neu starten:
+der Start-Snapshot verhindert, dass geladene alte Klassen als neuer Build ausgegeben werden.
+
+Das Zertifikat verlangt aktuelle Belege beider JUnit-Module, die sieben Kombinationen
+Fachschicht POSITIV/NEGATIV/LAST/STRESS sowie WEB POSITIV/NEGATIV/LAST und die ausgewiesene
+GLM-Stichprobe. WEB/STRESS wird nicht angeboten. Jedes bekannte FAIL ergibt NICHT BESTANDEN;
+fehlende oder unvollständige Nachweise ergeben UNVOLLSTÄNDIG. Manueller Text ersetzt keine
+grüne Prüfschicht. Die SHA-256-Kette belegt lokale Konsistenz von Dokumenten und
+Anfrage-/Antwortprotokollen; sie beweist keine interne Verarbeitung beim Anbieter und
+ist keine digitale Signatur gegen einen Angreifer, der sämtliche lokalen Belege ersetzen kann.
 
 ## Grafik- und Diagramm-Generierung
 

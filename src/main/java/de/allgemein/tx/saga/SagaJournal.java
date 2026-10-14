@@ -189,10 +189,13 @@ public final class SagaJournal implements TxSagaJournal {
         boolean mitFrist = mindestInaktivitaet != null && !mindestInaktivitaet.isZero()
                 && !mindestInaktivitaet.isNegative();
         String frist = mitFrist ? """
-                  AND s.UPDATED_AT <= SYSTIMESTAMP - NUMTODSINTERVAL(?, 'SECOND')
+                  AND s.UPDATED_AT <= CAST(SYSTIMESTAMP AS TIMESTAMP) - NUMTODSINTERVAL(?, 'SECOND')
                   AND NOT EXISTS (SELECT 1 FROM TX_SAGA_STEP x WHERE x.SAGA_ID = s.SAGA_ID
-                                  AND x.UPDATED_AT > SYSTIMESTAMP - NUMTODSINTERVAL(?, 'SECOND'))
+                                  AND x.UPDATED_AT > CAST(SYSTIMESTAMP AS TIMESTAMP) - NUMTODSINTERVAL(?, 'SECOND'))
                 """ : "";
+        // Die vorhandenen TIMESTAMP-Spalten speichern SYSTIMESTAMP ohne Zeitzone.
+        // Auch die Vergleichsseite muss diese DB-Systemzeit ohne Zone verwenden;
+        // eine implizite Konversion nach SESSIONTIMEZONE verschiebt die Schutzfrist.
         String sql = """
                 SELECT s.SAGA_ID, s.SAGA_TYPE, s.PAYLOAD, s.STATE, st.IDX, st.STATE AS STEP_STATE
                 FROM TX_SAGA s
@@ -328,6 +331,24 @@ public final class SagaJournal implements TxSagaJournal {
         @Override
         public UnfinishedSaga saga() {
             return saga;
+        }
+
+        @Override
+        public void checkAlive() throws SQLException {
+            if (beendet || connection.isClosed() || connection.getAutoCommit()) {
+                throw new SQLException("Saga-Claim nicht mehr aktiv");
+            }
+            // SQL auf derselben Connection erhält auch UCPs Abandoned-Aktivitätszeit.
+            // Keine neue Verbindung und kein Commit: die Kopf-Sperre bleibt erhalten.
+            try (PreparedStatement stmt = connection.prepareStatement(
+                    "SELECT SAGA_ID FROM TX_SAGA WHERE SAGA_ID = ? FOR UPDATE NOWAIT")) {
+                stmt.setString(1, saga.sagaId());
+                try (ResultSet rows = stmt.executeQuery()) {
+                    if (!rows.next()) {
+                        throw new SQLException("Saga-Kopf des Claims fehlt");
+                    }
+                }
+            }
         }
 
         @Override

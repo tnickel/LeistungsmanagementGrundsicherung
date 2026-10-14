@@ -8,11 +8,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.logging.Logger;
@@ -59,7 +58,7 @@ public final class TaskController implements AutoCloseable {
 
     private final TxManager txManager;
     private final ThreadPoolExecutor executor;
-    private final ScheduledExecutorService watchdog;
+    private final ScheduledThreadPoolExecutor watchdog;
     private final ConcurrentMap<UUID, TaskInfo> running = new ConcurrentHashMap<>();
     private final AtomicInteger workerCounter = new AtomicInteger();
     private final LongAdder completed = new LongAdder();
@@ -76,7 +75,10 @@ public final class TaskController implements AutoCloseable {
                 this::newWorkerThread,
                 new ThreadPoolExecutor.AbortPolicy());
         this.executor.allowCoreThreadTimeOut(true);
-        this.watchdog = Executors.newSingleThreadScheduledExecutor(TaskController::newWatchdogThread);
+        this.watchdog = new ScheduledThreadPoolExecutor(1, TaskController::newWatchdogThread);
+        // Abgeschlossene Kurzläufer dürfen ihre Timer nicht bis zur ursprünglichen
+        // Deadline in der Queue halten (Durchsatz × Timeout wäre sonst der Speicherbedarf).
+        this.watchdog.setRemoveOnCancelPolicy(true);
     }
 
     /**
@@ -90,7 +92,22 @@ public final class TaskController implements AutoCloseable {
         running.put(id, info);
 
         TaskExecution<T> task = new TaskExecution<>(options, work, info);
-        FutureTask<T> future = new FutureTask<>(task);
+        FutureTask<T> future = new FutureTask<>(task) {
+            @Override
+            protected void done() {
+                if (isCancelled()) {
+                    executor.remove(this);
+                }
+                if (isCancelled() && info.settle()) {
+                    running.remove(id);
+                    if (info.timedOut()) {
+                        timedOut.increment();
+                    } else {
+                        failed.increment();
+                    }
+                }
+            }
+        };
         task.future = future;
 
         try {
@@ -102,16 +119,7 @@ public final class TaskController implements AutoCloseable {
                     "Task '" + name + "' abgelehnt: Warteschlange voll oder Steuerung bereits beendet", e);
         }
 
-        return new TaskHandle<>(id, name, future, () -> {
-            // Abbruch über das Handle (Client-Wunsch oder resultOrCancelAfter),
-            // während der Task noch in der Warteschlange hängt: der Task-Wrapper
-            // läuft dann nie, sein Aufräumen muss daher hier passieren — genau
-            // einmal, gesteuert über das settle()-Gate der TaskInfo.
-            if (info.settle()) {
-                running.remove(id);
-                failed.increment();
-            }
-        });
+        return new TaskHandle<>(id, name, future);
     }
 
     public TaskStats stats() {
@@ -163,16 +171,25 @@ public final class TaskController implements AutoCloseable {
         executor.shutdown();
         try {
             if (!executor.awaitTermination(DRAIN_TIMEOUT_SEKUNDEN, TimeUnit.SECONDS)) {
-                executor.shutdownNow();
+                cancelQueued(executor.shutdownNow());
                 if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
                     LOG.warning("Task-Steuerung: Worker auch nach Unterbrechung noch aktiv");
                 }
             }
         } catch (InterruptedException e) {
-            executor.shutdownNow();
+            cancelQueued(executor.shutdownNow());
             Thread.currentThread().interrupt();
         } finally {
             watchdog.shutdownNow();
+        }
+    }
+
+    /** shutdownNow entfernt Wartende, führt aber weder run() noch cancel() für sie aus. */
+    private static void cancelQueued(java.util.List<Runnable> queued) {
+        for (Runnable task : queued) {
+            if (task instanceof java.util.concurrent.Future<?> future) {
+                future.cancel(false);
+            }
         }
     }
 

@@ -119,21 +119,9 @@ final class SweetPdf {
     }
 
     void kasten(String text, boolean fett, int textfarbe, int fuellung, float groesse) {
-        float charBreite = groesse * (fett ? 0.58f : 0.52f);
-        float maxBreite = NUTZBARE_BREITE - 14;
-        float benoetigt = text.length() * charBreite;
-        float effGroesse = groesse;
-        if (benoetigt > maxBreite) {
-            float skaliert = maxBreite / (text.length() * (fett ? 0.55f : 0.50f));
-            if (skaliert >= 7.5f) {
-                effGroesse = skaliert;
-            } else {
-                int maxZeichen = (int) (maxBreite / (7.5f * (fett ? 0.55f : 0.50f)));
-                text = text.length() > maxZeichen ? text.substring(0, maxZeichen - 1) + "…" : text;
-                effGroesse = 7.5f;
-            }
-        }
-        eintraege.add(new Kasten(text, fett, textfarbe, fuellung, effGroesse));
+        int maxZeichen = Math.max(1,(int)((NUTZBARE_BREITE - 14) / (groesse * (fett ? 0.58f : 0.52f))));
+        for (String line : brichUm(text,maxZeichen))
+            eintraege.add(new Kasten(line,fett,textfarbe,fuellung,groesse));
     }
 
     void tocZeile(String label, int seite, int farbe) {
@@ -557,7 +545,7 @@ final class SweetPdf {
                         .append("1 0 0 1 ").append(RAND + 5).append(' ')
                         .append(kastenOben - hoehe + (hoehe - k.groesse()) / 2 + 1.2f)
                         .append(" Tm (").append(escape(k.text())).append(") Tj\nET\n");
-                y -= hoehe + 4.5f; // Kompakter als vorher (spart Platz)
+                y -= hoehe + 8f; // Abstand zur Oberkante der folgenden Textzeile.
                 aktFont = "";
                 aktFarbe = "";
                 continue;
@@ -651,7 +639,7 @@ final class SweetPdf {
             return b.renderHoehe() + (b.titel() != null && !b.titel().isBlank() ? 26f : 12f);
         }
         if (eintrag instanceof Kasten k) {
-            return k.groesse() * 1.4f + 4.5f;
+            return k.groesse() * 1.4f + 8f;
         }
         if (eintrag instanceof TocZeile) {
             return 13f;
@@ -719,6 +707,12 @@ final class SweetPdf {
             String[] woerter = absatz.split(" ");
             StringBuilder aktuelle = new StringBuilder();
             for (String wort : woerter) {
+                if (wort.length() > maxZeichen) {
+                    if (aktuelle.length() > 0) { ergebnis.add(aktuelle.toString()); aktuelle.setLength(0); }
+                    while (wort.length() > maxZeichen) {
+                        ergebnis.add(wort.substring(0,maxZeichen)); wort = wort.substring(maxZeichen);
+                    }
+                }
                 if (aktuelle.length() == 0) {
                     aktuelle.append(wort);
                 } else if (aktuelle.length() + 1 + wort.length() <= maxZeichen) {

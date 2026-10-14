@@ -57,6 +57,7 @@ final class WebMitarbeiter implements Runnable {
     @Override
     public void run() {
         aktiv = true;
+        Auftrag current = null;
         try {
             treiber = erzeugeFenster();
             while (!simulator.abgebrochen()) {
@@ -64,7 +65,9 @@ final class WebMitarbeiter implements Runnable {
                 if (auftrag == null) {
                     break;
                 }
+                current = auftrag;
                 spieleAuftrag(auftrag);
+                current = null;
                 if (treiber == null) {
                     // Neustart gescheitert: Dieser Worker nimmt keine weiteren
                     // Aufträge mehr an (keine NullPointerException-Kette);
@@ -74,9 +77,8 @@ final class WebMitarbeiter implements Runnable {
                     break;
                 }
             }
-        } catch (Exception e) {
-            simulator.log().fehler("WEB " + kuerzel, "Fenster konnte nicht gestartet werden: "
-                    + e.getClass().getSimpleName() + ": " + e.getMessage());
+        } catch (Throwable e) {
+            simulator.meldeWorkerAbsturz(current, e);
         } finally {
             aktiv = false;
             if (treiber == null) {
@@ -173,13 +175,34 @@ final class WebMitarbeiter implements Runnable {
             try {
                 if (index > 0 && denkzeitMs > 0) pause.warten(denkzeitMs);
                 if (simulator.abgebrochen()) throw new InterruptedException("Lauf gestoppt");
-                String detail = aktion.funktion().ausfuehren(treiber, kontext);
+                Fachzustand vorher = aktion.abweisungErwartet() ? simulator.sichereFachzustand(auftrag) : null;
+                String detail;
+                try {
+                    detail = aktion.funktion().ausfuehren(treiber, kontext);
+                } finally {
+                    if (vorher != null) {
+                        Fachzustand danach = simulator.sichereFachzustand(auftrag);
+                        var abweichungen = vorher.abweichungen(danach);
+                        var pruefung = new Auftrag.Pruefung("UI-Fehlversuch ohne Fachänderung: " + aktion.name(),
+                                "unverändert", abweichungen.isEmpty() ? "unverändert" : String.join("; ", abweichungen),
+                                abweichungen.isEmpty(), "Alle Fachspalten und Fachjournal; neue Einsichts-Audits erlaubt",
+                                "-- STATE_SNAPSHOT: SOZIAL_FALL, BEDARFSGEMEINSCHAFT, ZAHLUNG, BESCHEID, JOURNAL; vollständiger Vorher/Nachher-Vergleich", List.of());
+                        auftrag.ergaenzePruefung(pruefung);
+                        simulator.log().pruefung(auftrag, pruefung);
+                        vorher.verlangeUnveraendert(danach);
+                    }
+                }
                 auftrag.kontext = kontextOhnePasswoerter(kontext);
                 protokolliere(auftrag, index + 1, aktion.name(), "OK — " + detail,
                         screenshot(auftrag, index + 1));
             } catch (Exception e) {
                 if (e instanceof InterruptedException) Thread.currentThread().interrupt();
                 if (istToterTreiber(e) && !neuGestartet) {
+                    var symptom = new Auftrag.Pruefung("Browser-/Treiberstörung im UI-Schritt " + aktion.name(),
+                            "störungsfreier Durchlauf", e.getClass().getSimpleName() + ": " + e.getMessage(), false,
+                            "Technisches Symptom bleibt trotz sicherer Wiederaufnahme ein Befund", "-- BROWSER_RUNTIME: Session-/Fensterverlust", List.of());
+                    auftrag.ergaenzePruefung(symptom);
+                    simulator.log().pruefung(auftrag, symptom);
                     neuGestartet = true;
                     schliesse();
                     try {
@@ -187,7 +210,8 @@ final class WebMitarbeiter implements Runnable {
                         if (aktion.wiederholbar()) {
                             wiederherstellung.ausfuehren(treiber, kontext);
                             protokolliere(auftrag, index + 1, aktion.name(),
-                                    "Treiber neu gestartet; bestätigte Schritte bleiben erhalten", null);
+                                    "Treiber neu gestartet nach " + e.getClass().getSimpleName() + ": " + e.getMessage()
+                                            + "; technischer Befund bleibt offen; bestätigte Schritte bleiben erhalten", null);
                             index--; // nur den unterbrochenen sicheren Schritt wiederholen
                             continue;
                         }
@@ -210,6 +234,7 @@ final class WebMitarbeiter implements Runnable {
         auftrag.endeZeit = LocalDateTime.now();
         auftrag.endeNano = System.nanoTime();
         auftrag.status = fehlgeschlagen ? Auftrag.Status.FEHLGESCHLAGEN : Auftrag.Status.FERTIG_GESPIELT;
+        simulator.auftragSpielenBeendet(auftrag);
         if (!fehlgeschlagen) erledigt++;
         aktuellerAuftrag = null;
     }
@@ -239,7 +264,6 @@ final class WebMitarbeiter implements Runnable {
         if (meldung != null) {
             String t = meldung.toLowerCase(java.util.Locale.ROOT);
             return t.contains("session deleted") || t.contains("invalid session id")
-                    || t.contains("timed out receiving message")
                     || t.contains("unreachable browser");
         }
         return false;

@@ -23,7 +23,15 @@ public final class Auftrag {
     public record Schritt(LocalDateTime zeit, String mitarbeiter, String aktion, String ergebnis) { }
 
     /** Ergebnis einer Datenbank-Erwartung nach der Verifikation. */
-    public record Pruefung(String beschreibung, String erwartet, String ist, boolean ok, String hinweis) { }
+    public record Pruefung(String beschreibung, String erwartet, String ist, boolean ok, String hinweis,
+                           String sql, List<Object> parameter) {
+        public Pruefung(String beschreibung, String erwartet, String ist, boolean ok, String hinweis) {
+            this(beschreibung, erwartet, ist, ok, hinweis, null, List.of());
+        }
+        public Pruefung {
+            parameter = parameter == null ? List.of() : Collections.unmodifiableList(new ArrayList<>(parameter));
+        }
+    }
 
     public final int id;
     public final String szenarioTyp;
@@ -32,6 +40,8 @@ public final class Auftrag {
     public final String beschreibung;
     public final List<SzenarioAktion> aktionen;
     public final List<Erwartung> erwartungen;
+    /** Szenarioplan, unabhängig von Erfolg, DB-Rückgaben und Laufkontext. */
+    public int erwarteteVorgaenge = 1;
 
     /** Einfach formulierte Beschreibung fürs PDF („Was wird getestet?"). */
     public volatile String beschreibungEinfach = "";
@@ -78,6 +88,12 @@ public final class Auftrag {
     /** Fluent: UI-Aktionen für den Weboberflächen-Modus. */
     public Auftrag mitWebAktionen(List<WebAktion> webAktionen) {
         this.webAktionen = webAktionen == null ? List.of() : List.copyOf(webAktionen);
+        return this;
+    }
+
+    public Auftrag mitErwarteterVorgangsanzahl(int anzahl) {
+        if (anzahl < 0 || anzahl > 1) throw new IllegalArgumentException("Vorgangsanzahl muss 0 oder 1 sein");
+        erwarteteVorgaenge = anzahl;
         return this;
     }
 

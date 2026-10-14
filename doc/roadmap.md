@@ -16,9 +16,14 @@
       ungültige/veraltete Belege erhalten kein grünes Gesamturteil.
 - [x] Neuer KI-Reportanhang ohne Änderung des originalen hashgebundenen Quellberichts.
       Historische Freitext-/Python-Protokolle gelten nicht als Modellnachweis.
-- [x] Verifiziert: **55/55 testsweet-Tests**, zusätzlich **6 echte GLM-5.3-Fälle in 2 Batches**
-      mit `PASS` und bestätigter Dateiübergabe. Dies ist eine dokumentierte Stichprobe,
-      keine vollständige Regelabdeckung; die frühere Python-Nachrechnung 100/108 bleibt getrennt.
+- [x] Quellen- und Buildbindung für JUnit, Simulatorläufe, GLM-Prüfung und Zertifikat;
+      Fehler, Abbrüche, übersprungene Pflichtprüfungen und veraltete Belege verhindern
+      ein positives Gesamturteil. Aktuelle Zahlen stehen im maschinellen Prüfbeleg
+      `doc/codereview/testsweet-review-verifikation-2026-10-13.json` und im Zertifikat.
+- [x] Neun feste Fach-Grenzfälle TF11–TF19, unabhängige Referenzrechnung mit KdU-Parametern,
+      Monatsfortschreibung und Minderjährigenhaushalten; priorisierte GLM-Stichprobe.
+      Die tatsächliche Fallmenge wird im Manifest ausgewiesen. Die frühere
+      Python-Nachrechnung 100/108 bleibt ein historischer, separater Nachweis.
 
 Bedienung und Nachweisformat: `testsweet/README.md`,
 `doc/testzertifikat-werkzeug/README.md`. Ausgangsreview:

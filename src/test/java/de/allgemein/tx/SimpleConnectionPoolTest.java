@@ -91,6 +91,7 @@ class SimpleConnectionPoolTest {
         final AtomicBoolean isClosedWirft = new AtomicBoolean(false);
         /** Autocommit-Modus (TxContext schaltet beim Start auf false). */
         final AtomicBoolean autoCommit = new AtomicBoolean(true);
+        final AtomicBoolean rollbackWirft = new AtomicBoolean(false);
         /** Reihenfolge der transaktionsrelevanten Aufrufe (rollback/setAutoCommit/commit). */
         final List<String> protokoll = new CopyOnWriteArrayList<>();
 
@@ -127,6 +128,7 @@ class SimpleConnectionPoolTest {
                     }
                     if ("rollback".equals(name)) {
                         protokoll.add("rollback");
+                        if (rollbackWirft.get()) throw new SQLException("Rollback fehlgeschlagen");
                         return null;
                     }
                     if ("commit".equals(name)) {
@@ -139,6 +141,23 @@ class SimpleConnectionPoolTest {
                     }
                     return null;
                 });
+    }
+
+    @Test
+    void fehlgeschlagenesRollbackDarfNiemalsAutocommitEinschalten() throws Exception {
+        try (SimpleConnectionPool pool = new SimpleConnectionPool(FAKE_URL, "u", "p", 1)) {
+            Connection c = pool.getConnection();
+            FakeVerbindung fake = ALLE.get(c);
+            c.setAutoCommit(false);
+            fake.protokoll.clear();
+            fake.rollbackWirft.set(true);
+            pool.release(c);
+            assertEquals(List.of("rollback"), fake.protokoll);
+            assertTrue(fake.geschlossen.get(), "defekte Transaktion samt Verbindung verwerfen");
+            Connection replacement = pool.getConnection();
+            assertNotSame(c, replacement);
+            pool.release(replacement);
+        }
     }
 
     @Test

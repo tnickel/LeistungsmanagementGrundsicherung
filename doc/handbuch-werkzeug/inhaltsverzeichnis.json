@@ -1,0 +1,90 @@
+[
+  {
+    "title": "1  Einleitung",
+    "page": 2
+  },
+  {
+    "title": "2  Fachliche und rechtliche Grundlagen (SGB XII)",
+    "page": 4
+  },
+  {
+    "title": "3  Anmeldung und Rollen",
+    "page": 8
+  },
+  {
+    "title": "4  Die Fallübersicht",
+    "page": 9
+  },
+  {
+    "title": "5  Vorgang bearbeiten",
+    "page": 11
+  },
+  {
+    "title": "6  Zahlbarmachung: Auszahlung anordnen",
+    "page": 13
+  },
+  {
+    "title": "7  Vier-Augen-Freigabe, Storno und Fehlerfälle",
+    "page": 15
+  },
+  {
+    "title": "8  Bewilligungsbescheid",
+    "page": 18
+  },
+  {
+    "title": "9  Das Buchungsjournal",
+    "page": 19
+  },
+  {
+    "title": "10  Die Antrags-Saga aus Anwendersicht",
+    "page": 20
+  },
+  {
+    "title": "11  Adminbereich und Betriebsfunktionen",
+    "page": 22
+  },
+  {
+    "title": "12  Hinweise für den sicheren Betrieb der Sacharbeit",
+    "page": 24
+  },
+  {
+    "title": "13  Architekturüberblick",
+    "page": 27
+  },
+  {
+    "title": "14  Die Transaktionssteuerung im Detail",
+    "page": 28
+  },
+  {
+    "title": "15  Saga-Muster, Journal und Wiederanlauf",
+    "page": 31
+  },
+  {
+    "title": "16  Datenmodell und Persistenz",
+    "page": 32
+  },
+  {
+    "title": "17  Der kritische Buchungsweg im Detail",
+    "page": 34
+  },
+  {
+    "title": "18  Sicherheit: Anmeldung, Rollen und SEPA",
+    "page": 35
+  },
+  {
+    "title": "19  Konfiguration, Start und Qualitätssicherung",
+    "page": 36
+  },
+  {
+    "title": "20  API-Referenz",
+    "page": 38
+  },
+  {
+    "title": "21  testsweet und das Testzertifikat",
+    "page": 40
+  },
+  {
+    "title": "Glossar",
+    "page": 44
+  }
+]

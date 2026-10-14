@@ -575,7 +575,7 @@ class SzenarioRegressionTest {
                 new Auszahlungsauftrag(bg.id(), UUID.randomUUID().toString(), "2026-10", "sb-kowalski"))
                 .zahlung();
         service.freigebenZahlung(zahlung.id(), "sb-berger");
-        var kassenlauf = service.uebergebeBereiteZahlungen("sb-kasse");
+        var kassenlauf = service.uebergebeBereiteZahlungen("sb-kasse", az);
 
         // Historisierung des Vorgangs (Teamleitung)
         var detail = service.ladeDetail(bg.id());
@@ -589,7 +589,7 @@ class SzenarioRegressionTest {
             assertEquals(2L, ganzeZahl(c,
                     "SELECT VERSION FROM SOZIAL_FALL WHERE ID = ?", geladen.id()));
             // Zahlungsweg inkl. Kassenlauf
-            assertTrue(kassenlauf.anzahl() >= 1, "Kassenlauf muss Zahlungen übernehmen");
+            assertEquals(1, kassenlauf.anzahl(), "Kassenlauf muss genau die eigene Zahlung übernehmen");
             assertEquals("UEBERGEBEN", text(c,
                     "SELECT ZAHLUNGSSTATUS FROM ZAHLUNG WHERE ID = ?", zahlung.id()));
             assertBetrag("Zahlbetrag nach Mietkorrektur", "743.00", betrag(c,

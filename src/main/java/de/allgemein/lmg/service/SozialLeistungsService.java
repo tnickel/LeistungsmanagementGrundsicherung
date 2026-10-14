@@ -290,17 +290,6 @@ public final class SozialLeistungsService implements LeistungsService {
                                 + "dieser Bedarfsgemeinschaft; ggf. zuerst stornieren");
             }
 
-            // 2d. Liegt für die Bedarfsgemeinschaft bereits ein Bescheid vor, muss ein erteilter
-            //     (nicht aufgehobener) Bescheid den Zahlungsmonat abdecken — sonst würden
-            //     Zahlung und Bescheid-Snapshot auseinanderlaufen (§ 44 Abs. 3 SGB XII).
-            //     Ohne jeden Bescheid bleibt der direkte Buchungsweg zulässig.
-            if (bescheidDao.zaehleFuerBg(ctx, bg.id()) > 0
-                    && !bescheidDao.existiertErteiltFuerMonat(ctx, bg.id(), auftrag.zahlungsmonat())) {
-                throw new FachlicheException(FachlicheException.VALIDATION,
-                        "Für " + auftrag.zahlungsmonat() + " liegt kein erteilter Bewilligungsbescheid vor "
-                                + "(Zahlungsmonat außerhalb des Bewilligungszeitraums oder Bescheid aufgehoben)");
-            }
-
             // 3. Bedarf ermitteln (§§ 27a ff., 42a, 82, 90 SGB XII) und prüfen —
             //    mit dem zum Zahlungsmonat gültigen Satzstand (Tabelle SATZSTAND)
             List<SozialFall> faelle = Bewilligungsplan.faelleFuerMonat(
@@ -314,6 +303,7 @@ public final class SozialLeistungsService implements LeistungsService {
                         "Einkommen/Vermögen übersteigen den Gesamtbedarf — kein Anspruch "
                                 + "(Zahlbetrag " + betragText(zahlbetrag) + " EUR)");
             }
+            BescheidPaymentBinding.verify(ctx.connection(), bg.id(), auftrag.zahlungsmonat(), zahlbetrag);
             if (zahlbetrag.compareTo(bg.budgetRest()) > 0) {
                 throw new FachlicheException(FachlicheException.BUDGET_ERSCHOEPFT,
                         "Der Zahlbetrag " + betragText(zahlbetrag) + " EUR übersteigt das verfügbare "
@@ -611,6 +601,7 @@ public final class SozialLeistungsService implements LeistungsService {
                 throw new FachlicheException(FachlicheException.VALIDATION,
                         "Der Vorgang ist historisiert; es können keine Bescheide mehr erteilt werden");
             }
+            BescheidPaymentBinding.rejectOverlap(ctx.connection(), bgId, bewilligungVon, bewilligungBis);
             List<SozialFall> faelle = fallDao.listeFuerBg(ctx, bgId);
             if (faelle.isEmpty()) {
                 throw new FachlicheException(FachlicheException.VALIDATION,
@@ -685,7 +676,7 @@ public final class SozialLeistungsService implements LeistungsService {
             // Nur Bescheide ohne Snapshot (frühere Versionen) werden mit aktuellem Datenstand
             // neu berechnet — mit sichtbarem Hinweis im Dokument.
             if (bescheid.berechnung() != null) {
-                BerechnungsSnapshot.Gelesen snapshot = BerechnungsSnapshot.lese(bescheid.berechnung());
+                BerechnungsSnapshot.Gelesen snapshot = BescheidPaymentBinding.readSnapshot(bescheid);
                 Bedarfsgemeinschaft bgZurBerechnung = new Bedarfsgemeinschaft(
                         bg.id(), bg.aktenzeichen(), bg.hauptpersonName(), bg.statusAktiv(),
                         bg.budgetRest(), bg.wiedervorlageAm(), bg.version(),

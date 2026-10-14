@@ -48,6 +48,10 @@ Rechengrundlage für LLM-Nachrechnungen der testdokumentation.md.
 
 - Schonvermögen: 10.000 EUR je volljähriger leistungsberechtigter Person (Stufen 1–3)
   + 500 EUR je weiterer, überwiegend unterhaltener Person (Stufen 4–6).
+- Gesondert ausgewiesener **Produktvertrag**, keine zusätzliche behauptete Norm:
+  In einem Haushalt ohne Erwachsene wird der Grundbetrag einmal mit 10.000 EUR angesetzt.
+  Java-, JavaScript- und Python-Referenzen müssen diese implementierte Regel konsistent
+  nachrechnen; ihre juristische Tragfähigkeit ist damit nicht unabhängig verifiziert.
 - Verwertbares Vermögen = max(Vermögen − Schonvermögen, 0); mindert den Zahlbetrag.
   Mit der ersten Auszahlung verbraucht es sich (Bestand sinkt auf Schonvermögen;
   Einsatz je Zahlung dokumentiert); ab dem Folgemonat kein Abzug mehr. Storno bucht den

@@ -28,6 +28,7 @@
     <a href="#architektur-abschnitt">Architektur & Diagramme</a>
     <a href="#auftraege-abschnitt">Auftragsliste (<span id="nav-count">0</span>)</a>
     <a href="#log-abschnitt">Live-Protokoll</a>
+    <a href="#zertifikat-tests">Zertifikatstests</a>
 </nav>
 
 <main>
@@ -95,16 +96,16 @@
         </div>
         <div class="diagramm-tabs">
             <button type="button" class="d-tab aktiv" id="kategorie-positiv" data-kategorie="POSITIV">
-                Positivfälle (60 Standard-Szenarien)
+                Positivfälle
             </button>
             <button type="button" class="d-tab" id="kategorie-negativ" data-kategorie="NEGATIV">
-                Negativfälle (60 Abwehr-Szenarien)
+                Negativfälle
             </button>
             <button type="button" class="d-tab" id="kategorie-last" data-kategorie="LAST">
                 Lasttest (schlanke Massendurchläufe)
             </button>
             <button type="button" class="d-tab" id="kategorie-stress" data-kategorie="STRESS">
-                Stresstest (2000 User × 2 Wellen)
+                Stresstest (User × 2 Wellen)
             </button>
         </div>
     </section>
@@ -242,18 +243,49 @@
         </div>
     </section>
 
+    <div id="review-warning" class="review-error" role="alert" hidden></div>
+
     <!-- LLM-Nachrechnung & Testzertifikat -->
     <section class="abschnitt" id="llm-abschnitt">
+        <div id="zertifikat-tests" class="zertifikat-tests">
+            <h2>Alle Tests bis zum Zertifikat</h2>
+            <p>Automatische Tests, alle sieben Simulatorläufe, danach GLM und zum Schluss das Zertifikat. Fehler brechen den Ablauf ab.</p>
+            <div class="aktions-knöpfe">
+                <button type="button" id="zertifikat-tests-start" class="btn btn-primaer" disabled>Mache alle Zertifikatstests</button>
+                <button type="button" id="zertifikat-tests-stop" class="btn btn-sekundaer" disabled>Ablauf abbrechen</button>
+                <a id="zertifikat-tests-pdf" class="btn btn-sekundaer" href="/api/zertifikat/pdf" target="_blank" hidden>Zertifikat öffnen (PDF)</a>
+            </div>
+            <p id="zertifikat-tests-status" role="status" aria-live="polite">Prüfe laufenden Zertifikatsablauf …</p>
+            <div id="zertifikat-tests-fortschritt" class="llm-fortschritt" hidden>
+                <div class="llm-fortschritt-kopf">
+                    <label for="zertifikat-tests-progress" id="zertifikat-tests-phase">Ablauf wird vorbereitet</label>
+                    <strong id="zertifikat-tests-prozent">0 % der Phasen</strong>
+                </div>
+                <progress id="zertifikat-tests-progress" max="100" value="0" aria-describedby="zertifikat-tests-details"></progress>
+                <p id="zertifikat-tests-details" class="hinweis"></p>
+                <div id="zertifikat-tests-teilfortschritt" hidden>
+                    <label for="zertifikat-tests-phase-progress" id="zertifikat-tests-phase-details">Aktuelle Phase</label>
+                    <progress id="zertifikat-tests-phase-progress" max="100"></progress>
+                </div>
+            </div>
+            <details><summary>Was wird ausgeführt?</summary>
+                <p>Hauptprogramm- und testsweet-Tests mit Testdatenbank, Fachschicht: Positiv, Negativ, Last und Stress; Weboberfläche: Positiv, Negativ und Last. GLM prüft anschließend die unten gewählte Fallzahl (Stichprobe). Erst mit gültigen Nachweisen wird das Zertifikat erzeugt.</p>
+                <p>Währenddessen sind Einzelstarts und Konfigurationsänderungen gesperrt. Sie können diese Seite schließen und später wieder öffnen. Die Laufzeit hängt von Datenbank, Browsern und GLM ab; der Balken zeigt abgeschlossene Phasen, keine geschätzte Restzeit.</p>
+            </details>
+        </div>
         <div class="abschnitt-kopf">
             <h2>7. LLM-Nachrechnung &amp; Testzertifikat</h2>
             <button type="button" class="btn-chip" id="llm-aktualisieren">↻ Aktualisieren</button>
         </div>
         <p class="hinweis">
             GLM-5.3 prüft ausgewählte vollständige Positiv- und Negativfälle über die Z.ai-API.
+            Stratifizierte Stichprobe: feste Fach-Grenzfälle zuerst, anschließend weitere
+            Positiv-/Negativfälle; vollständige Fälle werden übertragen.
             Prüfmenge, Gesetzesgrundlagen und Prüfauftrag werden vollständig als benannte
             Dokumenttexte gesendet. Manifest, Dateihashes und Modellantworten bleiben im Laufverzeichnis nachprüfbar.
         </p>
         <div id="llm-status">Lade …</div>
+        <ul id="llm-findings" class="review-error" hidden></ul>
         <div id="llm-fortschritt" class="llm-fortschritt" hidden>
             <div class="llm-fortschritt-kopf">
                 <label for="llm-progress" id="llm-progress-label">Prüffortschritt</label>
@@ -311,11 +343,22 @@
     </form>
 </dialog>
 
-<dialog id="llm-retry-dialog" class="llm-retry-dialog" aria-labelledby="llm-retry-title" aria-describedby="llm-retry-message">
-    <h2 id="llm-retry-title">GLM-Prüfung abgebrochen</h2>
-    <p id="llm-retry-message">3 Versuche fehlgeschlagen. Bitte das Laufprotokoll auswerten.</p>
-    <p><strong>Protokolldatei:</strong><br><code id="llm-retry-log"></code></p>
-    <button type="button" class="btn btn-primaer" id="llm-retry-close">Schließen</button>
+<dialog id="llm-retry-dialog" class="llm-retry-dialog" role="alertdialog" aria-labelledby="llm-retry-title" aria-describedby="llm-retry-summary llm-retry-impact">
+    <p id="llm-retry-severity" class="prueffehler-severity">TECHNISCHER FEHLER · Aktion erforderlich</p>
+    <h2 id="llm-retry-title" tabindex="-1" autofocus>GLM-Prüfung abgebrochen</h2>
+    <p id="llm-retry-summary"></p>
+    <p id="llm-retry-impact" class="prueffehler-impact"></p>
+    <div id="llm-retry-auto" hidden>
+        <button type="button" class="btn btn-primaer" id="llm-retry-suite-start">Mache alle Zertifikatstests</button>
+        <p class="hinweis">Führt die Pflichtprüfungen, anschließend GLM und die Zertifikatserstellung automatisch aus.</p>
+    </div>
+    <details id="llm-retry-details">
+        <summary>Technische Details und manuelle Schritte</summary>
+        <ol id="llm-retry-steps"></ol>
+        <pre id="llm-retry-message"></pre>
+    </details>
+    <p><strong>Protokollpfad (Datei oder Laufverzeichnis):</strong><br><code id="llm-retry-log"></code></p>
+    <button type="button" class="btn btn-sekundaer" id="llm-retry-close">Schließen</button>
 </dialog>
 
 <!-- Detail-Dialog (Doppelklick auf Auftrag) -->

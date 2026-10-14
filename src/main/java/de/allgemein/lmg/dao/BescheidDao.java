@@ -5,11 +5,11 @@ import de.allgemein.tx.TxContext;
 
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,9 +45,9 @@ public final class BescheidDao {
             stmt.setString(9, berechnung);
             stmt.executeUpdate();
         }
-        return new Bescheid(id, bgId, bescheidNr, datum,
-                bewilligungVon, bewilligungBis, zahlbetrag, "ERTEILT", erstelltVon, Instant.now(),
-                berechnung);
+        // Rückgabe einschließlich SYSTIMESTAMP und DB-Präzision aus der gespeicherten Zeile.
+        return finde(ctx, id).orElseThrow(() -> new SQLException(
+                "Eingefügter Bescheid ist innerhalb der Transaktion nicht lesbar"));
     }
 
     public Optional<Bescheid> finde(TxContext ctx, long id) throws SQLException {
@@ -74,12 +74,40 @@ public final class BescheidDao {
 
     /** Anzahl aller Bescheide (jeder Status) der Bedarfsgemeinschaft. */
     public int zaehleFuerBg(TxContext ctx, long bgId) throws SQLException {
-        try (PreparedStatement stmt = ctx.connection().prepareStatement(
+        return zaehleFuerBg(ctx.connection(), bgId);
+    }
+
+    public int zaehleFuerBg(Connection connection, long bgId) throws SQLException {
+        try (PreparedStatement stmt = connection.prepareStatement(
                 "SELECT COUNT(*) FROM BESCHEID WHERE BG_ID = ?")) {
             stmt.setLong(1, bgId);
             try (ResultSet rs = stmt.executeQuery()) {
                 return rs.next() ? rs.getInt(1) : 0;
             }
+        }
+    }
+
+    /** Unter derselben BG-Sperre wie Erteilung/Zahlung lesen: Altdaten können mehrdeutig sein. */
+    public List<Bescheid> erteilteFuerMonat(Connection connection, long bgId, String monat) throws SQLException {
+        try (PreparedStatement stmt = connection.prepareStatement(
+                "SELECT " + COLUMNS + " FROM BESCHEID WHERE BG_ID = ? AND STATUS = 'ERTEILT' "
+                        + "AND BEWILLIGUNG_VON <= ? AND BEWILLIGUNG_BIS >= ? ORDER BY ID")) {
+            stmt.setLong(1, bgId);
+            stmt.setString(2, monat);
+            stmt.setString(3, monat);
+            return leseListe(stmt.executeQuery());
+        }
+    }
+
+    public boolean ueberlapptErteilterZeitraum(Connection connection, long bgId,
+                                               String von, String bis) throws SQLException {
+        try (PreparedStatement stmt = connection.prepareStatement(
+                "SELECT COUNT(*) FROM BESCHEID WHERE BG_ID = ? AND STATUS = 'ERTEILT' "
+                        + "AND BEWILLIGUNG_VON <= ? AND BEWILLIGUNG_BIS >= ?")) {
+            stmt.setLong(1, bgId);
+            stmt.setString(2, bis);
+            stmt.setString(3, von);
+            try (ResultSet rs = stmt.executeQuery()) { return rs.next() && rs.getInt(1) > 0; }
         }
     }
 
@@ -122,7 +150,7 @@ public final class BescheidDao {
                 datum == null ? null : datum.toLocalDate(),
                 rs.getString(5),
                 rs.getString(6),
-                rs.getBigDecimal(7),
+                rs.getBigDecimal(7).setScale(2, java.math.RoundingMode.UNNECESSARY),
                 rs.getString(8),
                 rs.getString(9),
                 erstellt == null ? null : erstellt.toInstant(),

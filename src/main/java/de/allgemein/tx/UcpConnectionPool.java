@@ -68,8 +68,8 @@ public final class UcpConnectionPool implements ConnectionPool {
      * <ul>
      *   <li><b>Kein impliziter Commit:</b> JDBC sieht vor, dass
      *       {@code setAutoCommit(true)} eine offene Transaktion committet. Deshalb
-     *       wird vor dem Umschalten grundsätzlich {@code rollback()} ausgeführt
-     *       (quietly) — auch wenn der TxManager nach einem {@code Error} (OOM o. ä.)
+     *       muss vor dem Umschalten {@code rollback()} erfolgreich sein — auch
+     *       wenn der TxManager nach einem {@code Error} (OOM o. ä.)
      *       abbricht, darf kein Teilstand festgeschrieben werden.</li>
      *   <li><b>Kein Leak im Fehlerpfad:</b> Wirft {@code isClosed()}/
      *       {@code getAutoCommit()} bereits eine {@code SQLException} (tote
@@ -86,23 +86,23 @@ public final class UcpConnectionPool implements ConnectionPool {
         try {
             if (!connection.isClosed()) {
                 if (!connection.getAutoCommit()) {
-                    rollbackQuietly(connection);
+                    connection.rollback();
                     connection.setAutoCommit(true);
                 }
                 // Bei UCP gibt connection.close() die physische Verbindung an den Pool zurück
                 connection.close();
             }
-        } catch (SQLException e) {
-            LOG.log(Level.WARNING, "Fehler beim Zurückgeben der Verbindung an den UCP, Verbindung wird geschlossen", e);
+        } catch (SQLException | RuntimeException e) {
+            LOG.log(Level.WARNING, "Fehler beim Zurückgeben der Verbindung an den UCP, Verbindung wird verworfen: "
+                    + de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(e));
+            if (connection instanceof oracle.ucp.jdbc.ValidConnection valid) {
+                try {
+                    valid.setInvalid();
+                } catch (SQLException | RuntimeException ignored) {
+                    // Trotzdem schließen; die defekte Proxy-Verbindung darf nie weiterbenutzt werden.
+                }
+            }
             closeQuietly(connection);
-        }
-    }
-
-    private void rollbackQuietly(Connection connection) {
-        try {
-            connection.rollback();
-        } catch (SQLException e) {
-            LOG.log(Level.FINE, "Rollback vor dem Zurückstellen fehlgeschlagen: " + e.getMessage(), e);
         }
     }
 

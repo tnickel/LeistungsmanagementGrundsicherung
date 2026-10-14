@@ -6,6 +6,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from decimal import Decimal as D
+from nachrechnen_100 import rechne_block
 
 HERE = pathlib.Path(__file__).parent
 
@@ -59,6 +61,30 @@ class DeterministicRecalculationTest(unittest.TestCase):
         changed = self.sample.replace("budget_rest_erwartet=", "budget_rest_hypothetisch=")
         changed = changed.replace("budget_rest_hypothetisch=290.00", "budget_rest_hypothetisch=290.00\nbudget_rest_erwartet=1248.71")
         self.assertEqual(0, self.run_sample(changed)[0].returncode)
+
+    def test_pure_minor_base_is_once_ten_thousand(self):
+        block = "block: Minderjährige\nzahlungsmonat = 2026-10\nvermoegen = 10500.00\nbudget_start = -\n"
+        block += self.input(1, 4) + self.input(2, 6)
+        result = rechne_block(block)
+        self.assertEqual(D("10000.00"), result["schon"])
+        self.assertEqual(D("500.00"), result["verw"])
+        self.assertEqual(D("1328.00"), result["zahl"])
+
+    def test_central_deduction_and_shared_limit(self):
+        block = "block: KdU\nzahlungsmonat = 2026-10\nvermoegen = 0.00\nbudget_start = -\nkdu_warmwasser_abzug_anteil = 0.075\nkdu_bg_grenze = 600.00\n"
+        result = rechne_block(block + self.input(1, 2) + self.input(2, 2, True))
+        self.assertEqual(D("7.50"), result["personen"][0]["kdu_warmwasser_abzug"])
+        self.assertEqual(D("492.50"), result["personen"][0]["kdu"])
+        self.assertEqual(D("0.00"), result["personen"][1]["kdu_warmwasser_abzug"])
+        self.assertEqual(D("107.50"), result["personen"][1]["kdu"])
+        self.assertEqual(D("1623.64"), result["zahl"])
+        with self.assertRaises(ValueError):
+            rechne_block(block.replace("kdu_bg_grenze = 600.00\n", "") + self.input(1, 2))
+
+    @staticmethod
+    def input(person, rbs, ww=False):
+        return (f"p{person}_eingaben: rbs={rbs}, merkzeichen_g=false, schwanger=false, entbindungsmonat=-, kinder_u7=0, kinder_u16=0, kinder_minderjaehrig=0, warmwasser={str(ww).lower()}, "
+                "kdu_miete=350.00, kdu_betrieb=50.00, kdu_heizung=100.00, rente=0.00, erwerb=0.00, abz_steuern=0.00, abz_sv=0.00, abz_vers=0.00, abz_erwerb=0.00\n")
 
 
 if __name__ == "__main__":

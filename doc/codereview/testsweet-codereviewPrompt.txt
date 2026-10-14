@@ -1,0 +1,451 @@
+================================================================================
+CODEREVIEW-PROMPT — testsweet KOMPLETT: Simulator, Verifikation, LLM-Auswertung,
+                      Testzertifikat, Gesetzesabdeckung
+Stand: 2026-10-13 (Abend), Projekt HEAD zum Zeitpunkt des Reviewstarts
+Ziel: ein einziger, allumfassender, gewissenhafter Codereview des GESAMTEN
+      Testwerkzeugs testsweet/ inklusive der echten LLM/GLM-Prüfkette und
+      der Testzertifikat-Erzeugung.
+================================================================================
+
+
+0. ROLLE UND AUFTRAG
+--------------------------------------------------------------------------------
+
+Du bist ein Review-Team aus fünf Rollen in einer Person:
+
+  1. Senior-Java-Entwickler (Java 21, JDBC, Oracle, Concurrency, kein Framework)
+  2. Test-Qualitätsprüfer (Teststrategie, Testdaten, Orakel-Fragen: Womit wird
+     „richtig" verglichen und ist dieses Orakel unabhängig?)
+  3. Sozialverwaltungs-Fachprüfer (SGB XII / SGB X / SGG; du weißt, welche Norm
+     welche Wirkung hat und welcher Testfall sie beweisen muss)
+  4. LLM-Prüfungs-Auditor (Prompt-Qualität, Antwortvalidierung, Belegketten,
+     Manipulations- und Ausfallsicherheit von KI-Auswertungen)
+  5. Betriebs-/Sicherheitsprüfer (Logging, Einsichtsbarkeit, Exit-Codes, GUI)
+
+Dein Auftrag: Prüfe die GESAMTE testsweet — jede Klasse, jeden Bericht, jeden
+automatischen Test, die LLM-Anbindung und das Zertifikatswerkzeug. Das
+Leitprinzip steht in Abschnitt 2; es ist die Messlatte für jede Einzelprüfung.
+
+Du änderst KEINEN Code und KEINE Datei. Du lieferst ausschließlich einen
+Review-Bericht nach Abschnitt 16. Jede Aussage belegst du mit Datei:Zeile bzw.
+Datei+Methode. Vermutungen kennzeichnest du ausdrücklich als Vermutung. Eine
+widerlegte Spur ist ein Ergebnis wie ein bestätigter Befund — schreibe beides
+auf (Abschnitt 5 des Berichts), damit nachfolgende Reviews nicht dieselbe
+Irreparatur anstoßen.
+
+
+1. WAS DU REVIEWST — PROJEKTKARTE testsweet
+--------------------------------------------------------------------------------
+
+Prüfe zuerst mit `git log --oneline -3` und `git status`, welcher Stand vor dir
+liegt, und schreibe den Commit in den Berichtskopf.
+
+Eigener Maven-Projektordner testsweet/ auf dem Hauptartefakt:
+  - Kern: Simulator (Lauf-Orchestrierung, Kategorien POSITIV/NEGATIV/LAST/
+    STRESS, Phasenbarriere, Cleanup, globale Konsistenzprüfung), Mitarbeiter
+    (Modus-1-Spieler), Verifikator (SQL-Endzustandsprüfung je Auftrag),
+    GlobaleVerifikation (laufweite SQL-Prüfungen), Auftrag + Erwartung +
+    SzenarioAktion (Statusmaschine OFFEN→…→VERIFIZIERT; erwartete Fachfehler),
+    Rechenblock (Rechenwege für die Berichte).
+  - Szenarien: SzenarioBibliothek (kuratierte + Kombinationsfälle Positiv/
+    Negativ, Last, Stress 2 Wellen), WebSzenarioBibliothek, TestfallKatalog
+    (GUI-Beschreibung der Arten).
+  - Web-Modus: WebMitarbeiter, WebHelfer, BrowserProzesse, WebAktion
+    (Selenium, sichtbare Chrome-Fenster, Treiber-Neustart, Profil-Cleanup).
+  - Berichte/Logging: SweetLog (asynchron, je Lauf ein run-*-Ordner mit
+    zusammenfassung.txt, simulation.log, auftrag-*.log, db-verifikation.log,
+    fehler.log), Testdokumentation (PDF), MdBericht (maschinenlesbares MD —
+    Grundlage der LLM-Prüfung), LastBericht (Last/Stress), SweetPdf, KiPruefAnhang
+    (KI-Nachweis PDF/MD).
+  - GUI/API: SweetServer (Port 8095, /api/*, Abschnitt-7-Endpunkte), app.js +
+    index.html + style.css in src/main/resources/sweet.
+  - LLM-Kette: LlmReviewService, LlmConfig (llm.local.properties, Git-ignoriert),
+    KiPruefAnhang; Werkzeug doc/testzertifikat-werkzeug/ mit llm-pruefauftrag.txt
+    (der Prompt an das Modell), gesetzesgrundlagen-2026.md, generate.js
+    (Zertifikat + stand.json), llm-evidence.js (JS-Gegenprüfer der Belege),
+    nachrechnen_100.py + test_nachrechnen.py (deterministische Zweitrechnung),
+    erstelle-zertifikat.bat (CLI-Weg).
+  - Automatische Tests der testsweet: testsweet/src/test/java (LlmReviewServiceTest,
+    ReviewLaufRegressionTest, GlobaleVerifikationTest, KassenIsolationDbTest,
+    MdBerichtFilterTest, KiPruefAnhangTest, SweetServerLlmHttpTest,
+    SzenarioGeneratorRegressionTest, TestfallKatalogTest, WebWiederaufnahmeTest,
+    WebDialogRegressionTest — und alle, die seit diesem Stand hinzukommen).
+  - Fachliche Vergleichsgrundlagen: doc/rechtsgrundlagen.md (maßgebliches
+    Normenverzeichnis mit Herkunfts-Nachweisen), doc/regressionstests.md,
+    src/main/java/de/allgemein/lmg/calc/Leistungsberechnung.java und
+    Bewilligungsplan (das geprüfte Fachziel).
+
+Vorbefunde (bereits erhoben, NICHT doppelt melden — stattdessen Fix-Verifikation,
+siehe Prüffeld J): doc/codereview/testsweet-glm-zertifikat-codereview-2026-10-13.md
+(CR-101 … CR-120) und doc/codereview/testsweet-codereview-2026-10-13.md (älterer
+Stand, größtenteils eingearbeitet).
+
+
+2. LEITPRINZIP — DIE MESSLATTE FÜR ALLES
+--------------------------------------------------------------------------------
+
+Der Zweck von testsweet ist: FEHLER IN DER SOFTWARE FINDEN. Alles andere ist
+nachrangig. Daraus folgen vier harte Akzeptanzkriterien (AKE), die du je
+Einzelprüfung als Fragen mitführst:
+
+  AKE-1 (Kein falsches OK):  Wenn irgendetwas nicht in Ordnung ist — Spiel-
+      abbruch, SQL-Fehler, DB-NULL, globale Prüfung rot, erwarteter Fachfehler
+      blieb aus, LLM meldet FAIL/UNVERIFIED, Belege beschädigt/veraltet — darf
+      an KEINER Stelle (GUI, PDF, MD, zusammenfassung.txt, Zertifikat, Exit-
+      Code, HTTP-Antwort) „OK/✓/BESTANDEN/erfolgreich/FERTIG" stehen.
+      Verfolge dafür jede Erfolg darstellende Aussage rückwärts bis zur
+      erzeugenden Bedingung.
+
+  AKE-2 (LLM-Orakel):        „OK" bzgl. der Fachwerte darf nur stehen, wenn
+      das LLM die Fälle WIRKLICH ausgewertet hat: vollständige Fallabdeckung,
+      gültige Antworten (kein Truncation, richtiges Modell), Belegkette
+      intakt, verdict=PASS. Ein LLM-Fund (FAIL) muss im Zertifikat deutlich
+      (rot/dick, mit Fall-IDs und findings-Texten) aufpoppen — nicht als
+      gelbe generische Warnung, nicht nur in Artefaktdateien.
+
+  AKE-3 (Nachvollziehbarkeit): Jeder Testlauf, jeder Auftrag, jeder Schritt,
+      jede Prüfung (auch fehlgeschlagene/abgebrochene) muss protokolliert UND
+      auffindbar sein: In welcher Datei, an welchem Pfad, mit welchem
+      Soll/Ist? Prüfe Lücken (gecrashte Läufe, verlorene Logzeilen,
+      fehlgeschriebene Berichte, unsichtbare Altzustände).
+
+  AKE-4 (Gesetzesabdeckung): Für jede MODELLIERTE Norm muss es Testfälle
+      (inkl. Grenzfälle, bevorzugt Positiv + Negativ) geben, und das
+      Zertifikat/der Katalog dürfen keine Abdeckung behaupten, die es nicht
+      gibt; nicht modellierte Normen müssen als Lücke/Modellgrenze ausgewiesen
+      sein (Prüffeld C).
+
+
+3. PRÜFFELD A — VERIFIKATIONS-ENGINE (False-Pass-Kern)
+--------------------------------------------------------------------------------
+
+Dateien: Verifikator, GlobaleVerifikation, Mitarbeiter, SzenarioAktion,
+Auftrag, Erwartung, Simulator (Abschlussphase, globaler Konsistenzcheck).
+
+Prüfungen (je mit Beleg antworten):
+  A1  Vergleiche: Toleranzen, Rundungen, Typfehler, ==/equals, BigDecimal
+      equals vs compareTo, TEXT_IN-Alternativen, die zu weit fassen.
+  A2  NULL/leere Resultsets/SQL-Fehler/Verbindungsverlust während der
+      Verifikation: immer ok=false? Oder gibt es Pfade, die still überspringen?
+  A3  Welche Aufträge werden gar nicht verifiziert (Statusfilter)? Können
+      FEHLGESCHLAGEN/abgebrochene Aufträge den Lauf dennoch grün machen?
+      Prüfe laufErfolgreich()/aktualisiereAbschlussphase() auf jede Lücke.
+  A4  Erwartete Fachfehler: Code-Vergleich exakt? Was passiert, wenn der
+      Fehler ausbleibt, mit falschem Code, mit richtigem Code aber falscher
+      Ursache? Wird die Ursache (Meldung) irgendwo ausgewertet?
+  A5  Globale Prüfungen: Stimmen die Erwartungen fest (szenario-abgeleitet)
+      oder laufen-abgeleitet (selbst mit sinkend)? Was passiert bei SQL-
+      Ausfall, bei doppeltem Release, bei Restdaten früherer Läufe (Cleanup-
+      Lücken, WEB-Kennungen, BG-loser Journal-Zeilen)?
+  A6  Stresstest: Phasenbarriere (Zählung bei fehlgeschlagenen Welle-1-
+      Aufträgen, ungeraden Auftragszahlen), Erwartungsformeln (ceil/floor),
+      Version-2/Budget/Journal-Prüfungen — konsistent?
+  A7  Konkurrenz: nimmAuftrag/AtomicInteger, volatile Felder, Kontext-Kopie —
+      Race-Conditions mit Folge für Verifikationsergebnis?
+  A8  Cleanup + Duplikat-Schutz (pruefeKeineAltenAktenzeichen, raeumeAltdaten-
+      Auf): transaktional? Vollständig (alle Tabellen, alle Kennungen)?
+      Kann ein Lauf auf Resten eines vorherigen Laufs „bestehen"?
+
+
+4. PRÜFFELD B — SZENARIO-FABRIKEN UND ORAKEL-UNABHÄNGIGKEIT
+--------------------------------------------------------------------------------
+
+Dateien: SzenarioBibliothek, WebSzenarioBibliothek, TestfallKatalog,
+Rechenblock; Vergleichsgrundlage Leistungsberechnung/Bewilligungsplan/Service.
+
+  B1  ZIRKELSCHLUSS (wichtigste Orakelfrage): Werden Erwartungswerte mit
+      demselben Code berechnet, der das System ist? Welche Fehlerklasse kann
+      testsweet damit prinzipbedingt nicht finden? Wo sind die unabhängigen
+      Gegenorakel (GoldWerteTest, nachrechnen_100.py, LLM) angeschlossen —
+      automatisch im Lauf oder nur manuell? Was müsste passieren, damit die
+      Unabhängigkeit echt wird (eigene Rechenklasse, Sollwert-Katalog)?
+  B2  Erwartungsspezifität je Szenario-Art: Prüft jede Erwartung das
+      Fachziel oder nur Nebendinge (COUNT ohne Inhalt, TEXT_IN mit
+      Alternativen, die beides zulassen, Status ohne FREIGEGEBEN_VON …)?
+      Liste je kuratierter Art die geprüften Invarianten auf und benenne
+      Fehlende (Vier-Augen, Journal-Unverändertheit bei Abwehr, Bescheids-
+      inhalt, Vermögens-Rückbuchung bei Storno …).
+  B3  Negativ-Invarianten: Wird je Negativfall der unveränderte DB-End-
+      zustand VOLLSTÄNDIG bewiesen (alle Fachtabellen, Journal-Anzahl,
+      Vermögen, Budget) oder nur punktuell?
+  B4  Kombinationsgenerator: Signatur-Vollständigkeit (alle fachlich
+      wirksamen Eingaben?), Dedup-Korrektheit, Erschöpfungs-Rückfall,
+      Status-Erwartungen je Verstoßzweig, unphysikalische Werte.
+  B5  TestfallKatalog vs. Code: Behauptet die Beschreibung Prüfungen/Gewichte,
+      die der Code nicht enthält? (Katalog ist GUI-/Zertifikatsbasis.)
+
+
+5. PRÜFFELD C — GESETZESABDECKUNG DURCH TESTFÄLLE (systematisch!)
+--------------------------------------------------------------------------------
+
+Das ist ein expliziter Auftrag, nicht optional. Baue eine Abgleich-Matrix
+aus doc/rechtsgrundlagen.md (maßgeblich) gegen den Testfallbestand
+(SzenarioBibliothek kuratiert + Kombinations-Reichweite + WebSzenarioBibliothek
++ GoldWerteTest + SzenarioRegressionTest + LLM-Prüfauftrag). Für JEDE Norm:
+
+  | Norm | Fachregel (1 Zeile) | Testfall(e) mit Datei:Zeile | Positiv? | Negativ/Grenzwert? | Kombination? | LLM-Prüfauftrag nennt sie? | Lücke? |
+
+Mindestens diese Normen (aus doc/rechtsgrundlagen.md; ergänze, was dort mehr steht):
+  - § 28 SGB XII + Anlage: RBS 1–6 (Beträge 2026), Stufen-Zuordnung.
+  - § 30 Abs. 1 (Merkzeichen G 17 %), Abs. 2 (Schwangerschaft ab 13. SSW;
+    Entbindungsmonat: automatisches Entfallen NUR dieses Mehrbedarfs im
+    Folgemonat — Grenzfälle: Entbindungsmonat selbst, Monat davor, ohne
+    erfassten Monat), Abs. 3 (Alleinerziehend 36 %/12 % je Kind, Basis IMMER
+    Stufe 1, Deckel 60 % der Stufe 1; Grenzfälle: 1 Kind ohne U7, 2 und 4
+    Kinder unter 16, Kinderzahl-Anzeige), Abs. 6 (Kappung auf eigenen
+    Regelbedarf; Abs. 7 bewusst NICHT im Deckel), Abs. 7 (Warmwasser dezentral
+    je Stufe 2,3/2,3/–/1,4/1,2/0,8 %; Kombination mit zentraler Erzeugung
+    ausgeschlossen — beides gleichzeitig muss abgewehrt/ausgeschlossen sein).
+  - §§ 35, 42a SGB XII: KdU-Dreiteilung (Miete/Betrieb/Heizung), Summe je BG,
+    Warmwasser-Abzug nur bei zentraler Erzeugung und nur von Heizung,
+    Gesamtangemessenheitsgrenze je BG (inkl. Kürzung + Bescheid-Kennzeichnung;
+    Grenzwert „exakt an der Grenze").
+  - § 82 Abs. 2 (Absetzbeträge Steuern→SV→Versicherungen→Erwerbsaufwendungen;
+    Reihenfolge/Summierung), Abs. 3 (30 % vom Erwerb, gekappt auf 50 % RBS 1
+    = 281,50 €; Grenzwert exakt an der Kappung; Rente OHNE Erwerbsfreibetrag).
+  - § 90 Abs. 2 Nr. 9 i.V.m. DVO § 1 (Schonvermögen 10.000 je Erwachsenem/
+    RBS 1–3, 500 je unterhaltener Person/RBS 4–6; Verbrauchsfortschreibung:
+    Einsatz an der ersten Auszahlung dokumentiert, Bestand sinkt unter BG-
+    Sperre, ab Folgemonat kein Abzug mehr; STORNO bucht genau den dokumentierten
+    Einsatz zurück), § 43 Abs. 1 (Vermögen mindert Zahlbetrag).
+  - § 44 SGB XII (Bewilligungszeitraum ≤ 12 Monate, Format/Reihenfolge,
+    Zahlung nur in bescheidgedeckten Monaten, Bescheid-Monatsplan/Snapshot,
+    Antrag-Monatsrückwirkung offen?).
+  - SGB X / SGG (nur soweit testsweet sie berührt): Bescheid-Begründung,
+    Belehrungen im Druck, Vier-Tage-Fiktion § 37 Abs. 2 — nur als
+    Berührungspunkte, wenn Berichte/Bescheidtexte geprüft werden.
+  - Nicht modellierte Normen (u. a. § 35 Abs. 1 Karenzzeit/1,5×-Grenze,
+    Abs. 3 Absenkungsfristen, § 82 Abs. 3 S. 2 WfbM, Abs. 4/5, § 43 Abs. 2,
+    § 44a): Werden sie im Zertifikat/Handbuch als Modellgrenze ausgewiesen?
+
+Bewerte: Welche NORM-Wirkung hat KEINEN Testfall? Welche Grenzwert-Kante
+(monatsgenau, Cent-genau, Stufe-genau) wird nirgends geschnitten? Welche
+Lücke behauptet der TestfallKatalog/das Zertifikat fälschlich als gedeckt?
+Die Matrix gehört als Anhang in den Bericht.
+
+
+6. PRÜFFELD D — LLM-AUSWERTUNGSKETTE (Schwerpunkt, AKE-2)
+--------------------------------------------------------------------------------
+
+Dateien: llm-pruefauftrag.txt, LlmReviewService, LlmConfig, KiPruefAnhang,
+llm-evidence.js; Kontext: MdBericht (Quelle), SweetServer-Abschnitt-7-APIs.
+
+  D1  PRÜFAUFTRAGS-QUALITÄT: Ist llm-pruefauftrag.txt fachlich vollständig
+      (alle Rechenblöcke je Person, Obergrenzen, Rundung, Schonvermögen,
+      Budget-Hypothese vs. Workflow-Endbestand, V1..Vn-SQL-Zeilen, erwartete
+      Fehler, NIO-Zeilen-Regel), eindeutig (kein Interpretationsspielraum,
+      der zu PASS ohne Prüfung führt), und injectionsfest (Anweisungen in
+      Testdaten dürfen den Auftrag nicht ändern — steht so drin, aber wird
+      die Antwortstruktur gegen Verschleierung geschützt)? Fehlt eine Regel,
+      deren Fehlen das Modell zu falschem PASS verleiten kann?
+  D2  ANTWORTVALIDIERUNG: validateAnswer (Java) + answer (JS): Exakte
+      Fallabdeckung, verdict-Alphabet, PASS ⇔ findings leer, reasoning
+      nicht-leer. Was ist NICHT prüfbar (reasoning-Qualität)? Welche
+      Antwortformulierungen könnten die Validierung täuschen (z. B. Felder
+      doppelt, JSON-Tricks, Unicode-Normalisierung, Groß-/Kleinschreibung
+      von verdict)? Sind Java- und JS-Validator wirklich äquivalent
+      (Vergleich Unicode-für-Unicode der Akzeptanzkriterien)?
+  D3  VERDICT-AGGREGATION: FAIL > UNVERIFIED > PASS überall? Auch in
+      restoreLatest, status(), validateStored, llm-evidence.latestEvidence?
+      Kann ein FAIL irgendwo zu UNVERIFIED oder PASS degenerieren (z. B.
+      Belege beschädigt → Information „Fachliche Befunde" verloren)?
+  D4  BELEGKETTE: manifest.json ↔ result.json (SHA-256), Quell-MD-Hashes +
+      „neueste Quelle"-Bindung, Request/Response-Dateien, Rekonstruktion
+      des gesendeten Auftrags zeichengenau (Java Json.write vs JS
+      JSON.stringify — Feldreihenfolge, Escaping), Retry-Versuche identisch.
+      Was könnte ein Angreifer/Unfall konsistent fälschen? (Nur dokumentieren,
+      nicht ausnutzen.)
+  D5  AUSFALLVERHALTEN: HTTP-Fehler, Timeout (auch stockender Body), 8-MiB-
+      Grenze, finish_reason≠stop, falsches Modell, Retry 3×30 s → ERROR mit
+      retryExhausted. Bleibt in JEDEM Ausfallpfad die Aussage „nichts
+      bestätigt" erhalten? Kann ein Teilergebnis (batch 1 gültig, batch 2
+      ERROR) als Erfolg durchgehen?
+  D6  KONFIG/SECURITY: llm.local.properties (Atomarität, Validierung, HTTPS-
+      Zwang), Schlüssel-Redaktion in Dateien/Status (auch Echo im Response-
+      Body), env-Overrides, GUI-Zugriff (Origin/Host-Prüfung), Konkurrenz
+      (laufAktiv/certificateBusy/operationLock) —Race-Fenster?
+  D7  QUELLENAUSWAHL: newestSource verlangt lauf_erfolgreich=true + kategorie;
+      was passiert mit WEB-Quellen, mit Läufen ohne MD, mit mehreren Läufen
+      derselben Sekunde (run-Ordnernamen mit Zufalls-Suffix)?
+  D8  GRENZEN-DOKUMENTATION: Werden Stichproben-Charakter und Nicht-
+      Prüfbares ehrlich kommuniziert (Zertifikatstext, protocol.md)? Oder
+      wird Vollprüfungs-Anmutung erzeugt?
+
+
+7. PRÜFFELD E — TESTZERTIFIKAT (AKE-1/AKE-2 konkret)
+--------------------------------------------------------------------------------
+
+Dateien: doc/testzertifikat-werkzeug/generate.js, llm-evidence.js, stand.json,
+erstelle-zertifikat.bat; SweetServer.erzeugeZertifikat*; app.js-Dialog.
+
+  E1  ✓-SPUREN: Für JEDE Zeile der Prüfschichten-Tabelle: Woher kommt das ✓?
+      Automatisch erhoben (aus welcher Datei, mit welchen Fallen bei
+      fehlender/fehlerhafter Datei) oder hartcodiert? Sind hartcodierte als
+      „manuell gepflegt" gekennzeichnet?
+  E2  VERDICT-LOGIK: BESTANDEN/BEDINGT — reichen die Warnbedingungen aus?
+      Crashede Läufe ohne zusammenfassung.txt, Läufe aus anderem Modus,
+      MD-Datenstand von fehlgeschlagenen Läufen, ältere LLM-Belege nach
+      neuem Lauf — was bleibt unsichtbar?
+  E3  LLM IM ZERTIFIKAT (AKE-2-Kern):state=FAIL/UNVERIFIED/ERROR/fehlend —
+      was genau steht im Zertifikat? Werden Fall-IDs, Anzahl FAIL-Fälle,
+      findings-TEXTE gezeigt? Gibt es ein rot markiertes „NICHT BESTANDEN"?
+      Wenn nein: Befund. Prüfe auch KiPruefAnhang-PDF („PASS" in grauer Box?)
+      und die MD-Zeilen fachpruefung_bestanden.
+  E4  GATE-ASYMMETRIE: GUI verweigert bei nicht-PASS (409) vs. CLI-Weg
+      (erstelle-zertifikat.bat) ohne Pforte; Kopie nach doc/ unabhängig vom
+      Verdict. Konsistent? Was SOLLTE passieren (Empfehlung formulieren)?
+  E5  stand.json: Stimmt der Inhalt mit dem erzeugten Dokument überein?
+      Kann die GUI aus stand.json etwas Grüneres anzeigen als das Dokument
+      enthält?
+  E6  Zahlen-Drift: MVN_TESTS/Web-Referenzen hartcodiert — drift-erkennend?
+      (Nur Feststellung + Vorschlag.)
+
+
+8. PRÜFFELD F — LOGGING UND EINSICHTSBARKEIT (AKE-3)
+--------------------------------------------------------------------------------
+
+  F1  Vollständigkeit: Wird JEDE Prüfung (auch globale, auch SQL-fehler-
+      hafte) in db-verifikation.log UND im MD UND im PDF sichtbar? Fehlen
+      hinweis()-Ursachen irgendwo? Werden abgebrochene/fehlgeschlagene
+      Aufträge mit Grund protokolliert?
+  F2  Auffindbarkeit:Laufordner-Bennenung/Reihenfolge, zusammenfassung.txt
+      als Maschinenquelle (alle Felder für Zertifikat/Statusdatei?),
+      neuesteDatei-Fallback (kann Alt-Report als aktuell erscheinen?),
+      llm-review-Artefakte (manifest, requests, responses, protocol.md,
+      result.json) — vollständig und auffindbar benannt?
+  F3  Verlustwege: SweetLog-Async (Queue, Direkt-Fallback, close-Verhalten,
+      Verlustzähler?), IOException in zusammenfassung() nach FERTIG,
+      Schreibfehler der Berichte (nur Logzeile — was sieht der Nutzer dann?).
+  F4  Wahrheit der Kennzahlen: GUI-KPIs, LastBericht-Aggregate (Zählbasen,
+      Dezimalkomma im MD), zusammenfassungsText-Summen — können sie ein
+      schiefes Bild zeichnen?
+
+
+9. PRÜFFELD G — WEB-MODEUS (SELENIUM)
+--------------------------------------------------------------------------------
+
+  G1  Semantik der Erfolgskriterien je Schritt: exakte Dialogtitel, sichtbare
+      Belege, Kopf-Aktenzeichen — wo genügt bloße Element-Präsenz? Insbesondere
+      Negativ-Abwehr: wird der Fehlertext inhaltlich geprüft (Login!) oder
+      reicht beliebiger Text?
+  G2  Fehlbehandlung/Neustart: Ursachen-Maskierung, Wiederholungsregeln
+      (Schreibschritte nie wiederholen — wirklich?), sitzungWiederherstellen
+      (Vier-Augen-Identität!), Fensterhandle-Chaos, Abbruch-Reste.
+  G3  Beweiskraft Screenshots/Fenster: Was wird belegt, was nur behauptet?
+
+
+10. PRÜFFELD H — AUTOMATISCHE TESTS DER testsweet SELBST
+--------------------------------------------------------------------------------
+
+  H1  Decken die 11+ Testklassen die Fehlerpfade ab, die dieser Review
+      fordert (False-Pass-Pfade, LLM-Manipulation, Ausfälle, GUI-Anzeigen)?
+      Liste der UNGETESTETEN kritischen Pfade.
+  H2  Testqualität: testen sie Verhalten oder Implementationsdetails
+      (Reflection-Setups)? Gibt es Tests, die fast nichts behaupten?
+  H3  Läuft die Suite ohne DB / mit DB (TX_URL) korrekt dokumentiert?
+      Assumptions, die still überspringen?
+
+
+11. PRÜFFELD I — BETRIEB, GUI, EXIT-CODES
+--------------------------------------------------------------------------------
+
+  I1  Exit-Codes je CLI-Pfad (run/web/…): fehlgeschlagener Lauf niemals 0?
+      Erfolg ohne Bericht? Konfigurationsfehler ≠ 0?
+  I2  GUI-Zustände: jede Phase sichtbar korrekt (ABGEBROCHEN!), Banner nur
+      bei echtem Erfolg, Fehlerdialoge lesbar, kein grüner Zustand aus
+      Exception-Handlern heraus.
+  I3  Ressourcen: Server-/Pool-/Fensterleben, Staging-Ordner, Profil-Müll,
+      Shutdown-Hooks.
+
+
+12. PRÜFFELD J — VORBEFUNDE VERIFIZIEREN (keine Duplikate)
+--------------------------------------------------------------------------------
+
+  J1  Prüfe je Fund CR-101…CR-120 aus testsweet-glm-zertifikat-codereview-
+      2026-10-13.md: noch vorhanden (mit aktueller Zeilennummer), bereits
+      behoben (wie, korrekt?), oder Bewertung korrigierbar? NICHT erneut
+      als Neufund melden — als „CR-1xx: BESTÄTIGT (Zeile n) / BEHOBEN /
+      TEILWEISE" in einer Tabelle.
+  J2  Prüfe die dortige „Widerlegte Verdichte"-Liste gegen den Code —
+      stimmt die Widerlegung noch?
+
+
+13. VERDACHTSSPUREN (konkrete Fragen; jede ist zu beantworten oder als
+    nicht anwendbar zu begründen)
+--------------------------------------------------------------------------------
+
+  S-01 Kann ein POSITIV-Lauf grün enden, obwohl der Kassenlauf nichts
+       übergibt? (Verfolge die Erwartungen des Kassenlauf-Auftrags.)
+  S-02 Kann eine Erwartung durch eine ANDERE Zeile/anderen Auftrag erfüllt
+       werden (Journal >= 1 statt = 1, COUNT über falsche Menge)?
+  S-03 Sind Erwartungsbeträge jemals unabhängig vom Systemcode berechnet?
+       Wenn nein: Welche Schlüsse sind aus „verifiziert" zulässig?
+  S-04 Was steht wörtlich im Zertifikat, wenn das LLM genau EINEN Fall mit
+       „Regelbedarf 563 statt 506" failt? (Zitiere die Zeilen.)
+  S-05 Welche Datei muss man öffnen, um die Begründung eines einzelnen
+       verifizierten Falls nachzulesen? Existiert sie für JEDE Kategorie
+       (auch LAST/STRESS, auch WEB)?
+  S-06 Kann ein zweiter, neuerlicher Testlauf die LLM-Belege „entwerten",
+       ohne dass die GUI es sagt? Und umgekehrt: Kann ein alter LLM-PASS
+       nach Softwareänderung weiter gelten?
+  S-07 Was passiert bei Tastatur-/Netz-Interrupt während der Zertifikat-
+       erzeugung (halbfertige Dateien in doc/)?
+  S-08 Gibt es einen Status/Farbcode, der „nicht geprüft" von „geprüft und
+       in Ordnung" unterscheidet — überall (GUI, PDF, MD, Zertifikat)?
+  S-09 Welche Norm aus Abschnitt 5 hat den dünnsten Testschutz? (Begründe
+       an der Matrix.)
+  S-10 Kann die GUI etwas anzeigen, was das Zertifikat widerspricht (oder
+       umgekehrt)? (Verdict vs. status.md vs. alert-Text.)
+
+
+14. DYNAMISCHE PRÜFUNGEN (falls Umgebung verfügbar; sonst statisch + kenn-
+    zeichnen; niemals Produktivdaten anfassen)
+--------------------------------------------------------------------------------
+
+  - Unit-Suiten: cd testsweet && mvn test   (Ergebnis zitieren)
+  - DB-gated Tests mit TX_URL (Docker-Oracle lmg-oracle, tx_demo/tx_demo).
+  - KOPIE-Manipulation (nur in einer Kopie unter %TEMP%): an result.json
+    eines LLM-Laufs ein FAIL→PASS-Drehen versuchen und llm-evidence.js
+    dagegen laufen lassen — Dokumentiere, was die Kette erkennt.
+  - Zertifikat im Trockenlauf: node generate.js mit einem temporären
+    Ausgabepfad; stand.json auf Konsistenz mit dem Dokument prüfen.
+  - Keine echten LLM-API-Aufrufe ohne konfigurierten Schlüssel; niemals
+    Schlüssel in Dateien/Logausgaben schreiben.
+
+
+15. ARBEITSWEISE UND VERBOTE
+--------------------------------------------------------------------------------
+
+  - NUR BEOBACHTEN: keine Code-/Dateiänderungen im Projekt (außer deinem
+    Bericht; dynamische Prüfungen nur auf Kopien/Temp).
+  - Keine Gefälligkeitsurteile: „sieht gut aus" ist kein Ergebnis; jede
+    Freigabe braucht einen geprüften Pfad.
+  - Keine Spekulation ohne Kennzeichnung; keine Zitate ohne Datei:Zeile.
+  - Deutsch; Bericht als Markdown unter doc/codereview/ mit Datum im Namen.
+  - Vollständigkeit vor Höflichkeit: eine leere Fundliste ist selbst ein
+    Befund (dann begründe, WARUM nichts zu melden ist).
+
+
+16. BERICHTSFORMAT
+--------------------------------------------------------------------------------
+
+  Kopf: Review-Stand (Commit-Hash), Datum, Prüferkennung, Umfang (Dateien,
+  Zeilen, dynamische Prüfungen ja/nein).
+  Executive Summary: max. 10 Sätze; die 5 wichtigsten Befunde; Antwort auf
+  jede AKE (1–4) in je einem Satz („erfüllt / teilweise erfüllt / verletzt,
+  weil …").
+  Fundliste (je Fund): ID CR-2nn (fortlaufend ab CR-201, keine Kollision mit
+  Vorbefunden), Schwere (KRITISCH/HOCH/MITTEL/NIEDRIG), Komponente,
+  Datei:Zeile, Codebeleg (1–5 Zeilen), Auswirkung (False-Pass? Welches AKE
+  verletzt?), Fix-Empfehlung (konkret, minimal-invasiv).
+  Gesetzesmatrix (aus Prüffeld C) als Anhangstabelle + Lückenliste.
+  Vorbefund-Tabelle (aus J).
+  Positiv-Bestätigungen: was ausdrücklich geprüft und GUT ist (mit Beleg) —
+  das ist der Gegenanker für spätere Regressionen.
+  Widerlegte Verdachte: Spuren, die du geprüft und verworfen hast (mit
+  Begründung am Code) — damit sie niemand „repariert".
+  Empfohlene Fix-Reihenfolge.
+
+================================================================================
+ENDE DES PROMPTS — Review jetzt ausführen.
+================================================================================

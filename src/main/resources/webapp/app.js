@@ -41,11 +41,13 @@ async function api(pfad, optionen) {
     zeigeView("login");
     const fehler = new Error("Nicht angemeldet");
     fehler.code = "ANMELDUNG";
+    fehler.httpStatus = antwort.status;
     throw fehler;
   }
   if (!antwort.ok) {
     const fehler = new Error(koerper.message || antwort.statusText);
     fehler.code = koerper.code;
+    fehler.httpStatus = antwort.status;
     throw fehler;
   }
   return koerper;
@@ -123,6 +125,9 @@ function zeigeView(name) {
 // ---------------------------------------------------------------- Anmeldung
 
 $("btn-login").addEventListener("click", async () => {
+  $("login-fehler").textContent = "";
+  $("login-fehler").dataset.httpStatus = "";
+  $("login-fehler").dataset.errorCode = "";
   const kennung = $("login-kennung").value.trim();
   const passwort = $("login-passwort").value;
   if (!kennung || !passwort) {
@@ -143,6 +148,8 @@ $("btn-login").addEventListener("click", async () => {
     ladeUebersicht();
   } catch (fehler) {
     $("login-fehler").textContent = fehler.message;
+    $("login-fehler").dataset.httpStatus = String(fehler.httpStatus || 0);
+    $("login-fehler").dataset.errorCode = fehler.code || "NETZWERK";
   }
 });
 
@@ -386,20 +393,23 @@ function rendereBescheid(bescheid) {
   const druckBtn = $("btn-bescheid-drucken");
   if (bescheid && bescheid.id) {
     const monatsplan = bescheid.monatsbetraege || [];
-    const betraege = monatsplan.length > 0
+    const betraege = bescheid.snapshotStatus === "INVALID"
+      ? `<strong role="alert">Fehler im gespeicherten Berechnungsplan: ${esc(bescheid.snapshotWarning || "Snapshot beschädigt. Bescheid fachlich und technisch prüfen.")}</strong>`
+      : monatsplan.length > 0
       ? monatsplan.map(m => `${esc(m.monat)}: <strong>${betrag(m.zahlbetrag)}</strong>`).join(" · ")
       : `Monatlicher Zahlbetrag: <strong>${betrag(bescheid.zahlbetrag)}</strong>`;
     box.innerHTML = `<strong>Bescheid erteilt:</strong> ${esc(bescheid.bescheidNr)} · Bescheiddatum: ${esc(bescheid.bescheidDatum || '–')} · Zeitraum: <strong>${esc(bescheid.bewilligungVon)} bis ${esc(bescheid.bewilligungBis)}</strong><br>${betraege} (${esc(bescheid.status)}) · Bearbeiter: ${esc(bescheid.erstelltVon)}`;
-    druckBtn.classList.remove("hidden");
+    druckBtn.classList.toggle("hidden", bescheid.snapshotStatus === "INVALID");
     $("bescheid-von").value = bescheid.bewilligungVon || "";
     $("bescheid-bis").value = bescheid.bewilligungBis || "";
   } else {
     box.textContent = "Kein Bewilligungsbescheid vorhanden. Geben Sie den Bewilligungszeitraum an und klicken Sie auf 'Bescheid erteilen'.";
     druckBtn.classList.add("hidden");
-    const aktMonat = new Date().toISOString().slice(0, 7);
-    const d = new Date();
-    d.setFullYear(d.getFullYear() + 1);
-    const folgeJahr = d.toISOString().slice(0, 7);
+    const jetzt = new Date();
+    const monat = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const aktMonat = monat(jetzt);
+    // Zwölf Monate einschließlich Startmonat; der Monatserste verhindert Tagesüberläufe.
+    const folgeJahr = monat(new Date(jetzt.getFullYear(), jetzt.getMonth() + 11, 1));
     $("bescheid-von").value = aktMonat;
     $("bescheid-bis").value = folgeJahr;
   }
@@ -435,7 +445,7 @@ function rendereBerechnung() {
   for (const fall of detail.faelle) {
     const zeile = document.createElement("tr");
     const mbTitel = esc(`Merkzeichen G: ${betrag(fall.mehrbedarfG)} | Schwangerschaft: ${betrag(fall.mehrbedarfSchwangere)} | Alleinerziehend: ${betrag(fall.mehrbedarfAlleinerziehend)} | Dezentrales Warmwasser: ${betrag(fall.mehrbedarfWarmwasser)}`);
-    const kduTitel = esc(`Kaltmiete: ${betrag(fall.kduMiete)} | Kalte Betriebskosten: ${betrag(fall.kduBetriebskosten)} | Heizung: ${betrag(fall.kduHeizung)}${fall.kduUnangemessen ? " | UNANGEMESSEN — Übernahme unter Vorbehalt (§ 42a SGB XII)" : ""}`);
+    const kduTitel = `Kaltmiete: ${betrag(fall.kduMiete)} | Kalte Betriebskosten: ${betrag(fall.kduBetriebskosten)} | Heizung: ${betrag(fall.kduHeizung)}${fall.kduUnangemessen ? " | UNANGEMESSEN — Übernahme unter Vorbehalt (§ 42a SGB XII)" : ""}`;
     zeile.innerHTML = `
       <td>SozialFall #${esc(fall.id)}</td>
       <td class="zahl">${betrag(fall.regelbedarf)}</td>

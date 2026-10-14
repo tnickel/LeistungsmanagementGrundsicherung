@@ -23,6 +23,7 @@ import de.allgemein.tx.TaskHandle;
 import de.allgemein.tx.TxException;
 import de.allgemein.tx.TxOptions;
 import de.allgemein.tx.saga.SagaEngine;
+import de.allgemein.tx.audit.TxAuditLog;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -53,6 +54,7 @@ public final class LmgServer implements AutoCloseable {
     private final Systemdiagnose diagnose;
     private final SagaEngine sagas;
     private final Benutzerverwaltung benutzerverwaltung;
+    private final java.util.concurrent.ExecutorService httpExecutor;
 
     public LmgServer(TaskController tasks, LeistungsService service, Systemdiagnose diagnose,
                      Benutzerverwaltung benutzerverwaltung, int port) throws IOException {
@@ -75,9 +77,11 @@ public final class LmgServer implements AutoCloseable {
         this.diagnose = diagnose;
         this.sagas = sagas;
         this.benutzerverwaltung = benutzerverwaltung;
+        HttpServerLimits.configure();
         this.server = HttpServer.create(new InetSocketAddress(bindAdresse, port), 0);
         this.server.createContext("/", this::verarbeite);
-        this.server.setExecutor(Executors.newFixedThreadPool(16, this::neuerHttpThread));
+        this.httpExecutor = Executors.newFixedThreadPool(16, this::neuerHttpThread);
+        this.server.setExecutor(httpExecutor);
     }
 
     public void start() {
@@ -87,6 +91,7 @@ public final class LmgServer implements AutoCloseable {
     @Override
     public void close() {
         server.stop(0);
+        httpExecutor.shutdownNow();
     }
 
     /** Port-Startadresse für die Konsolenausgabe. */
@@ -116,7 +121,7 @@ public final class LmgServer implements AutoCloseable {
         } catch (Exception e) {
             // Keine internen Fehlerdetails (SQL/Oracle-Meldungen) nach außen — nur ins Server-Log
             java.util.logging.Logger.getLogger(LmgServer.class.getName())
-                    .log(java.util.logging.Level.SEVERE, "Unerwarteter Fehler bei " + methode + " " + pfad, e);
+                    .log(java.util.logging.Level.SEVERE, "Unerwarteter HTTP-Fehler: " + TxAuditLog.fehlerBeschreibung(e));
             antworte(exchange, 500, Map.of("code", "TECHNISCH",
                     "message", "Technischer Fehler — bitte die Systemdiagnose prüfen "
                             + "(Details stehen im Server-Log)"));
@@ -170,8 +175,14 @@ public final class LmgServer implements AutoCloseable {
                 out.write(bytes);
             }
         } catch (Exception e) {
+            if (e instanceof TxException && e.getCause() instanceof java.util.concurrent.RejectedExecutionException) {
+                exchange.getResponseHeaders().set("Retry-After", "2");
+                antworte(exchange, 503, Map.of("code", "UEBERLAST",
+                        "message", "Server ausgelastet — bitte in Kürze erneut versuchen"));
+                return;
+            }
             java.util.logging.Logger.getLogger(LmgServer.class.getName())
-                    .log(java.util.logging.Level.SEVERE, "Fehler beim Bescheid-Druck", e);
+                    .log(java.util.logging.Level.SEVERE, "Fehler beim Bescheid-Druck: " + TxAuditLog.fehlerBeschreibung(e));
             byte[] bytes = "Technischer Fehler — Details im Server-Log".getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=utf-8");
             exchange.getResponseHeaders().set("Content-Security-Policy", "default-src 'none'");
@@ -235,7 +246,7 @@ public final class LmgServer implements AutoCloseable {
                 return;
             }
             java.util.logging.Logger.getLogger(LmgServer.class.getName())
-                    .log(java.util.logging.Level.WARNING, "Tx-Fehler bei " + methode + " " + pfad, e);
+                    .log(java.util.logging.Level.WARNING, "HTTP-Transaktionsfehler: " + TxAuditLog.fehlerBeschreibung(e));
             antworte(exchange, 500, Map.of("code", "TECHNISCH",
                     "message", "Technischer Fehler — bitte erneut versuchen "
                             + "(Details stehen im Server-Log)"));
@@ -366,13 +377,13 @@ public final class LmgServer implements AutoCloseable {
             Map<String, Object> body = leseKoerper(exchange);
             long bgId = Long.parseLong(teile[3]);
             SozialFall entwurf = new SozialFall(0, bgId,
-                    (int) zahlWert(body.get("regelbedarfsstufe"), "regelbedarfsstufe"),
-                    boolWertDefensiv(body.get("merkzeichenG")),
-                    boolWertDefensiv(body.get("schwanger")),
-                    (int) zahlWertDefensiv(body.get("anzKinderUnter7")),
-                    (int) zahlWertDefensiv(body.get("anzKinderUnter16")),
-                    (int) zahlWertDefensiv(body.get("anzKinderMinderjaehrig")),
-                    boolWertDefensiv(body.get("warmwasser")),
+                    intWert(body.get("regelbedarfsstufe"), "regelbedarfsstufe"),
+                    boolWertDefensiv(body.get("merkzeichenG"), "merkzeichenG"),
+                    boolWertDefensiv(body.get("schwanger"), "schwanger"),
+                    zahlWertDefensiv(body.get("anzKinderUnter7"), "anzKinderUnter7"),
+                    zahlWertDefensiv(body.get("anzKinderUnter16"), "anzKinderUnter16"),
+                    zahlWertDefensiv(body.get("anzKinderMinderjaehrig"), "anzKinderMinderjaehrig"),
+                    boolWertDefensiv(body.get("warmwasser"), "warmwasser"),
                     betragWert(body.get("kduMiete")),
                     betragWert(body.get("kduBetriebskosten")),
                     betragWert(body.get("kduHeizung")),
@@ -393,13 +404,13 @@ public final class LmgServer implements AutoCloseable {
             // bgId bewusst aus dem Bestand (Service lädt den Fall) — der Request-Body
             // steuert weder Vorgangszuordnung noch Journal-Eintrag
             SozialFall geaendert = new SozialFall(fallId, 0,
-                    (int) zahlWert(body.get("regelbedarfsstufe"), "regelbedarfsstufe"),
-                    boolWertDefensiv(body.get("merkzeichenG")),
-                    boolWertDefensiv(body.get("schwanger")),
-                    (int) zahlWertDefensiv(body.get("anzKinderUnter7")),
-                    (int) zahlWertDefensiv(body.get("anzKinderUnter16")),
-                    (int) zahlWertDefensiv(body.get("anzKinderMinderjaehrig")),
-                    boolWertDefensiv(body.get("warmwasser")),
+                    intWert(body.get("regelbedarfsstufe"), "regelbedarfsstufe"),
+                    boolWertDefensiv(body.get("merkzeichenG"), "merkzeichenG"),
+                    boolWertDefensiv(body.get("schwanger"), "schwanger"),
+                    zahlWertDefensiv(body.get("anzKinderUnter7"), "anzKinderUnter7"),
+                    zahlWertDefensiv(body.get("anzKinderUnter16"), "anzKinderUnter16"),
+                    zahlWertDefensiv(body.get("anzKinderMinderjaehrig"), "anzKinderMinderjaehrig"),
+                    boolWertDefensiv(body.get("warmwasser"), "warmwasser"),
                     betragWert(body.get("kduMiete")),
                     betragWert(body.get("kduBetriebskosten")),
                     betragWert(body.get("kduHeizung")),
@@ -534,6 +545,14 @@ public final class LmgServer implements AutoCloseable {
     // ------------------------------------------------------------------
 
     private void statisch(HttpExchange exchange, String pfad) throws IOException {
+        String method = exchange.getRequestMethod();
+        if (!method.equals("GET") && !method.equals("HEAD")) {
+            exchange.getResponseHeaders().set("Allow", "GET, HEAD");
+            antworte(exchange, 405, Map.of("code", FachlicheException.METHODE_NICHT_UNTERSTUETZT,
+                    "message", "Statische Dateien unterstützen nur GET und HEAD"));
+            return;
+        }
+        boolean head = method.equals("HEAD");
         String resource = switch (pfad) {
             case "/", "/index.html" -> "/webapp/index.html";
             case "/app.js" -> "/webapp/app.js";
@@ -546,9 +565,10 @@ public final class LmgServer implements AutoCloseable {
             exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=utf-8");
             exchange.getResponseHeaders().set("Content-Security-Policy", "default-src 'none'");
             exchange.getResponseHeaders().set("X-Content-Type-Options", "nosniff");
-            exchange.sendResponseHeaders(404, text.length);
-            try (OutputStream out = exchange.getResponseBody()) {
-                out.write(text);
+            exchange.getResponseHeaders().set("Content-Length", Integer.toString(text.length));
+            exchange.sendResponseHeaders(404, head ? -1 : text.length);
+            if (!head) {
+                try (OutputStream out = exchange.getResponseBody()) { out.write(text); }
             }
             return;
         }
@@ -565,7 +585,9 @@ public final class LmgServer implements AutoCloseable {
             inhalt = eingabe.readAllBytes();
         }
         exchange.getResponseHeaders().set("Content-Type", typ);
-        exchange.sendResponseHeaders(200, inhalt.length);
+        exchange.getResponseHeaders().set("Content-Length", Integer.toString(inhalt.length));
+        exchange.sendResponseHeaders(200, head ? -1 : inhalt.length);
+        if (head) return;
         try (OutputStream out = exchange.getResponseBody()) {
             out.write(inhalt);
         }
@@ -747,7 +769,11 @@ public final class LmgServer implements AutoCloseable {
         map.put("bewilligungVon", b.bewilligungVon());
         map.put("bewilligungBis", b.bewilligungBis());
         map.put("zahlbetrag", b.zahlbetrag());
-        var monate = liesMonateRobust(b.berechnung());
+        var snapshot = liesMonateRobust(b.berechnung());
+        var monate = snapshot.months();
+        map.put("snapshotStatus", snapshot.status());
+        map.put("snapshotWarning", snapshot.status().equals("INVALID")
+                ? "Gespeicherter Berechnungs-Snapshot ist beschädigt; fachliche Prüfung erforderlich" : "");
         map.put("monatsbetraege", monate.stream()
                 .map(monat -> Map.<String, Object>of("monat", monat.monat(),
                         "zahlbetrag", monat.ergebnis().zahlbetrag())).toList());
@@ -764,17 +790,19 @@ public final class LmgServer implements AutoCloseable {
      * bewusst leere Liste statt IllegalArgumentException: Ein beschädigtes Archiv-
      * Feld darf die ganze Vorgangsansicht (HTTP 500) nicht blockieren.
      */
-    private static List<de.allgemein.lmg.calc.Bewilligungsplan.Monat> liesMonateRobust(String snapshot) {
-        if (snapshot == null || snapshot.isBlank()) {
-            return List.of();
+    private record SnapshotView(List<de.allgemein.lmg.calc.Bewilligungsplan.Monat> months, String status) { }
+
+    private static SnapshotView liesMonateRobust(String snapshot) {
+        if (snapshot == null) {
+            return new SnapshotView(List.of(), "LEGACY");
         }
         try {
-            return BerechnungsSnapshot.lese(snapshot).monate();
+            return new SnapshotView(BerechnungsSnapshot.lese(snapshot).monate(), "VALID");
         } catch (RuntimeException e) {
             java.util.logging.Logger.getLogger(LmgServer.class.getName())
                     .log(java.util.logging.Level.WARNING,
-                            "Bescheid-Snapshot unlesbar — Monatswerte bleiben leer", e);
-            return List.of();
+                            "Bescheid-Snapshot unlesbar — Monatswerte bleiben leer: " + TxAuditLog.fehlerBeschreibung(e));
+            return new SnapshotView(List.of(), "INVALID");
         }
     }
 
@@ -818,24 +846,35 @@ public final class LmgServer implements AutoCloseable {
     }
 
     private static String textWert(Object wert, String feldname) {
-        if (wert == null) {
-            throw new IllegalArgumentException(feldname + " fehlt im Anfragekörper");
+        if (!(wert instanceof String text)) {
+            throw new IllegalArgumentException(feldname + " muss ein Text sein");
         }
-        return String.valueOf(wert);
+        if (text.isBlank()) throw new IllegalArgumentException(feldname + " fehlt im Anfragekörper");
+        return text;
     }
 
     private static String textWertOptional(Object wert) {
-        if (wert == null || String.valueOf(wert).isBlank()) {
+        if (wert == null) {
             return null;
         }
-        return String.valueOf(wert).trim();
+        if (!(wert instanceof String text)) throw new IllegalArgumentException("Optionales Textfeld muss ein Text sein");
+        return text.isBlank() ? null : text.trim();
     }
 
     private static long zahlWert(Object wert, String feldname) {
         if (!(wert instanceof Number zahl)) {
             throw new IllegalArgumentException(feldname + " muss eine Zahl sein");
         }
-        return zahl.longValue();
+        try {
+            return new BigDecimal(zahl.toString()).longValueExact();
+        } catch (ArithmeticException | NumberFormatException e) {
+            throw new IllegalArgumentException(feldname + " muss eine ganze Zahl im 64-Bit-Bereich sein");
+        }
+    }
+
+    private static int intWert(Object wert, String feldname) {
+        try { return Math.toIntExact(zahlWert(wert, feldname)); }
+        catch (ArithmeticException e) { throw new IllegalArgumentException(feldname + " muss eine ganze Zahl im 32-Bit-Bereich sein"); }
     }
 
     private static boolean boolWert(Object wert, String feldname) {
@@ -845,24 +884,18 @@ public final class LmgServer implements AutoCloseable {
         return b;
     }
 
-    private static boolean boolWertDefensiv(Object wert) {
+    private static boolean boolWertDefensiv(Object wert, String feldname) {
         if (wert == null) {
             return false;
         }
-        if (wert instanceof Boolean b) {
-            return b;
-        }
-        return "true".equalsIgnoreCase(String.valueOf(wert));
+        return boolWert(wert, feldname);
     }
 
-    private static long zahlWertDefensiv(Object wert) {
+    private static int zahlWertDefensiv(Object wert, String feldname) {
         if (wert == null) {
             return 0;
         }
-        if (wert instanceof Number zahl) {
-            return zahl.longValue();
-        }
-        return 0;
+        return intWert(wert, feldname);
     }
 
     private static BigDecimal betragWert(Object wert) {
@@ -876,15 +909,17 @@ public final class LmgServer implements AutoCloseable {
     }
 
     private static LocalDate datumWert(Object wert) {
-        if (wert == null || String.valueOf(wert).isBlank()) {
+        if (wert == null) {
             return null;
         }
+        if (!(wert instanceof String text)) throw new IllegalArgumentException("Datum muss ein Text sein");
+        if (text.isBlank()) return null;
         try {
-            return LocalDate.parse(String.valueOf(wert));
+            return LocalDate.parse(text);
         } catch (java.time.format.DateTimeParseException e) {
             // Nutzereingabe-Fehler → 400 (VALIDATION), nicht 500 (CR-023)
             throw new IllegalArgumentException(
-                    "Datum muss im Format JJJJ-MM-TT angegeben sein (erhalten: '" + wert + "')");
+                    "Datum muss im Format JJJJ-MM-TT angegeben sein");
         }
     }
 

@@ -1,385 +1,112 @@
-// Erzeugt das Testzertifikat "SDN.Leistung LMG" als DOCX.
-// Seite 1: Zertifikat mit Häkchen je Qualitätsschicht + Erhebungs-/Warnblock;
-// Seite 2 ff: was jede Schicht tut und wo sie nachlesbar ist.
-//
-// Ehrlichkeitsprinzip: Was automatisiert prüfbar ist, wird automatisiert erhoben —
-// die neuesten testsweet-Laufzahlen einschließlich Fehlern und strukturierte echte LLM-Prüfbelege.
-// Die mvn-Testzahl und historische Webreferenzen sind als manuell gepflegt markiert.
-// LLM-Nachweise werden ausschließlich über strukturierte echte API-Artefakte mit
-// vollständiger Fallabdeckung und SHA-256-Bindungen ausgewertet.
-// Aufruf: node generate.js [ausgabe.docx]  — schreibt zusätzlich stand.json.
+// Erzeugt auch negative/unvollständige Zertifikate; Erfolg wird ausschließlich aus Belegen abgeleitet.
 const path = require("path");
 const fs = require("fs");
-const {
-  Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
-  PageNumber, AlignmentType, HeadingLevel, WidthType, BorderStyle,
-  ShadingType, SectionType, TableLayoutType, Footer, LevelFormat,
-} = require("../handbuch-werkzeug/node_modules/docx");
-
-const WERKZEUG = __dirname;
-const REPO = path.resolve(WERKZEUG, "..", "..");
-const P = {
-  bg: "162235", accent: "37DCF2", gruen: "1E8E3E", gruenHell: "E6F4EA",
-  aufDunkel: "F1F5F9", aufDunkelNeben: "CBD5E1", aufDunkelGruen: "86EFAC", aufDunkelWarn: "FDE68A",
-  warn: "B45309", warnHell: "FEF3C7", rot: "B3261E",
-  primary: "0E2A33", h2: "1B6B7A", body: "000000", secondary: "5A6B73",
-  table: { headerBg: "1B6B7A", headerText: "FFFFFF", accentLine: "1B6B7A", innerLine: "C8DDE2", surface: "EDF3F5" },
-};
-const FONT = { ascii: "Calibri", hAnsi: "Calibri" };
-const FONT_ARIAL = { ascii: "Arial", hAnsi: "Arial" };
-
-// ─── Automatische Ist-Erhebung ───────────────────────────────────────────────
-function liesLaufzahlen() {
-  const logs = path.join(REPO, "testsweet", "logs");
-  const laeufe = {};
-  if (!fs.existsSync(logs)) return laeufe;
-  for (const ordner of fs.readdirSync(logs).sort()) {
-    const datei = path.join(logs, ordner, "zusammenfassung.txt");
-    if (!fs.existsSync(datei)) continue;
-    const txt = fs.readFileSync(datei, "utf8");
-    const kategorie = /^Kategorie\s*:\s*(\S+)/m.exec(txt)?.[1];
-    const gesamt = /^Aufträge\s*:\s*(\d+)/m.exec(txt)?.[1];
-    const verifiziert = /^verifiziert\s*:\s*(\d+)/m.exec(txt)?.[1];
-    const erfolgreich = /^Lauf erfolgreich\s*:\s*true/m.test(txt);
-    const zeit = /^Zeitraum\s*:\s*(\S+)/m.exec(txt)?.[1] || "";
-    if (!kategorie) continue;
-
-    // Neuere fehlgeschlagene Läufe dürfen ältere grüne Ergebnisse nicht verdecken.
-    const bisher = laeufe[kategorie];
-    const kandidat = {
-      verifiziert: Number(verifiziert), gesamt: Number(gesamt), erfolgreich,
-      modus: /^Modus\s*:\s*(.+)$/m.exec(txt)?.[1]?.trim() || "nicht angegeben",
-      ordner: "testsweet/logs/" + ordner, zeit: zeit.slice(0, 10),
-    };
-    if (!bisher || kandidat.ordner > bisher.ordner) {
-      laeufe[kategorie] = kandidat;
+const crypto = require("crypto");
+const {Document,Packer,Paragraph,TextRun,Table,TableRow,TableCell,WidthType,BorderStyle,
+  ShadingType,HeadingLevel,Footer,AlignmentType,PageNumber} = require("../handbuch-werkzeug/node_modules/docx");
+const {collect,hash} = require("./certificate-evidence");
+const REPO = path.resolve(__dirname,"../..");
+const evidence = collect(REPO);
+const now = new Date().toISOString();
+const certificateId = crypto.randomUUID();
+const P = {primary:"0E2A33",secondary:"526570",pass:"157534",fail:"A51D17",warn:"925B00",
+  PASS:"E6F4EA",FAIL:"FCE8E6",UNVERIFIED:"FFF4CC",NA:"EDF2F5"};
+const FONT = "Calibri";
+const labels = {"JUNIT:main":"Automatische Tests: Fachschicht und Transaktionskern","JUNIT:testsweet":"Automatische Eigentests der testsweet",
+  "FACH:POSITIV":"Fachschicht: Positivfälle","FACH:NEGATIV":"Fachschicht: Negativfälle","FACH:LAST":"Fachschicht: Lasttest",
+  "FACH:STRESS":"Fachschicht: Stresstest","WEB:POSITIV":"Weboberfläche: Positivfälle","WEB:NEGATIV":"Weboberfläche: Negativfälle",
+  "WEB:LAST":"Weboberfläche: Lasttest","GLM":"GLM: unabhängige Fallstichprobe","BUILD":"Übereinstimmung der getesteten Produkt-/Prüferbuilds","UNZUGEORDNETE_LAEUFE":"Nicht zuordenbare gestartete Läufe",
+  "CERTIFICATE_SUITE":"Vollständiger Zertifikatsprüflauf"};
+const stateLabels = {PASS:"BESTANDEN",FAIL:"NICHT BESTANDEN",UNVERIFIED:"UNVOLLSTÄNDIG",NA:"NICHT ANWENDBAR"};
+function text(value, options={}) { return new TextRun({text:String(value),font:FONT,size:21,color:P.primary,...options}); }
+function para(value, options={}) { return new Paragraph({spacing:{after:110,line:270},children:[text(value)],...options}); }
+function heading(value) { return para(value,{heading:HeadingLevel.HEADING_2,keepNext:true,spacing:{before:220,after:100},children:[text(value,{size:25,bold:true})]}); }
+function summary(layer) {
+  const e = layer.evidence;
+  if (!e) return "Kein erforderlicher Prüfbeleg vorhanden.";
+  if (layer.id.startsWith("JUNIT:")) return `Erfasster Umfang: ${e.passed}/${e.tests} bestanden; ${e.failures} Fehler, ${e.errors} technische Fehler, ${e.skipped} übersprungen.`;
+  if (layer.id === "GLM") return `${e.meta?.pruefumfang || "Prüfung unvollständig"}; Modell ${e.meta?.modell || "unbekannt"}; Dateiübergabe ${e.transportVerified ? "vollständig belegt" : "nicht vollständig belegt"}.`;
+  if (layer.id === "UNZUGEORDNETE_LAEUFE") return "Laufmetadaten fehlen; ältere erfolgreiche Läufe ergeben keine Freigabe.";
+  if (layer.id === "BUILD") return layer.state === "PASS" ? "Alle Pflichtbelege sind an denselben aktuellen Produkt- und Prüferklassenbestand gebunden." : "Buildnachweise fehlen, sind veraltet oder betreffen unterschiedliche Klassenbestände.";
+  if (layer.id === "CERTIFICATE_SUITE") return layer.state === "PASS"
+    ? `Gesamtlauf ${e.jobId}; gestartet ${e.startedAt}. Beide automatischen Testsuiten, alle sieben Simulator-Kombinationen und die GLM-Stichprobe sind frisch und an diesen Lauf gebunden.`
+    : `Gesamtlauf ${e.jobId || "unbekannt"}: ${e.message || "nicht vollständig bestätigt"}. Der Gesamtlauf liefert keinen gültigen Erfolgsnachweis.`;
+  return `${e.verifiziert || 0}/${Number.isFinite(e.gesamt) ? e.gesamt : "?"} verifiziert; ${e.ordner}`;
+}
+const rows = [...evidence.layers,{id:"WEB:STRESS",state:"NA",reasons:[],evidence:null}];
+const verdictColor = evidence.verdict === "BESTANDEN" ? P.pass : evidence.verdict === "NICHT BESTANDEN" ? P.fail : P.warn;
+const table = new Table({width:{size:100,type:WidthType.PERCENTAGE},borders:{top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},
+  left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE},insideHorizontal:{style:BorderStyle.SINGLE,size:3,color:"FFFFFF"},insideVertical:{style:BorderStyle.NONE}},
+  rows:rows.map(layer => new TableRow({cantSplit:true,children:[new TableCell({shading:{type:ShadingType.CLEAR,fill:P[layer.state]},margins:{top:100,bottom:100,left:150,right:150},
+    children:[para("",{spacing:{after:50},children:[text(`${labels[layer.id] || layer.id} - ${stateLabels[layer.state]}`,{bold:true,size:21,color:layer.state === "FAIL" ? P.fail : P.primary})]}),
+      para("",{spacing:{after:10,line:245},children:[text(layer.state === "NA" ? "Web-Stress wird nicht unterstützt; kein bestandenes Testergebnis." : summary(layer),{size:18,color:P.secondary})]})]})]}))});
+const children = [
+  para("TESTZERTIFIKAT",{spacing:{after:100},children:[text("TESTZERTIFIKAT",{bold:true,size:20,color:"136D7D"})]}),
+  para("SDN.Leistung LMG",{spacing:{after:100},children:[text("SDN.Leistung LMG",{bold:true,size:38})]}),
+  para("Leistungsmanagement Grundsicherung - Berechnung, Bescheid und Auszahlung"),
+  para(evidence.verdict,{spacing:{before:100,after:150},children:[text(evidence.verdict,{bold:true,size:32,color:verdictColor})]}),
+  para("",{children:[text(`Ausgestellt: ${now} · Zertifikat-ID: ${certificateId}`,{size:18,color:P.secondary})]}),
+  para("Das Gesamturteil umfasst beide automatischen Testsuiten, alle unterstützten Modus-/Kategorie-Pflichtläufe, Reporterstellung und die dokumentierte GLM-Stichprobe. Jeder bekannte fachliche Fehler verhindert BESTANDEN. Fehlende, abgebrochene, übersprungene oder veraltete Pflichtnachweise ergeben UNVOLLSTÄNDIG."),
+  table,
+  para("Code-Reviews sind ergänzende Dokumentation unter doc/codereview/. Ein historischer Reviewabschluss ist kein automatisch bestandener aktueller Testnachweis."),
+  para("Prüfbelege und Befunde",{heading:HeadingLevel.HEADING_1,pageBreakBefore:true,children:[text("Prüfbelege und Befunde",{bold:true,size:30})]}),
+];
+for (const layer of evidence.layers) {
+  children.push(heading(`${labels[layer.id] || layer.id}: ${stateLabels[layer.state]}`),para(summary(layer)));
+  for (const reason of layer.reasons || []) children.push(para("• " + reason));
+  const e = layer.evidence;
+  if (layer.id === "BUILD") for (const artifact of e.artifacts) for (const sha256 of artifact.classesSha256) children.push(para(`${artifact.name}: Klassenbestand SHA-256 ${sha256}`));
+  if (layer.id.startsWith("JUNIT:") && e) {
+    for (const suite of e.suites) {
+      children.push(para(`• ${suite.name}: ${suite.tests-suite.failures-suite.errors-suite.skipped}/${suite.tests} bestanden, Fehler ${suite.failures+suite.errors}, übersprungen ${suite.skipped}`));
+      for (const c of suite.cases.filter(c=>c.state === "FAIL" || c.state === "ERROR")) children.push(para("",{children:[text(`• ${c.classname}.${c.name}: ${c.state} - ${c.type} ${c.message}`,{bold:true,color:P.fail})]}));
     }
-  }
-  return laeufe;
-}
-
-function liesLlmProtokoll() {
-  return require("./llm-evidence").latestEvidence(REPO);
-}
-
-function liesMdDatenstand(laeufe) {
-  const logs = path.join(REPO, "testsweet", "logs");
-  if (!fs.existsSync(logs)) return null;
-  for (const ordner of fs.readdirSync(logs).sort().reverse()) {
-    if (fs.existsSync(path.join(logs, ordner, "testdokumentation.md"))) {
-      return { ordner: "testsweet/logs/" + ordner, datum: ordner.replace(/^run-(\d{8}).*$/, "$1").replace(/^(\d{4})(\d{2})(\d{2})$/, "$1-$2-$3") };
+  } else if (layer.id === "GLM" && e) {
+    children.push(para("Nachweis: " + e.datei));
+    if (e.provisionalFailures?.length) {
+      children.push(heading("Ungeklärte Hinweise aus früheren ungültigen Modellantworten"),
+        para("Diese Antworten sind formal ungültig und bestätigen keinen Softwarefehler. Die Hinweise wurden durch eine spätere PASS-Antwort nicht geklärt; deshalb bleibt die Gesamtprüfung UNVOLLSTÄNDIG. Logdateien auswerten."));
+      for (const observation of e.provisionalFailures) children.push(para("",{children:[text(`${observation.caseId} - Fallgruppe ${observation.batch}, Versuch ${observation.attempt}: ${observation.reason}; Request ${observation.requestFile}; Response ${observation.responseFile}`,{bold:true,color:P.warn})]}));
     }
-  }
-  return null;
-}
-
-const LAEUFE = liesLaufzahlen();
-const LLM = liesLlmProtokoll();
-const MD = liesMdDatenstand(LAEUFE);
-const HEUTE = new Date().toISOString().slice(0, 10);
-
-const warnungen = [];
-function laufZeile(kat, label) {
-  const l = LAEUFE[kat];
-  if (!l) {
-    warnungen.push(`Für die Kategorie ${label} liegt kein erfolgreicher Lauf unter testsweet/logs/ vor (Referenzlauf fahren).`);
-    return { haken: "!", farbe: P.warn, flaeche: P.warnHell,
-      titel: `testsweet ${label} — kein Lauf gefunden`, zeile: "Automatisch erhoben: kein erfolgreicher Lauf in testsweet/logs/ vorhanden" };
-  }
-  if (!l.erfolgreich || !Number.isFinite(l.gesamt) || l.verifiziert !== l.gesamt) {
-    warnungen.push(`Neuester Lauf ${label} ist fehlgeschlagen oder unvollständig: ${l.ordner}`);
-    return {haken:"!",farbe:P.warn,flaeche:P.warnHell,titel:`testsweet ${label} — neuester Lauf nicht bestanden`,zeile:l.ordner};
-  }
-  return { haken: "✓", farbe: P.gruen, flaeche: P.gruenHell,
-    titel: `testsweet ${label} — ${l.verifiziert}/${l.gesamt} verifiziert`,
-    zeile: `Automatisch erhoben am ${HEUTE} aus ${l.ordner} (Lauf vom ${l.zeit}; Modus ${l.modus})` };
-}
-
-// Manuell zu pflegende Prüfergebnisse (nicht automatisch erhebbar):
-const MVN_TESTS = "249/249 geprüft (Oracle-Lauf plus isolierter Konfigurationstest)";
-const MVN_STAND = "2026-10-13";
-
-const pos = laufZeile("POSITIV", "Positivfälle");
-const neg = laufZeile("NEGATIV", "Negativfälle");
-const last = laufZeile("LAST", "Lasttest");
-const stress = laufZeile("STRESS", "Stresstest");
-
-let llm;
-if (!LLM) {
-  warnungen.push("Keine gültige strukturierte echte LLM-Prüfung unter testsweet/logs/llm-review-*/result.json. Historische Freitext- und Python-Protokolle gelten nicht als Modellnachweis.");
-  llm = { haken: "!", farbe: P.warn, flaeche: P.warnHell,
-    titel: "LLM-Nachrechnung der Testdokumentation — kein Protokoll vorhanden",
-    zeile: "Echte LLM-Prüfung in der testsweet-Oberfläche starten; Zugang und Modell konfigurieren" };
- } else if (!LLM.valid) {
-  warnungen.push(`Echte LLM-Prüfung nicht bestanden oder nicht mehr gültig: ${LLM.reason} (${LLM.datei})`);
-  llm = {haken:"!",farbe:P.warn,flaeche:P.warnHell,
-    titel:`LLM-Nachprüfung — ${LLM.state}`,zeile:LLM.reason};
-} else {
-  const m = LLM.meta || {};
-  // Kompakte Darstellung für die Zertifikatsseite (Details auf den Erklärseiten):
-  // Ergebnis auf die Kernaussage kürzen, Unterlagen nur als Namen nennen.
-  const kurz = (text, teile) => String(text || "")
-      .split("·").slice(0, teile).join("·")
-      .replace(/\s*\(.*?\)\s*/g, " ").replace(/\s+/g, " ").trim();
-  const unterlagen = m.mitgegeben
-    ? m.mitgegeben.split("·").map(s => s.trim().replace(/\s*\(.*?\)\s*/g, "").split(" ")[0])
-        .filter(Boolean).join(", ")
-    : "siehe Protokoll";
-  llm = { haken: "✓", farbe: P.gruen, flaeche: P.gruenHell,
-    titel: `LLM-Nachrechnung — ${kurz(m.ergebnis, 2)} (${kurz(m.modell, 1) || "LLM"}, ${LLM.datum})`,
-    zeile: `Geprüft: ${kurz(m.pruefumfang, 1)} · Unterlagen: ${unterlagen}`
-      + (m.datenstand ? ` · Datenstand: ${m.datenstand}` : "") };
-}
-// Aktualität wird im Belegprüfer über konkrete Quelldateien und SHA-256 geprüft.
-
-
-const PRUEFSCHICHTEN = [
-  { haken: "✓", farbe: P.gruen, flaeche: P.gruenHell,
-    titel: `Unit-Tests der Fach- und Kernschicht — ${MVN_TESTS} grün (manuell gepflegt, Stand ${MVN_STAND})`,
-    zeile: "Version 0.5.8 mit aktuellen Arbeitskopie-Änderungen; 248 bestanden mit Oracle, 1 dort übersprungen und ohne TX_URL separat bestanden",
-    detail: "Die gesamte Berechnungs- und Transaktionslogik ist ohne Fenstereingaben testbar: TxManager (Rollback auch bei OOM, Retry bei ORA-00054/60/08177 inkl. echtem Deadlock-Test), SagaEngine mit Journal und Wiederanlauf, TaskController mit Wachhund, jeden §-30-Zuschlag mit Deckel, die KdU-Dreiteilung, § 82-Kette mit Freibetragskappung, Vermögensanrechnung und -verbrauch, HTTP-Schicht (401/403/404/405/400-Matrix), JSON-Grenzen, Einsichtsprotokoll. Diese Zahl kann die Anwendung nicht selbst erheben (ein Testlauf dauert zu lange für den Knopfdruck) — sie ist im Generator markiert und nach jedem mvn test zu pflegen. Nachlesbar: Maven-Konsole; Testklassen unter src/test/java." },
-  { haken: "✓", farbe: P.gruen, flaeche: P.gruenHell,
-    titel: "Goldwerte — 9 von Hand gerechnete Referenzfälle",
-    zeile: "GoldWerteTest; Werte aus doc/regressionstests.md handgerechnet und eingefroren",
-    detail: "Gegenmaßnahme zum Zirkelschluss: Diese neun Soll-Beträge wurden unabhängig vom Code auf Papier gerechnet und als Test fixiert (u. a. Standardrente 1.053,00 €; Paar 1.662,00 €; Mehrbedarfsbündel 767,37 €; Familie 2.189,68 €; Erwerb mit gekapptem Freibetrag 554,50 €; Vermögen 363,00 €; §-30-Abs.-6-Deckel 188,94 €). Verbiegt jemand die Formel in Leistungsberechnung, fallen diese Tests auf, obwohl Erwartung und Fachschicht sonst denselben Code nutzen. Nachlesbar: src/test/java/.../GoldWerteTest.java." },
-  { haken: "✓", farbe: P.gruen, flaeche: P.gruenHell,
-    titel: "Szenario-Regression — 10 Nutzer-Szenarien mit SQL-Endzustandsprüfung",
-    zeile: "SzenarioRegressionTest (mit TX_URL); Testfälle dokumentiert in doc/regressionstests.md",
-    detail: "Zehn echte Nutzer-Durchgänge mit mehreren Sachbearbeitern (Erfassung, Vier-Augen-Freigabe, Doppelklick, Storno + korrigierte Neuauszahlung im selben Monat, Vermögens-, Erwerbs- und Mehrbedarfsfälle, Bescheid mit Snapshot, Konkurrenz auf derselben Maske, Kassenlauf, Historisierung). Verifiziert wird je Szenario der persistierte Endzustand per SQL direkt auf den Oracle-Tabellen: Beträge, Status, Sachbearbeiter-Zuordnungen, Journal-Chronologie. Nachlesbar: doc/regressionstests.md." },
-  { ...pos,
-    detail: "Der Mitarbeiter-Simulator lässt parallele Sachbearbeiter auf die Fachschicht los (SozialLeistungsService → TxManager → Oracle). Positiv-Topf: 10 kuratierte Arten + Kombinationsfälle (Haushaltsform, Stufen, Merkmale inkl. Entbindungsmonat, Einkommen, Vermögen, Weg: Bescheid/Freigabe/Doppelklick/Storno-Korrektur); Erwartung mit derselben Berechnung, Endzustand per SQL geprüft. Diese Zeile wird automatisch aus dem neuesten erfolgreichen Lauf erhoben — die je-Fall-Nachweise (PDF/MD mit Rechenwegen) liegen im genannten Laufordner." },
-  { ...neg,
-    detail: "Erwartete Fachfehler als Szenario-Bestandteil: hohe Rente/Erwerb/Vermögen (KEIN_ANSPRUCH), zu kleines Budget, Doppelanordnung je Monat, Selbstfreigabe, Doppelfreigabe, Storno nach Kassenübergabe, ungültige IBAN/BIC, unsinnige Bescheid-Zeiträume, unbekannte IDs, Zahlung außerhalb des Bewilligungsbescheids, veralteter Maskenstand. Zusätzlich per SQL bewiesen: Die Datenbank bleibt unverändert. Automatisch aus dem neuesten erfolgreichen Lauf erhoben." },
-  { haken: "✓", farbe: P.gruen, flaeche: P.gruenHell,
-    titel: "testsweet über die Weboberfläche (Selenium) — 60/60 + 60/60 verifiziert (manuell gepflegt)",
-    zeile: "Modus 2 mit echten Chrome-Fenstern gegen die SDN.Leistung-Oberfläche (Referenzläufe 2026-10-11/12)",
-    detail: "Dasselbe Fachziel wie Modus 1, aber der Weg führt durch die echte Benutzeroberfläche: Anmeldung, Vorgang anlegen, Fall erfassen, Zahlungsmonat setzen, Vier-Augen-Freigabe durch einen Kollegen, Storno über die Admin-Rolle — je Schritt mit Screenshot. Negativ-Varianten beweisen die Abwehr auch auf UI-Seite (falsches Passwort, ungültige Bankdaten, Anordnung ohne Monat). Vollständige SQL-Gegenprüfung des DB-Endzustands inklusive Journal-Chronologie. Nachlesbar: doc/testsweet-handbuch.pdf, Laufordner unter testsweet/logs/." },
-  { ...last,
-    detail: "Schlanke Durchläufe in hoher Stückzahl (Durchsatz, Sperrwartezeiten, keine Verifikationsfehler unter Dauerlast). Die Zeile wird automatisch aus dem neuesten erfolgreichen LAST-Lauf erhoben (lastreport.pdf/.md im Laufordner). Fehlt ein Lauf: Referenzlauf fahren, dann erscheint er hier automatisch." },
-  { ...stress,
-    detail: "Zwei Wellen über dieselben User mit Phasenbarriere: Welle 2 beweist den Lost-Update-Schutz (alle Fälle exakt Version 2) und korrekte Budgetführung unter Konkurrenz; SQL-Endprüfung über den Gesamtbestand. Automatisch aus dem neuesten erfolgreichen STRESS-Lauf erhoben." },
-  { ...llm,
-    detail: `Die Nachprüfung verwendet echte konfigurierte Modellaufrufe. Je Fallgruppe werden der vollständige Prüfauftrag, vollständige Gesetzesgrundlagen und vollständige ausgewählte Fälle übertragen. Positiv- und Negativfälle einschließlich kuratierter Arten werden ausgewählt. Zertifiziert wird nur PASS mit exakter Fallabdeckung, Modellübereinstimmung, vollständigen Antworten und gültigen SHA-256-Bindungen von Eingaben, Request, Response und Ergebnis. Artefakte: ${LLM ? LLM.datei : "keine"}. Dateiübergabe und fachliches Ergebnis sind getrennte Nachweise. Ein erfolgreicher Transport allein bestätigt keine Berechnung. Historische Python-Protokolle zählen ausdrücklich nicht als LLM-Prüfung.` },
-  { haken: "✓", farbe: P.gruen, flaeche: P.gruenHell,
-    titel: "Code-Reviews durch unterschiedliche KIs — wiederholt, gegengeprüft, behoben",
-    zeile: "Allumfassendes Review 2026-10-12 (75 Befunde → alle behoben) + Gegenprüfungen + zweite Fremd-Härtung",
-    detail: "Der Code wurde wiederholt von KI-Instanzen unabhängig gelesen und kritisiert — bewusst mit unterschiedlichen KIs, damit nicht dieselbe Blindstelle durchgeht:",
-    detailListe: [
-      { titel: "Allumfassendes Codereview", text: "Strukturierter Prüfauftrag (Prüffelder A–J, 48 Verdachtsspuren, 25 Testlücken; doc/codereview/codereviewPrompt.txt). Die 75 Befunde wurden bis v0.5.7 behoben." },
-      { titel: "Gegenprüfung", text: "Die Fixes zu v0.5.8 wurden erneut geprüft (Nachbesserungsbericht)." },
-      { titel: "Weitere Härtung", text: "Body-Cache, Audit-Redaktion, Saga-Korrelation und Bescheidmonat-Prüfung wurden zusätzlich gehärtet." },
-      { titel: "testsweet-Review", text: "Am 2026-10-13 durchgeführt, mit dokumentierten Fehlerkorrekturen." },
-    ],
-    detailQuelle: "Nachlesbar: Berichte unter doc/codereview/." },
-];
-
-const allesBestanden = warnungen.length === 0;
-
-// ─── Bausteine ───────────────────────────────────────────────────────────────
-const zertifikat = [
-  new Paragraph({ spacing: { before: 200, after: 0 },
-    children: [new TextRun({ text: "TESTZERTIFIKAT", size: 20, color: P.accent, font: FONT, characterSpacing: 60, bold: true })] }),
-  new Paragraph({ spacing: { after: 60 },
-    children: [new TextRun({ text: "Fachschicht SDN.Leistung LMG", size: 40, bold: true, color: "FFFFFF", font: FONT_ARIAL })] }),
-  new Paragraph({ spacing: { after: 120 },
-    border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: P.accent, space: 8 } },
-    children: [new TextRun({ text: "Leistungsmanagement Grundsicherung (SGB XII) — Berechnung, Bescheid und Auszahlung", size: 22, color: "B0B8C0", font: FONT })] }),
-  new Paragraph({ spacing: { before: 100, after: 30 },
-    children: [
-      new TextRun({ text: "Gegenstand: ", bold: true, size: 22, color: "FFFFFF", font: FONT }),
-      new TextRun({ text: "Nachweise zu Berechnung, Bescheiderteilung und Auszahlungskette aus zehn Qualitätsschichten; aktuelle Laufresultate und strukturierte Belege echter LLM-Aufrufe werden automatisch geprüft.", size: 21, color: P.aufDunkel, font: FONT }),
-    ] }),
-  new Paragraph({ spacing: { before: 90, after: 100 },
-    children: [
-      new TextRun({ text: allesBestanden ? "Prüfungsverdict: BESTANDEN — vorliegende Nachweise gültig; LLM-Prüfung ist eine Stichprobe."
-                                          : `Prüfungsverdict: BEDINGT — ${warnungen.length} ${warnungen.length === 1 ? "Hinweis" : "Hinweise"}, siehe unten.`,
-        bold: true, size: 24, color: allesBestanden ? P.aufDunkelGruen : P.aufDunkelWarn, font: FONT }),
-    ] }),
-];
-
-const hakenTabelle = new Table({
-  width: { size: 100, type: WidthType.PERCENTAGE },
-  layout: TableLayoutType.FIXED,
-  borders: {
-    top: { style: BorderStyle.SINGLE, size: 4, color: P.table.accentLine },
-    bottom: { style: BorderStyle.SINGLE, size: 4, color: P.table.accentLine },
-    left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE },
-    insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: P.table.innerLine },
-    insideVertical: { style: BorderStyle.NONE },
-  },
-  rows: PRUEFSCHICHTEN.map(s => new TableRow({
-    cantSplit: true,
-    children: [
-      new TableCell({
-        width: { size: 6, type: WidthType.PERCENTAGE },
-        margins: { top: 40, bottom: 40, left: 120, right: 60 },
-        shading: { type: ShadingType.CLEAR, fill: s.flaeche },
-        children: [new Paragraph({ alignment: AlignmentType.CENTER,
-          children: [new TextRun({ text: s.haken, bold: true, size: 30, color: s.farbe, font: FONT_ARIAL })] })],
-      }),
-      new TableCell({
-        width: { size: 94, type: WidthType.PERCENTAGE },
-        margins: { top: 40, bottom: 40, left: 120, right: 120 },
-        shading: { type: ShadingType.CLEAR, fill: s.flaeche },
-        children: [
-          new Paragraph({ spacing: { after: 40, line: 276 },
-            children: [new TextRun({ text: s.titel, bold: true, size: 22, color: P.primary, font: FONT })] }),
-          new Paragraph({ spacing: { line: 248 },
-            children: [new TextRun({ text: s.zeile, size: 18, color: P.secondary, font: FONT })] }),
-        ],
-      }),
-    ],
-  })),
-});
-
-const erhebungsBlock = [
-  new Paragraph({ spacing: { before: 120, after: 20, line: 252 },
-    children: [new TextRun({ text: `Erhebungsstand (automatisch): erhoben am ${HEUTE} aus testsweet/logs (je Kategorie der neueste Lauf einschließlich Fehlern). LLM-Nachrechnung: ${LLM ? LLM.datum + " (" + LLM.datei + ")" : "keine"}. MD-Datenstand: ${MD ? MD.datum + " (" + MD.ordner + ")" : "keiner"}. Manuell gepflegt: mvn-Testzahl ${MVN_TESTS} (Stand ${MVN_STAND}), Web-Modus-Referenzläufe.`, size: 17, color: P.aufDunkelNeben, font: FONT })] }),
-];
-if (warnungen.length > 0) {
-  erhebungsBlock.push(new Paragraph({ spacing: { before: 80, after: 20 },
-    children: [new TextRun({ text: "Hinweise vor einer belastbaren Ausstellung:", bold: true, size: 20, color: P.aufDunkelWarn, font: FONT })] }));
-  for (const w of warnungen) {
-    erhebungsBlock.push(new Paragraph({ spacing: { after: 30, line: 264 },
-      children: [new TextRun({ text: "• " + w, size: 18, color: P.aufDunkelWarn, font: FONT })] }));
+    for (const c of e.cases || []) {
+      const refs=(e.referenceChecks || []).filter(item=>item.caseId === c.caseId);
+      const caseState=c.verdict === "FAIL" || refs.some(r=>r.state === "FAIL") ? "FAIL" : c.verdict === "UNVERIFIED" || refs.some(r=>r.state === "UNVERIFIED") || e.provisionalFailures?.some(row=>row.caseId === c.caseId) ? "UNVERIFIED" : c.verdict;
+      children.push(heading(`${c.caseId}: ${e.evidenceVerified ? stateLabels[caseState] || caseState : "UNVERIFIZIERTES MODELL-ROHURTEIL " + c.verdict}`));
+      for (const finding of c.findings || []) children.push(para("",{children:[text("• " + finding,{bold:true,color:P.fail})]}));
+      children.push(para(c.reasoning || "Keine vollständige Rechenbegründung vorhanden."));
+      for (const block of c.calculations || []) {
+        children.push(para(`Rechenblock ${block.blockId}`,{keepNext:true,children:[text(`Rechenblock ${block.blockId}`,{bold:true})]}));
+        for (const person of block.persons || []) children.push(para(`${person.personId}: `+Object.entries(person.values || {}).map(([field,value])=>`${field} = ${value} EUR`).join("; ")));
+        children.push(para("Bedarfsgemeinschaft: "+Object.entries(block.household || {}).map(([field,value])=>`${field} = ${value} EUR`).join("; ")));
+      }
+      for (const check of c.checks || []) children.push(para("",{children:[text(`${check.checkId}: ${e.evidenceVerified ? stateLabels[check.verdict] || check.verdict : "UNVERIFIZIERTES ROHURTEIL " + check.verdict} - ${check.reasoning}`,{color:check.verdict === "FAIL"?P.fail:check.verdict === "UNVERIFIED" || !e.evidenceVerified?P.warn:P.primary,bold:check.verdict === "FAIL"})]}));
+      for (const reference of refs) {
+        for (const finding of [...(reference.findings || []),...(reference.arithmeticIssues || []),...(reference.missingInputs || []),...(reference.workflowFindings || []),...(reference.workflowUnverified || [])]) children.push(para("",{children:[text("• Unabhängige Referenzprüfung: " + finding,{bold:true,color:reference.state === "FAIL"?P.fail:P.warn})]}));
+      }
+    }
+    for (const finding of e.knownFindings || []) if (!(e.cases || []).some(c=>c.findings?.includes(finding))) children.push(para("• " + finding));
+    children.push(para("Die Hashes belegen die lokal protokollierten gesendeten Dokumentbytes und empfangenen API-Antworten. Sie beweisen keine interne Verarbeitung beim Modellanbieter und keine allgemeine Fehlerfreiheit der Software."));
+    for (const doc of e.documents || []) children.push(para(`• ${doc.name}: ${doc.bytes} Bytes; SHA-256 ${doc.sha256}`));
   }
 }
-
-const fuss = [
-  new Paragraph({ spacing: { before: 140 },
-    border: { top: { style: BorderStyle.SINGLE, size: 2, color: P.table.innerLine, space: 8 } },
-    children: [
-      new TextRun({ text: "Referenzjahr 2026 · Rechtsquellenstand: doc/rechtsgrundlagen.md (2026-10-10) · Ausgestellt am " + HEUTE, size: 18, color: P.aufDunkelNeben, font: FONT }),
-    ] }),
-];
-
-// ─── Detailseiten ────────────────────────────────────────────────────────────
-function h1(text, ersteSeite) {
-  return new Paragraph({
-    heading: HeadingLevel.HEADING_1,
-    pageBreakBefore: ersteSeite ? undefined : true,
-    keepNext: true,
-    spacing: { before: ersteSeite ? 120 : 200, after: 240, line: 312 },
-    border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: P.h2, space: 6 } },
-    children: [new TextRun({ text, bold: true, size: 32, color: P.primary, font: FONT_ARIAL })] });
-}
-function h2(text) {
-  return new Paragraph({
-    heading: HeadingLevel.HEADING_2, keepNext: true,
-    spacing: { before: 190, after: 90, line: 288 },
-    children: [new TextRun({ text, bold: true, size: 25, color: P.h2, font: FONT_ARIAL })] });
-}
-function para(runs, opts = {}) {
-  return new Paragraph({
-    alignment: AlignmentType.LEFT,
-    spacing: { line: 280, after: opts.after !== undefined ? opts.after : 80, before: opts.before || 0 },
-    children: runs.map(r => new TextRun({ text: r.t, bold: !!r.b, italics: !!r.i, size: 22,
-      color: r.warn ? P.warn : (r.b ? P.primary : P.body), font: FONT })),
-  });
-}
-function listenpunkt(reference, titel, text) {
-  return new Paragraph({
-    numbering: { reference, level: 0 },
-    alignment: AlignmentType.LEFT,
-    keepLines: true,
-    spacing: { line: 280, after: 100 },
-    children: [
-      new TextRun({ text: titel + ": ", bold: true, size: 22, color: P.primary, font: FONT }),
-      new TextRun({ text, size: 22, color: P.body, font: FONT }),
-    ],
-  });
-}
-
-const details = [
-  h1("Die zehn Qualitätsschichten im Einzelnen", true),
-  para([{ t: "Zehn Prüfungen mit bewusst unterschiedlicher Fehlerabdeckung: Formelfehler (Goldwerte, LLM-Nachrechnung), Zusammenspiel mit Datenbank und Parallelität (Regression, testsweet, Last/Stress), Bedienoberfläche (Modus 2), Transaktionssteuerung (Unit-Tests) und Schwächen, die Tests nicht sehen (Reviews durch unterschiedliche KIs)." }]),
-  para([{ t: "Nachweisprinzip: ", b: true }, { t: "Die neuesten Laufresultate werden einschließlich Fehlern berücksichtigt. Die LLM-Schicht benötigt strukturierte echte API-Belege mit exakter Fallabdeckung und unveränderten Quelldateien, Prüfauftrag und Gesetzesgrundlagen. Fehlende, abgebrochene, veraltete oder abweichende Nachweise erhalten keine Freigabe. Die mvn-Testzahl und Web-Modus-Referenzläufe bleiben ausdrücklich manuell gepflegt." }]),
-];
-PRUEFSCHICHTEN.forEach((s, i) => {
-  details.push(h2(`${i + 1}. ${s.titel}`));
-  details.push(para([{ t: s.zeile, i: true }], { after: 100 }));
-  details.push(para([{ t: s.detail }]));
-  if (s.detailListe) {
-    for (const punkt of s.detailListe) details.push(listenpunkt("reviews", punkt.titel, punkt.text));
-    details.push(para([{ t: s.detailQuelle }]));
-  }
-});
-details.push(h2("Wie das Zertifikat erneuert wird"));
-details.push(para([{ t: "Das Zertifikat wird in dieser Reihenfolge erneuert:" }]));
-details.push(listenpunkt("erneuerung", "Testläufe fahren", "Die testsweet-GUI oder start.bat nutzen. Der Generator bewertet die neuesten Läufe je Kategorie einschließlich Fehlern."));
-details.push(listenpunkt("erneuerung", "mvn test ausführen", "Im Hauptprojekt starten; Testzahl und Stand oben im Generator (MVN_TESTS/MVN_STAND) aktualisieren."));
-details.push(listenpunkt("erneuerung", "LLM-Prüfung starten", "In testsweet konfigurieren und ausführen. Der Generator prüft strukturierte Request-/Response-Belege und Quelldatei-Hashes."));
-details.push(listenpunkt("erneuerung", "Zertifikat erstellen", "Den Knopf in der GUI oder erstelle-zertifikat.bat nutzen. Bei Warnungen zuerst die Schritte 1–3 nachziehen."));
-details.push(h2("Grenzen des Zertifikats"));
-details.push(para([
-  { t: "Die LLM-Nachrechnung ist eine dokumentierte Stichprobe, keine Vollprüfung aller Fälle und Regeläste. Die vollständigen je-Fall-Rechenwege stehen in den Markdown-Laufberichten. Nicht modellierte Fachrechtsregeln (Karenzzeit § 35, §§ 82 Abs. 4/5, § 43 Abs. 2, § 44 Abs. 2) sind kein Zertifikatsgegenstand. Web-Modus- und mvn-Zahlen sind als manuell gepflegt markiert." }]));
-
-// ─── Dokument ────────────────────────────────────────────────────────────────
-const doc = new Document({
-  creator: "SDN.Leistung LMG",
-  title: "Testzertifikat SDN.Leistung LMG",
-  numbering: { config: [
-    { reference: "reviews", levels: [{ level: 0, format: LevelFormat.DECIMAL, text: "%1.", alignment: AlignmentType.LEFT,
-      style: { paragraph: { indent: { left: 620, hanging: 360 } } } }] },
-    { reference: "erneuerung", levels: [{ level: 0, format: LevelFormat.DECIMAL, text: "%1.", alignment: AlignmentType.LEFT,
-      style: { paragraph: { indent: { left: 620, hanging: 360 } } } }] },
-  ] },
-  styles: { default: { document: {
-    run: { font: FONT, size: 22, color: P.body },
-    paragraph: { spacing: { line: 312 } },
-  } } },
-  sections: [
-    { // Seite 1: Zertifikat auf dunklem Grund
-      properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 620, bottom: 520, left: 1134, right: 1134 } } },
-      children: [new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
-        layout: TableLayoutType.FIXED,
-        borders: { top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE },
-          left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE },
-          insideHorizontal: { style: BorderStyle.NONE }, insideVertical: { style: BorderStyle.NONE } },
-        rows: [new TableRow({
-          children: [new TableCell({
-            shading: { type: ShadingType.CLEAR, fill: P.bg }, borders: {
-              top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.NONE },
-              left: { style: BorderStyle.SINGLE, size: 12, color: P.accent },
-              right: { style: BorderStyle.NONE } },
-            margins: { top: 180, bottom: 180, left: 560, right: 560 },
-            children: [
-              ...zertifikat,
-              new Paragraph({ spacing: { after: 100 },
-                children: [new TextRun({ text: "Geprüfte Qualitätsschichten", bold: true, size: 22, color: "FFFFFF", font: FONT })] }),
-              hakenTabelle,
-              ...erhebungsBlock,
-              ...fuss,
-            ],
-          })],
-        })],
-      })],
-    },
-    { // Seite 2 ff: Erklärungen
-      properties: { type: SectionType.NEXT_PAGE,
-        page: { size: { width: 11906, height: 16838 }, margin: { top: 1200, bottom: 1200, left: 1440, right: 1300 },
-          pageNumbers: { start: 2 } } },
-      footers: { default: new Footer({
-        children: [new Paragraph({ alignment: AlignmentType.CENTER,
-          children: [new TextRun({ children: [PageNumber.CURRENT], size: 18, color: "888888", font: FONT })] })] }) },
-      children: details,
-    },
-  ],
-});
-
-const OUT = process.argv[2] || path.join(__dirname, "testzertifikat.docx");
-Packer.toBuffer(doc).then(buf => {
-  fs.writeFileSync(OUT, buf);
-  // Erhebungsstand für GUI/Server-Dialog (gleiche Quelle wie das Dokument)
-  fs.writeFileSync(path.join(WERKZEUG, "stand.json"), JSON.stringify({
-    erhoben_am: HEUTE,
-    verdict: allesBestanden ? "BESTANDEN" : "BEDINGT",
-    laeufe: LAEUFE,
-    llm: LLM,
-    md_datenstand: MD,
-    manuell: { mvn_tests: MVN_TESTS, mvn_stand: MVN_STAND },
-    warnungen,
-  }, null, 1));
-  console.log("OK geschrieben:", OUT, buf.length, "Bytes; verdict:", allesBestanden ? "BESTANDEN" : `BEDINGT (${warnungen.length} ${warnungen.length === 1 ? "Hinweis" : "Hinweise"})`);
-}).catch(e => { console.error("FEHLER:", e); process.exit(1); });
+children.push(heading("Build- und Laufbindung"),para(`Nachweis-Fingerprint (SHA-256): ${evidence.evidenceFingerprint}`),
+  para("Die Belege gelten nur für den gebundenen Quell-, Build- und Laufstand. Neue Testläufe oder relevante Dateiänderungen entwerten die Darstellung als aktuelles Zertifikat. Die vollständige Inventarliste liegt neben diesem Dokument in stand.json."),
+  heading("Zertifikat erneuern"),
+  para("In Abschnitt 7 der testsweet-Oberfläche auf „Mache alle Zertifikatstests“ klicken. Der Ablauf baut und prüft beide Programme, führt alle sieben Simulator-Kombinationen aus, prüft zuletzt die ausgewählten Fälle mit GLM und erstellt bei vollständigem Erfolg automatisch dieses Zertifikat. Fortschrittsbalken zeigen Phasen und tatsächliche Fälle; eine verlässliche Restzeit wird nicht behauptet."),
+  para("Bei einer Testabweichung oder einem technischen Fehler stoppt der Ablauf. Die Fehlermeldung nennt den betroffenen Schritt und das Protokoll. Ein Abbruch oder fehlender Pflichtnachweis kann kein grünes Zertifikat erzeugen."),
+  heading("Einzelprüfungen manuell ausführen"),
+  para("1. Beide Maven-Testsuiten mit den benötigten Datenbankprüfungen vollständig ausführen. Übersprungene Prüfungen bei identischem Build gesondert nachholen."),
+  para("2. Fachschicht POSITIV, NEGATIV, LAST und STRESS sowie Weboberfläche POSITIV, NEGATIV und LAST vollständig durchführen."),
+  para("3. GLM-Prüfung auf den aktuellen vollständigen Quellberichten starten und Befunde auswerten."),
+  para("4. Zertifikat neu erstellen. Auch ein negatives oder unvollständiges Ergebnis wird dokumentiert; eine erfolgreiche Dateierzeugung ist keine fachliche Freigabe."),
+  heading("Grenzen"),para("Die GLM-Prüfung ist eine Stichprobe der ausgewählten Fälle mit strukturierter Zahlen- und Prüfpunktabdeckung. Sie ersetzt weder eine vollständige Fachrechtsprüfung noch die Kontrolle aller möglichen Datenkonstellationen. Nicht modellierte Rechtsregeln bleiben außerhalb des zertifizierten Umfangs."));
+const doc = new Document({creator:"SDN.Leistung LMG",title:"Testzertifikat SDN.Leistung LMG",styles:{default:{document:{run:{font:FONT,size:21},paragraph:{spacing:{line:270}}}}},
+  sections:[{properties:{page:{size:{width:11906,height:16838},margin:{top:850,bottom:850,left:1050,right:1050}}},
+    footers:{default:new Footer({children:[new Paragraph({alignment:AlignmentType.CENTER,children:[text("SDN.Leistung LMG · ",{size:17,color:P.secondary}),new TextRun({children:[PageNumber.CURRENT],size:17})]})]})},children}]});
+const OUT = path.resolve(process.argv[2] || path.join(__dirname,"testzertifikat.docx"));
+Packer.toBuffer(doc).then(buffer => {
+  fs.mkdirSync(path.dirname(OUT),{recursive:true});
+  fs.writeFileSync(OUT,buffer,{flag:"wx"});
+  fs.writeFileSync(path.join(path.dirname(OUT),"stand.json"),JSON.stringify({...evidence,certificateId,erhoben_am:now,docxSha256:hash(buffer)},null,2),{flag:"wx"});
+  console.log(`Zertifikat erzeugt: ${OUT}; fachliches Urteil: ${evidence.verdict}`);
+}).catch(error=>{console.error("Zertifikaterzeugung fehlgeschlagen:",error.message);process.exitCode=1;});

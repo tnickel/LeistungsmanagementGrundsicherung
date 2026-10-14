@@ -39,7 +39,12 @@ final class Mitarbeiter implements Runnable {
                 if (auftrag == null) {
                     break; // Pool leer
                 }
-                spiele(auftrag);
+                try {
+                    spiele(auftrag);
+                } catch (Throwable failure) {
+                    simulator.meldeWorkerAbsturz(auftrag, failure);
+                    break;
+                }
             }
         } finally {
             aktiv = false;
@@ -54,7 +59,7 @@ final class Mitarbeiter implements Runnable {
         auftrag.startZeit = LocalDateTime.now();
         auftrag.startNano = System.nanoTime();
         Map<String, Object> kontext = new HashMap<>();
-        SozialLeistungsService service = simulator.service();
+        SozialLeistungsService service = simulator.service(auftrag);
         String kollege = simulator.zufallsKollege(kuerzel);
         kontext.put("mitarbeiter", kuerzel);
         kontext.put("kollege", kollege);
@@ -71,13 +76,12 @@ final class Mitarbeiter implements Runnable {
                 break;
             }
             try {
-                String detail = aktion.execute(service, kuerzel, kollege, kontext);
+                String detail = ausfuehrenMitZustandspruefung(auftrag, aktion, service, kollege, kontext);
                 schritt(auftrag, aktion.name(), "OK" + (detail == null || detail.isBlank()
                         ? "" : " — " + detail));
                 denkzeit();
             } catch (FachlicheException e) {
-                if (aktion.erwarteterFehler() != null
-                        && aktion.erwarteterFehler().equals(e.code())) {
+                if (aktion.akzeptiert(e)) {
                     schritt(auftrag, aktion.name(),
                             "ERWARTETER FEHLER (" + e.code() + ") — " + e.getMessage());
                     denkzeit();
@@ -123,6 +127,25 @@ final class Mitarbeiter implements Runnable {
         Auftrag.Schritt schritt = new Auftrag.Schritt(LocalDateTime.now(), kuerzel, aktion, ergebnis);
         auftrag.protokolliere(schritt);
         simulator.log().auftragSchritt(auftrag, schritt);
+    }
+
+    private String ausfuehrenMitZustandspruefung(Auftrag auftrag, SzenarioAktion aktion,
+            SozialLeistungsService service, String kollege, Map<String, Object> kontext) throws Exception {
+        if (aktion.erwarteterFehler() == null) return aktion.execute(service, kuerzel, kollege, kontext);
+        Fachzustand vorher = simulator.sichereFachzustand(auftrag);
+        try {
+            return aktion.execute(service, kuerzel, kollege, kontext);
+        } finally {
+            Fachzustand danach = simulator.sichereFachzustand(auftrag);
+            var abweichungen = vorher.abweichungen(danach);
+            var pruefung = new Auftrag.Pruefung("Fehlversuch ohne Fachänderung: " + aktion.name(),
+                    "unverändert", abweichungen.isEmpty() ? "unverändert" : String.join("; ", abweichungen),
+                    abweichungen.isEmpty(), "Alle Fachspalten, Versionen, Zahlungen, Bescheide und Fachjournal; neue Einsichts-Audits erlaubt",
+                    "-- STATE_SNAPSHOT: SOZIAL_FALL, BEDARFSGEMEINSCHAFT, ZAHLUNG, BESCHEID, JOURNAL; vollständiger Vorher/Nachher-Vergleich", java.util.List.of());
+            auftrag.ergaenzePruefung(pruefung);
+            simulator.log().pruefung(auftrag, pruefung);
+            vorher.verlangeUnveraendert(danach);
+        }
     }
 
     private void denkzeit() {

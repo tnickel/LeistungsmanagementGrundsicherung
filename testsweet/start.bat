@@ -19,9 +19,9 @@ if errorlevel 1 (
 )
 
 if "%~1"=="" (
-    call mvn -q -f testsweet/pom.xml compile exec:java
+    call mvn -q -f testsweet/pom.xml process-classes exec:java
 ) else (
-    call mvn -q -f testsweet/pom.xml compile exec:java -Dexec.args="%*"
+    call mvn -q -f testsweet/pom.xml process-classes exec:java -Dexec.args="%*"
 )
 if errorlevel 1 pause
 endlocal

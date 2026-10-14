@@ -1,9 +1,8 @@
 package de.allgemein.lmg.config;
 
-import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.Reader;
+import java.io.PushbackReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -51,16 +50,14 @@ public final class LmgConfig {
         this.url = resolve(props, "tx.url", "TX_URL", "jdbc:oracle:thin:@//localhost:1921/o19c1p1");
         this.user = resolve(props, "tx.user", "TX_USER", "tx_demo");
         this.password = resolve(props, "tx.pass", "TX_PASS", "tx_demo");
-        this.port = Integer.parseInt(resolve(props, "lmg.port", "LMG_PORT", "8080"));
+        this.port = intValue(props, "lmg.port", "LMG_PORT", "8080");
         this.host = resolve(props, "lmg.host", "LMG_HOST", "127.0.0.1");
-        this.dbConnectTimeoutMs = Integer.parseInt(
-                resolve(props, "lmg.db.connectTimeoutMs", "LMG_DB_CONNECT_TIMEOUT_MS", "15000"));
-        this.dbReadTimeoutMs = Integer.parseInt(
-                resolve(props, "lmg.db.readTimeoutMs", "LMG_DB_READ_TIMEOUT_MS", "120000"));
-        this.poolType = resolve(props, "lmg.pool.type", "LMG_POOL_TYP", "ucp");
-        this.poolSize = Integer.parseInt(resolve(props, "lmg.pool.size", "LMG_POOL_GROESSE", "16"));
-        this.maxTasks = Integer.parseInt(resolve(props, "lmg.tasks.max", "LMG_TASKS", "8"));
-        this.queueCapacity = Integer.parseInt(resolve(props, "lmg.tasks.queue", "LMG_WARTESCHLANGE", "100"));
+        this.dbConnectTimeoutMs = intValue(props, "lmg.db.connectTimeoutMs", "LMG_DB_CONNECT_TIMEOUT_MS", "15000");
+        this.dbReadTimeoutMs = intValue(props, "lmg.db.readTimeoutMs", "LMG_DB_READ_TIMEOUT_MS", "120000");
+        this.poolType = resolve(props, "lmg.pool.type", "LMG_POOL_TYP", "ucp").toLowerCase(java.util.Locale.ROOT);
+        this.poolSize = intValue(props, "lmg.pool.size", "LMG_POOL_GROESSE", "24");
+        this.maxTasks = intValue(props, "lmg.tasks.max", "LMG_TASKS", "8");
+        this.queueCapacity = intValue(props, "lmg.tasks.queue", "LMG_WARTESCHLANGE", "100");
         this.auditFile = resolve(props, "lmg.audit.file", "LMG_AUDIT_FILE", "lmg_audit.log");
         this.benutzer = resolve(props, "lmg.benutzer", "LMG_BENUTZER", null);
         this.kduWarmwasserAbzugProzent = resolve(props, "lmg.kdu.warmwasserabzug", "LMG_KDU_WARMWASSERABZUG", "0");
@@ -70,7 +67,7 @@ public final class LmgConfig {
         this.rechtsbehelfSozialgericht = resolve(props, "lmg.rechtsbehelf.sozialgericht", "LMG_RECHTSBEHELFSGERICHT", null);
         this.behoerdeOrt = resolve(props, "lmg.behoerde.ort", "LMG_BEHOERDE_ORT", null);
         this.behoerdeAnschrift = resolve(props, "lmg.behoerde.anschrift", "LMG_BEHOERDE_ANSCHRIFT", null);
-        this.sessionTimeoutMinuten = Integer.parseInt(resolve(props, "lmg.session.timeout.minuten", "LMG_SESSION_TIMEOUT", "60"));
+        this.sessionTimeoutMinuten = intValue(props, "lmg.session.timeout.minuten", "LMG_SESSION_TIMEOUT", "60");
 
         validate();
     }
@@ -82,31 +79,50 @@ public final class LmgConfig {
     public static LmgConfig load(String fileName) {
         Properties fileProps = new Properties();
         Path p = Paths.get(fileName);
-        if (Files.exists(p)) {
-            try (Reader reader = new InputStreamReader(new FileInputStream(p.toFile()), StandardCharsets.UTF_8)) {
-                // Properties.load(InputStream) dekodiert fest ISO-8859-1 und würde Umlaute der
-                // Behördenanschrift verstümmeln — daher explizit UTF-8 über einen Reader.
-                fileProps.load(reader);
+        if (Files.exists(p, java.nio.file.LinkOption.NOFOLLOW_LINKS) || !Files.notExists(p)) {
+            try (InputStream in = Files.newInputStream(p)) {
+                readProperties(in, fileProps);
                 LOG.info(() -> "Konfiguration geladen aus Datei: " + p.toAbsolutePath());
             } catch (Exception e) {
-                LOG.warning(() -> "Konnte Konfigurationsdatei nicht lesen: " + fileName + " (" + e.getMessage() + ")");
+                throw new IllegalStateException("Konfigurationsdatei kann nicht vollständig gelesen werden: "
+                        + p.toAbsolutePath() + " — Start abgebrochen, keine Defaults/Teilwerte übernommen");
             }
         } else {
             try (InputStream in = LmgConfig.class.getClassLoader().getResourceAsStream(fileName)) {
                 if (in != null) {
-                    try (Reader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
-                        fileProps.load(reader);
-                    }
+                    readProperties(in, fileProps);
                     LOG.info(() -> "Konfiguration geladen aus Klassenpfad: " + fileName);
                 }
             } catch (Exception e) {
-                // optional
+                throw new IllegalStateException("Klassenpfad-Konfiguration kann nicht vollständig gelesen werden: "
+                        + fileName + " — Start abgebrochen");
             }
         }
         return new LmgConfig(fileProps);
     }
 
+    private static void readProperties(InputStream in, Properties properties) throws java.io.IOException {
+        var decoder = StandardCharsets.UTF_8.newDecoder()
+                .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT);
+        try (var reader = new PushbackReader(new InputStreamReader(in, decoder), 1)) {
+            int first = reader.read();
+            if (first != -1 && first != '\uFEFF') reader.unread(first);
+            properties.load(reader);
+        }
+    }
+
+    private static int intValue(Properties properties, String key, String env, String fallback) {
+        try { return Integer.parseInt(resolve(properties, key, env, fallback)); }
+        catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Konfiguration " + key + " / " + env + " muss eine ganze 32-Bit-Zahl sein");
+        }
+    }
+
     private void validate() {
+        if (!poolType.equals("ucp") && !poolType.equals("simple")) {
+            throw new IllegalArgumentException("Konfiguration lmg.pool.type / LMG_POOL_TYP erlaubt nur ucp oder simple");
+        }
         if (port < 1 || port > 65535) {
             throw new IllegalArgumentException("Ungültiger Port: " + port);
         }

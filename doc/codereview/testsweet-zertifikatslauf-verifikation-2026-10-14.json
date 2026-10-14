@@ -1,0 +1,414 @@
+{
+  "createdAt": "2026-10-14T00:01:43.189Z",
+  "suiteId": "43ae02a2-c623-48d6-9f53-c1ea8ede1ef0",
+  "sourceSha256": "2c216dff27fe3cd641bf138c3a36594af2dabf939cc09e135ef6083ba7c81ff0",
+  "sourceFiles": 226,
+  "suite": {
+    "state": "SUCCESS",
+    "startedAt": "2026-10-13T23:44:39.785729200Z",
+    "finishedAt": "2026-10-13T23:57:59.463001Z",
+    "phases": 13,
+    "completedPhases": 13,
+    "requestedLlmCases": 18,
+    "runDirectories": [
+      {
+        "category": "POSITIV",
+        "mode": "WEB",
+        "directory": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\run-20261014-014630-8595905148079630059"
+      },
+      {
+        "category": "NEGATIV",
+        "mode": "WEB",
+        "directory": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\run-20261014-014826-13939776600983046415"
+      },
+      {
+        "category": "LAST",
+        "mode": "WEB",
+        "directory": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\run-20261014-014950-14647994853217752546"
+      },
+      {
+        "category": "POSITIV",
+        "mode": "FACH",
+        "directory": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\run-20261014-015034-18381716437272456446"
+      },
+      {
+        "category": "NEGATIV",
+        "mode": "FACH",
+        "directory": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\run-20261014-015042-8912979662509227704"
+      },
+      {
+        "category": "LAST",
+        "mode": "FACH",
+        "directory": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\run-20261014-015049-17539046798374962288"
+      },
+      {
+        "category": "STRESS",
+        "mode": "FACH",
+        "directory": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\run-20261014-015051-1384146665912319196"
+      }
+    ],
+    "glmReviewId": "0adb1d1a-8bdd-47be-a7c1-b91050acc801"
+  },
+  "verdict": "BESTANDEN",
+  "certificate": {
+    "schemaVersion": 2,
+    "state": "READY",
+    "certificateId": "7ef42a76-49a2-40cb-a93d-41dd2292d6ff",
+    "verdict": "BESTANDEN",
+    "evidenceFingerprint": "a4da38c36f9571ac56e229a014ca44b3faccc9dd0b7f1b97f3218021febb260a",
+    "publishedAt": "2026-10-13T23:57:59.283Z",
+    "staging": "testsweet/logs/certificate-5095f671-c271-42bc-a4e4-949d6065ceff",
+    "files": [
+      {
+        "path": "doc/testzertifikat-werkzeug/testzertifikat.docx",
+        "sha256": "9e34e7da8131208ef55d89eb670cb84d8f97a1e44e5d872734f7d18c9b822b2f"
+      },
+      {
+        "path": "doc/testzertifikat-werkzeug/testzertifikat.pdf",
+        "sha256": "364f621d1559de3982ccfc0adff59b1f4d1a40a29f649ea324bfa200f2e2897a"
+      },
+      {
+        "path": "doc/SDN-Leistung-LMG-Testzertifikat.docx",
+        "sha256": "9e34e7da8131208ef55d89eb670cb84d8f97a1e44e5d872734f7d18c9b822b2f"
+      },
+      {
+        "path": "doc/SDN-Leistung-LMG-Testzertifikat.pdf",
+        "sha256": "364f621d1559de3982ccfc0adff59b1f4d1a40a29f649ea324bfa200f2e2897a"
+      },
+      {
+        "path": "doc/testzertifikat-werkzeug/stand.json",
+        "sha256": "6f8cf6b16adbb4c9db864c81ef6732f72d3b8f31d6f4188edfdbd65065c94c99"
+      }
+    ]
+  },
+  "layers": [
+    {
+      "id": "JUNIT:main",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "JUNIT:testsweet",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "FACH:POSITIV",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "FACH:NEGATIV",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "FACH:LAST",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "FACH:STRESS",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "WEB:POSITIV",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "WEB:NEGATIV",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "WEB:LAST",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "GLM",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "BUILD",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "CERTIFICATE_SUITE",
+      "state": "PASS",
+      "reasons": []
+    }
+  ],
+  "suiteEvidence": [
+    {
+      "path": "testsweet/logs/certificate-suite-0ae2d2cd-cbe4-4093-b2d8-5d7db3b4994c/status.json",
+      "normalization": "CERTIFICATE_SUITE_STABLE_V1",
+      "sha256": "3bdaa52cc362685d54157eb072e65d7d90745ea9652354c390ab2efedabc5a61"
+    },
+    {
+      "path": "testsweet/logs/certificate-suite-1236fcb0-7eaa-4665-8227-23e51aec3e88/status.json",
+      "normalization": "CERTIFICATE_SUITE_STABLE_V1",
+      "sha256": "8db35352021f6665788c1e36ef9bfc330624068513358221f3690f0a02256a22"
+    },
+    {
+      "path": "testsweet/logs/certificate-suite-17f17d52-20a6-422f-a455-3553d2aefa9d/status.json",
+      "normalization": "CERTIFICATE_SUITE_STABLE_V1",
+      "sha256": "95f57bb69be0f2ade87c4d2e7417bd54de1e6e98dfae5b3123895f7b025c1513"
+    },
+    {
+      "path": "testsweet/logs/certificate-suite-1ceafff3-355a-44d8-9c89-eff2fe255a0a/status.json",
+      "normalization": "CERTIFICATE_SUITE_STABLE_V1",
+      "sha256": "82a91174820980ba87c4abaed69d69fb84bd8a01b1065afbe406aafddde4fa5f"
+    },
+    {
+      "path": "testsweet/logs/certificate-suite-43ae02a2-c623-48d6-9f53-c1ea8ede1ef0/status.json",
+      "normalization": "CERTIFICATE_SUITE_STABLE_V1",
+      "sha256": "af566e26ea8463e37577848752c4bea43c95b531ca02b4694404e9e96d699e42"
+    },
+    {
+      "path": "testsweet/logs/certificate-suite-8db14038-a6cd-4f0d-822a-c9caa0b5a037/status.json",
+      "normalization": "CERTIFICATE_SUITE_STABLE_V1",
+      "sha256": "4a2970a638ab07fa4c9e3c47a3de48c84c5576a166a12d1afe144d7aeb16d418"
+    }
+  ],
+  "junit": [
+    {
+      "module": "main",
+      "tests": 306,
+      "passed": 306,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "runId": "756b5ac9-60b9-4e51-a1e1-240f07acdc0a",
+      "startedAt": "2026-10-13T23:45:19.495356200Z"
+    },
+    {
+      "module": "testsweet",
+      "tests": 155,
+      "passed": 155,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "runId": "0646ef8d-4a12-4380-b5d5-9adf948721e6",
+      "startedAt": "2026-10-13T23:45:25.289796300Z"
+    }
+  ],
+  "simulator": [
+    {
+      "id": "FACH:POSITIV",
+      "state": "PASS",
+      "total": 500,
+      "verified": 500,
+      "directory": "testsweet/logs/run-20261014-015034-18381716437272456446",
+      "startedAt": "2026-10-13T23:50:34.726590300Z"
+    },
+    {
+      "id": "FACH:NEGATIV",
+      "state": "PASS",
+      "total": 500,
+      "verified": 500,
+      "directory": "testsweet/logs/run-20261014-015042-8912979662509227704",
+      "startedAt": "2026-10-13T23:50:42.703223200Z"
+    },
+    {
+      "id": "FACH:LAST",
+      "state": "PASS",
+      "total": 120,
+      "verified": 120,
+      "directory": "testsweet/logs/run-20261014-015049-17539046798374962288",
+      "startedAt": "2026-10-13T23:50:49.577388500Z"
+    },
+    {
+      "id": "FACH:STRESS",
+      "state": "PASS",
+      "total": 42,
+      "verified": 42,
+      "directory": "testsweet/logs/run-20261014-015051-1384146665912319196",
+      "startedAt": "2026-10-13T23:50:51.714845200Z"
+    },
+    {
+      "id": "WEB:POSITIV",
+      "state": "PASS",
+      "total": 60,
+      "verified": 60,
+      "directory": "testsweet/logs/run-20261014-014630-8595905148079630059",
+      "startedAt": "2026-10-13T23:46:30.912385800Z"
+    },
+    {
+      "id": "WEB:NEGATIV",
+      "state": "PASS",
+      "total": 60,
+      "verified": 60,
+      "directory": "testsweet/logs/run-20261014-014826-13939776600983046415",
+      "startedAt": "2026-10-13T23:48:26.349194300Z"
+    },
+    {
+      "id": "WEB:LAST",
+      "state": "PASS",
+      "total": 30,
+      "verified": 30,
+      "directory": "testsweet/logs/run-20261014-014950-14647994853217752546",
+      "startedAt": "2026-10-13T23:49:50.770593900Z"
+    }
+  ],
+  "glm": {
+    "reviewId": "0adb1d1a-8bdd-47be-a7c1-b91050acc801",
+    "state": "PASS",
+    "model": "glm-5.3",
+    "totalCases": 18,
+    "completedCases": 18,
+    "totalBatches": 6,
+    "completedBatches": 6,
+    "transportVerified": true,
+    "calculationVerified": true,
+    "reviewCoverageVerified": true,
+    "hasFailures": false,
+    "hasUnverifiedFindings": false,
+    "selectedCaseIds": [
+      "POSITIV:run-20261014-015034-18381716437272456446:TF11",
+      "NEGATIV:run-20261014-015042-8912979662509227704:TF01",
+      "POSITIV:run-20261014-015034-18381716437272456446:TF12",
+      "NEGATIV:run-20261014-015042-8912979662509227704:TF02",
+      "POSITIV:run-20261014-015034-18381716437272456446:TF13",
+      "NEGATIV:run-20261014-015042-8912979662509227704:TF03",
+      "POSITIV:run-20261014-015034-18381716437272456446:TF14",
+      "NEGATIV:run-20261014-015042-8912979662509227704:TF04",
+      "POSITIV:run-20261014-015034-18381716437272456446:TF15",
+      "NEGATIV:run-20261014-015042-8912979662509227704:TF05",
+      "POSITIV:run-20261014-015034-18381716437272456446:TF16",
+      "NEGATIV:run-20261014-015042-8912979662509227704:TF06",
+      "POSITIV:run-20261014-015034-18381716437272456446:TF17",
+      "NEGATIV:run-20261014-015042-8912979662509227704:TF07",
+      "POSITIV:run-20261014-015034-18381716437272456446:TF18",
+      "NEGATIV:run-20261014-015042-8912979662509227704:TF08",
+      "POSITIV:run-20261014-015034-18381716437272456446:TF19",
+      "NEGATIV:run-20261014-015042-8912979662509227704:TF09"
+    ],
+    "documents": [
+      {
+        "name": "llm-pruefauftrag.txt",
+        "sha256": "3ca976d99ac23b30ed64edbbdf7f5f38ac12f3f7201a479193f78cbf9c024fd7",
+        "path": "llm-pruefauftrag.txt",
+        "sourcePath": "doc/testzertifikat-werkzeug/llm-pruefauftrag.txt",
+        "bytes": 8820
+      },
+      {
+        "name": "gesetzesgrundlagen-2026.md",
+        "sha256": "d18d27a08007a63ab9ccc7449be9b11f0084100a97b7a454e112b6b97eb45ce5",
+        "path": "gesetzesgrundlagen-2026.md",
+        "sourcePath": "doc/testzertifikat-werkzeug/gesetzesgrundlagen-2026.md",
+        "bytes": 4738
+      },
+      {
+        "name": "pruefmenge.md",
+        "sha256": "028a23ac2103af3f626d720c87193680e56c583da9bf12dbf75652ce62c5cd4b",
+        "path": "pruefmenge.md",
+        "sourcePath": "",
+        "bytes": 83046
+      }
+    ],
+    "findings": [],
+    "attempts": [
+      {
+        "batch": 1,
+        "attempt": 1,
+        "responseValidated": true,
+        "requestSha256": "08e59f3a20a708c9c9731070c41542e34d35418f637fe8ae99cd10b1ae030db1",
+        "responseSha256": "2d065bd5b684ba846fbfd416175196fa76de9f810ad44549f0049f1590c74829",
+        "httpStatus": 200
+      },
+      {
+        "batch": 2,
+        "attempt": 1,
+        "responseValidated": false,
+        "error": "Modellantwort ist kein vollständiges JSON",
+        "requestSha256": "4942caeaa6bf885eb2a1d54ebf6137acb20b8f115e01d72d7256fa16e1f95111",
+        "responseSha256": "f8a9170cb195d6435b479fe7901661e1b3531df4937f1a24a5a09db281c1534c",
+        "httpStatus": 200
+      },
+      {
+        "batch": 2,
+        "attempt": 2,
+        "responseValidated": true,
+        "requestSha256": "4942caeaa6bf885eb2a1d54ebf6137acb20b8f115e01d72d7256fa16e1f95111",
+        "responseSha256": "331bbc8a7be29d80e374ec51464608ac3da7c4b4b2ef6fb77150fccb4984afc0",
+        "httpStatus": 200
+      },
+      {
+        "batch": 3,
+        "attempt": 1,
+        "responseValidated": true,
+        "requestSha256": "56d7fb018190cee1ac4918eedf78abca76b7f4837ef82598e5b2879b2daf3baa",
+        "responseSha256": "caec277d38b7179c2349a9cfa6682004d3636484125c885630cf222cf114065d",
+        "httpStatus": 200
+      },
+      {
+        "batch": 4,
+        "attempt": 1,
+        "responseValidated": true,
+        "requestSha256": "b8eedad753227b5d5dd875dc1859a88ecb71cb4082de0e39faf44491079b9e58",
+        "responseSha256": "dd2b597971dc0f6eb8e91bf64b7d8152aff82efc58e8b9f7619ac8c4fd1ecdcc",
+        "httpStatus": 200
+      },
+      {
+        "batch": 5,
+        "attempt": 1,
+        "responseValidated": false,
+        "error": "SQL-/Workflowabdeckung unvollständig/doppelt",
+        "requestSha256": "9560c5a1c742e725a9f477dad6d5b359a0e1adfa67d3a2de24b9c4305682e00a",
+        "responseSha256": "7d7fdd22dba51c6e50ac40bdb117c1c14f46375dcadc83e39801b45e81774306",
+        "httpStatus": 200
+      },
+      {
+        "batch": 5,
+        "attempt": 2,
+        "responseValidated": true,
+        "requestSha256": "9560c5a1c742e725a9f477dad6d5b359a0e1adfa67d3a2de24b9c4305682e00a",
+        "responseSha256": "29c6e3b5d46cd67383aec11ff827ae2d70f271e8fb3e8183eadeb923ebd509e8",
+        "httpStatus": 200
+      },
+      {
+        "batch": 6,
+        "attempt": 1,
+        "responseValidated": true,
+        "requestSha256": "2ea6c50a83dee5bfa4ff417a0428f77b93d078645b21c60d5ebcc0abcf589067",
+        "responseSha256": "73ca9cf93a21efd147d7e08036f91b12744a45a7aca0d005b8fba75cde66c27a",
+        "httpStatus": 200
+      }
+    ],
+    "resultPath": "testsweet/logs/llm-review-0adb1d1a-8bdd-47be-a7c1-b91050acc801/result.json",
+    "resultSha256": "4d8b31a22b92b62d185341981b50d080b3a8560386f5ca33f992735f24551d39",
+    "calculationBlocks": 17,
+    "persons": 39,
+    "checks": 204,
+    "narrativeNotes": [
+      {
+        "case": "NEGATIV TF06",
+        "kind": "MODEL_NARRATIVE_INCONSISTENCY",
+        "note": "Der unveränderte GLM-Freitext schreibt KdU 400+90+60=500. Korrekt ist 550. Strukturierte KdU 550 und Gesamtbedarf 1056 sind korrekt und unabhängig bestätigt. PASS bezieht sich auf strukturierte Zahlen/Prüfabdeckung, nicht auf jeden freien Modellsatz."
+      }
+    ]
+  },
+  "additionalVerification": {
+    "browserNodeTests": 30,
+    "certificateNodeTests": 46,
+    "pythonTests": 9,
+    "webLoginRegressions": 4,
+    "atomicReplaceRegressions": 5,
+    "targetedSuiteAndLlmTests": 46,
+    "liveMutationGuards409": true,
+    "liveCancellationTest": true,
+    "reloadProgressTest": true
+  },
+  "limits": "GLM bleibt die dokumentierte Stichprobe, nicht jeder mögliche Fall. Geprüft gegen die konfigurierte Docker-Oracle-Free-Datenbank; Oracle19c-Zweitsystem und Java21-Runtime nicht erneut geprüft. Kompiliert mit release21 unter Temurin25.0.4.1. Hashbindung ist keine digitale Signatur.",
+  "pdfVisualReview": {
+    "pages": 21,
+    "allPagesRenderedAndInspected": true,
+    "downloadStatus": 200,
+    "cacheControl": "no-store"
+  }
+}

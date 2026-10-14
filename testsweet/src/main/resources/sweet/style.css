@@ -750,10 +750,20 @@ tbody tr:hover { background: #f8faff; }
 .gear-button:focus-visible { outline: 3px solid #37dcf2; outline-offset: 3px; }
 .llm-config-dialog { width: min(720px, 92vw); max-height: 88vh; overflow-y: auto; border: 0; border-radius: 14px; padding: 24px; box-shadow: 0 20px 60px #0005; }
 .llm-config-dialog::backdrop { background: #0f172a88; }
-.llm-retry-dialog { width: min(580px, 92vw); border: 0; border-left: 5px solid #b45309; border-radius: 12px; padding: 24px; box-shadow: 0 20px 60px #0005; }
+.llm-retry-dialog { width: min(740px, 94vw); max-height: 90vh; overflow-y: auto; border: 0; border-left: 6px solid #b91c1c; border-radius: 12px; padding: 24px; box-shadow: 0 20px 60px #0005; background: #fff; color: #0f172a; }
 .llm-retry-dialog::backdrop { background: #0f172a88; }
 .llm-retry-dialog h2 { margin-top: 0; }
 .llm-retry-dialog code { white-space: pre-wrap; overflow-wrap: anywhere; }
+.llm-retry-dialog .prueffehler-severity { color: #991b1b; font-size: 13px; font-weight: 750; margin-top: 0; }
+.llm-retry-dialog .prueffehler-impact { border: 1px solid #fecaca; border-radius: 6px; padding: 12px; background: #fef2f2; }
+.llm-retry-dialog.prueffehler-abbruch { border-left-color: #92400e; }
+.llm-retry-dialog.prueffehler-abbruch .prueffehler-severity { color: #92400e; }
+.llm-retry-dialog h3 { margin-bottom: 8px; }
+.llm-retry-dialog ol { padding-left: 24px; }
+.llm-retry-dialog li { padding-left: 4px; margin-bottom: 10px; }
+.llm-retry-dialog details { border-top: 1px solid #cbd5e1; padding-top: 12px; }
+.llm-retry-dialog summary { cursor: pointer; font-weight: 650; }
+.llm-retry-dialog pre { max-height: 240px; overflow-y: auto; font: 13px/1.5 ui-monospace, Consolas, monospace; }
 .llm-config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
 .llm-config-grid label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; }
 .llm-config-grid input:not([type=checkbox]) { width: 100%; min-width: 0; box-sizing: border-box; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font: inherit; }
@@ -838,3 +848,19 @@ tbody tr:hover { background: #f8faff; }
     line-height: 1.55;
     font-size: 0.95em;
 }
+
+.review-error, .review-success { margin: 18px 0; padding: 18px 22px; border: 3px solid #b91c1c; border-radius: 10px; background: #fff1f2; color: #881337; white-space: pre-wrap; font-weight: 650; overflow-wrap: anywhere; }
+.review-success { border-color: #15803d; background: #f0fdf4; color: #14532d; }
+#llm-findings { padding-left: 42px; }
+#llm-retry-message { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.zertifikat-tests { padding: 20px; margin-bottom: 28px; border: 2px solid #087c9b; border-radius: 10px; background: #f0f9fc; scroll-margin-top: 20px; }
+.zertifikat-tests h2 { margin-top: 0; }
+.zertifikat-tests p { line-height: 1.55; }
+.zertifikat-tests details { margin-top: 14px; }
+.zertifikat-tests summary { cursor: pointer; font-weight: 650; }
+.zertifikat-tests [hidden], #llm-retry-auto[hidden] { display: none !important; }
+#zertifikat-tests-status { white-space: pre-wrap; overflow-wrap: anywhere; }
+#zertifikat-tests-phase-details { display: block; margin: 8px 0; }
+#llm-retry-auto { margin: 16px 0; }
+.llm-retry-dialog .prueffehler-impact { padding: 8px 12px; }

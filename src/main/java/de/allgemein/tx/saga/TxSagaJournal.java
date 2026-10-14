@@ -69,8 +69,8 @@ public interface TxSagaJournal {
 
     /**
      * Wie {@link #unfinished()}, aber nur Sagas, deren letzte Journal-Aktivität (Kopf oder
-     * Schritt) mindestens {@code mindestInaktivitaet} zurückliegt — schützt lebende Sagas
-     * vor einem Wiederanlauf im laufenden Betrieb. Die Nutzdaten (Payload) werden hier nicht
+     * Schritt) mindestens {@code mindestInaktivitaet} zurückliegt. Lebende Sagas sind zusätzlich
+     * über ihren exklusiven Claim geschützt. Die Nutzdaten (Payload) werden hier nicht
      * geladen; sie liefert erst {@link #claimUnfinished}.
      */
     default List<UnfinishedSaga> unfinished(java.time.Duration mindestInaktivitaet) throws SQLException {

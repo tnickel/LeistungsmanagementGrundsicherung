@@ -64,6 +64,8 @@ window.addEventListener("DOMContentLoaded", () => {
     const zertKnopf = $("zertifikatknopf");
     if (zertKnopf) {
         zertKnopf.addEventListener("click", async () => {
+            if (zertifikatSuiteGesperrt()) return;
+            entwerteSuiteNachManuellerAktion();
             zertKnopf.disabled = true;
             zertKnopf.textContent = "🏅 Zertifikat wird erstellt …";
             try {
@@ -92,11 +94,13 @@ window.addEventListener("DOMContentLoaded", () => {
             } finally {
                 zertKnopf.disabled = false;
                 zertKnopf.textContent = "🏅 Testzertifikat erstellen";
+                sperreZertifikatSuiteBedienung();
             }
         });
     }
 
     initialisiereLlm();
+    initialisiereZertifikatSuite();
 
     // Testfallkategorie-Reiter (zwischen Moduswahl und Laufkonfiguration)
     document.querySelectorAll("#kategorie-abschnitt .d-tab").forEach(tab => {
@@ -289,6 +293,7 @@ function setzePreset(ma, auf, seed, denkzeit) {
 // ------------------------------------------------------------------
 
 async function starteSimulation() {
+    if (zertifikatSuiteGesperrt()) return;
     if (gewaehlteKategorie === "STRESS" && gewaehlterModus === "WEB") {
         alert("Der Stresstest (User anlegen + nachbearbeiten) ist für den Fachschicht-Modus "
             + "vorgesehen — bitte Modus 1 (Fachschicht) wählen.");
@@ -311,6 +316,7 @@ async function starteSimulation() {
         denkzeitMs: Number($("denkzeit").value),
         aufraeumen: $("aufraeumen").checked
     };
+    entwerteSuiteNachManuellerAktion();
     try {
         const antwort = await fetch("/api/start", {
             method: "POST",
@@ -328,6 +334,7 @@ async function starteSimulation() {
 }
 
 async function stoppeSimulation() {
+    if (zertifikatSuiteGesperrt()) return;
     await fetch("/api/stop", { method: "POST" });
     aktualisiere();
 }
@@ -339,8 +346,15 @@ async function stoppeSimulation() {
 async function aktualisiere() {
     let status;
     try {
-        status = await (await fetch("/api/status")).json();
+        status = await llmRequest("/api/status");
     } catch (e) {
+        $("phase-text").textContent = "Status nicht verfügbar";
+        $("phase").className = "phase FEHLGESCHLAGEN";
+        $("pdfleiste").style.display = "none";
+        $("zertifikatlink").style.display = "none";
+        $("review-warning").hidden = false;
+        $("review-warning").className = "review-error";
+        $("review-warning").textContent = "Aktueller Laufstatus ist nicht bestätigt: " + e.message;
         return;
     }
     momentanerStatus = status;
@@ -354,6 +368,7 @@ async function aktualisiere() {
     const laeuft = ["AUFRAEUMEN", "LAUF", "VERIFIKATION"].includes(status.phase);
     $("start").disabled = laeuft;
     $("stop").disabled = !laeuft;
+    sperreZertifikatSuiteBedienung();
 
     // Kennzahlen
     const k = status.kennzahlen || {};
@@ -379,8 +394,9 @@ async function aktualisiere() {
         : status.phase === "AUFRAEUMEN" ? "Bereinige Altdaten …"
         : status.phase === "LAUF" ? `Simulation läuft (${fertig} von ${gesamt} erledigt)`
         : status.phase === "VERIFIKATION" ? "SQL-Endzustandsprüfung auf Datenbank …"
-        : status.phase === "FEHLGESCHLAGEN" ? globalePruefText(status)
-        : "Abgeschlossen";
+        : status.phase === "FEHLGESCHLAGEN" ? (status.letzteFehlermeldung || globalePruefText(status))
+        : status.phase === "ABGEBROCHEN" ? "Abgebrochen – Prüfung unvollständig"
+        : status.phase === "FERTIG" ? "Automatischer Lauf abgeschlossen" : status.phase;
 
     // Fehlgeschlagene globale Prüfungen konkret benennen (statt nur Banner)
     function globalePruefText(status) {
@@ -390,20 +406,34 @@ async function aktualisiere() {
             `${p.beschreibung} (erwartet ${p.erwartet}, ist ${p.ist})`).join("; ");
     }
 
+    const review = status.review || {};
+    const warning = $("review-warning");
+    warning.hidden = !["FERTIG","FEHLGESCHLAGEN","ABGEBROCHEN"].includes(status.phase);
+    warning.className = review.state === "PASS" && status.nachweiseVollstaendig ? "review-success" : "review-error";
+    warning.textContent = (review.label || "UNVOLLSTÄNDIG") + " · Automatik: " + (review.automatedState || "UNVERIFIED")
+        + " · KI: " + (review.llmState || "UNVERIFIED")
+        + ((review.errors || []).length ? "\n" + review.errors.join("\n") : "");
+    if (zertifikatSuiteAnsichtAktiv()) warning.hidden = true;
+    if (laeuft) $("zertifikatlink").style.display = "none";
+    zeigeSimulatorFehler(status);
+
     // PDF / Markdown Banner
     const pdfLeiste = $("pdfleiste");
     const pdfKnopf = $("pdfknopf");
     const pdfHinweis = $("pdfhinweis");
-    if (status.pdf) {
+    if (status.pdf && !zertifikatSuiteAnsichtAktiv()) {
         pdfKnopf.href = "/api/pdf";
         pdfLeiste.style.display = "block";
+        pdfHinweis.style.display = "block";
         pdfHinweis.innerHTML = "📄 Generierte Testdokumentation (PDF): "
             + `<a href="/api/pdf" target="_blank">${esc(status.pdf)}</a>`
             + "<br>{ } Markdown für KI-Review (maschinenlesbar, zum Nachrechnen geben): "
             + `<a href="/api/md" target="_blank">${esc(status.md || "/api/md")}</a>`;
     } else {
         pdfLeiste.style.display = "none";
+        pdfHinweis.style.display = "none";
         pdfHinweis.textContent = "";
+        if (zertifikatSuiteAnsichtAktiv()) $("zertifikatlink").style.display = "none";
     }
 
     if (status.logVerzeichnis) {
@@ -572,6 +602,7 @@ function fillLlmConfig(config) {
 function initialisiereLlm() {
     $("llm-retry-close").addEventListener("click", () => $("llm-retry-dialog").close());
     $("llm-config-open").addEventListener("click", async () => {
+        if (zertifikatSuiteGesperrt()) return;
         const dialog = $("llm-config-dialog");
         $("llm-config-message").textContent = "Konfiguration wird geladen …";
         dialog.showModal();
@@ -582,6 +613,7 @@ function initialisiereLlm() {
     $("llm-config-dialog").addEventListener("close", () => { $("llm-api-key").value = ""; });
     $("llm-config-form").addEventListener("submit", async event => {
         event.preventDefault();
+        if (zertifikatSuiteGesperrt()) return;
         const button = $("llm-config-save"); button.disabled = true;
         try {
             const config = await llmRequest("/api/llm/config", {
@@ -590,38 +622,43 @@ function initialisiereLlm() {
                 timeoutSeconds: Number($("llm-timeout").value), maxTokens: Number($("llm-max-tokens").value),
                 batchSize: Number($("llm-batch-size").value), cases: Number($("llm-cases").value)
             });
+            entwerteSuiteNachManuellerAktion();
             fillLlmConfig(config); $("llm-config-message").textContent = "Konfiguration gespeichert.";
             await ladeLlmPruefung();
         } catch (error) { $("llm-config-message").textContent = error.message; }
-        finally { button.disabled = false; }
+        finally { button.disabled = false; sperreZertifikatSuiteBedienung(); }
     });
     $("llm-config-test").addEventListener("click", async () => {
+        if (zertifikatSuiteGesperrt()) return;
         const button = $("llm-config-test"); button.disabled = true;
         $("llm-config-message").textContent = "Gespeicherte Konfiguration wird mit einem echten Modellaufruf geprüft …";
         try {
             const result = await llmRequest("/api/llm/test", {});
             $("llm-config-message").textContent = result.message || "GLM-Verbindung erfolgreich.";
         } catch (error) { $("llm-config-message").textContent = error.message; }
-        finally { button.disabled = false; }
+        finally { button.disabled = false; sperreZertifikatSuiteBedienung(); }
     });
     $("llm-aktualisieren").addEventListener("click", ladeLlmPruefung);
     $("llm-paket-knopf").addEventListener("click", async () => {
+        if (zertifikatSuiteGesperrt()) return;
         const button = $("llm-paket-knopf"); button.disabled = true;
         try {
             llmPackage = await llmRequest("/api/llmpruefung/paket", {faelle: Number($("llm-faelle").value)});
             $("llm-paket-ergebnis").textContent = "Prüfpaket: " + llmPackage.faelle + " Fälle · " + llmPackage.directory;
             renderLlmFiles(llmPackage);
         } catch (error) { $("llm-paket-ergebnis").textContent = error.message; }
-        finally { button.disabled = false; }
+        finally { button.disabled = false; sperreZertifikatSuiteBedienung(); }
     });
     $("llm-start-knopf").addEventListener("click", async () => {
+        if (zertifikatSuiteGesperrt()) return;
+        entwerteSuiteNachManuellerAktion();
         const button = $("llm-start-knopf"); button.disabled = true;
         llmStatusRequestId++;
         try {
             await llmRequest("/api/llm/start", {faelle: Number($("llm-faelle").value)});
             llmPackage = null;
             await ladeLlmPruefung();
-        } catch (error) { $("llm-paket-ergebnis").textContent = error.message; button.disabled = false; }
+        } catch (error) { $("llm-paket-ergebnis").textContent = error.message; button.disabled = false; sperreZertifikatSuiteBedienung(); }
     });
     ladeLlmPruefung();
 }
@@ -670,39 +707,173 @@ function renderLlmFortschritt(data) {
     progress.textContent = `${percentage} %`;
 }
 
-function zeigeLlmRetryFehler(data) {
-    if (data.state !== "ERROR" || data.retryExhausted !== true || !data.reviewId) return;
-    const storageKey = "llm-retry-popup-" + data.reviewId;
+function eindeutigeFehlermeldungen(messages) {
+    return [...new Set(messages.filter(Boolean).flatMap(message => String(message).split(/\r?\n/))
+        .map(line => line.trim()).filter(Boolean))].join("\n");
+}
+
+function buildNachweisFehlt(message) {
+    return /Build-\/Quellstand nicht nachgewiesen|Buildnachweis[^\n]*(?:fehlt|veraltet)|Build wurde seit Prozessstart ersetzt|Buildnachweis nicht lesbar/i.test(message);
+}
+
+function programmNachweisFehlt(message) {
+    return /Build-\/Quellstand nicht nachgewiesen|Build wurde seit Prozessstart ersetzt|Buildnachweis nicht lesbar/i.test(message);
+}
+
+function zeigeSimulatorFehler(status) {
+    if (zertifikatSuiteAnsichtAktiv()) return;
+    const review = status.review || {};
+    if (review.state !== "FAIL" && !["FEHLGESCHLAGEN", "ABGEBROCHEN"].includes(status.phase)
+        && !(status.nachweisFehler || []).length) return;
+    const message = eindeutigeFehlermeldungen([status.letzteFehlermeldung,
+        ...(status.nachweisFehler || []), ...(review.errors || [])]);
+    const counts = status.kennzahlen || {};
+    const failure = review.state === "FAIL" || (counts.FEHLGESCHLAGEN || 0) > 0
+        || (counts.VERIFIKATION_FEHLGESCHLAGEN || 0) > 0
+        || (status.globalePruefungen || []).some(check => !check.ok);
+    const build = programmNachweisFehlt(message);
+    const source = !build && buildNachweisFehlt(message);
+    const kind = build ? "build" : failure ? "failure" : source ? "source" : status.phase === "ABGEBROCHEN" ? "aborted" : "technical";
+    const title = build ? (failure ? "Testfehler und ungültiger Programmstand" : "Technischer Nachweisfehler: Programmstand passt nicht")
+        : failure ? "Testfehler festgestellt – NICHT BESTANDEN" : source ? "Technischer Nachweisfehler: KI-Eingangsbelege veraltet"
+        : status.phase === "ABGEBROCHEN" ? "Testlauf abgebrochen – Nachweis unvollständig" : "Technischer Fehler – Testlauf nicht bestätigt";
+    zeigePruefFehler("sim-" + status.logVerzeichnis + "-" + status.phase + "-" + kind,
+        title, message, status.logVerzeichnis || "Laufverzeichnis in der Testübersicht prüfen",
+        {kind, failure});
+}
+
+function pruefFehlerHilfe(kind, failure) {
+    const technical = "Der Lauf liefert keinen gültigen Erfolgsnachweis. Das ist keine reine Information. Ein grünes Gesamtzertifikat ist damit nicht möglich.";
+    if (kind === "build") return {
+        severity: failure ? "TESTFEHLER UND TECHNISCHER NACHWEISFEHLER · Aktion erforderlich" : "TECHNISCHER NACHWEISFEHLER · Aktion erforderlich",
+        summary: "Programmstand und Quelldateien sind nicht gemeinsam nachgewiesen. Starten Sie die Zertifikatstests; der Ablauf baut und prüft den aktuellen Stand.",
+        impact: failure ? technical + " Zusätzlich liegen Testabweichungen vor; auch diese müssen ausgewertet werden."
+            : "Kein gültiges Zertifikat. Die Meldung allein belegt keinen Rechenfehler und keinen GLM-Ausfall.",
+        steps: [
+            "Testsweet mit testsweet\\stop.bat beenden. Die vorhandenen Laufprotokolle behalten.",
+            "Im Hauptordner des Projekts mvn clean install ausführen, damit das Hauptprogramm neu gebaut und installiert wird. Bei einem Buildfehler zuerst dessen Fehlermeldung auswerten.",
+            "Anschließend testsweet\\start.bat starten und die Browserseite neu laden. Der Neustart lädt den neu gebauten Stand.",
+            "Die betroffenen Simulatorläufe erneut ausführen. Vor einer neuen GLM-Prüfung müssen aktuelle Positiv- und Negativläufe vorliegen; die alten Belege werden nicht nachträglich gültig.",
+            "Für ein vollständiges Zertifikat beide automatischen Testsuiten mit der Testdatenbank ausführen: mvn test im Hauptordner und mvn -f testsweet/pom.xml test. Außerdem alle sieben unterstützten Simulator-Kombinationen ausführen, dann GLM prüfen lassen und das Zertifikat neu erstellen.",
+            "Falls dieselbe Meldung nach Neubuild und Neustart wiederkommt: nicht weiter wiederholen. Die technischen Details und das unten genannte Laufprotokoll durch die Entwicklung auswerten lassen."
+        ]
+    };
+    if (kind === "source") return {
+        severity: "VERALTETE ODER FEHLENDE KI-EINGANGSBELEGE · Aktion erforderlich",
+        summary: "Die GLM-Eingangsbelege sind veraltet oder fehlen. Klicken Sie auf „Mache alle Zertifikatstests“; danach wird das Zertifikat automatisch erstellt.",
+        impact: "Kein gültiges Zertifikat. Daraus folgt weder ein GLM-Ausfall noch, dass das gerade geladene Programm veraltet ist.",
+        steps: ["Aktuelle Positiv- und Negativläufe ausführen. Falls dabei ein Build-/Quellstandfehler erscheint, dessen Anleitung für Neubuild und Neustart befolgen.",
+            "Danach die GLM-Prüfung in Abschnitt 7 erneut starten; die alten Simulatorbelege werden nicht nachträglich gültig.",
+            "Für ein vollständiges Zertifikat müssen zusätzlich beide automatischen Testsuiten (mvn test und mvn -f testsweet/pom.xml test, mit Testdatenbank) sowie alle sieben unterstützten Simulator-Kombinationen aktuell belegt sein. Erst danach das Zertifikat neu erstellen.",
+            "Bleibt der Hinweis trotz aktueller Läufe bestehen, die technischen Details und das Laufprotokoll durch die Entwicklung auswerten lassen."]
+    };
+    if (kind === "failure") return {
+        severity: "TESTABWEICHUNG · Aktion erforderlich",
+        summary: "Mindestens eine Prüfung hat eine Abweichung festgestellt. Der Lauf ist NICHT BESTANDEN.",
+        impact: "Die betroffenen Fälle und ihre Soll-/Ist-Werte müssen geprüft werden. Ein erneuter Lauf allein behebt den Befund nicht.",
+        steps: ["Die Befunde in den technischen Details und im Testreport öffnen; bei einer GLM-Prüfung auch die Modellantwort und Gegenrechnung prüfen.",
+            "Die Ursache anhand der Fall-ID und des Laufprotokolls untersuchen und beheben lassen. Protokolle aufbewahren.",
+            "Danach die betroffenen Tests und gegebenenfalls GLM erneut ausführen. Erst aus gültigen neuen Nachweisen ein Zertifikat erstellen."]
+    };
+    if (kind === "retry") return {
+        severity: "TECHNISCHER FEHLER DER KI-PRÜFUNG · Aktion erforderlich",
+        summary: "3 Versuche fehlgeschlagen. Die KI-Prüfung wurde abgebrochen, weil keine gültige Antwort bestätigt werden konnte.",
+        impact: technical + " Daraus folgt noch kein bestätigter Fehler der geprüften Software.",
+        steps: ["Das unten genannte protocol.md auswerten lassen; darin stehen die drei Sendeversuche, Fehlerursachen und Verweise auf Requests und Antworten.",
+            "Je nach protokollierter Ursache Modellantwort, Verbindung oder Konfiguration prüfen. Zugangsdaten nicht ungeschützt weitergeben.",
+            "Nach Klärung die GLM-Prüfung erneut starten. Weitere Simulatorläufe sind nötig, wenn deren Quellen oder Nachweise veraltet sind."]
+    };
+    if (kind === "aborted") return {
+        severity: "ABBRUCH · Prüfung unvollständig",
+        summary: "Der Testlauf wurde vorzeitig beendet. Noch offene Prüfungen sind nicht bestanden, sondern ungeprüft.",
+        impact: technical,
+        steps: ["Wenn Sie selbst abgebrochen haben: den gewünschten Testlauf neu starten, sobald die Umgebung bereit ist.",
+            "Bei unerwartetem Abbruch zuerst die technischen Details und das Laufprotokoll auswerten lassen.",
+            "Danach den vollständigen betroffenen Lauf wiederholen; für das Zertifikat fehlende Pflichtnachweise nachholen."]
+    };
+    return {
+        severity: kind === "unverified" ? "PRÜFNACHWEIS UNVOLLSTÄNDIG · Aktion erforderlich" : "TECHNISCHER FEHLER · Aktion erforderlich",
+        summary: kind === "unverified" ? "Die Prüfung ist nicht vollständig oder unabhängig bestätigt. Ein unbestätigtes Modell-PASS reicht nicht aus."
+            : "Die Prüfung konnte technisch nicht ordnungsgemäß abgeschlossen oder nachgewiesen werden. Die genaue Ursache steht in den technischen Details.",
+        impact: technical + " Ein fachlicher Fehler ist durch diese Meldung allein noch nicht bestätigt.",
+        steps: ["Die technischen Details und das unten genannte Protokoll auswerten lassen. Ohne diese Diagnose lässt sich die Ursache nicht sicher bestimmen.",
+            "Die protokollierte Ursache beheben: beispielsweise fehlende Nachweise, eine ungültige Modellantwort oder eine Verbindungsstörung.",
+            "Anschließend die betroffene Prüfung erneut ausführen. Bei geänderten Quellen auch die Simulatorbelege erneuern; danach das Zertifikat neu erstellen."]
+    };
+}
+
+function zeigePruefFehler(key, title, message, log, options = {}) {
+    // Die neue Dialogfassung wird auch für bereits quittierte alte Meldungen angezeigt.
+    const storageKey = "testsweet-prueffehler-v3-" + key;
     if (llmRetryPopupShown.has(storageKey)) return;
-    try {
-        if (sessionStorage.getItem(storageKey)) return;
-    } catch (_) { /* Sitzungspeicher kann im Browser gesperrt sein. */ }
+    try { if (sessionStorage.getItem(storageKey)) return; } catch (_) { }
     const dialog = $("llm-retry-dialog");
     if (dialog.open) return;
-    $("llm-retry-log").textContent = data.artifactDirectory
-        ? data.artifactDirectory + "\\protocol.md"
-        : "Laufverzeichnis in Abschnitt 7 prüfen";
+    const help = options.help || pruefFehlerHilfe(options.kind || "technical", options.failure);
+    $("llm-retry-auto").hidden = options.auto === false || !["build", "source"].includes(options.kind) || options.failure;
+    $("llm-retry-suite-start").disabled = zertifikatSuiteGesperrt();
+    dialog.classList.toggle("prueffehler-abbruch", options.kind === "aborted");
+    $("llm-retry-title").textContent = title;
+    $("llm-retry-severity").textContent = help.severity;
+    $("llm-retry-summary").textContent = help.summary;
+    $("llm-retry-impact").textContent = help.impact;
+    $("llm-retry-steps").replaceChildren();
+    for (const step of help.steps) {
+        const item = document.createElement("li");
+        item.textContent = step;
+        $("llm-retry-steps").appendChild(item);
+    }
+    $("llm-retry-details").open = false;
+    $("llm-retry-message").textContent = eindeutigeFehlermeldungen([message]) || "Keine weitere technische Ursache übermittelt. Laufprotokoll auswerten lassen.";
+    $("llm-retry-log").textContent = log;
     dialog.showModal();
     llmRetryPopupShown.add(storageKey);
-    try { sessionStorage.setItem(storageKey, "1"); }
-    catch (_) { /* Einmalige Anzeige bleibt für diesen Seitenaufruf erhalten. */ }
+    try { sessionStorage.setItem(storageKey,"1"); } catch (_) { }
+}
+
+function zeigeLlmRetryFehler(data) {
+    if (zertifikatSuiteAnsichtAktiv()) return;
+    const failure = data.hasFailures === true || data.caseVerdict === "FAIL" || data.state === "FAIL";
+    if (!data.reviewId || (!failure && !["ERROR","UNVERIFIED"].includes(data.state))) return;
+    const findings = (data.findings || []).map(f => typeof f === "string" ? f : (f.caseId || "Fall") + ": " + (f.description || f.message || JSON.stringify(f)));
+    const build = programmNachweisFehlt(data.message || "");
+    const source = !build && buildNachweisFehlt(data.message || "");
+    const kind = failure ? "failure" : build ? "build" : source ? "source" : data.retryExhausted ? "retry" : data.state === "UNVERIFIED" ? "unverified" : "technical";
+    const title = failure ? "GLM hat Fehler festgestellt – NICHT BESTANDEN" : build ? "Technischer Nachweisfehler: Programmstand passt nicht"
+        : source ? "Technischer Nachweisfehler: GLM-Eingangsbelege veraltet"
+        : data.retryExhausted ? "GLM-Prüfung abgebrochen: 3 Versuche fehlgeschlagen" : "GLM-Prüfung technisch fehlgeschlagen / unvollständig";
+    const reason = data.retryExhausted ? "3 Versuche fehlgeschlagen. Bitte das Logfile auswerten." : (data.message || "Prüfung ist nicht vollständig bestätigt.");
+    zeigePruefFehler(data.reviewId + "-" + (failure ? "FAIL" : data.state), title,
+        [reason,...findings].join("\n"), data.artifactDirectory ? data.artifactDirectory + "\\protocol.md" : "Laufverzeichnis in Abschnitt 7 prüfen", {kind, failure});
 }
 
 async function ladeLlmPruefung() {
+    if (zertifikatSuiteAnsichtAktiv()) return;
     const requestId = ++llmStatusRequestId;
     try {
         const data = await llmRequest("/api/llmpruefung");
-        if (requestId !== llmStatusRequestId) return;
+        if (requestId !== llmStatusRequestId || zertifikatSuiteAnsichtAktiv()) return;
         const labels = {IDLE:"Bereit",PREPARING:"Prüfpaket wird vorbereitet",RUNNING:"GLM prüft",PASS:"Geprüfte Fälle bestanden",FAIL:"Abweichungen gefunden",UNVERIFIED:"Prüfung unvollständig",ERROR:"Technischer Fehler"};
         const target = $("llm-status");
-        target.className = data.state === "PASS" ? "ok" : ["FAIL","UNVERIFIED","ERROR"].includes(data.state) ? "nok" : "";
-        const lines = [labels[data.state] || data.state || "Bereit", data.message || ""];
+        const accepted = data.state === "PASS" && data.transportVerified && data.calculationVerified && data.reviewCoverageVerified && !data.hasFailures;
+        const knownFailure = data.hasFailures || data.caseVerdict === "FAIL" || data.state === "FAIL";
+        target.className = accepted ? "ok" : knownFailure || ["PASS","FAIL","UNVERIFIED","ERROR"].includes(data.state) ? "nok" : "";
+        const lines = [knownFailure ? "Fehler festgestellt – NICHT BESTANDEN" : data.state === "PASS" && !accepted ? "Prüfung unvollständig" : labels[data.state] || data.state || "Bereit", data.message || ""];
         if (data.totalCases) lines.push(`${data.completedCases || 0}/${data.totalCases} Fälle · ${data.completedBatches || 0}/${data.totalBatches || 0} Anfragen`);
         if (data.model) lines.push("Modell: " + data.model);
         if (data.artifactDirectory) lines.push("Nachweise: " + data.artifactDirectory);
         target.textContent = lines.filter(Boolean).join(" · ");
-        renderLlmFortschritt(data);
-        zeigeLlmRetryFehler(data);
+        renderLlmFortschritt({...data,state: knownFailure ? "FAIL" : data.state === "PASS" && !accepted ? "UNVERIFIED" : data.state});
+        const findings = $("llm-findings");
+        findings.replaceChildren();
+        for (const finding of data.findings || []) {
+            const row = document.createElement("li");
+            row.textContent = typeof finding === "string" ? finding : (finding.caseId || "Fall") + ": " + (finding.description || finding.message || JSON.stringify(finding)) + (finding.reasoning ? "\nRechnung: " + finding.reasoning : "");
+            findings.appendChild(row);
+        }
+        findings.hidden = findings.children.length === 0;
+        if (data.running) $("zertifikatlink").style.display = "none";
+        zeigeLlmRetryFehler({...data,state: data.state === "PASS" && !accepted ? "UNVERIFIED" : data.state});
         const transport = $("llm-transport-check");
         transport.textContent = data.transportVerified ? "✓ Dateiübergabe geprüft: alle Prüfdokumente vollständig gesendet, SHA-256 und API-Antworten validiert." : "Dateiübergabe: noch nicht vollständig bestätigt.";
         transport.className = data.transportVerified ? "ok" : "hinweis";
@@ -710,10 +881,216 @@ async function ladeLlmPruefung() {
         if (data.prompt) $("llm-prompt").textContent = data.prompt;
         if (data.documents || data.files || data.pruefmenge) renderLlmFiles(data);
         else if (llmPackage) renderLlmFiles(llmPackage);
-        $("llm-start-knopf").disabled = Boolean(data.running);
+        llmEinzellaufAktiv = Boolean(data.running);
+        $("llm-start-knopf").disabled = llmEinzellaufAktiv;
+        sperreZertifikatSuiteBedienung();
         if (data.running && !llmPolling) llmPolling = setInterval(ladeLlmPruefung, 3000);
         if (!data.running && llmPolling) { clearInterval(llmPolling); llmPolling = null; }
     } catch (error) {
-        if (requestId === llmStatusRequestId) $("llm-status").textContent = "GLM-Status konnte nicht geladen werden: " + error.message;
+        if (requestId === llmStatusRequestId) {
+            $("llm-status").className = "nok";
+            $("llm-status").textContent = "GLM-Status nicht bestätigt: " + error.message;
+            $("llm-transport-check").className = "nok";
+            $("llm-transport-check").textContent = "Dateiübergabe kann aktuell nicht bestätigt werden.";
+            $("llm-report-link").style.display = "none";
+            $("zertifikatlink").style.display = "none";
+        }
     }
+}
+
+// Der Server führt den gesamten Ablauf aus. Polling ermittelt ihn auch nach
+// einem Reload; Browserzustand und alte PASS-Antworten sind kein Zertifikatsbeleg.
+let zertifikatSuiteStatus = null;
+let zertifikatSuiteStatusBekannt = true;
+let zertifikatSuiteStartet = false;
+let zertifikatSuiteStoppt = false;
+let zertifikatSuiteAnfrage = 0;
+let zertifikatSuitePollAktiv = false;
+let zertifikatSuiteBedienungWarGesperrt = false;
+let llmEinzellaufAktiv = false;
+let zertifikatSuiteManuellErsetzt = false;
+
+function zertifikatSuiteAnsichtAktiv() {
+    return zertifikatSuiteGesperrt() || Boolean(zertifikatSuiteStatus && zertifikatSuiteStatus.state !== "IDLE" && !zertifikatSuiteManuellErsetzt);
+}
+
+function entwerteSuiteNachManuellerAktion() {
+    zertifikatSuiteManuellErsetzt = true;
+    ++llmStatusRequestId;
+    $("zertifikat-tests-pdf").hidden = true;
+    $("zertifikatlink").style.display = "none";
+    if (zertifikatSuiteStatus && zertifikatSuiteStatus.state !== "IDLE") {
+        $("zertifikat-tests-status").className = "hinweis";
+        $("zertifikat-tests-status").textContent = "Letzter Gesamtlauf durch manuelle Aktion ergänzt. Aktuelle Gültigkeit des Zertifikats muss neu geprüft werden.";
+    }
+}
+
+function zertifikatSuiteGesperrt() {
+    return !zertifikatSuiteStatusBekannt || zertifikatSuiteStartet
+        || zertifikatSuiteStoppt || Boolean(zertifikatSuiteStatus && zertifikatSuiteStatus.running);
+}
+
+function sperreZertifikatSuiteBedienung() {
+    if (zertifikatSuiteAnsichtAktiv()) {
+        $("pdfleiste").style.display = "none";
+        $("pdfhinweis").style.display = "none";
+        $("pdfhinweis").textContent = "";
+        $("zertifikatlink").style.display = "none";
+    }
+    const locked = zertifikatSuiteGesperrt();
+    const ids = ["start", "stop", "zertifikatknopf", "llm-start-knopf", "llm-paket-knopf",
+        "llm-config-open", "llm-config-save", "llm-config-test", "llm-faelle"];
+    if (locked) {
+        for (const id of ids) if ($(id)) $(id).disabled = true;
+    } else if (zertifikatSuiteBedienungWarGesperrt) {
+        for (const id of ids) if ($(id)) $(id).disabled = false;
+        const simRunning = momentanerStatus && ["AUFRAEUMEN", "LAUF", "VERIFIKATION"].includes(momentanerStatus.phase);
+        $("start").disabled = Boolean(simRunning);
+        $("stop").disabled = !simRunning;
+        $("llm-start-knopf").disabled = llmEinzellaufAktiv;
+    }
+    zertifikatSuiteBedienungWarGesperrt = locked;
+    const manualRunning = llmEinzellaufAktiv || momentanerStatus && ["AUFRAEUMEN", "LAUF", "VERIFIKATION"].includes(momentanerStatus.phase);
+    for (const id of ["zertifikat-tests-start", "llm-retry-suite-start"]) {
+        if ($(id)) $(id).disabled = locked || Boolean(manualRunning);
+    }
+    if ($("zertifikat-tests-stop")) $("zertifikat-tests-stop").disabled = !zertifikatSuiteStatusBekannt
+        || zertifikatSuiteStoppt || !(zertifikatSuiteStatus && zertifikatSuiteStatus.running);
+}
+
+function initialisiereZertifikatSuite() {
+    $("zertifikat-tests-start").addEventListener("click", starteZertifikatSuite);
+    $("llm-retry-suite-start").addEventListener("click", starteZertifikatSuite);
+    $("zertifikat-tests-stop").addEventListener("click", stoppeZertifikatSuite);
+    zertifikatSuiteStatusBekannt = false;
+    sperreZertifikatSuiteBedienung();
+    ladeZertifikatSuite();
+    // Absichtlich auch in IDLE pollen: Ein anderer Tab kann den Ablauf starten.
+    setInterval(ladeZertifikatSuite, 2000);
+}
+
+function sichereZertifikatSuiteAntwort(data) {
+    if (!data || !["IDLE", "RUNNING", "SUCCESS", "FAILED", "CANCELLED"].includes(data.state)
+        || typeof data.running !== "boolean" || (data.state === "RUNNING") !== data.running) {
+        throw new Error("Ungültige Statusantwort des Zertifikatsablaufs");
+    }
+    return data;
+}
+
+function renderZertifikatSuite(data) {
+    zertifikatSuiteStatus = data;
+    zertifikatSuiteStatusBekannt = true;
+    const accepted = data.state === "SUCCESS" && data.verdict === "BESTANDEN" && data.certificateCurrent === true && !zertifikatSuiteManuellErsetzt;
+    const bad = ["FAILED", "CANCELLED"].includes(data.state) || data.state === "SUCCESS" && !accepted;
+    const labels = {IDLE:"Bereit. Ein Klick führt alle Zertifikatsprüfungen aus.", RUNNING:"Zertifikatstests laufen",
+        SUCCESS: accepted ? "Alle Zertifikatstests bestanden. Das Zertifikat ist erstellt." : "Zertifikat nicht aktuell bestätigt.",
+        FAILED:"Zertifikatstests fehlgeschlagen. Kein Erfolgszertifikat.", CANCELLED:"Ablauf abgebrochen. Die Prüfung ist unvollständig."};
+    const target = $("zertifikat-tests-status");
+    target.textContent = zertifikatSuiteManuellErsetzt ? "Letzter Gesamtlauf durch manuelle Aktion ergänzt. Aktuelle Gültigkeit des Zertifikats muss neu geprüft werden." : labels[data.state] + (data.message ? " " + data.message : "");
+    target.className = accepted ? "ok" : zertifikatSuiteManuellErsetzt ? "hinweis" : bad ? "nok" : "";
+    $("zertifikat-tests-pdf").hidden = !accepted;
+    if (!accepted && data.state !== "IDLE") $("zertifikatlink").style.display = "none";
+    $("zertifikat-tests-fortschritt").hidden = data.state === "IDLE";
+    const completed = Math.max(0, Number(data.completedPhases || data.completedSteps) || 0);
+    const total = Math.max(0, Number(data.totalPhases || data.totalSteps) || 0);
+    const pct = total > 0 ? Math.floor(Math.min(completed, total) / total * 100) : 0;
+    const progress = $("zertifikat-tests-progress");
+    progress.max = total || 1;
+    progress.value = Math.min(completed, total);
+    $("zertifikat-tests-prozent").textContent = `${pct} % der Phasen`;
+    $("zertifikat-tests-phase").textContent = data.phaseLabel || "Ablauf wird vorbereitet";
+    const elapsed = Math.max(0, Math.floor(Number(data.elapsedSeconds) || 0));
+    $("zertifikat-tests-details").textContent = `${completed}/${total || "?"} Phasen abgeschlossen · Laufzeit ${Math.floor(elapsed / 60)} min ${elapsed % 60} s. Keine verlässliche Restzeitschätzung.`;
+    const items = Math.max(0, Number(data.completedItems || data.phaseCompleted) || 0);
+    const itemTotal = Math.max(0, Number(data.totalItems || data.phaseTotal) || 0);
+    $("zertifikat-tests-teilfortschritt").hidden = !data.running;
+    const sub = $("zertifikat-tests-phase-progress");
+    if (itemTotal > 0) {
+        sub.max = itemTotal; sub.value = Math.min(items, itemTotal);
+        $("zertifikat-tests-phase-details").textContent = `${items}/${itemTotal} Fälle in der aktuellen Phase`;
+    } else {
+        sub.removeAttribute("value");
+        $("zertifikat-tests-phase-details").textContent = "Aktuelle Phase läuft; genauer Teilfortschritt wird nicht gemeldet.";
+    }
+    sperreZertifikatSuiteBedienung();
+    if (zertifikatSuiteAnsichtAktiv()) {
+        ++llmStatusRequestId;
+        $("review-warning").hidden = true;
+        $("llm-status").textContent = data.running ? "GLM folgt nach den automatischen Tests und Simulatorläufen." : data.llmSummary && data.llmSummary.state ? "GLM im Gesamtlauf: " + data.llmSummary.state : "GLM-Nachweis siehe Ergebnis des Gesamtablaufs.";
+        $("llm-status").className = accepted ? "ok" : bad ? "nok" : "";
+        $("llm-findings").hidden = true;
+        $("llm-fortschritt").hidden = true;
+        $("llm-report-link").style.display = "none";
+        $("llm-transport-check").textContent = "Dateiübergabe und fachliches GLM-Urteil werden im Zertifikat des Gesamtablaufs ausgewiesen.";
+        $("llm-transport-check").className = "hinweis";
+    }
+    if (data.running && $("llm-retry-dialog").open) $("llm-retry-dialog").close();
+    if (bad && !zertifikatSuiteManuellErsetzt) {
+        const failed = data.state === "FAILED";
+        const testFailure = failed && data.failureKind === "TEST_FAILURE";
+        const outdated = data.state === "SUCCESS" && !accepted;
+        zeigePruefFehler("suite-" + (data.suiteId || data.jobId || "unbekannt") + "-" + data.state,
+            testFailure ? "Tests haben Fehler gefunden" : failed ? "Technischer Fehler im Zertifikatsablauf" : outdated ? "Zertifikat nicht mehr aktuell" : "Zertifikatsprüfung unvollständig", data.message || labels[data.state],
+            data.logPath || data.artifactDirectory || "Serverprotokoll prüfen", {auto:outdated,
+                kind: outdated ? "source" : data.state === "CANCELLED" ? "aborted" : "technical",
+                help:{severity: testFailure ? "TESTFEHLER · NICHT BESTANDEN" : failed ? "TECHNISCHER FEHLER · Kein Erfolgszertifikat" : "UNVOLLSTÄNDIG · Kein Erfolgszertifikat",
+                    summary: outdated ? "Die bisherigen Nachweise sind nicht mehr aktuell. Klicken Sie auf „Mache alle Zertifikatstests“."
+                        : data.state === "CANCELLED" ? "Der Ablauf wurde abgebrochen. Es wurde kein Erfolgszertifikat erstellt."
+                        : testFailure ? "Mindestens ein Test hat eine Abweichung gefunden. Der Gesamtlauf ist NICHT BESTANDEN."
+                        : "Der Ablauf wurde ohne Erfolgszertifikat beendet.",
+                    impact: outdated ? "Der neue Ablauf prüft den aktuellen Stand und erstellt anschließend das Zertifikat."
+                        : "Lassen Sie die Ursache anhand des unten genannten Protokolls prüfen. Erst nach der Behebung erneut starten.",
+                    steps:[data.message || "Keine weitere Ursache übermittelt. Protokoll auswerten lassen."]}});
+    }
+}
+
+function zertifikatSuiteStatusFehler(error) {
+    zertifikatSuiteStatusBekannt = false;
+    $("zertifikat-tests-status").className = "nok";
+    $("zertifikat-tests-status").textContent = "Status nicht erreichbar. Erfolg und Abbruch sind nicht bestätigt; Verbindung zum Server prüfen. " + error.message;
+    $("zertifikat-tests-pdf").hidden = true;
+    $("zertifikatlink").style.display = "none";
+    sperreZertifikatSuiteBedienung();
+}
+
+async function ladeZertifikatSuite() {
+    if (zertifikatSuitePollAktiv || zertifikatSuiteStartet || zertifikatSuiteStoppt) return;
+    zertifikatSuitePollAktiv = true;
+    const requestId = ++zertifikatSuiteAnfrage;
+    try {
+        const data = sichereZertifikatSuiteAntwort(await llmRequest("/api/zertifikat/tests/status"));
+        if (requestId === zertifikatSuiteAnfrage) renderZertifikatSuite(data);
+    } catch (error) {
+        if (requestId === zertifikatSuiteAnfrage) zertifikatSuiteStatusFehler(error);
+    } finally { zertifikatSuitePollAktiv = false; }
+}
+
+async function starteZertifikatSuite() {
+    if (zertifikatSuiteGesperrt() || $("zertifikat-tests-start").disabled) return;
+    zertifikatSuiteStartet = true;
+    zertifikatSuiteManuellErsetzt = false;
+    ++llmStatusRequestId;
+    ++zertifikatSuiteAnfrage; // Eine ältere IDLE-/SUCCESS-Antwort darf diesen Start nicht überschreiben.
+    sperreZertifikatSuiteBedienung();
+    $("zertifikat-tests-pdf").hidden = true;
+    $("zertifikatlink").style.display = "none";
+    $("zertifikat-tests-status").textContent = "Zertifikatsablauf wird gestartet …";
+    $("zertifikat-tests-status").className = "";
+    if ($("llm-retry-dialog").open) $("llm-retry-dialog").close();
+    try {
+        renderZertifikatSuite(sichereZertifikatSuiteAntwort(await llmRequest("/api/zertifikat/tests/start", {faelle:Number($("llm-faelle").value)})));
+    } catch (error) { zertifikatSuiteStatusFehler(error); }
+    finally { zertifikatSuiteStartet = false; sperreZertifikatSuiteBedienung(); }
+}
+
+async function stoppeZertifikatSuite() {
+    if (!zertifikatSuiteStatusBekannt || !zertifikatSuiteStatus || !zertifikatSuiteStatus.running || zertifikatSuiteStoppt) return;
+    zertifikatSuiteStoppt = true;
+    ++zertifikatSuiteAnfrage;
+    sperreZertifikatSuiteBedienung();
+    $("zertifikat-tests-status").textContent = "Abbruch angefordert. Warte auf das sichere Ende der laufenden Phase …";
+    try {
+        renderZertifikatSuite(sichereZertifikatSuiteAntwort(await llmRequest("/api/zertifikat/tests/stop", {})));
+    } catch (error) { zertifikatSuiteStatusFehler(error); }
+    finally { zertifikatSuiteStoppt = false; sperreZertifikatSuiteBedienung(); }
 }

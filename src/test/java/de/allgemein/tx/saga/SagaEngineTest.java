@@ -15,6 +15,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.time.Duration;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -39,6 +44,122 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * </ul>
  */
 class SagaEngineTest {
+
+    @Test
+    void interruptImRetryBackoffVerhindertDieKompensationNichtUndBleibtErhalten() {
+        FakeJournal journal = new FakeJournal();
+        var pool = new de.allgemein.tx.FakePool(3);
+        SagaEngine engine = new SagaEngine(new TxManager(pool), journal);
+        AtomicInteger effect = new AtomicInteger();
+        SagaDefinition definition = SagaDefinition.of("INTERRUPT")
+                .step("committet", (c, p, id) -> effect.incrementAndGet(),
+                        (c, p, id) -> effect.decrementAndGet())
+                .step("abgebrochen", (c, p, id) -> {
+                    Thread.currentThread().interrupt();
+                    throw new SQLException("deadlock", "61000", 60);
+                }, (c, p, id) -> { })
+                .build();
+        try {
+            TxException error = assertThrows(TxException.class, () -> engine.run(definition, "{}"));
+            assertTrue(error.getCause() instanceof InterruptedException);
+            assertEquals(0, effect.get(), "bereits committeter Schritt muss rückgängig werden");
+            assertEquals(SagaState.COMPENSATED.name(), journal.zustand(journal.einzigeSagaId()));
+            assertTrue(Thread.currentThread().isInterrupted(), "Abbruchsignal muss erhalten bleiben");
+            assertTrue(journal.beansprucht.isEmpty(), "Claim auch mit Interrupt freigeben");
+        } finally {
+            Thread.interrupted();
+        }
+    }
+
+    @Test
+    void futureBleibtAbgebrochenAuchWennSagaDanachErfolgreichKompensiert() throws Exception {
+        FakeJournal journal = new FakeJournal();
+        var pool = new de.allgemein.tx.FakePool(3);
+        TxManager tx = new TxManager(pool, new de.allgemein.tx.RetryPolicy(5_000));
+        SagaEngine engine = new SagaEngine(tx, journal);
+        AtomicInteger effect = new AtomicInteger();
+        CountDownLatch compensated = new CountDownLatch(1);
+        SagaDefinition definition = SagaDefinition.of("WATCHDOG")
+                .step("eins", (c, p, id) -> effect.incrementAndGet(), (c, p, id) -> {
+                    effect.decrementAndGet();
+                    compensated.countDown();
+                })
+                .step("konflikt", (c, p, id) -> { throw new SQLException("deadlock", "61000", 60); },
+                        (c, p, id) -> { })
+                .build();
+        try (var tasks = new de.allgemein.tx.TaskController(tx, 1, 2)) {
+            var handle = tasks.submit("Saga", de.allgemein.tx.TxOptions.DEFAULT.withTimeout(Duration.ofMillis(200)),
+                    ctx -> engine.run(definition, "{}"));
+            assertThrows(TxException.class, handle::result);
+            assertTrue(compensated.await(5, TimeUnit.SECONDS));
+            assertTrue(handle.isDone());
+            assertThrows(TxException.class, handle::result, "Kompensation macht den Future nicht erfolgreich");
+            assertEquals(0, effect.get());
+            assertEquals(1, tasks.stats().timedOut());
+        }
+        assertEquals(SagaState.COMPENSATED.name(), journal.zustand(journal.einzigeSagaId()));
+    }
+
+    @Test
+    void zweiterServerUeberspringtLebendeSagaAuchOhneSchutzfrist() throws Exception {
+        FakeJournal journal = new FakeJournal();
+        var tx = new TxManager(new de.allgemein.tx.FakePool(4));
+        SagaEngine live = new SagaEngine(tx, journal);
+        SagaEngine otherServer = new SagaEngine(tx, journal);
+        AtomicInteger effect = new AtomicInteger();
+        CountDownLatch betweenSteps = new CountDownLatch(1);
+        CountDownLatch continueRun = new CountDownLatch(1);
+        SagaDefinition definition = SagaDefinition.of("LIVE")
+                .step("eins", (c, p, id) -> effect.incrementAndGet(), (c, p, id) -> effect.decrementAndGet())
+                .step("zwei", (c, p, id) -> {
+                    betweenSteps.countDown();
+                    assertTrue(continueRun.await(5, TimeUnit.SECONDS));
+                }, (c, p, id) -> { })
+                .build();
+        var worker = Executors.newSingleThreadExecutor();
+        try {
+            var result = worker.submit(() -> live.run(definition, "{}"));
+            assertTrue(betweenSteps.await(5, TimeUnit.SECONDS));
+            assertEquals(0, otherServer.recoverWithReport(definition).behandelt());
+            assertEquals(1, effect.get(), "lebende Fachwirkung darf nicht kompensiert werden");
+            continueRun.countDown();
+            String id = result.get(5, TimeUnit.SECONDS);
+            assertEquals(SagaState.COMPLETED.name(), journal.zustand(id));
+        } finally {
+            continueRun.countDown();
+            worker.shutdownNow();
+        }
+    }
+
+    @Test
+    void fehlgeschlageneFailedMarkierungVerhindertKompensationMitNeuemClaimNicht() {
+        FakeJournal journal = new FakeJournal();
+        journal.failedMarkierungWirft = true;
+        SchrittVerhalten behavior = new SchrittVerhalten(2);
+        behavior.fachfehlerBei = 1;
+        var engine = new SagaEngine(new TxManager(new FakePool()), journal);
+        TxException failure = assertThrows(TxException.class, () -> engine.run(definition("T", behavior), "{}"));
+        assertEquals(1, failure.getSuppressed().length);
+        assertEquals(List.of("action:0", "comp:0"), behavior.verlauf);
+        assertEquals(SagaState.COMPENSATED.name(), journal.zustand(journal.einzigeSagaId()));
+        assertTrue(journal.beansprucht.isEmpty());
+    }
+
+    @Test
+    void recoveryDarfFailedSagaUebernehmenOhneDoppelteKompensation() {
+        FakeJournal journal = new FakeJournal();
+        SchrittVerhalten behavior = new SchrittVerhalten(2);
+        behavior.fachfehlerBei = 1;
+        SagaDefinition definition = definition("T", behavior);
+        var tx = new TxManager(new FakePool());
+        var engine = new SagaEngine(tx, journal);
+        var recovery = new SagaEngine(tx, journal);
+        journal.afterFailedRelease = () -> assertEquals(1, recovery.recoverWithReport(definition).compensated());
+        assertThrows(TxException.class, () -> engine.run(definition, "{}"));
+        assertEquals(1, behavior.verlauf.stream().filter("comp:0"::equals).count());
+        assertEquals(SagaState.COMPENSATED.name(), journal.zustand(journal.einzigeSagaId()));
+        assertTrue(journal.beansprucht.isEmpty());
+    }
 
     // ==================================================================
     // Testfälle
@@ -297,6 +418,8 @@ class SagaEngineTest {
         final List<String> protokoll = new ArrayList<>();
         final Set<String> beansprucht = new HashSet<>();
         boolean completedMarkierungWirft;
+        boolean failedMarkierungWirft;
+        Runnable afterFailedRelease;
         boolean isStepCompensatedWirft;
         /** Simuliert einen mehrdeutigen Commit: Schritt gilt als DONE, der Aufrufer sieht aber einen Fehler. */
         int stepDoneWirftNachCommitBei = -1;
@@ -381,6 +504,9 @@ class SagaEngineTest {
             if (state == SagaState.COMPLETED && completedMarkierungWirft) {
                 throw new SQLException("COMPLETED-Markierung simuliert fehlerhaft");
             }
+            if (state == SagaState.FAILED && failedMarkierungWirft) {
+                throw new SQLException("FAILED-Markierung simuliert fehlgeschlagen");
+            }
             String aktuell = koepfe.get(sagaId);
             boolean erlaubt = aktuell == null || aktuell.equals(state.name())
                     || switch (state) {
@@ -428,7 +554,7 @@ class SagaEngineTest {
         }
 
         @Override
-        public SagaClaim claimUnfinished(String sagaId, String type) throws SQLException {
+        public synchronized SagaClaim claimUnfinished(String sagaId, String type) throws SQLException {
             String zustand = koepfe.get(sagaId);
             if (zustand == null || !type.equals(typen.get(sagaId)) || beansprucht.contains(sagaId)) {
                 return null;
@@ -447,21 +573,31 @@ class SagaEngineTest {
             UnfinishedSaga saga = new UnfinishedSaga(sagaId, type, payloads.get(sagaId), state);
             schritte.get(sagaId).forEach(saga::putStepState);
             return new SagaClaim() {
+                private boolean ended;
                 @Override
                 public UnfinishedSaga saga() {
                     return saga;
                 }
 
                 @Override
-                public void finish(SagaState endState) {
-                    koepfe.put(sagaId, endState.name());
-                    protokoll.add("state:" + endState);
+                public void finish(SagaState endState) throws SQLException {
+                    if (ended) return;
+                    markState(sagaId, endState);
                     beansprucht.remove(sagaId);
+                    ended = true;
+                    if (endState == SagaState.FAILED && afterFailedRelease != null) {
+                        Runnable callback = afterFailedRelease;
+                        afterFailedRelease = null;
+                        callback.run();
+                    }
                 }
 
                 @Override
                 public void close() {
-                    beansprucht.remove(sagaId);
+                    if (!ended) {
+                        ended = true;
+                        beansprucht.remove(sagaId);
+                    }
                 }
             };
         }

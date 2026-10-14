@@ -43,9 +43,10 @@ public final class SagaEngine {
     /**
      * Schutz lebender Sagas im laufenden Betrieb: Der Wiederanlauf fasst nur Sagas an, deren
      * letzte Journal-Aktivität mindestens so lange zurückliegt. Zwischen den Schritt-
-     * Transaktionen hält keine Sperre den Saga-Kopf — ohne diese Frist könnte ein Wiederanlauf
-     * (Admin-Endpunkt oder zweiter Server) eine noch laufende Saga übernehmen. Standard
-     * {@code ZERO} (Start-Wiederanlauf vor dem Annehmen von Anfragen).
+     * Transaktionen hält der normale Lauf einen exklusiven Kopf-Claim. Dadurch werden
+     * lebende Sagas auch von anderen Instanzen zuverlässig übersprungen. Diese zusätzliche
+     * Frist verzögert die Übernahme verwaister Sagas; Standard {@code ZERO} erlaubt den
+     * sofortigen Wiederanlauf nach einem Absturz.
      */
     public void setzeMindestInaktivitaet(java.time.Duration dauer) {
         this.mindestInaktivitaet = dauer == null || dauer.isNegative() ? java.time.Duration.ZERO : dauer;
@@ -63,18 +64,37 @@ public final class SagaEngine {
         record(() -> journal.start(sagaId, definition.type(), payload, steps.size()));
         de.allgemein.tx.audit.TxAuditLog.recordSagaStart(sagaId, definition.type(), payload);
 
+        // Derselbe Kopf-Claim wie beim Recovery bleibt über ALLE Fachschritte erhalten.
+        // Ein zweiter Server kann daher selbst mit Schutzfrist ZERO keine lebende Saga
+        // kompensieren. Vor diesem Claim wurde noch keine Fachwirkung ausgeführt.
+        SagaClaim claim = beanspruche(sagaId, definition.type());
+        try {
+            return runClaimed(definition, payload, sagaId, steps, claim);
+        } finally {
+            try (InterruptCleanup cleanup = new InterruptCleanup()) {
+                claim.close();
+            }
+        }
+    }
+
+    private String runClaimed(SagaDefinition definition, String payload, String sagaId,
+            List<SagaStep> steps, SagaClaim liveClaim) {
+
         int doneCount = 0;
         boolean imFlug = false;
         try {
             for (SagaStep step : steps) {
                 final int index = doneCount;
+                record(liveClaim::checkAlive);
                 // (a) Write-Ahead: Schritt als begonnen markieren, BEVOR die Fachtransaktion läuft.
                 record(() -> journal.markStepInFlight(sagaId, index));
                 imFlug = true;
                 // (b) Fachschritt und Journal-Eintrag in derselben Transaktion (atomarer Commit).
                 TxWork<Void> work = ctx -> {
+                    liveClaim.checkAlive();
                     step.action().run(ctx.connection(), payload, sagaId);
                     journal.stepDone(ctx.connection(), sagaId, index, step.name());
+                    liveClaim.checkAlive();
                     return null;
                 };
                 txManager.execute(TxOptions.DEFAULT, work);
@@ -83,37 +103,89 @@ public final class SagaEngine {
                 doneCount++;
             }
         } catch (TxException e) {
-            // Fachfehler oder Write-Ahead-Fehler: rückwärts kompensieren, dann Exception
-            // weiterreichen. Die FAILED-Markierung darf die Kompensation NIE verhindern
-            // (Fund H4/M6): ihr Scheitern wird nur protokolliert.
-            markiereStill(sagaId, SagaState.FAILED, "FAILED");
-            de.allgemein.tx.audit.TxAuditLog.recordSagaCompensating(sagaId, de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(e));
-            // Mehrdeutiger Commit: Der fehlgeschlagene Schritt kann trotz Fehlermeldung committet
-            // haben (z. B. Verbindungsabbruch beim Commit). Das Journal klärt das — wie der
-            // Wiederanlauf, der IN_FLIGHT konservativ mit kompensiert, soll auch der Laufzeitpfad
-            // keinen committeten Schritt übersehen.
-            int zuKompensieren = doneCount;
-            if (imFlug && doneCount < steps.size() && schrittCommittet(sagaId, doneCount)) {
-                zuKompensieren = doneCount + 1;
+            try (InterruptCleanup cleanup = new InterruptCleanup()) {
+                try {
+                    // FAILED muss dauerhaft sein, bevor kompensiert wird. Sonst könnte
+                    // Recovery nach einem Crash alle DONE-Schritte fälschlich abschließen.
+                    liveClaim.finish(SagaState.FAILED);
+                } catch (SQLException journalError) {
+                    e.addSuppressed(journalError);
+                    LOG.log(Level.SEVERE, "FAILED-Markierung für Saga " + sagaId
+                            + " fehlgeschlagen; Kompensation benötigt einen neuen exklusiven Claim: "
+                            + de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(journalError));
+                } finally {
+                    cleanup.clear();
+                    liveClaim.close();
+                }
+                SagaClaim compensationClaim;
+                try {
+                    cleanup.clear();
+                    compensationClaim = journal.claimUnfinished(sagaId, definition.type());
+                    if (compensationClaim == null) {
+                        // Ein Recovery hat den freigegebenen FAILED-Kopf übernommen oder
+                        // schon beendet. Keine zweite, parallele Kompensation starten.
+                        LOG.warning("Saga " + sagaId + ": Kompensation an Wiederanlauf übergeben");
+                        throw e;
+                    }
+                } catch (SQLException journalError) {
+                    e.addSuppressed(journalError);
+                    LOG.log(Level.SEVERE, "Kompensations-Claim für Saga " + sagaId
+                            + " fehlgeschlagen; Wiederanlauf muss übernehmen: "
+                            + de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(journalError));
+                    throw e;
+                }
+                try {
+                    de.allgemein.tx.audit.TxAuditLog.recordSagaCompensating(sagaId,
+                            de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(e));
+                    cleanup.clear();
+                    int zuKompensieren = doneCount;
+                    if (imFlug && doneCount < steps.size() && schrittCommittet(sagaId, doneCount)) {
+                        zuKompensieren = doneCount + 1;
+                    }
+                    SagaState state = compensate(definition, payload, sagaId, zuKompensieren,
+                            compensationClaim, cleanup);
+                    cleanup.clear();
+                    compensationClaim.finish(state);
+                } catch (SQLException journalError) {
+                    e.addSuppressed(journalError);
+                    LOG.log(Level.SEVERE, "Saga " + sagaId + ": Kompensationsabschluss fehlgeschlagen: "
+                            + de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(journalError));
+                } finally {
+                    cleanup.clear();
+                    compensationClaim.close();
+                }
+                de.allgemein.tx.audit.TxAuditLog.recordSagaFailed(sagaId,
+                        de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(e));
             }
-            compensate(definition, payload, sagaId, zuKompensieren);
-            de.allgemein.tx.audit.TxAuditLog.recordSagaFailed(sagaId, de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(e));
             throw e;
         }
         // Alle Schritte erfolgreich: Die COMPLETED-Markierung läuft bewusst NACH dem
         // Kompensations-try — ihr Fehler darf KEINE Fehl-Kompensation der fachlich
         // erfolgreichen Saga auslösen (Fund H4).
         try {
-            journal.markState(sagaId, SagaState.COMPLETED);
+            liveClaim.finish(SagaState.COMPLETED);
         } catch (SQLException e) {
             LOG.log(Level.SEVERE, "Saga " + sagaId + " fachlich abgeschlossen, aber die COMPLETED-"
-                    + "Markierung schlug fehl: " + e.getMessage()
-                    + " — die Saga bleibt RUNNING; der nächste Wiederanlauf schließt sie ab.", e);
+                    + "Markierung schlug fehl: " + de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(e)
+                    + " — der Wiederanlauf klärt den Abschluss.");
             throw TxException.nonRetryable("Saga-Journal-Fehler beim Abschließen der Saga " + sagaId
                     + " (alle Fachschritte sind committet): " + e.getMessage(), e);
         }
         de.allgemein.tx.audit.TxAuditLog.recordSagaCompleted(sagaId, definition.type());
         return sagaId;
+    }
+
+    private SagaClaim beanspruche(String sagaId, String type) {
+        try {
+            SagaClaim claim = journal.claimUnfinished(sagaId, type);
+            if (claim == null) {
+                throw TxException.nonRetryable("Saga " + sagaId
+                        + " bereits vom Wiederanlauf übernommen; kein Fachschritt ausgeführt", null);
+            }
+            return claim;
+        } catch (SQLException e) {
+            throw TxException.nonRetryable("Saga-Claim fehlgeschlagen für " + sagaId, e);
+        }
     }
 
     // ------------------------------------------------------------------
@@ -165,7 +237,8 @@ public final class SagaEngine {
             // Journal nicht lesbar: blind weiterlaufen wäre falsch — abbrechen,
             // aber nicht werfen (Fund M3: der Serverstart darf nicht gefährdet werden).
             LOG.log(Level.SEVERE, "Saga-Journal nicht lesbar für Typ " + definition.type()
-                    + ": " + e.getMessage() + " — Wiederanlauf für diesen Typ abgebrochen.", e);
+                    + ": " + de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(e)
+                    + " — Wiederanlauf für diesen Typ abgebrochen.");
             return new RecoveryReport(0, 0, 0, 1);
         }
         for (UnfinishedSaga kandidat : kandidaten) {
@@ -178,7 +251,8 @@ public final class SagaEngine {
             } catch (SQLException e) {
                 errors++;
                 LOG.log(Level.SEVERE, "Anspruch auf Saga " + kandidat.sagaId() + " fehlgeschlagen: "
-                        + e.getMessage() + " — wird übersprungen, der nächste Wiederanlauf versucht sie erneut.", e);
+                        + de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(e)
+                        + " — wird übersprungen, der nächste Wiederanlauf versucht sie erneut.");
                 continue;
             }
             if (claim == null) {
@@ -195,8 +269,8 @@ public final class SagaEngine {
             } catch (Exception e) {
                 errors++;
                 LOG.log(Level.SEVERE, "Wiederanlauf der Saga " + saga.sagaId() + " (Typ "
-                        + saga.type() + ") fehlgeschlagen: " + e.getMessage()
-                        + " — Saga bleibt unverändert, der nächste Wiederanlauf versucht sie erneut.", e);
+                        + saga.type() + ") fehlgeschlagen: " + de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(e)
+                        + " — der nächste Wiederanlauf versucht sie erneut.");
                 // claim.close() über try-with-resources: Rollback, Kopf unverändert
             }
         }
@@ -241,15 +315,18 @@ public final class SagaEngine {
             SagaStep step = steps.get(i);
             try {
                 txManager.execute(TxOptions.DEFAULT, ctx -> {
+                    claim.checkAlive();
                     step.compensation().run(ctx.connection(), saga.payload(), saga.sagaId());
                     journal.stepCompensated(ctx.connection(), saga.sagaId(), index);
+                    claim.checkAlive();
                     return null;
                 });
             } catch (Exception e) {
                 vollstaendig = false;
                 LOG.log(Level.SEVERE, "Kompensation von Schritt '" + step.name() + "' (Saga "
-                        + saga.sagaId() + ") im Wiederanlauf fehlgeschlagen: " + e.getMessage()
-                        + " — ältere Schritte werden trotzdem kompensiert.", e);
+                        + saga.sagaId() + ") im Wiederanlauf fehlgeschlagen: "
+                        + de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(e)
+                        + " — ältere Schritte werden trotzdem kompensiert.");
             }
         }
         // Journal kann mehr Schritte haben als die aktuelle Definition (Definition geändert):
@@ -289,13 +366,14 @@ public final class SagaEngine {
      * Journal bricht die Schleife ab (kein stiller Reihenfolge-Bruch, Fund H2), ein
      * fachlicher Kompensationsfehler lässt ältere Schritte trotzdem laufen.
      */
-    private void compensate(SagaDefinition definition, String payload, String sagaId, int doneCount) {
-        markiereStill(sagaId, SagaState.COMPENSATING, "COMPENSATING");
+    private SagaState compensate(SagaDefinition definition, String payload, String sagaId, int doneCount,
+            SagaClaim claim, InterruptCleanup cleanup) {
         boolean vollstaendig = true;
         for (int i = doneCount - 1; i >= 0; i--) {
             final int index = i;
             final SagaStep step = definition.steps().get(i);
             try {
+                cleanup.clear();
                 if (journal.isStepCompensated(sagaId, index)) {
                     continue; // nach einem Absturz bereits erledigt
                 }
@@ -305,26 +383,49 @@ public final class SagaEngine {
                 // der nächste Wiederanlauf setzt tiefer an.
                 vollstaendig = false;
                 LOG.log(Level.SEVERE, "Journal nicht lesbar bei Kompensation von Schritt " + index
-                        + " (Saga " + sagaId + "): " + e.getMessage()
-                        + " — Kompensation wird abgebrochen.", e);
+                        + " (Saga " + sagaId + "): " + de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(e)
+                        + " — Kompensation wird abgebrochen.");
                 break;
             }
             try {
+                cleanup.clear();
                 txManager.execute(TxOptions.DEFAULT, ctx -> {
+                    claim.checkAlive();
                     step.compensation().run(ctx.connection(), payload, sagaId);
                     journal.stepCompensated(ctx.connection(), sagaId, index);
+                    claim.checkAlive();
                     return null;
                 });
             } catch (Exception e) {
                 vollstaendig = false;
                 LOG.log(Level.SEVERE,
                         "Kompensation von Schritt '" + step.name() + "' (Saga " + sagaId
-                                + ") fehlgeschlagen: " + e.getMessage()
-                                + " — ältere Schritte werden trotzdem kompensiert.", e);
+                                + ") fehlgeschlagen: " + de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(e)
+                                + " — ältere Schritte werden trotzdem kompensiert.");
             }
         }
-        markiereStill(sagaId, vollstaendig ? SagaState.COMPENSATED : SagaState.FAILED,
-                vollstaendig ? "COMPENSATED" : "FAILED");
+        return vollstaendig ? SagaState.COMPENSATED : SagaState.FAILED;
+    }
+
+    /** Bewahrt Abbruchsignale über die notwendige, weiterhin zeitlich begrenzte Bereinigung. */
+    private static final class InterruptCleanup implements AutoCloseable {
+        private boolean interrupted;
+
+        InterruptCleanup() {
+            clear();
+        }
+
+        void clear() {
+            interrupted |= Thread.interrupted();
+        }
+
+        @Override
+        public void close() {
+            clear();
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 
     /** Klärt einen mehrdeutigen Commit über das Journal; bei Lesefehler konservativ „committet". */
@@ -333,23 +434,9 @@ public final class SagaEngine {
             return journal.isStepDone(sagaId, index);
         } catch (SQLException e) {
             LOG.log(Level.WARNING, "Journal nicht lesbar zur Klärung von Schritt " + index + " der Saga "
-                    + sagaId + " — Schritt wird vorsorglich mit kompensiert", e);
+                    + sagaId + " — Schritt wird vorsorglich mit kompensiert: "
+                    + de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(e));
             return true;
-        }
-    }
-
-    /**
-     * Setzt einen Kopf-Zustand, ohne bei Fehler zu werfen: Journal-Markierungen dürfen die
-     * Kompensation niemals verhindern oder verschlucken (Fund H4/M6). Ein bleibender
-     * Zwischenzustand (z. B. RUNNING statt FAILED) ist unkritisch — der Wiederanlauf
-     * behandelt RUNNING, FAILED und COMPENSATING gleichermaßen.
-     */
-    private void markiereStill(String sagaId, SagaState state, String bezeichnung) {
-        try {
-            journal.markState(sagaId, state);
-        } catch (SQLException e) {
-            LOG.log(Level.SEVERE, "Journal-Markierung " + bezeichnung + " für Saga " + sagaId
-                    + " fehlgeschlagen (wird ignoriert): " + e.getMessage(), e);
         }
     }
 

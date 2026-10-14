@@ -35,10 +35,16 @@ Redo-Logging, Recovery) — wir programmieren nur die Steuerungsschicht darüber
   und Reportanhang belegen Dateiübergabe und fachliches Urteil getrennt. Bei formal
   ungültiger Modellantwort höchstens drei identische Sendeversuche mit 30 Sekunden Pause;
   danach Abbruch mit protokolliertem Fehler. Lokale Schlüsseldatei
-  ist Git-ignoriert. Verifikation 2026-10-13: 55 testsweet-Tests grün (1 übersprungen);
-  einzelne GLM-Fallgruppen wurden gültig beantwortet, aber der 100-Fälle-Gesamtlauf
-  ist wegen Antwortformatfehlern bislang nicht abgeschlossen. Historische Python-
-  Nachrechnung 100/108 ist kein GLM-Nachweis. Logfiles
+  ist Git-ignoriert. Maßgeblich sind die aktuellen quellen- und buildgebundenen JUnit-,
+  Simulator- und GLM-Belege im Testzertifikat. „Mache alle Zertifikatstests“ führt
+  Neubuild, beide automatischen Testsuiten, alle sieben Simulator-Kombinationen,
+  GLM-Stichprobe und Zertifikatsexport als asynchronen Gesamtlauf mit Fortschritt
+  aus. Frische Prüf-JVM und eigene Webports; Quellenänderungen, Abbrüche und Fehler
+  verhindern einen grünen Nachweis. Status unter `testsweet/logs/certificate-suite-<ID>/`.
+  Historische Testzahlen werden nicht
+  als aktueller Nachweis verwendet. Feste Fach-Grenzfälle ergänzen den Generator und
+  werden für die GLM-Stichprobe priorisiert. Historische Python-Nachrechnung 100/108
+  ist kein GLM-Nachweis. Logfiles
   je Lauf, Testdokumentation als PDF (lesbar) und Markdown (KI-nachprüfbar) (Details: testsweet/README.md)
 - `doc/roadmap.md` — aktueller Stand und geplante Etappen
 
@@ -87,7 +93,7 @@ Redo-Logging, Recovery) — wir programmieren nur die Steuerungsschicht darüber
 5. Der Task-Wachhund unterbricht Tasks nach `TxOptions.timeout`; der Interrupt
    lässt den JDBC-Aufruf fehlschlagen, wodurch die DB zurückrollt.
 
-## Stand (Stand: 2026-10-12, Version 0.5.8)
+## Stand (Stand: 2026-10-13, Version 0.5.8)
 
 Kernbibliothek und Fachschicht vollständig umgesetzt, umfassendem Codereview unterzogen
 (Bericht: `doc/codereview/codereview-bericht-2026-10-12.md`) und auf echter Oracle 19c

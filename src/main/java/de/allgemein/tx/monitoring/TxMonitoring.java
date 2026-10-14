@@ -53,7 +53,7 @@ public final class TxMonitoring {
     }
 
     /** Hebt die Registrierung einer MBean auf. */
-    public static void unregister(ObjectName objectName) {
+    public static synchronized void unregister(ObjectName objectName) {
         if (objectName == null) {
             return;
         }
@@ -68,15 +68,17 @@ public final class TxMonitoring {
         }
     }
 
-    private static ObjectName register(String nameStr, MBeanSupplier supplier) {
+    private static synchronized ObjectName register(String nameStr, MBeanSupplier supplier) {
         try {
             MBeanServer server = ManagementFactory.getPlatformMBeanServer();
             ObjectName objectName = new ObjectName(nameStr);
             if (server.isRegistered(objectName)) {
-                server.unregisterMBean(objectName);
+                // Eine zweite Steuerung darf die MBean der ersten weder ersetzen
+                // noch später beim close() versehentlich deren Nachfolger abmelden.
+                objectName = new ObjectName(nameStr + ",instance=" + java.util.UUID.randomUUID());
             }
             server.registerMBean(supplier.get(), objectName);
-            LOG.info(() -> "JMX-MBean erfolgreich registriert: " + objectName);
+            LOG.info("JMX-MBean erfolgreich registriert: " + objectName);
             return objectName;
         } catch (Exception e) {
             LOG.log(Level.WARNING, "Fehler bei der JMX-Registrierung von " + nameStr, e);

@@ -6,6 +6,7 @@ import de.allgemein.lmg.calc.Leistungsberechnung;
 import de.allgemein.lmg.config.LmgConfig;
 import de.allgemein.lmg.model.SozialFall;
 import de.allgemein.lmg.service.FachlicheException;
+import de.allgemein.lmg.service.BescheidPaymentBinding;
 import de.allgemein.lmg.service.SozialLeistungsService;
 import de.allgemein.lmg.service.Zahlungsmonat;
 import de.allgemein.lmg.web.Json;
@@ -284,6 +285,7 @@ public final class AntragsSagaProzess {
         String monatBis = data.containsKey("bewilligungBis") ? (String) data.get("bewilligungBis") : monatVon;
         // § 44 Abs. 3 SGB XII: zwölf Monate — dieselbe Prüfung wie auf dem Service-Weg.
         SozialLeistungsService.pruefeBewilligungszeitraum(monatVon, monatBis);
+        BescheidPaymentBinding.rejectOverlap(c, bgId, monatVon, monatBis);
         Bewilligungsplan.Plan plan = Bewilligungsplan.erstelle(bgId, faelle, kduParameter(), vermoegen,
                 monatVon, monatBis, monat -> SATZSTAND_DAO.findeFuerMonat(c, monat));
         Leistungsberechnung.Berechnungsergebnis ergebnis = plan.ersterMonat().ergebnis();
@@ -310,6 +312,8 @@ public final class AntragsSagaProzess {
             stmt.executeUpdate();
         }
         schreibeJournal(c, bgId, "Bescheid " + bescheidNr + " ueber " + ergebnis.zahlbetrag() + " EUR erteilt", sb);
+        // Marker committet atomar mit dem Bescheid: Recovery kann ausschließlich dessen ID aufheben.
+        schreibeJournal(c, bgId, sagaMarker(sagaId) + ": Bescheid-ID " + bescheidId, "saga-engine");
     }
 
     /**
@@ -324,12 +328,41 @@ public final class AntragsSagaProzess {
         if (bgId == null || !istVonSagaAngelegt(c, bgId, sagaId)) {
             return;
         }
-        try (PreparedStatement stmt = c.prepareStatement(
-                "UPDATE BESCHEID SET STATUS = 'AUFGEHOBEN' WHERE BG_ID = ? AND STATUS = 'ERTEILT'")) {
-            stmt.setLong(1, bgId);
-            int geaendert = stmt.executeUpdate();
-            if (geaendert > 0) {
-                schreibeJournal(c, bgId, "Bescheid aufgehoben (Saga-Kompensation)", "saga-engine");
+        String prefix = sagaMarker(sagaId) + ": Bescheid-ID ";
+        java.util.Set<Long> ownIds = new java.util.LinkedHashSet<>();
+        try (PreparedStatement markers = c.prepareStatement("SELECT AKTION_TEXT FROM JOURNAL WHERE BG_ID = ?")) {
+            markers.setLong(1, bgId);
+            try (ResultSet rows = markers.executeQuery()) {
+                while (rows.next()) {
+                    String text = rows.getString(1);
+                    if (text != null && text.startsWith(prefix)) {
+                        try { ownIds.add(Long.parseLong(text.substring(prefix.length()))); }
+                        catch (NumberFormatException ignored) { /* Unlesbare Marker berechtigen nie zur Aufhebung. */ }
+                    }
+                }
+            }
+        }
+        for (long id : ownIds) {
+            try (PreparedStatement stmt = c.prepareStatement(
+                    "UPDATE BESCHEID SET STATUS = 'AUFGEHOBEN' WHERE ID = ? AND BG_ID = ? AND STATUS = 'ERTEILT'")) {
+                stmt.setLong(1, id);
+                stmt.setLong(2, bgId);
+                if (stmt.executeUpdate() > 0) {
+                    schreibeJournal(c, bgId, "Bescheid " + id + " aufgehoben (Saga-Kompensation)", "saga-engine");
+                }
+            }
+        }
+        if (ownIds.isEmpty()) {
+            try (PreparedStatement existing = c.prepareStatement(
+                    "SELECT COUNT(*) FROM BESCHEID WHERE BG_ID = ? AND STATUS = 'ERTEILT'")) {
+                existing.setLong(1, bgId);
+                try (ResultSet rows = existing.executeQuery()) {
+                    if (rows.next() && rows.getInt(1) > 0) {
+                        // Ohne Korrelation lässt sich keine vollständige Kompensation belegen.
+                        throw new FachlicheException("SAGA_BESCHEID_ZUORDNUNG",
+                                "Saga-Bescheid hat keinen eindeutigen ID-Marker; manuelle fachliche Klärung erforderlich");
+                    }
+                }
             }
         }
     }
@@ -365,6 +398,7 @@ public final class AntragsSagaProzess {
                 Leistungsberechnung.berechne(bgId, faelle, kduParameter(), vermoegen, satzstand);
         BigDecimal zahlbetrag = ergebnis.zahlbetrag();
         requireEntitlement(zahlbetrag);
+        BescheidPaymentBinding.verify(c, bgId, monat, zahlbetrag);
         BigDecimal vermoegenseinsatz = ergebnis.verwertbaresVermoegen().max(BigDecimal.ZERO);
 
         if (zahlbetrag.compareTo(budgetRest) > 0) {

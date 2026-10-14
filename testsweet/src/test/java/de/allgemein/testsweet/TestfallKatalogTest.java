@@ -17,7 +17,7 @@ class TestfallKatalogTest {
     @Test
     void positivFachschichtBeschreibtAlleZehnArten() {
         List<TestfallKatalog.Eintrag> eintraege = TestfallKatalog.fuer("POSITIV", false);
-        assertEquals(11, eintraege.size(), "10 kuratierte Arten + 1 Kombinations-Generator");
+        assertEquals(20, eintraege.size(), "10 Grundarten + 9 feste Grenzfälle + 1 Kombinations-Generator");
         assertTrue(eintraege.stream().anyMatch(e -> e.name().contains("Standardrente")));
         assertTrue(eintraege.stream().anyMatch(e -> e.name().contains("Doppelklick")));
         assertTrue(eintraege.stream().anyMatch(e -> e.name().contains("Kassenlauf")));

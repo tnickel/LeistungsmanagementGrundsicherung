@@ -19,6 +19,11 @@ import java.util.Map;
  * sowie das Schrittprotokoll in Kurzform.
  */
 final class MdBericht {
+    static String rechenbloecke(java.util.List<Rechenblock> blocks) {
+        StringBuilder md = new StringBuilder();
+        for (Rechenblock block : blocks) block(md, block);
+        return md.toString();
+    }
 
     private static final DateTimeFormatter ZEIT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
@@ -32,7 +37,7 @@ final class MdBericht {
 
     static void schreibe(Path ziel, Simulator simulator, Map<String, Object> evidence) throws IOException {
         StringBuilder md = new StringBuilder();
-        kopf(md, simulator);
+        kopf(md, simulator, evidence);
         grundlagen(md);
         for (Auftrag a : simulator.auftraege()) {
             testfall(md, a);
@@ -46,9 +51,14 @@ final class MdBericht {
 
     // ==================================================================
 
-    private static void kopf(StringBuilder md, Simulator simulator) {
+    private static void kopf(StringBuilder md, Simulator simulator, Map<String,Object> evidence) {
         md.append("# testsweet Lauf\n\n");
-        kv(md, "lauf_erfolgreich", String.valueOf(simulator.laufErfolgreich()));
+        ReviewOutcome outcome = ReviewOutcome.evaluate(simulator, evidence);
+        kv(md, "gesamtergebnis", outcome.state());
+        kv(md, "lauf_erfolgreich", String.valueOf(outcome.passed()));
+        kv(md, "automatik_bestanden", String.valueOf(simulator.laufErfolgreich()));
+        kv(md, "ki_fachstatus", outcome.llmState());
+        for (String error : outcome.errors()) kv(md, "gesamtfehler", error.replace('\n', ' '));
         for (Auftrag.Pruefung p : simulator.globalePruefungen()) {
             kv(md, "globale_pruefung", p.toString());
         }
@@ -80,7 +90,8 @@ final class MdBericht {
         kv(md, "ergebnis.fehlgeschlagen", String.valueOf(fehl));
         kv(md, "ergebnis.gesamt", String.valueOf(simulator.auftraege().size()));
         md.append("hinweis: Soll-Beträge werden mit der Produktionsberechnung (Leistungsberechnung) "
-                + "ermittelt; unabhängige Goldwerte-Absicherung: GoldWerteTest im Hauptprojekt "
+                + "ermittelt und jeder erzeugte Rechenblock vor dem Laufurteil unabhängig nachgerechnet "
+                + "(dokumentierter Rechenstand 2026). Zusätzliche Goldwerte-Absicherung: GoldWerteTest im Hauptprojekt "
                 + "(Werte aus doc/regressionstests.md).\n");
         md.append('\n');
         pruefanleitung(md);
@@ -136,12 +147,13 @@ final class MdBericht {
         md.append("mehrbedarf_obergrenze = summe(abs1..5) <= regelbedarf  (§ 30 Abs. 6)\n");
         md.append("mehrbedarf_warmwasser_anteil = {1: 0.023, 2: 0.023, 3: 0.0, 4: 0.014, "
                 + "5: 0.012, 6: 0.008}  (§ 30 Abs. 7, zusaetzlich zu Abs. 6)\n");
-        md.append("kdu = kaltmiete + betriebskosten + heizung  (§ 42a; angemessenheitspruefung AUS)\n");
+        md.append("kdu = kaltmiete + betriebskosten + heizung - zentraler warmwasserabzug; gekappt auf verbleibende BG-Grenze, sofern > 0. Parameter stehen je Block.\n");
         md.append("erwerbsfreibetrag = min(0.30 * erwerb_brutto, 0.50 * rbs1 = 281.50)  (§ 82 Abs. 3)\n");
         md.append("anrechenbar = rente + erwerb - freibetrag - absetzbetaetrag >= 0  "
                 + "(absetzbetraege: steuern, sv, versicherungen, erwerbsaufwendungen; § 82 Abs. 2)\n");
         md.append("schonvermoegen = 10000.00 je volljaehriger person (rbs 1-3) + 500.00 je "
-                + "weiterer person  (§ 90 Abs. 2 Nr. 9 i.V.m. § 1 BarbetragsVO)\n");
+                + "weiterer person; Produktvertrag ohne Erwachsene: Grundbetrag einmal 10000.00. "
+                + "Referenz des implementierten Vertrags, keine eigenständige Rechtsverifikation.\n");
         md.append("zahlbetrag = gesamtbedarf - anrechenbares_einkommen - "
                 + "max(vermoegen - schonvermoegen, 0)  (<= 0 => KEIN_ANSPRUCH, § 43 Abs. 1)\n");
         md.append("rundung = HALF_UP auf 2 nachkommastellen; waehrung EUR\n");
@@ -192,6 +204,7 @@ final class MdBericht {
                 md.append("    params = ").append(paramsFuer(a, p)).append('\n');
                 md.append("    erwartet = ").append(p.erwartet())
                         .append(" | ist = ").append(p.ist()).append('\n');
+                if (p.hinweis() != null) md.append("    hinweis = ").append(p.hinweis()).append('\n');
             }
             md.append('\n');
         }
@@ -211,6 +224,8 @@ final class MdBericht {
             kv(md, "zahlungsmonat", block.zahlungsmonat());
         }
         kv(md, "vermoegen", z(block.vermoegen()));
+        kv(md, "kdu_warmwasser_abzug_anteil", block.kduParameter().warmwasserAbzugHeizungProzent().toPlainString());
+        kv(md, "kdu_bg_grenze", z(block.kduParameter().angemessenheitsgrenze()));
         kv(md, "schonvermoegen", z(block.schonvermoegen()));
         kv(md, "budget_start", block.budget() == null ? "-" : z(block.budget()));
         for (int i = 0; i < block.faelle().size(); i++) {
@@ -243,6 +258,7 @@ final class MdBericht {
             md.append("p").append(i + 1).append("_mehrbedarf_warmwasser=")
                     .append(z(f.mehrbedarfWarmwasser())).append('\n');
             md.append("p").append(i + 1).append("_kdu=").append(z(f.kdu())).append('\n');
+            md.append("p").append(i + 1).append("_kdu_warmwasser_abzug=").append(z(f.kduWarmwasserAbzug())).append('\n');
             md.append("p").append(i + 1).append("_gesamtbedarf=").append(z(f.gesamtbedarf())).append('\n');
             md.append("p").append(i + 1).append("_freibetrag_erwerb=").append(z(f.freibetragErwerb())).append('\n');
             md.append("p").append(i + 1).append("_absetzbetaetrag=").append(z(f.absetzbetaetrag())).append('\n');
@@ -291,31 +307,15 @@ final class MdBericht {
     }
 
     private static String sqlFuer(Auftrag a, Auftrag.Pruefung p) {
-        for (Erwartung e : a.erwartungen) {
-            if (e.beschreibung().equals(p.beschreibung())) {
-                return e.sql().replaceAll("\\s+", " ").trim();
-            }
-        }
-        return "?";
+        return p.sql() == null ? "NICHT_SQL: " + p.beschreibung() : p.sql().replaceAll("\\s+", " ").trim();
     }
 
     private static String paramsFuer(Auftrag a, Auftrag.Pruefung p) {
-        for (Erwartung e : a.erwartungen) {
-            if (e.beschreibung().equals(p.beschreibung())) {
-                try {
-                    List<Object> werte = e.parameter().apply(a.kontext);
-                    return werte.toString();
-                } catch (Exception ex) {
-                    return "?";
-                }
-            }
-        }
-        return "?";
+        return p.parameter() == null ? "[]" : p.parameter().toString();
     }
 
     private static String z(BigDecimal betrag) {
-        return String.format(java.util.Locale.ROOT, "%.2f",
-                betrag == null ? BigDecimal.ZERO : betrag);
+        return betrag == null ? "NICHT_BERECHNET" : String.format(java.util.Locale.ROOT, "%.2f",betrag);
     }
 
     /**

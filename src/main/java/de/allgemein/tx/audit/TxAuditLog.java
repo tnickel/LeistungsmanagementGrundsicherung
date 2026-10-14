@@ -94,6 +94,9 @@ public final class TxAuditLog {
 
     /** Liefert die neuesten Ereignisse (maximal bis zum Limit). */
     public static List<TxAuditEvent> getRecentEvents(int limit) {
+        if (limit <= 0) {
+            return List.of();
+        }
         List<TxAuditEvent> result = new ArrayList<>();
         int count = 0;
         for (TxAuditEvent event : RING_BUFFER) {
@@ -205,7 +208,7 @@ public final class TxAuditLog {
 
         // 2. Logger
         String line = event.toLogLine();
-        LOG.info(line);
+        logSafely(Level.INFO, line);
 
         // 3. Optionaler Dateiausschrieb (dauerhaft offener Writer, Rotation nach Größe)
         Path path = auditFilePath;
@@ -213,8 +216,9 @@ public final class TxAuditLog {
             synchronized (FILE_LOCK) {
                 try {
                     schreibeZeile(path, line);
-                } catch (IOException e) {
-                    LOG.log(Level.WARNING, "Konnte Audit-Ereignis nicht in Datei schreiben", e);
+                } catch (IOException | RuntimeException e) {
+                    logSafely(Level.WARNING, "Konnte Audit-Ereignis nicht in Datei schreiben: "
+                            + fehlerBeschreibung(e));
                 }
             }
         }
@@ -224,8 +228,17 @@ public final class TxAuditLog {
             try {
                 listener.onEvent(event);
             } catch (Exception e) {
-                LOG.log(Level.WARNING, "Fehler in TxAuditListener", e);
+                logSafely(Level.WARNING, "Fehler in TxAuditListener: " + fehlerBeschreibung(e));
             }
+        }
+    }
+
+    /** Ein kaputter JUL-Handler darf einen bereits bestätigten Commit nicht zum Abbruch machen. */
+    private static void logSafely(Level level, String message) {
+        try {
+            LOG.log(level, message);
+        } catch (RuntimeException e) {
+            System.err.println("TX-Audit-Logger fehlgeschlagen: " + fehlerBeschreibung(e));
         }
     }
 

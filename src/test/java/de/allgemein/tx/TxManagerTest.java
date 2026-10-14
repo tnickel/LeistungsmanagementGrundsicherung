@@ -16,6 +16,44 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class TxManagerTest {
 
+    @Test
+    void manuellerBeginGibtAuchBeiRuntimeFehlerDieVerbindungFrei() {
+        var released = new java.util.concurrent.atomic.AtomicInteger();
+        var expected = new IllegalStateException("Treiberfehler");
+        ConnectionPool pool = new ConnectionPool() {
+            public java.sql.Connection getConnection() {
+                return (java.sql.Connection) java.lang.reflect.Proxy.newProxyInstance(
+                        getClass().getClassLoader(), new Class<?>[]{java.sql.Connection.class},
+                        (proxy, method, args) -> { throw expected; });
+            }
+            public void release(java.sql.Connection c) { released.incrementAndGet(); }
+            public void close() { }
+        };
+        assertEquals(expected, assertThrows(IllegalStateException.class,
+                () -> new TxManager(pool).begin(TxOptions.DEFAULT)));
+        assertEquals(1, released.get());
+    }
+
+    @Test
+    void defekterAuditLoggerMachtCommitNichtZumRollback() {
+        var logger = java.util.logging.Logger.getLogger("de.allgemein.tx.audit");
+        var failing = new java.util.logging.Handler() {
+            public void publish(java.util.logging.LogRecord event) { throw new IllegalStateException("JUL kaputt"); }
+            public void flush() { }
+            public void close() { }
+        };
+        logger.addHandler(failing);
+        try {
+            FakePool pool = new FakePool(1);
+            assertEquals("committet", new TxManager(pool).execute(TxOptions.DEFAULT, ctx -> "committet"));
+            assertEquals(1, pool.commits.get());
+            assertEquals(0, pool.rollbacks.get(), "Auditfehler nach Commit ist kein Fach-Rollback");
+            assertEquals(1, pool.releases.get());
+        } finally {
+            logger.removeHandler(failing);
+        }
+    }
+
     private static SQLException oraDeadlock() {
         // SQLState 61000 = Oracle-Deadlock-Bereich; ORA-00060 im Klartext
         return new SQLException("ORA-00060: deadlock detected while waiting for resource", "61000");

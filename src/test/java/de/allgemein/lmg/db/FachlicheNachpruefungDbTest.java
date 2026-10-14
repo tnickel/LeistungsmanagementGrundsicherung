@@ -175,6 +175,106 @@ class FachlicheNachpruefungDbTest {
         assertEquals(vorher, service.ladeDetail(vorgang.id()).berechnung().zahlbetrag());
     }
 
+    @Test
+    void aktiveBewilligungenDuerfenSichNichtUeberschneidenAberAngrenzen() throws Exception {
+        Vorgang vorgang = anlegen("0");
+        service.erteileBescheid(vorgang.id(), "2026-10", "2026-11", "sb-review");
+        var error = assertThrows(FachlicheException.class,
+                () -> service.erteileBescheid(vorgang.id(), "2026-11", "2026-12", "sb-review"));
+        assertEquals("VALIDATION", error.code());
+        assertEquals(1, anzahl("BESCHEID", vorgang.id()));
+        service.erteileBescheid(vorgang.id(), "2026-12", "2026-12", "sb-review");
+        assertEquals(2, anzahl("BESCHEID", vorgang.id()));
+    }
+
+    @Test
+    void geaenderteFallwerteSperrenZuHoheUndZuNiedrigeZahlungenVorAllenMutationen() throws Exception {
+        for (int initialIncome : new int[]{0, 100}) {
+            Vorgang vorgang = anlegen("0");
+            update("UPDATE SOZIAL_FALL SET EINKOMMEN_RENTE=" + initialIncome + " WHERE BG_ID=" + vorgang.id());
+            service.erteileBescheid(vorgang.id(), "2026-10", "2026-10", "sb-review");
+            update("UPDATE SOZIAL_FALL SET EINKOMMEN_RENTE=" + (100 - initialIncome) + " WHERE BG_ID=" + vorgang.id());
+            long journalBefore = anzahl("JOURNAL", vorgang.id());
+            var error = assertThrows(FachlicheException.class, () -> auszahlen(vorgang.id(), "2026-10"));
+            assertEquals("VALIDATION", error.code());
+            assertTrue(error.getMessage().contains("Monatsbetrag"));
+            assertEquals(0, anzahl("ZAHLUNG", vorgang.id()));
+            assertEquals(journalBefore, anzahl("JOURNAL", vorgang.id()));
+            assertEquals(eur("10000.00"), betrag("SELECT BUDGET_REST FROM BEDARFSGEMEINSCHAFT WHERE ID=" + vorgang.id()));
+        }
+    }
+
+    @Test
+    void vorgezogenerMonatUndVermoegensrueckgabeNachStornoVerdeckenKeinePlanabweichung() throws Exception {
+        Vorgang vorgang = anlegen("10500");
+        service.erteileBescheid(vorgang.id(), "2026-10", "2026-12", "sb-review");
+        assertThrows(FachlicheException.class, () -> auszahlen(vorgang.id(), "2026-11"));
+        assertEquals(eur("10500.00"), betrag("SELECT VERMOEGEN FROM BEDARFSGEMEINSCHAFT WHERE ID=" + vorgang.id()));
+        var october = auszahlen(vorgang.id(), "2026-10");
+        assertEquals(eur("863.00"), auszahlen(vorgang.id(), "2026-11").zahlung().auszahlungsbetrag());
+        service.storniereZahlung(october.zahlung().id(), "sb-review");
+        BigDecimal budget = betrag("SELECT BUDGET_REST FROM BEDARFSGEMEINSCHAFT WHERE ID=" + vorgang.id());
+        assertThrows(FachlicheException.class, () -> auszahlen(vorgang.id(), "2026-12"));
+        assertEquals(2, anzahl("ZAHLUNG", vorgang.id()));
+        assertEquals(budget, betrag("SELECT BUDGET_REST FROM BEDARFSGEMEINSCHAFT WHERE ID=" + vorgang.id()));
+        assertEquals(eur("10500.00"), betrag("SELECT VERMOEGEN FROM BEDARFSGEMEINSCHAFT WHERE ID=" + vorgang.id()));
+    }
+
+    @Test
+    void mehrdeutigeAltbewilligungenUndBeschaedigterSnapshotSindKeinZahlungsnachweis() throws Exception {
+        Vorgang vorgang = anlegen("0");
+        var decision = service.erteileBescheid(vorgang.id(), "2026-10", "2026-10", "sb-review");
+        update("INSERT INTO BESCHEID (ID,BG_ID,BESCHEID_NR,BESCHEID_DATUM,BEWILLIGUNG_VON,BEWILLIGUNG_BIS,"
+                + "ZAHLBETRAG,STATUS,ERSTELLT_VON,BERECHNUNG) SELECT SEQ_BESCHEID.NEXTVAL,BG_ID,BESCHEID_NR||'-ALT',"
+                + "BESCHEID_DATUM,BEWILLIGUNG_VON,BEWILLIGUNG_BIS,ZAHLBETRAG,STATUS,ERSTELLT_VON,BERECHNUNG"
+                + " FROM BESCHEID WHERE ID=" + decision.id());
+        var ambiguous = assertThrows(FachlicheException.class, () -> auszahlen(vorgang.id(), "2026-10"));
+        assertTrue(ambiguous.getMessage().contains("eindeutiger"));
+        update("UPDATE BESCHEID SET STATUS='AUFGEHOBEN' WHERE BG_ID=" + vorgang.id() + " AND ID<>" + decision.id());
+        // Druck wählt den jüngsten Archivbescheid, Zahlungsbindung das ERTEILT-Original.
+        // Beide tatsächlich ausgewählten Snapshots müssen für diese Korruptionsprüfung defekt sein.
+        update("UPDATE BESCHEID SET BERECHNUNG='{\"version\":1}' WHERE BG_ID=" + vorgang.id());
+        assertThrows(FachlicheException.class, () -> auszahlen(vorgang.id(), "2026-10"));
+        assertThrows(FachlicheException.class, () -> service.generiereBescheidHtml(vorgang.id()));
+        assertEquals(0, anzahl("ZAHLUNG", vorgang.id()));
+        assertEquals(eur("10000.00"), betrag("SELECT BUDGET_REST FROM BEDARFSGEMEINSCHAFT WHERE ID=" + vorgang.id()));
+    }
+
+    @Test
+    void sagaZahlungIstAnEigenenBewilligtenMonatswertGebunden() throws Exception {
+        Vorgang vorgang = anlegen("0");
+        AntragsSagaProzess.bescheidErteilen(connection, vorgang.payload(), vorgang.sagaId());
+        update("UPDATE SOZIAL_FALL SET EINKOMMEN_RENTE=100 WHERE BG_ID=" + vorgang.id());
+        assertThrows(FachlicheException.class,
+                () -> AntragsSagaProzess.erstauszahlungAnweisen(connection, vorgang.payload(), vorgang.sagaId()));
+        assertEquals(0, anzahl("ZAHLUNG", vorgang.id()));
+        assertEquals(eur("10000.00"), betrag("SELECT BUDGET_REST FROM BEDARFSGEMEINSCHAFT WHERE ID=" + vorgang.id()));
+    }
+
+    @Test
+    void sagaKompensiertNurDenEigenenBescheidUndIstIdempotent() throws Exception {
+        Vorgang vorgang = anlegen("0");
+        AntragsSagaProzess.bescheidErteilen(connection, vorgang.payload(), vorgang.sagaId());
+        var manual = service.erteileBescheid(vorgang.id(), "2026-11", "2026-11", "sb-manual");
+        AntragsSagaProzess.bescheidKompensieren(connection, vorgang.payload(), vorgang.sagaId());
+        AntragsSagaProzess.bescheidKompensieren(connection, vorgang.payload(), vorgang.sagaId());
+        assertEquals(1, betrag("SELECT COUNT(*) FROM BESCHEID WHERE BG_ID=" + vorgang.id() + " AND STATUS='AUFGEHOBEN'").intValueExact());
+        assertEquals(1, betrag("SELECT COUNT(*) FROM BESCHEID WHERE ID=" + manual.id() + " AND STATUS='ERTEILT'").intValueExact());
+    }
+
+    @Test
+    void altSagaOhneBescheidmarkerDarfKeineVollstaendigeKompensationBehaupten() throws Exception {
+        Vorgang vorgang = anlegen("0");
+        // IN_FLIGHT ohne committeten Bescheid ist eine zulässige idempotente No-Operation.
+        AntragsSagaProzess.bescheidKompensieren(connection, vorgang.payload(), vorgang.sagaId());
+        AntragsSagaProzess.bescheidErteilen(connection, vorgang.payload(), vorgang.sagaId());
+        update("DELETE FROM JOURNAL WHERE BG_ID=" + vorgang.id() + " AND AKTION_TEXT LIKE '%: Bescheid-ID %'");
+        var error = assertThrows(FachlicheException.class,
+                () -> AntragsSagaProzess.bescheidKompensieren(connection, vorgang.payload(), vorgang.sagaId()));
+        assertEquals("SAGA_BESCHEID_ZUORDNUNG", error.code());
+        assertEquals(1, betrag("SELECT COUNT(*) FROM BESCHEID WHERE BG_ID=" + vorgang.id() + " AND STATUS='ERTEILT'").intValueExact());
+    }
+
     private record Vorgang(long id, String payload, String sagaId) { }
 
     private Vorgang anlegen(String vermoegen) throws Exception {

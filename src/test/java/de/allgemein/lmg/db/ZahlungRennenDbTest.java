@@ -127,7 +127,7 @@ class ZahlungRennenDbTest {
             gleichzeitig(List.of(
                     (Callable<Object>) () -> service.freigebenZahlung(zahlungId, "sb-zweit"),
                     (Callable<Object>) () -> service.storniereZahlung(zahlungId, "admin-renn"),
-                    (Callable<Object>) () -> service.uebergebeBereiteZahlungen("admin-kasse")));
+                    (Callable<Object>) () -> service.uebergebeBereiteZahlungen("admin-kasse", az)));
 
             try (Connection c = verbindung(); Statement st = c.createStatement()) {
                 String status = text(st, "SELECT ZAHLUNGSSTATUS FROM ZAHLUNG WHERE ID = " + zahlungId);

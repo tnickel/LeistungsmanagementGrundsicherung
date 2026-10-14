@@ -1,6 +1,6 @@
 # Architektur der Transaktionssteuerung
 
-*Stand: 2026-10-12, Version 0.5.8*
+*Stand: 2026-10-13, Version 0.5.8 einschließlich Review-Nachbesserungen*
 
 ## Schichtenbild
 
@@ -44,7 +44,7 @@ Fachschicht: Leistungsmanagement Grundsicherung (SDN.Leistung LMG)
 | `tx.ConnectionPool` | Schnittstelle: `getConnection`/`release` — alle Bausteine hängen nur daran. |
 | `tx.SimpleConnectionPool` | Minimaler Pool für Tests/Demo: Validierung beim Entleihen (`isValid`), idempotentes Release, Borrow-Timeout (Standard 30 s); rollt beim Release grundsätzlich zurück, bevor `autoCommit=true` gesetzt wird. |
 | `tx.UcpConnectionPool` | Produktionspool (Oracle UCP, `validateConnectionOnBorrow`), Default über `lmg.pool.type=ucp`. |
-| `saga.SagaEngine` | Führt `SagaDefinition` als Kette kurzer Transaktionen aus; kompensiert bei Fehlern rückwärts; `recover()` beendet halbfertige Vorgänge **aller registrierten Saga-Typen** nach Absturz/Neustart (claimt jede Saga mit `FOR UPDATE SKIP LOCKED` gegen parallele Wiederanläufe). |
+| `saga.SagaEngine` | Führt `SagaDefinition` als Kette kurzer Transaktionen aus; hält auch im normalen Lauf einen exklusiven Kopf-Claim über die Fachschritte; kompensiert bei Fehlern rückwärts. `recover()` übernimmt halbfertige Vorgänge **aller registrierten Saga-Typen** mit `FOR UPDATE SKIP LOCKED`; bereits beanspruchte laufende Sagas werden übersprungen. |
 | `saga.SagaJournal` | DAO für die Journal-Tabellen `TX_SAGA`/`TX_SAGA_STEP`; Journal-Schreibakte mit Zustands-Guards und geprüften Update-Zählern. |
 | `saga.SagaDefinition/Step` | Deklarative Vorgangsbeschreibung: benannte Schritte mit Aktion + Kompensation. |
 | `tx.audit.TxAuditLog` | Revisionssicheres Audit (Commit/Rollback/Retry/Timeout/Saga-Ereignisse), Ringpuffer, Listener, optionale Datei. |
@@ -57,12 +57,14 @@ Fachschicht: Leistungsmanagement Grundsicherung (SDN.Leistung LMG)
 |---|---|
 | `lmg.calc.Leistungsberechnung` | Reine SGB-XII-Berechnung (Regelbedarfsstufen 2026, Mehrbedarfe § 30 Abs. 1/2/3/7 mit Obergrenze Abs. 6, KdU § 42a mit Angemessenheitsgrenze/Warmwasser-Abzug, Absetzbeträge § 82 Abs. 2, Erwerbsfreibetrag § 82 Abs. 3, Vermögensanrechnung § 43 Abs. 1/§ 90 Abs. 2 Nr. 9), je SozialFall und summiert je Bedarfsgemeinschaft. |
 | `lmg.service.SozialLeistungsService` | Fachdienste als kurze Transaktionen: Zahlungsweg (Idempotenz → FOR-UPDATE-Sperre → Budget-Prüfung → Zahlung immer `ANGELEGT` → Restbudget mindern → Journal; Vier-Augen serverseitig erzwungen), Freigabe/Kassenlauf/Storno (guarded Statuswechsel), Masken-Speicherung mit optimistischem Locking. |
+| `lmg.service.BescheidPaymentBinding` | Prüft unter BG-Sperre eindeutige Monatsdeckung und exakte Betragsübereinstimmung mit dem gespeicherten Bewilligungsplan. Weist neue Überschneidungen aktiver Bewilligungen ab; ersetzt keine fachliche Entscheidung über Änderungsbescheide. |
 | `lmg.service.BescheidGenerator` | Amtlicher, druckfertiger Bewilligungsbescheid (§ 44 SGB XII): Verfügungssatz, Bedarfsaufschlüsselung mit KdU-Vorbehalt, fallbezogene Begründung (§ 35 SGB X), konfigurierbare Rechtsbehelfsbelehrung (§ 36 SGB X). |
 | `lmg.service.SepaValidator` | IBAN/BIC-Validierung nach ISO 13616 (Modulo-97). |
 | `lmg.saga.AntragsSagaProzess` | 4-stufige Fach-Saga Antrag → Bedarfsprüfung → Bescheid → Erstauszahlung mit idempotenter Rückwärtskompensation (Budget-Rückbuchung, Historisierung statt Löschung). |
 | `lmg.dao.*` | DAOs auf der Verbindung des `TxContext`, ausschließlich PreparedStatements; keine eigenen Connections. |
 | `lmg.config.LmgConfig` | Externalisierte Konfiguration (System-Properties > Umgebungsvariablen > `lmg.properties` > Defaults), inkl. KdU-, Rechtsbehelf- und Session-Parameter. |
 | `lmg.web.LmgServer/LmgServerMain` | JSON-API + Oberfläche auf dem JDK-HttpServer; jede Anfrage (auch der Bescheid-Druck) läuft als Task über den `TaskController`; bindet per Default **Loopback** (`lmg.host` konfigurierbar; Demo-Standardkonten werden bei Nicht-Loopback verweigert); CSP-/no-store-Header, Body-Limit, Token nur aus dem Authorization-Header (Druck-Link: Einmal-Kurzzeit-Token über `POST /api/drucktoken`). |
+| `lmg.web.HttpServerLimits` | Setzt und validiert begrenzte JVM-weite JDK-HttpServer-Properties vor dem ersten `HttpServer.create`; spätere Änderungen erfordern einen JVM-Neustart. |
 | `lmg.web.Benutzerverwaltung` | Anmeldung mit Rollen; Sitzungs-Token (SecureRandom/UUID) mit Idle-Timeout, Anmelde-Drosselung, constant-time-Passwortvergleich. |
 | `lmg.web.Json` | Schlanker JSON-Writer/Parser ohne externe Bibliothek (Tiefenlimit, vollständige Escape-Prüfung). |
 | `webapp/` (Ressourcen) | Single-Page-Oberfläche (SDN.Leistung-Stil): Widget-Dashboard, Vorgangsmaske, Zahlbarmachung, Journal — HTML-Escaping für alle Serverdaten. |
@@ -84,23 +86,39 @@ Fachschicht: Leistungsmanagement Grundsicherung (SDN.Leistung LMG)
 
 1. Journal-Kopf anlegen: `TX_SAGA` (Status RUNNING) + je Schritt eine Zeile in
    `TX_SAGA_STEP` (Status PENDING) — eigener Commit, damit der Eintrag einen
-   Absturz überlebt.
+   Absturz überlebt. Anschließend wird die Kopfzeile über eine eigene Verbindung
+   exklusiv beansprucht; vor dieser Übernahme entsteht noch keine Fachwirkung.
 2. Je Schritt: **Write-Ahead** — Schritt im Journal auf `IN_FLIGHT` setzen
    (eigener Commit), dann Aktion + `DONE`-Markierung **in derselben
    Transaktion** committen. Ein Crash dazwischen erkennt der Wiederanlauf am
    `IN_FLIGHT`-Zustand und behandelt den Schritt konservativ als
-   möglicherweise ausgeführt (Kompensation ist idempotent).
+   möglicherweise ausgeführt (Kompensation ist idempotent). Die Kopf-Sperre bleibt
+   währenddessen erhalten; `checkAlive()` prüft ihre Verbindung vor und nach jeder
+   Fachaktion. Kopfstatuswechsel laufen über den Claim, Schrittmarker über eigene
+   kurze Transaktionen.
 3. Fehler in einem Schritt: Saga auf FAILED, dann **rückwärts kompensieren** —
    jede Kompensation in eigener Transaktion, Journal auf COMPENSATED; schlägt
    eine Kompensation fehl, endet die Saga FAILED und der nächste Wiederanlauf
-   setzt tiefer an (kein stiller Reihenfolge-Bruch).
+   setzt tiefer an (kein stiller Reihenfolge-Bruch). FAILED wird vor der erneuten
+   exklusiven Übernahme zur Kompensation dauerhaft festgeschrieben. Hat eine andere
+   Recovery die Saga inzwischen übernommen, startet keine zweite parallele
+   Kompensation. Ein vorhandenes Interrupt-Flag wird für die notwendige Bereinigung
+   kontrolliert aufgehoben und anschließend wiederhergestellt.
 4. Alles geschafft: Saga auf COMPLETED (ein Fehler hierbei löst **keine**
    Kompensation aus — der Wiederanlauf schließt später ab).
 5. **Wiederanlauf** (`recover`): beim Neustart alle Sagas **aller registrierten
    Definitionen** in RUNNING/FAILED/COMPENSATING lesen, je Saga mit
    `FOR UPDATE SKIP LOCKED` claimen (parallel-sicher), DONE- und
    IN_FLIGHT-Schritte kompensieren, COMPENSATED-Schritte überspringen —
-   deshalb müssen Kompensationen idempotent sein.
+   deshalb müssen Kompensationen idempotent sein. Der Start-Wiederanlauf verwendet
+   keine Altersfrist; der administrative Wiederanlauf berücksichtigt fünf Minuten
+   Inaktivität. Die exklusive Kopf-Sperre schützt aktive Sagas auch beim Start und
+   bei mehreren Prozessen unabhängig von der Altersfrist.
+
+Ein über HTTP ausgeführter Saga-Task kann gleichzeitig drei Poolverbindungen
+belegen: die äußere Task-Transaktion, den Kopf-Claim und die Fach-/Journaltransaktion.
+Der Standard beträgt deshalb 24 Verbindungen bei acht Tasks. Der Start warnt bei
+`poolSize < 3 × maxTasks`; zusätzliche unabhängige DB-Arbeit benötigt weitere Reserve.
 
 ## Datenmodell (`ddl/oracle_schema.sql`, `ddl/lmg_schema.sql`)
 
@@ -163,7 +181,12 @@ COMPENSATED` (bzw. zurück zu FAILED, wenn eine Kompensation fehlschlägt).
   können keinen falschen Dedup-Zustand mehr erzeugen. Auszahlungs-Replays prüfen
   BG/Monat und explizite Bankdaten und protokollieren die erneute Dateneinsicht.
 
-## Nachbesserung nach Gegenprüfung v0.5.8
+## Nachbesserung nach Gegenprüfung v0.5.8 (historischer Zwischenstand 2026-10-12)
+
+Die folgenden Punkte beschreiben den damaligen Zwischenstand. Die weiter unten
+aufgeführten Nachbesserungen vom 2026-10-13 ersetzen insbesondere die damalige
+Pooldimensionierung, die alleinige Altersfrist als Schutz laufender Sagas, den
+HTTP-Executor-Shutdown und die genannten Grenzen der Simulator-Endpunkte.
 
 - **Web:** Pfad-Normalisierung (abschließende `/`) vor Rollenprüfung; Request-Body
   wird einmal gelesen und bei ORA-08177-Retry wiederverwendet; Überlast
@@ -208,3 +231,120 @@ speichert die Monatsberechnungen in `BESCHEID.BERECHNUNG` (keine DDL-Migration).
 die Einzelbeträge; Version-1-Snapshots bleiben lesbar und werden nicht verändert.
 Nachträgliche Fachänderungen benötigen weiterhin eine gesonderte verfahrensrechtliche
 Abstimmung (siehe `rechtsgrundlagen.md`, Abschnitt 4 Nr. 7).
+
+## Review-Nachbesserungen vom 2026-10-13
+
+### Bewilligungsbindung und sichere Archivbehandlung
+
+Sobald zu einer BG irgendein Bescheid existiert, muss genau ein `ERTEILT`-Bescheid
+den Zahlungsmonat abdecken. `BescheidPaymentBinding` vergleicht die aktuelle Rechnung
+mit **dem gespeicherten Betrag dieses Monats**, nicht pauschal mit dem ersten
+Monatsbetrag in `BESCHEID.ZAHLBETRAG`. Version 2 verlangt einen vollständigen,
+chronologisch passenden Monatsplan derselben BG. Version 1 verwendet den konstanten
+Snapshotbetrag; bei snapshotlosen Altbescheiden gilt ausschließlich der gespeicherte
+Bewilligungsbetrag. Die Zahlung wird bei Abweichung oder mehrdeutigen Altbescheiden
+vor Zahlungseintrag, Budgetminderung und Vermögensverbrauch mit `VALIDATION` abgewiesen.
+Ein neuer `ERTEILT`-Bescheid darf keinen aktiven Bewilligungszeitraum überschneiden;
+angrenzende Zeiträume bleiben möglich. Es erfolgt keine automatische Aufhebung.
+
+Das ist eine konservative technische Sperre, kein Änderungsbescheidverfahren.
+Eine Änderung von Einkommen, Vermögen, Satzständen oder Fällen kann deshalb eine
+manuelle fachliche Klärung erfordern. Dasselbe gilt, wenn eine vorgezogene Zahlung
+oder ein Storno den Vermögensbestand gegenüber dem Monatsplan verändert. Ein
+vollständiger Aufhebungs-/Änderungsworkflow ist weiterhin nicht implementiert.
+BG ohne jeden Bescheid behalten den ausdrücklich vorgesehenen Demo-Buchungsweg.
+
+Gültige v1-Snapshots bleiben lesbar. Beschädigte Snapshots werden nicht mit null
+ergänzt oder aus heutigen Falldaten rekonstruiert: der Druck liefert einen Fachfehler,
+die API kennzeichnet den Snapshot als `INVALID` mit Warnung. Nur der bereits bestehende
+Fallback für **fehlende** Alt-Snapshots erzeugt eine deutlich gekennzeichnete aktuelle
+Aufstellung; diese wird dadurch nicht zu einem historischen Erteilungs-Snapshot.
+
+### Korrelation der Saga-Kompensation
+
+Die Antrags-Saga schreibt mit dem Bescheid atomar den Journal-Marker
+`Antrags-Saga <id>: Bescheid-ID <bescheidId>`. Die Kompensation hebt nur die so
+zugeordneten Bescheide derselben sagaeigenen BG auf; manuelle weitere Bescheide
+werden nicht pauschal mit aufgehoben. Fehlt bei einer Alt-Saga dieser ID-Marker und
+existiert noch ein `ERTEILT`-Bescheid, bricht die Kompensation mit
+`SAGA_BESCHEID_ZUORDNUNG` ab: `FAILED` und manuelle Klärung statt eines unbelegten
+`COMPENSATED`. Ohne vorhandenen Bescheid bleibt der nicht committete
+`IN_FLIGHT`-Schritt eine zulässige No-Operation. Noch ältere Sagas ohne
+Vorgangs-Anlagemarker benötigen ebenfalls manuelle Prüfung.
+
+### Zeitbasis des Saga-Journals
+
+Die vorhandenen `TIMESTAMP`-Spalten speichern den aus `SYSTIMESTAMP` übernommenen
+Wanduhrwert des DB-Servers ohne Zeitzoneninformation. Der Altersfilter verwendet
+deshalb auf beiden Seiten dieselbe DB-Zeitbasis:
+`CAST(SYSTIMESTAMP AS TIMESTAMP) - NUMTODSINTERVAL(?, 'SECOND')`. Es erfolgt keine
+implizite Umrechnung über die JVM- oder Session-Zone und kein Wechsel zu UTC.
+Die bisherigen auf derselben DB-Zeitbasis erzeugten Werte werden nicht nachträglich
+umgedeutet. Ein Wechsel der DB-Server-Zone oder Wanduhrsprünge kann den Altersfilter
+weiterhin beeinflussen; die exklusive Kopf-Sperre bleibt der Schutz aktiver Sagas.
+Fremde Legacy-Zeitwerte dürfen ohne Herkunftsnachweis keiner Zone zugeordnet werden.
+
+### Begrenzte HTTP-Anfragen und strikte Eingaben
+
+`HttpServerLimits.configure()` läuft in den Server-Startpfaden vor dem ersten
+JDK-`HttpServer.create`. Die Properties gelten JVM-weit, werden vom JDK einmalig
+eingelesen und gehören nicht zur `LmgConfig`-Datei-/Umgebungskaskade:
+
+| JVM-Property (`-D…`) | Standard | Zulässiger Bereich |
+|---|---:|---:|
+| `sun.net.httpserver.maxReqTime` | 30 Sekunden | 1–300 Sekunden |
+| `sun.net.httpserver.maxRspTime` | 120 Sekunden | 1–600 Sekunden |
+| `sun.net.httpserver.idleInterval` | 30 Sekunden | 1–300 Sekunden |
+| `jdk.httpserver.maxConnections` | 256 | 16–4096 |
+
+Die Sekundenangaben für Request und Response entsprechen der Umrechnung in
+[OpenJDK 21 `ServerImpl.getTimeMillis`](https://github.com/openjdk/jdk21u/blob/master/src/jdk.httpserver/share/classes/sun/net/httpserver/ServerImpl.java).
+Die Timer haben eine JDK-abhängige Prüfgranularität; es ist kein millisekundengenauer
+Abbruch zugesichert. Ungültige, unbegrenzte oder nach Initialisierung geänderte Werte
+verhindern den Start statt still auf unbeschränkte Laufzeiten zurückzufallen.
+
+Die API verlangt passende JSON-Typen. Ganzzahlen werden mit exakter 64-/32-Bit-Prüfung
+gelesen; Bruchteile und Überläufe werden nicht abgeschnitten. Optionale boolesche oder
+numerische Felder dürfen bei fehlender Angabe ihren dokumentierten Default behalten,
+falsche Typen werden jedoch mit HTTP 400 `VALIDATION` abgewiesen. Auch der Bescheid-Druck
+meldet eine volle Task-Warteschlange mit HTTP 503 `UEBERLAST` und `Retry-After: 2`.
+Technische HTTP- und Diagnosefehler enthalten nur Fehlerklassen/ORA-Codes, keine
+Exception-Texte oder rohen Requestpfade mit möglichen Sozialdaten. `LmgServer.close()`
+beendet zusätzlich den eigenen HTTP-Executor; die Task-Steuerung wird separat geschlossen.
+
+Statische Dateien unterstützen `GET` und `HEAD`; `HEAD` liefert dieselben
+Metadaten ohne Antwortkörper. Schreibmethoden werden mit HTTP 405 und
+`Allow: GET, HEAD` abgewiesen.
+
+### Startabbruch bei Konfigurations- oder Wiederanlauffehlern
+
+Eine vorhandene Konfigurationsdatei wird vollständig als UTF-8 gelesen; ein
+anfängliches UTF-8-BOM ist zulässig. Unlesbare Dateien, fehlerhafte UTF-8-Bytes und
+ungültige Properties-Escapes brechen den Start ab. Bereits gelesene Teilwerte und
+Defaults ersetzen keine defekte Datei. Eine tatsächlich fehlende optionale Datei
+kann weiterhin durch Klassenpfadkonfiguration beziehungsweise Defaults ersetzt
+werden. Der Pooltyp erlaubt nur `ucp` oder `simple`; Zahlwerte müssen in ihren
+zulässigen Integerbereich passen. Properties-Dateien behalten die üblichen
+Escape-Regeln: Windows-Pfade mit `/` oder doppeltem Backslash schreiben.
+
+Der Serverstart wertet die Recovery-Berichte aller registrierten Saga-Typen aus.
+Technische Scanfehler und nicht abgeschlossene Kompensationen verhindern den Start
+mit einer klaren Fehlermeldung. Der HTTP-Listener und sein Executor werden erst nach
+erfolgreichem Wiederanlauf angelegt; vorhandene Pool-/Taskressourcen werden bei
+Startfehlern geschlossen. Ein fehlgeschlagener Scan wird weder als „0 offene Sagas“
+noch durch einen normalen Erfolgsbanner dargestellt. Fehlerhafte Alt-Sagas benötigen
+vor einem erneuten Start eine manuelle Prüfung des Journals und ihrer Fachwirkung.
+
+### Persistierte Rückgaben der Zahlungs- und Bescheid-DAOs
+
+Nach einem INSERT lesen `ZahlungDao` und `BescheidDao` die gespeicherte Zeile über
+ihren vorhandenen Mapper zurück. Die unmittelbare Rückgabe enthält damit denselben
+Datenbank-Zeitstempel und dieselben Daten wie ein anschließendes Lesen. Ein separat
+erzeugtes `Instant.now()` ersetzt den gespeicherten Wert nicht mehr. Geldwerte werden
+ohne weitere Rundung auf zwei Nachkommastellen dargestellt; Oracle kann bei vollen
+Eurobeträgen die Nullstellen im JDBC-Wert weglassen. Zwei Oracle-Regressionen prüfen
+Zeitstempel, Null-Mapping, vorgegebenes Bescheiddatum und Cent-Skalierung.
+
+Das ändert weder die Zeitbasis bestehender TIMESTAMP-Spalten noch interpretiert es
+historische Werte nachträglich als UTC. Eine solche Migration benötigt einen
+belegbaren Ursprung der gespeicherten Zeitwerte.

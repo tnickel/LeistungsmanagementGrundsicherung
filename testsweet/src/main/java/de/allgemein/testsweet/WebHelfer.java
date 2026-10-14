@@ -101,15 +101,7 @@ public final class WebHelfer {
         // Bestätigungsdialoge automatisch zustimmen
         autoConfirmAktivieren(treiber);
 
-        // Falls bereits angemeldet, abmelden
-        try {
-            WebElement abmelden = treiber.findElement(By.id("btn-abmelden"));
-            if (abmelden.isDisplayed()) {
-                klick(treiber, abmelden);
-            }
-        } catch (Exception ignored) {}
-
-        WebElement loginKennung = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("login-kennung")));
+        WebElement loginKennung = warteAufAnmeldemaske(treiber, wait);
         loginKennung.clear();
         String user = (String) ctx.getOrDefault("mitarbeiter", "sb-01");
         loginKennung.sendKeys(user);
@@ -127,6 +119,20 @@ public final class WebHelfer {
         ctx.put("sitzungKennung", user);
         ctx.put("sitzungPasswort", pw);
         return "Erfolgreich angemeldet als " + user;
+    }
+
+    /** Seitenladen beendet nicht die asynchrone Sitzungsprüfung (/api/werbin).
+     * Erst auf deren sichtbares Ergebnis warten, dann eine vorhandene Sitzung
+     * kontrolliert abmelden. Ein einmaliger Blick auf den anfangs versteckten
+     * Logout-Knopf würde die später wiederhergestellte Sitzung übersehen. */
+    private static WebElement warteAufAnmeldemaske(WebDriver treiber, WebDriverWait wait) {
+        WebElement bereit=wait.until(d->{
+            for(WebElement element:d.findElements(By.id("btn-abmelden")))if(element.isDisplayed())return element;
+            for(WebElement element:d.findElements(By.id("login-kennung")))if(element.isDisplayed())return element;
+            return null;
+        });
+        if(treiber.findElements(By.id("btn-abmelden")).stream().anyMatch(WebElement::isDisplayed))klick(treiber,bereit);
+        return wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("login-kennung")));
     }
 
     /** Neue Sitzung mit der zuletzt bestätigten Identität; die wiederholbare
@@ -343,18 +349,8 @@ public final class WebHelfer {
         treiber.get(url);
         WebDriverWait wait = new WebDriverWait(treiber, TIMEOUT);
         autoConfirmAktivieren(treiber);
-        // Das Fenster kann aus einem früheren Auftrag noch angemeldet sein (Token im
-        // localStorage) — dann zeigt die Seite die Fallübersicht statt der Anmeldemaske.
-        // Erst abmelden, sonst läuft der WarteTimer auf login-kennung ins Leere.
-        try {
-            WebElement abmelden = treiber.findElement(By.id("btn-abmelden"));
-            if (abmelden.isDisplayed()) {
-                klick(treiber, abmelden);
-            }
-        } catch (Exception nochAbgemeldet) {
-            // gut: Login-Maske ist bereits sichtbar
-        }
-        WebElement kennung = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("login-kennung")));
+        // Sitzung in sessionStorage kann nach get() erst asynchron wieder erscheinen.
+        WebElement kennung = warteAufAnmeldemaske(treiber, wait);
         kennung.clear();
         kennung.sendKeys((String) ctx.getOrDefault("mitarbeiter", "sb-01"));
         WebElement passwort = treiber.findElement(By.id("login-passwort"));
@@ -366,11 +362,24 @@ public final class WebHelfer {
             WebElement el = d.findElement(By.id("login-fehler"));
             return el.getText() != null && !el.getText().isBlank() ? el : null;
         });
+        Object token = ((JavascriptExecutor) treiber).executeScript("return sessionStorage.getItem('lmgToken');");
+        pruefeAnmeldeAbweisung(fehlerzeile.getDomAttribute("data-http-status"),
+                fehlerzeile.getDomAttribute("data-error-code"), fehlerzeile.getText(), token);
         if (treiber.findElements(By.id("view-uebersicht")).stream().anyMatch(WebElement::isDisplayed)) {
             throw new IllegalStateException("Anmeldung mit falschem Passwort war erfolgreich — "
                     + "Anmeldeprüfung verletzt");
         }
         return "Anmeldung abgewehrt — Oberfläche meldet: " + fehlerzeile.getText();
+    }
+
+    static void pruefeAnmeldeAbweisung(String status, String code, String message, Object token) {
+        // Die bestehende API meldet ungültige Anmeldedaten mit 400/VALIDATION;
+        // 401 bezeichnet eine fehlende Sitzung und ist kein Beleg für die Passwortprüfung.
+        if (!"400".equals(status) || !"VALIDATION".equals(code)
+                || !"Kennung oder Passwort ist falsch".equals(message) || token != null) {
+            throw new IllegalStateException("Keine kontrollierte Passwort-Abweisung: HTTP " + status
+                    + ", Code " + code + ", Meldung " + message + (token == null ? "" : ", Sitzung wurde erzeugt"));
+        }
     }
 
     /** Legt einen Vorgang mit FEHLERHAFTEN Bankverbindungsdaten an und prüft, dass

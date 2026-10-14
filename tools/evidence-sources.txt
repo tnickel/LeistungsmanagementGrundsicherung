@@ -1,0 +1,10 @@
+# Quellen, deren Änderung vorhandene Prüfnachweise entwertet.
+dir:src/main
+dir:src/test
+dir:testsweet/src/main
+dir:testsweet/src/test
+dir:ddl
+dir:tools
+file:pom.xml
+file:testsweet/pom.xml
+tool:doc/testzertifikat-werkzeug

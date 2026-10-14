@@ -89,7 +89,14 @@ public final class TxManager {
                     () -> "Transaktionsversuch " + tried + "/" + maxAttempts
                             + " fehlgeschlagen, Wiederholung folgt: " + de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(failure));
             de.allgemein.tx.audit.TxAuditLog.recordTxRetry(txId, attempt, de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(failure));
-            retryPolicy.sleepBeforeAttempt(attempt);
+            try {
+                retryPolicy.sleepBeforeAttempt(attempt);
+            } catch (TxException interrupted) {
+                de.allgemein.tx.audit.TxAuditLog.recordTxRollback(txId, attempt,
+                        (System.nanoTime() - startNanos) / 1_000_000,
+                        de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(interrupted));
+                throw interrupted;
+            }
         }
         // Nicht erreichbar: die Schleife endet immer mit return oder throw
         // (maxAttempts >= 1 wird von TxOptions erzwungen).
@@ -102,7 +109,7 @@ public final class TxManager {
         try {
             raw.setTransactionIsolation(options.isolation());
             return new TxContext(raw, options.timeout());
-        } catch (SQLException e) {
+        } catch (SQLException | RuntimeException | Error e) {
             pool.release(raw);
             throw e;
         }
@@ -132,8 +139,11 @@ public final class TxManager {
         // Verbindung VOR close() aus dem Kontext lösen: close() beendet die
         // Transaktion und connection() würde danach eine IllegalStateException werfen.
         Connection raw = ctx.detachConnection();
-        ctx.close();
-        pool.release(raw);
+        try {
+            ctx.close();
+        } finally {
+            pool.release(raw);
+        }
     }
 
     private void rollbackQuietly(Connection raw) {

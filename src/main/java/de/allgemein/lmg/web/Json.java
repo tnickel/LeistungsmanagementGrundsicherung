@@ -10,6 +10,9 @@ import java.util.Map;
  * Bibliothek (Projektregel: keine Frameworks, schmale Abhängigkeiten).
  * Schreiben: Maps/Listen/String/BigDecimal/Boolean/null. Lesen: vollständiger
  * JSON-Parser (Objekte → LinkedHashMap, Arrays → ArrayList, Zahlen → BigDecimal).
+ * Zahlen, Leerraum und Escapes folgen RFC 8259. Zusätzlich verlangt diese
+ * Anwendung eindeutige Objektschlüssel und wohlgeformte Unicode-Zeichenfolgen;
+ * doppelte Schlüssel und ungepaarte UTF-16-Surrogates werden abgewiesen.
  */
 public final class Json {
 
@@ -80,6 +83,7 @@ public final class Json {
     }
 
     private static void writeString(StringBuilder out, String s) {
+        pruefeUnicode(s);
         out.append('"');
         for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);
@@ -101,6 +105,20 @@ public final class Json {
             }
         }
         out.append('"');
+    }
+
+    /** Strengere Interoperabilitätsregel als die JSON-ABNF (RFC 8259, 8.2). */
+    private static void pruefeUnicode(CharSequence value) {
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (Character.isHighSurrogate(c)) {
+                if (i + 1 >= value.length() || !Character.isLowSurrogate(value.charAt(i + 1)))
+                    throw new IllegalArgumentException("Ungepaartes UTF-16-Surrogate in JSON-Zeichenfolge");
+                i++;
+            } else if (Character.isLowSurrogate(c)) {
+                throw new IllegalArgumentException("Ungepaartes UTF-16-Surrogate in JSON-Zeichenfolge");
+            }
+        }
     }
 
     // ------------------------------------------------------------------
@@ -140,7 +158,9 @@ public final class Json {
         }
 
         void ueberspringeLeerraum() {
-            while (pos < text.length() && Character.isWhitespace(text.charAt(pos))) {
+            while (pos < text.length()) {
+                char c = text.charAt(pos);
+                if (c != ' ' && c != '\t' && c != '\n' && c != '\r') break;
                 pos++;
             }
         }
@@ -195,6 +215,9 @@ public final class Json {
                 String schluessel = leseString();
                 ueberspringeLeerraum();
                 erwarte(':');
+                // RFC 8259 empfiehlt eindeutige Namen; für Fachanfragen darf
+                // ein zweiter Wert denselben Schlüssel niemals still ersetzen.
+                if (objekt.containsKey(schluessel)) throw fehler("doppelter Objektschlüssel");
                 objekt.put(schluessel, leseWert());
                 ueberspringeLeerraum();
                 char c = aktuell();
@@ -251,6 +274,8 @@ public final class Json {
                 }
                 char c = text.charAt(pos++);
                 if (c == '"') {
+                    try { pruefeUnicode(aus); }
+                    catch (IllegalArgumentException invalid) { throw fehler(invalid.getMessage()); }
                     return aus.toString();
                 }
                 if (c == '\\') {
@@ -273,7 +298,10 @@ public final class Json {
                             }
                             int codeUnit = 0;
                             for (int i = 0; i < 4; i++) {
-                                int ziffer = Character.digit(text.charAt(pos + i), 16);
+                                char hex = text.charAt(pos + i);
+                                int ziffer = hex >= '0' && hex <= '9' ? hex - '0'
+                                        : hex >= 'a' && hex <= 'f' ? hex - 'a' + 10
+                                        : hex >= 'A' && hex <= 'F' ? hex - 'A' + 10 : -1;
                                 if (ziffer < 0) {
                                     throw fehler("ungültige \\u-Escape-Folge");
                                 }
@@ -285,6 +313,7 @@ public final class Json {
                         default -> throw fehler("unbekannte Escape-Folge '\\" + esc + "'");
                     }
                 } else {
+                    if (c < 0x20) throw fehler("rohes Steuerzeichen in String");
                     aus.append(c);
                 }
             }
@@ -295,18 +324,23 @@ public final class Json {
             if (!amEnde() && (text.charAt(pos) == '-')) {
                 pos++;
             }
-            boolean ziffernGefunden = false;
             int ziffern = 0;
-            while (!amEnde() && Character.isDigit(text.charAt(pos))) {
+            if (amEnde() || !istZiffer(text.charAt(pos))) throw fehler("Zahl erwartet");
+            if (text.charAt(pos) == '0') {
                 pos++;
-                ziffernGefunden = true;
                 ziffern++;
+                if (!amEnde() && istZiffer(text.charAt(pos))) throw fehler("führende Null in Zahl");
+            } else {
+                while (!amEnde() && istZiffer(text.charAt(pos))) {
+                    pos++;
+                    ziffern++;
+                }
             }
             if (!amEnde() && text.charAt(pos) == '.') {
                 pos++;
-                while (!amEnde() && Character.isDigit(text.charAt(pos))) {
+                if (amEnde() || !istZiffer(text.charAt(pos))) throw fehler("Nachkommastelle erwartet");
+                while (!amEnde() && istZiffer(text.charAt(pos))) {
                     pos++;
-                    ziffernGefunden = true;
                     ziffern++;
                 }
             }
@@ -318,17 +352,14 @@ public final class Json {
                     negativ = text.charAt(pos) == '-';
                     pos++;
                 }
-                while (!amEnde() && Character.isDigit(text.charAt(pos))) {
+                if (amEnde() || !istZiffer(text.charAt(pos))) throw fehler("Exponentziffer erwartet");
+                while (!amEnde() && istZiffer(text.charAt(pos))) {
                     exponent = Math.min(exponent * 10 + (text.charAt(pos) - '0'), 10_000L);
                     pos++;
                 }
                 if (negativ) {
                     exponent = -exponent;
                 }
-            }
-            if (!ziffernGefunden) {
-                pos = start;
-                throw fehler("Zahl erwartet");
             }
             // Begrenzung gegen Exponenten-/Scale-Bomben: Riesen-Exponenten (z. B. 1e2000000000)
             // expandieren erst bei setScale/toPlainString zu Gigabyte-Strings (OutOfMemoryError,
@@ -344,5 +375,7 @@ public final class Json {
             }
             return new BigDecimal(text.substring(start, pos));
         }
+
+        private static boolean istZiffer(char c) { return c >= '0' && c <= '9'; }
     }
 }

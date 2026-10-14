@@ -24,10 +24,13 @@ class KiPruefAnhangTest {
     @Test void passOhneVollstaendigeAbdeckungIstKeinFachpruefErfolg() {
         Map<String, Object> evidence = evidence();
         evidence.put("state", "PASS");
+        evidence.put("caseVerdict", "PASS");
         evidence.put("completedCases", 1);
         assertFalse(KiPruefAnhang.fachlichBestanden(evidence));
         evidence.put("completedCases", 2);
         assertTrue(KiPruefAnhang.fachlichBestanden(evidence));
+        evidence.remove("calculationVerified");
+        assertFalse(KiPruefAnhang.fachlichBestanden(evidence));
     }
 
     @Test void ohneTransportnachweisBleibtDateiuebergabeAusstehend() {
@@ -46,6 +49,8 @@ class KiPruefAnhangTest {
         evidence.put("totalCases", 2);
         evidence.put("completedCases", 2);
         evidence.put("transportVerified", true);
+        evidence.put("calculationVerified", true);
+        evidence.put("reviewCoverageVerified", true);
         evidence.put("transportChecks", List.of(Map.of("batch", 1, "requestId", "request-id-1",
                 "responseValidated", true, "documents", List.of(Map.of("name", "pruefmenge.md", "sha256", "abc123", "bytes", 4711)))));
         return evidence;

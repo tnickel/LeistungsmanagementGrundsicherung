@@ -52,7 +52,7 @@ public final class Systemdiagnose {
                     .withTimeout(PRUEF_TIMEOUT).withMaxAttempts(1), this::leseDbStatus);
         } catch (TxException e) {
             basis = new Systemstatus(
-                    false, e.getMessage(), null, null, 0, null,
+                    false, de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(e), null, null, 0, null,
                     -1, -1, -1, -1, -1,
                     0, 0, 0, 0, 0, 0.0,
                     null, null, 0);
@@ -95,7 +95,8 @@ public final class Systemdiagnose {
     /**
      * Wiederanlauf mit Fehlerausweis (Fund M3): je Saga-Typ die Anzahl abgeschlossener,
      * kompensierter, fehlgeschlagener und technisch fehlerhafter Vorgänge. Der Wiederanlauf
-     * wirbt dabei nie — ein Fehler einer einzelnen Saga gefährdet den Serverstart nicht.
+     * wirft für protokollierte Einzelfehler nicht. Der Aufrufer muss den Fehlerausweis
+     * auswerten; der Serverstart wird bei unvollständiger Recovery abgebrochen.
      */
     public WiederanlaufErgebnis wiederanlaufDetails() {
         Map<String, SagaEngine.RecoveryReport> jeTyp = new LinkedHashMap<>();

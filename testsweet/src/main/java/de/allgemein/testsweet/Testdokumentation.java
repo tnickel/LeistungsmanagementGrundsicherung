@@ -47,7 +47,7 @@ final class Testdokumentation {
         inhalt.setzeKopfzeile("SDN.Leistung LMG — Automatische Testdokumentation (Simulator-Lauf " + zeitstempel + ")");
         inhalt.setzeFusszeile("testsweet — automatische Testdokumentation (" + zeitstempel + ")");
 
-        zusammenfassung(inhalt, simulator);
+        zusammenfassung(inhalt, simulator, evidence);
         for (Auftrag auftrag : auftraege) {
             einzelfall(inhalt, auftrag);
         }
@@ -60,7 +60,7 @@ final class Testdokumentation {
         SweetPdf messKopf = new SweetPdf();
         messKopf.setzeKopfzeile("SDN.Leistung LMG — Automatische Testdokumentation");
         messKopf.setzeFusszeile("testsweet — automatische Testdokumentation");
-        deckblatt(messKopf, simulator);
+        deckblatt(messKopf, simulator, evidence);
         einleitung(messKopf, simulator);
         inhaltsverzeichnis(messKopf, auftraege, null, 0);
         int offset = messKopf.seitenAnzahl();
@@ -68,7 +68,7 @@ final class Testdokumentation {
         SweetPdf kopf = new SweetPdf();
         kopf.setzeKopfzeile("SDN.Leistung LMG — Automatische Testdokumentation");
         kopf.setzeFusszeile("testsweet — automatische Testdokumentation");
-        deckblatt(kopf, simulator);
+        deckblatt(kopf, simulator, evidence);
         einleitung(kopf, simulator);
         inhaltsverzeichnis(kopf, auftraege, markenSeiten, offset);
 
@@ -92,12 +92,16 @@ final class Testdokumentation {
     // ==================================================================
 
     private static void deckblatt(SweetPdf pdf, Simulator simulator) {
+        deckblatt(pdf, simulator, Map.of());
+    }
+
+    private static void deckblatt(SweetPdf pdf, Simulator simulator, Map<String,Object> evidence) {
         pdf.text("SDN.Leistung · LEISTUNGSMANAGEMENT GRUNDSICHERUNG (SGB XII)", SweetPdf.DUNKELBLAU, 10.5f);
         pdf.fettZeile("Qualitäts- und Transaktionssicherung: Automatisierter Last- und Integrationstest", SweetPdf.GRAU, 8.5f);
         pdf.leereZeile(3f);
 
-        // Titelbild einbinden (zentriert, 480 pt breit, proportional, ohne überlagernden Bildtitel)
-        pdf.bildZentriert("titelbild.jpg", 480f, 0f, null);
+        // Die aktuelle Architektur trägt die korrekte Produktbezeichnung.
+        pdf.bildZentriert("transaktionsarchitektur.jpg", 480f, 0f, null);
         pdf.leereZeile(6f);
 
         pdf.fettZeile("Automatische Testdokumentation", SweetPdf.BLAU, 20f);
@@ -136,11 +140,14 @@ final class Testdokumentation {
             fehl += a.status == Auftrag.Status.FEHLGESCHLAGEN ? 1 : 0;
         }
 
-        String ergebnisText = "GESAMTERGEBNIS: "
-                + (simulator.laufErfolgreich() ? "BESTANDEN" : "NICHT BESTANDEN / UNVOLLSTÄNDIG")
+        ReviewOutcome outcome = ReviewOutcome.evaluate(simulator, evidence);
+        String ergebnisText = "GESAMTERGEBNIS: " + outcome.label()
                 + " — " + verifiziert + " von " + simulator.auftraege().size() + " verifiziert";
         pdf.kasten(ergebnisText, true, SweetPdf.WEISS,
-                simulator.laufErfolgreich() ? SweetPdf.FUELL_GRUEN : SweetPdf.FUELL_ROT, 10.5f);
+                outcome.passed() ? SweetPdf.FUELL_GRUEN : SweetPdf.FUELL_ROT, 10.5f);
+        pdf.text("Automatische Fach-/SQL-Prüfung: " + outcome.automatedState()
+                + " | KI-Prüfung: " + outcome.llmState() + " (ausgewählte Stichprobe)", SweetPdf.SCHWARZ, 9f);
+        for (String error : outcome.errors()) pdf.text(error, SweetPdf.ROT, 8.5f);
         pdf.leereZeile(6f);
 
         pdf.text("Dieses Dokument wurde vollautomatisch aus dem Simulator-Lauf erzeugt. "
@@ -268,7 +275,7 @@ final class Testdokumentation {
     // Zusammenfassung
     // ==================================================================
 
-    private static void zusammenfassung(SweetPdf pdf, Simulator simulator) {
+    private static void zusammenfassung(SweetPdf pdf, Simulator simulator, Map<String,Object> evidence) {
         List<Auftrag> auftraege = simulator.auftraege();
         pdf.ueberschrift("Zusammenfassung der Testergebnisse");
         boolean istWeb = "WEB".equalsIgnoreCase(simulator.letzterModus());
@@ -288,8 +295,9 @@ final class Testdokumentation {
         pdf.leereZeile(3f);
 
         pdf.abschnittsTitel("Ergebnis in Zahlen");
-        pdf.fettZeile("Lauf erfolgreich: " + simulator.laufErfolgreich(),
-                simulator.laufErfolgreich() ? SweetPdf.GRUEN : SweetPdf.ROT, 10f);
+        ReviewOutcome outcome = ReviewOutcome.evaluate(simulator, evidence);
+        pdf.fettZeile("Gesamtergebnis: " + outcome.label(), outcome.passed() ? SweetPdf.GRUEN : SweetPdf.ROT, 10f);
+        pdf.text("Automatische Fach-/SQL-Prüfung: " + outcome.automatedState(), SweetPdf.SCHWARZ, 9f);
         for (Auftrag.Pruefung pruefung : simulator.globalePruefungen()) {
             pdf.text(pruefung.beschreibung() + ": erwartet " + pruefung.erwartet() + ", ist "
                     + pruefung.ist() + (pruefung.hinweis() == null ? "" : " — " + pruefung.hinweis()),
@@ -306,11 +314,13 @@ final class Testdokumentation {
         }
         pdf.text("Aufträge gesamt: " + auftraege.size(), SweetPdf.SCHWARZ, 9.5f);
         pdf.text("Vollständig verifiziert (Datenbank-Endzustand exakt wie erwartet): "
-                + verifiziert, verifiziert == auftraege.size() ? SweetPdf.GRUEN : SweetPdf.BLAU, 9.5f);
+                + verifiziert, !auftraege.isEmpty() && verifiziert == auftraege.size() ? SweetPdf.GRUEN : SweetPdf.ROT, 9.5f);
         pdf.text("Verifikation mit Abweichungen: " + verifikationNok,
                 verifikationNok == 0 ? SweetPdf.GRUEN : SweetPdf.ROT, 9.5f);
         pdf.text("Beim Spielen fehlgeschlagen: " + fehlgeschlagen,
                 fehlgeschlagen == 0 ? SweetPdf.GRUEN : SweetPdf.ROT, 9.5f);
+        long unfinished = auftraege.stream().filter(a -> a.status == Auftrag.Status.OFFEN || a.status == Auftrag.Status.IN_BEARBEITUNG).count();
+        pdf.text("Nicht abgeschlossene / ungeprüfte Aufträge: " + unfinished, unfinished == 0 ? SweetPdf.GRAU : SweetPdf.ROT, 9.5f);
         pdf.leereZeile(3f);
 
         pdf.abschnittsTitel("Verteilung der Testfallarten");
@@ -415,6 +425,7 @@ final class Testdokumentation {
                     p.ok() ? SweetPdf.GRUEN : SweetPdf.ROT, 9.0f);
             pdf.text("         erwartet: " + p.erwartet() + "   |   Ist (DB): " + p.ist(),
                     SweetPdf.GRAU, 8.5f);
+            if (p.hinweis() != null) pdf.text("Diagnose: " + p.hinweis(), SweetPdf.ROT, 8.5f);
         }
 
         if (a.fehlerText != null) {
@@ -479,7 +490,11 @@ final class Testdokumentation {
             schritt(pdf, "+ Kosten der Unterkunft: Miete " + euro(fall.kduMiete())
                     + " + Betriebskosten " + euro(fall.kduBetriebskosten())
                     + " + Heizung " + euro(fall.kduHeizung())
-                    + " (§ 42a SGB XII; Angemessenheitsprüfung deaktiviert)", f.kdu());
+                    + " - örtlicher zentraler Warmwasserabzug " + euro(f.kduWarmwasserAbzug())
+                    + " (Anteil " + block.kduParameter().warmwasserAbzugHeizungProzent().toPlainString()
+                    + "; BG-Grenze " + (block.kduParameter().angemessenheitsgrenze().signum() > 0
+                        ? euro(block.kduParameter().angemessenheitsgrenze()) + " EUR" : "deaktiviert") + ")", f.kdu());
+            if (f.kduUnangemessen()) pdf.text("KdU auf das noch verfügbare Gesamtlimit der BG gekappt.", SweetPdf.GRAU, 8.5f);
             schritt(pdf, "= Gesamtbedarf Person " + (i + 1), f.gesamtbedarf());
 
             if (fall.einkommenRente().signum() > 0 || fall.einkommenErwerb().signum() > 0
@@ -519,7 +534,7 @@ final class Testdokumentation {
         if (block.vermoegen().signum() > 0) {
             schritt(pdf, "– verwertbares Vermögen: Vermögen " + euro(block.vermoegen())
                             + " – Schonvermögen " + euro(block.schonvermoegen())
-                            + " (10.000 EUR je erwachsener Person, § 90 Abs. 2 Nr. 9 i.V.m. "
+                            + " (Produktvertrag: 10.000 EUR je erwachsener Person + 500 EUR je unterhaltener Person; ohne Erwachsene einmal 10.000 EUR, § 90 Abs. 2 Nr. 9 i.V.m. "
                             + "§ 1 BarbetragsVO)",
                     block.ergebnis().verwertbaresVermoegen());
         }

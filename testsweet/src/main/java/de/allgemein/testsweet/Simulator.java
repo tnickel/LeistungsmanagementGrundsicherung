@@ -1,6 +1,7 @@
 package de.allgemein.testsweet;
 
 import de.allgemein.lmg.config.LmgConfig;
+import de.allgemein.lmg.calc.Leistungsberechnung;
 import de.allgemein.lmg.service.LeistungsService;
 import de.allgemein.lmg.service.SozialLeistungsService;
 import de.allgemein.lmg.service.Systemdiagnose;
@@ -23,6 +24,12 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -106,9 +113,13 @@ public final class Simulator {
     private volatile List<Auftrag.Pruefung> globalePruefungen = List.of();
     private volatile SimpleConnectionPool pool;
     private volatile SozialLeistungsService service;
+    private volatile TxManager fachTxManager;
+    private final java.util.concurrent.ConcurrentHashMap<Leistungsberechnung.KduParameter, SozialLeistungsService> fachServices = new java.util.concurrent.ConcurrentHashMap<>();
     private volatile boolean abgebrochen;
     private volatile LocalDateTime laufStart;
     private volatile LocalDateTime laufEnde;
+    private volatile Instant laufStartInstant;
+    private volatile Instant laufEndeInstant;
     /** Monotone Stoppuhr (System.nanoTime) — unabhängig von Wanduhr-Verstellungen;
      *  laufStart/laufEnde bleiben als Wanduhrzeit für die Protokolle erhalten. */
     private volatile long laufStartNano;
@@ -118,6 +129,10 @@ public final class Simulator {
     private volatile String letztesLogVerzeichnis;
     private volatile String letztesPdf;
     private volatile String letztesMd;
+    private final List<String> nachweisFehler = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private volatile boolean reportsComplete;
+    private volatile Map<String, Object> buildEvidence = Map.of();
+    private volatile long letzterZwischenstandNano;
     private volatile String modusLetzter = "FACHSCHICHT";
     private volatile Kategorie kategorieLetzter = Kategorie.POSITIV;
     /** Harte Laufsperre: zuschlagen VOR dem Thread-Start — die Phase wird im Lauf
@@ -138,8 +153,15 @@ public final class Simulator {
     private TaskController webTasks;
     private LmgServer webServer;
     private volatile ExecutorService laufExecutor;
+    @FunctionalInterface interface ZustandsLeser { Fachzustand lese(Auftrag auftrag) throws Exception; }
+    private final ZustandsLeser zustandsLeser;
 
     public Simulator() {
+        this(null);
+    }
+
+    Simulator(ZustandsLeser zustandsLeser) {
+        this.zustandsLeser = zustandsLeser;
         this.dbUrl = System.getProperty("tx.url", umgebung("TX_URL", "jdbc:oracle:thin:@//localhost:1521/FREEPDB1"));
         this.dbUser = System.getProperty("tx.user", umgebung("TX_USER", "tx_demo"));
         this.dbPass = System.getProperty("tx.pass", umgebung("TX_PASS", "tx_demo"));
@@ -201,39 +223,52 @@ public final class Simulator {
      *  neuesten Laufverzeichnis ermittelt, damit der PDF-Button auch ohne neuen
      *  Lauf funktioniert. */
     public String letztesPdf() {
-        if (letztesPdf != null) {
+        if (reportsComplete && letztesPdf != null && Files.isRegularFile(Path.of(letztesPdf))) {
             return letztesPdf;
         }
+        if (laufStart != null) return null;
         return neuesteDatei("testdokumentation.pdf");
     }
 
     /** Maschinenlesbare Markdown-Fassung des letzten Laufs (lazy wie das PDF). */
     public String letztesMd() {
-        if (letztesMd != null) {
+        if (reportsComplete && letztesMd != null && Files.isRegularFile(Path.of(letztesMd))) {
             return letztesMd;
         }
+        if (laufStart != null) return null;
         return neuesteDatei("testdokumentation.md");
     }
 
-    /** Pfad der neuesten Datei dieses Namens über alle Laufverzeichnisse. */
+    /** Nur der neueste begonnene Lauf ist aktuell, auch wenn dessen Export fehlt. */
     private String neuesteDatei(String dateiname) {
         try {
-            java.nio.file.Path logs = PathLogBasis();
-            if (java.nio.file.Files.isDirectory(logs)) {
-                java.nio.file.Path neuestes = null;
-                try (var runs = java.nio.file.Files.list(logs)) {
-                    for (java.nio.file.Path run : runs.filter(p -> p.getFileName().toString()
-                            .startsWith("run-")).toList()) {
-                        java.nio.file.Path kandidat = run.resolve(dateiname);
-                        if (java.nio.file.Files.exists(kandidat)
-                                && (neuestes == null || kandidat.compareTo(neuestes) > 0)) {
-                            neuestes = kandidat;
-                        }
-                    }
+            Path logs = PathLogBasis();
+            if (!Files.isDirectory(logs)) return null;
+            Path latest = null;
+            RunChronology.Start latestStart = null;
+            List<Path> candidates = new ArrayList<>();
+            try (var runs = Files.list(logs)) {
+                for (Path run : runs.filter(p -> Files.isDirectory(p)
+                        && p.getFileName().toString().startsWith("run-")).toList()) {
+                    candidates.add(run);
+                    var start = RunChronology.start(run);
+                    if (latest == null || start.earliest().isAfter(latestStart.earliest())) { latest = run; latestStart = start; }
                 }
-                if (neuestes != null) {
-                    return neuestes.toString();
-                }
+            }
+            if (latest == null || !latestStart.explicitOffset()) return null;
+            for (Path run : candidates) if (!run.equals(latest)
+                    && !RunChronology.start(run).latest().isBefore(latestStart.earliest())) return null;
+            if (latest == null || !Files.isRegularFile(latest.resolve("run-state.json"))) return null;
+            Object parsed = Json.parse(Files.readString(latest.resolve("run-state.json")));
+            if (!(parsed instanceof Map<?, ?> state) || !Boolean.TRUE.equals(state.get("reportsComplete"))
+                    || !(state.get("reports") instanceof List<?> reports)) return null;
+            String suffix = dateiname.endsWith(".pdf") ? ".pdf" : ".md";
+            for (Object entry : reports) {
+                if (!(entry instanceof Map<?, ?> report) || !(report.get("path") instanceof String relative)
+                        || !relative.endsWith(suffix)) continue;
+                Path file = latest.resolve(relative).normalize();
+                if (file.getParent().equals(latest) && Files.isRegularFile(file)
+                        && sha256(file).equals(report.get("sha256"))) return file.toString();
             }
         } catch (Exception e) {
             // nichts gefunden — Aufrufer behandelt null
@@ -259,8 +294,55 @@ public final class Simulator {
         return service;
     }
 
+    /** Örtliche Parameter eines Testfalls sind an eine eigene unveränderliche Serviceinstanz gebunden. */
+    SozialLeistungsService service(Auftrag auftrag) {
+        var parameters = auftrag.rechenbloecke.stream().map(Rechenblock::kduParameter).distinct().toList();
+        if (parameters.size() > 1) throw new IllegalStateException("KdU-Konfiguration darf innerhalb eines Auftrags nicht wechseln");
+        var parameter = parameters.isEmpty() ? Leistungsberechnung.KduParameter.AUS : parameters.getFirst();
+        if (parameter.equals(Leistungsberechnung.KduParameter.AUS)) return service;
+        if (fachTxManager == null) throw new IllegalStateException("Fach-Service für örtliche KdU-Parameter fehlt");
+        return fachServices.computeIfAbsent(parameter, p -> new SozialLeistungsService(fachTxManager, p, null));
+    }
+
     boolean abgebrochen() {
         return abgebrochen;
+    }
+
+    public List<String> nachweisFehler() {
+        List<String> result = new ArrayList<>(nachweisFehler);
+        SweetLog current = log;
+        if (current != null && current.schreibfehler() != null && result.stream().noneMatch(s -> s.startsWith("Protokoll")))
+            result.add("Protokoll unvollständig: " + current.schreibfehler().getMessage());
+        return List.copyOf(result);
+    }
+
+    public boolean nachweiseVollstaendig() { return reportsComplete && nachweisFehler().isEmpty(); }
+
+    Fachzustand sichereFachzustand(Auftrag auftrag) throws Exception {
+        if (zustandsLeser != null) return zustandsLeser.lese(auftrag);
+        ConnectionPool verbindungen = pruefpool();
+        Connection connection = verbindungen.getConnection();
+        try {
+            return Fachzustand.lese(connection, auftrag.aktenzeichen);
+        } finally {
+            verbindungen.release(connection);
+        }
+    }
+
+    private ConnectionPool pruefpool() {
+        ConnectionPool verbindungen = pool != null ? pool : webPool;
+        if (verbindungen == null) throw new IllegalStateException("Kein Prüfverbindungspool für den laufenden Simulator verfügbar");
+        return verbindungen;
+    }
+
+    private int verifiziereAktuellenLauf() throws Exception {
+        ConnectionPool verbindungen = pruefpool();
+        Connection connection = verbindungen.getConnection();
+        try {
+            return new Verifikator(dbUrl, dbUser, dbPass).verifiziereAlle(connection, auftraege, log);
+        } finally {
+            verbindungen.release(connection);
+        }
     }
 
     // ------------------------------------------------------------------
@@ -275,14 +357,9 @@ public final class Simulator {
         }
         try {
             this.konfiguration = konfig;
-            this.abgebrochen = false;
-            this.letzteFehlermeldung = null;
-            laufAusfuehren(konfig);
+            setzeLaufZurueck();
+            fuehreGesichertAus(konfig, false);
         } finally {
-            if (log != null) {
-                log.close(); // auch im Fehlerpfad: Logdateien sauber schließen
-                log = null;
-            }
             laufAktiv.set(false);
         }
     }
@@ -295,23 +372,13 @@ public final class Simulator {
                     + phase + ") — bitte das Ende abwarten");
         }
         this.konfiguration = konfig;
-        this.abgebrochen = false;
-        this.letzteFehlermeldung = null;
+        setzeLaufZurueck();
         Thread laufThread = new Thread(() -> {
             try {
-                laufAusfuehren(konfig);
+                fuehreGesichertAus(konfig, false);
             } catch (Exception e) {
-                letzteFehlermeldung = e.getClass().getSimpleName() + ": " + e.getMessage();
-                phase = Phase.ABGEBROCHEN;
-                if (log != null) {
-                    log.fehler("SIMULATOR", "Lauf abgebrochen: " + letzteFehlermeldung);
-                }
-                schliesseRessourcen();
+                // Status, Fehler und terminaler Laufnachweis wurden bereits gesichert.
             } finally {
-                if (log != null) {
-                    log.close(); // in jedem Pfad schließen — auch nach Abbruch
-                    log = null;
-                }
                 laufAktiv.set(false);
             }
         }, "testsweet-lauf");
@@ -380,15 +447,9 @@ public final class Simulator {
         }
         try {
             this.konfiguration = konfig;
-            this.abgebrochen = false;
-            this.letzteFehlermeldung = null;
-            laufWebAusfuehren(konfig);
+            setzeLaufZurueck();
+            fuehreGesichertAus(konfig, true);
         } finally {
-            schliesseWebServer();
-            if (log != null) {
-                log.close(); // auch im Fehlerpfad: Logdateien sauber schließen
-                log = null;
-            }
             laufAktiv.set(false);
         }
     }
@@ -407,23 +468,13 @@ public final class Simulator {
             throw new IllegalStateException(webStressMeldung());
         }
         this.konfiguration = konfig;
-        this.abgebrochen = false;
-        this.letzteFehlermeldung = null;
+        setzeLaufZurueck();
         Thread laufThread = new Thread(() -> {
             try {
-                laufWebAusfuehren(konfig);
+                fuehreGesichertAus(konfig, true);
             } catch (Exception e) {
-                letzteFehlermeldung = e.getClass().getSimpleName() + ": " + e.getMessage();
-                phase = Phase.ABGEBROCHEN;
-                if (log != null) {
-                    log.fehler("SIMULATOR", "Web-Lauf abgebrochen: " + letzteFehlermeldung);
-                }
-                schliesseWebServer();
+                // Status, Fehler und terminaler Laufnachweis wurden bereits gesichert.
             } finally {
-                if (log != null) {
-                    log.close(); // in jedem Pfad schließen — auch nach Abbruch
-                    log = null;
-                }
                 laufAktiv.set(false);
             }
         }, "testsweet-web-lauf");
@@ -446,13 +497,15 @@ public final class Simulator {
         auftraege = List.of();
         modusLetzter = "WEB";
         kategorieLetzter = konfig.kategorie();
-        laufStart = LocalDateTime.now();
+        laufStartInstant = Instant.now();
+        laufStart = LocalDateTime.ofInstant(laufStartInstant, java.time.ZoneId.systemDefault());
         laufStartNano = System.nanoTime();
         laufEnde = null;
         laufEndeNano = 0;
         globalePruefungen = List.of();
         log = new SweetLog(PathLogBasis());
         letztesLogVerzeichnis = log.runVerzeichnis.toString();
+        sichereLaufbeginn();
         log.ereignis("SIMULATOR", "", "Web-Lauf gestartet: " + konfig.mitarbeiter()
                 + " sichtbare Browserfenster, " + konfig.auftraege() + " Aufträge, Seed "
                 + konfig.seed() + ", Oberfläche " + WebHelfer.basisUrl);
@@ -461,6 +514,10 @@ public final class Simulator {
         boolean extern = WebHelfer.expliziteBasisUrl() != null;
         WebHelfer.basisUrl = webZiel(webConfig.port(), WebHelfer.expliziteBasisUrl());
         boolean eingebettet = !extern && starteEingebettetenLmgServer(konfig.mitarbeiter(), webConfig);
+        if (!eingebettet && Boolean.getBoolean("sweet.requireEmbedded")) {
+            throw new IllegalStateException("Zertifikatstests benötigen einen eigenen frisch gebauten Webserver. Der Testport "
+                    + webConfig.port() + " ist belegt oder ein externes Webziel ist konfiguriert. Zertifikatslauf erneut starten; bei Wiederholung Protokoll auswerten.");
+        }
         if (!eingebettet) {
             webKonten.clear();
             webKonten.put("sb-01", "sb-01");
@@ -468,6 +525,7 @@ public final class Simulator {
             webAdminKennung = "admin-01";
             webAdminPasswort = "admin";
             pruefeExternesWebziel(); // vor Cleanup, Browserstart und fachlichen Schreibzugriffen
+            webPool = new SimpleConnectionPool(dbUrl, dbUser, dbPass, konfig.mitarbeiter() + 2);
             log.ereignis("SIMULATOR", "", "Externes Webziel und SQL-Datenbank abgeglichen: "
                     + WebHelfer.basisUrl);
         }
@@ -526,7 +584,6 @@ public final class Simulator {
             }
             laufExecutor = null;
             if (abgebrochen) webMitarbeiter.forEach(WebMitarbeiter::schliesse);
-            schliesseWebServer();
         }
 
         // Verifikation wie in Modus 1: Erwartungshaltung per SQL gegen die Datenbank
@@ -535,7 +592,7 @@ public final class Simulator {
             log.ereignis("SIMULATOR", "", "Web-Lauf abgebrochen — keine Verifikation");
         } else {
             phase = Phase.VERIFIKATION;
-            int verifiziert = new Verifikator(dbUrl, dbUser, dbPass).verifiziereAlle(auftraege, log);
+            int verifiziert = verifiziereAktuellenLauf();
             globalerKonsistenzcheck();
             verifiziert = (int) auftraege.stream().filter(a -> a.status == Auftrag.Status.VERIFIZIERT).count();
             aktualisiereAbschlussphase();
@@ -543,12 +600,7 @@ public final class Simulator {
                     + " von " + auftraege.size() + " Aufträgen vollständig verifiziert");
         }
 
-        laufEnde = LocalDateTime.now();
-        laufEndeNano = System.nanoTime();
-        schreibeTestdokumentation();
-        log.zusammenfassung(zusammenfassungsText());
-        log.ereignis("SIMULATOR", "", "Web-Lauf beendet in " + laufdauerSekunden()
-                + " s — Browserfenster bleiben zur Ansicht offen (bis zum nächsten Lauf/Stopp).");
+        beendeLauf();
     }
 
     /**
@@ -633,13 +685,15 @@ public final class Simulator {
         auftraege = List.of();
         modusLetzter = "FACHSCHICHT";
         kategorieLetzter = konfig.kategorie();
-        laufStart = LocalDateTime.now();
+        laufStartInstant = Instant.now();
+        laufStart = LocalDateTime.ofInstant(laufStartInstant, java.time.ZoneId.systemDefault());
         laufStartNano = System.nanoTime();
         laufEnde = null;
         laufEndeNano = 0;
         globalePruefungen = List.of();
         log = new SweetLog(PathLogBasis());
         letztesLogVerzeichnis = log.runVerzeichnis.toString();
+        sichereLaufbeginn();
         log.ereignis("SIMULATOR", "", "Lauf gestartet: " + konfig.mitarbeiter() + " Mitarbeiter, "
                 + konfig.auftraege() + " Aufträge, Seed " + konfig.seed()
                 + ", Denkzeit " + konfig.denkzeitMs() + " ms, DB " + dbUrl);
@@ -666,7 +720,9 @@ public final class Simulator {
         naechsterAuftrag.set(0);
 
         pool = new SimpleConnectionPool(dbUrl, dbUser, dbPass, konfig.mitarbeiter() + 2);
-        service = new SozialLeistungsService(new TxManager(pool));
+        fachTxManager = new TxManager(pool);
+        fachServices.clear();
+        service = new SozialLeistungsService(fachTxManager);
 
         mitarbeiter = new ArrayList<>();
         for (int i = 1; i <= konfig.mitarbeiter(); i++) {
@@ -693,7 +749,6 @@ public final class Simulator {
                 beendeExecutor(executor, 0, () -> { });
             }
             laufExecutor = null;
-            schliesseRessourcen();
         }
 
         // Phase 3: Verifikation (nur bei regulärem Ende)
@@ -705,8 +760,7 @@ public final class Simulator {
             log.ereignis("SIMULATOR", "", "Alle Mitarbeiter fertig — verifiziere Erwartungshaltung gegen die Datenbank …");
             int gespielt = (int) auftraege.stream()
                     .filter(a -> a.status == Auftrag.Status.FERTIG_GESPIELT).count();
-            int verifiziert = new Verifikator(dbUrl, dbUser, dbPass)
-                    .verifiziereAlle(auftraege, log);
+            int verifiziert = verifiziereAktuellenLauf();
             globalerKonsistenzcheck();
             verifiziert = (int) auftraege.stream().filter(a -> a.status == Auftrag.Status.VERIFIZIERT).count();
             aktualisiereAbschlussphase();
@@ -714,12 +768,7 @@ public final class Simulator {
                     + gespielt + " erfolgreich gespielten Aufträgen vollständig verifiziert");
         }
 
-        laufEnde = LocalDateTime.now();
-        laufEndeNano = System.nanoTime();
-        schreibeTestdokumentation();
-        log.zusammenfassung(zusammenfassungsText());
-        log.ereignis("SIMULATOR", "", "Lauf beendet in " + laufdauerSekunden() + " s — Logdateien: "
-                + log.runVerzeichnis);
+        beendeLauf();
     }
 
     /** Auftragstopf je Modus und Kategorie; das Aktenzeichen-Präfix unterscheidet
@@ -746,28 +795,186 @@ public final class Simulator {
         };
     }
 
-    /** PDF/MD-Testdokumentation — Fehler brechen den Lauf nicht. LAST-Läufe
-     *  erhalten bewusst nur einen gekürzten Gesamtreport statt Einzelfall-Seiten. */
+    /** Zwei vollständige frische Dateien erzeugen; erst danach als aktuellen Report veröffentlichen. */
     private void schreibeTestdokumentation() {
+        reportsComplete = false;
+        letztesPdf = null;
+        letztesMd = null;
         try {
-            if (kategorieLetzter == Kategorie.LAST || kategorieLetzter == Kategorie.STRESS) {
-                java.nio.file.Path pdfPfad = log.runVerzeichnis.resolve("lastreport.pdf");
-                java.nio.file.Path mdPfad = log.runVerzeichnis.resolve("lastreport.md");
-                LastBericht.schreibe(pdfPfad, mdPfad, this);
-                letztesPdf = pdfPfad.toString();
-                letztesMd = mdPfad.toString();
-                return;
+            boolean massentest = kategorieLetzter == Kategorie.LAST || kategorieLetzter == Kategorie.STRESS;
+            Path staging = Files.createTempDirectory(log.runVerzeichnis, ".report-staging-");
+            String name = massentest ? "lastreport" : "testdokumentation";
+            Path pdf = staging.resolve(name + ".pdf"), md = staging.resolve(name + ".md");
+            if (massentest) LastBericht.schreibe(pdf, md, this);
+            else {
+                Testdokumentation.schreibe(pdf, this);
+                MdBericht.schreibe(md, this);
             }
-            java.nio.file.Path pdfPfad = log.runVerzeichnis.resolve("testdokumentation.pdf");
-            Testdokumentation.schreibe(pdfPfad, this);
-            letztesPdf = pdfPfad.toString();
-            java.nio.file.Path mdPfad = log.runVerzeichnis.resolve("testdokumentation.md");
-            MdBericht.schreibe(mdPfad, this);
-            letztesMd = mdPfad.toString();
+            if (!Files.isRegularFile(pdf) || Files.size(pdf) == 0 || !Files.isRegularFile(md) || Files.size(md) == 0)
+                throw new java.io.IOException("PDF oder Markdown wurde nicht vollständig erzeugt");
+            Path publishedPdf = log.runVerzeichnis.resolve(pdf.getFileName());
+            Path publishedMd = log.runVerzeichnis.resolve(md.getFileName());
+            Files.move(pdf, publishedPdf, StandardCopyOption.REPLACE_EXISTING);
+            Files.move(md, publishedMd, StandardCopyOption.REPLACE_EXISTING);
+            Files.delete(staging);
+            letztesPdf = publishedPdf.toString();
+            letztesMd = publishedMd.toString();
+            reportsComplete = true;
         } catch (Exception e) {
-            log.fehler("SIMULATOR", "Testdokumentation konnte nicht geschrieben werden: "
+            merkeNachweisfehler("Testdokumentation konnte nicht geschrieben werden: "
                     + e.getClass().getSimpleName() + ": " + e.getMessage());
         }
+    }
+
+    private void setzeLaufZurueck() {
+        abgebrochen = false;
+        letzteFehlermeldung = null;
+        letztesPdf = null;
+        letztesMd = null;
+        letztesLogVerzeichnis = null;
+        reportsComplete = false;
+        nachweisFehler.clear();
+        buildEvidence = Map.of();
+        letzterZwischenstandNano = 0;
+        laufStartInstant = Instant.now();
+        laufStart = LocalDateTime.ofInstant(laufStartInstant, java.time.ZoneId.systemDefault());
+        laufStartNano = System.nanoTime();
+        laufEnde = null;
+        laufEndeInstant = null;
+        laufEndeNano = 0;
+        phase = Phase.BEREIT;
+    }
+
+    private void fuehreGesichertAus(LaufKonfiguration konfig, boolean web) throws Exception {
+        try {
+            if (web) laufWebAusfuehren(konfig); else laufAusfuehren(konfig);
+        } catch (Exception e) {
+            beendeAbgebrochenenLauf(e);
+            throw e;
+        } finally {
+            // Auch ein Error darf den persistenten Zustand nicht auf einem alten PASS belassen.
+            if (laufEnde == null) beendeAbgebrochenenLauf(new IllegalStateException("Lauf unerwartet beendet"));
+            schliesseRessourcen();
+            schliesseWebServer();
+            if (log != null) { log.close(); merkeLogfehler(); log = null; }
+        }
+    }
+
+    private void sichereLaufbeginn() throws Exception {
+        // Der Start steht vor DB-Zugriff und Build-Ermittlung dauerhaft fest.
+        schreibeLaufstatus("RUNNING");
+        buildEvidence = BuildEvidence.capture(BuildEvidence.currentRoot());
+        if (!Boolean.TRUE.equals(buildEvidence.get("sourceArtifactsMatch"))) {
+            merkeNachweisfehler("Build-/Quellstand nicht nachgewiesen: geladenes Produkt- oder Testartefakt passt nicht zu den aktuellen Quellen");
+        }
+        schreibeLaufstatus("RUNNING");
+    }
+
+    private void beendeAbgebrochenenLauf(Exception cause) {
+        abgebrochen = true;
+        phase = Phase.ABGEBROCHEN;
+        letzteFehlermeldung = cause.getClass().getSimpleName() + ": " + cause.getMessage();
+        if (log != null) log.fehler("SIMULATOR", "Lauf abgebrochen: " + letzteFehlermeldung);
+        beendeLauf();
+    }
+
+    private void beendeLauf() {
+        laufEndeInstant = Instant.now();
+        laufEnde = LocalDateTime.ofInstant(laufEndeInstant, java.time.ZoneId.systemDefault());
+        laufEndeNano = System.nanoTime();
+        if (log == null) { merkeNachweisfehler("Laufprotokoll konnte nicht angelegt werden"); return; }
+        log.ereignis("SIMULATOR", "", "Lauf beendet in " + laufdauerSekunden() + " s; Logabschluss vor Reportexport");
+        log.close(); // Queue, Flush UND Close sind vor einem veröffentlichten Erfolgsurteil bestätigt.
+        merkeLogfehler();
+        schreibeTestdokumentation();
+        try {
+            log.zusammenfassung(zusammenfassungsText());
+        } catch (Exception e) {
+            merkeNachweisfehler("Zusammenfassung konnte nicht geschrieben werden: " + e.getMessage());
+            // Bereits erzeugte Reportdateien könnten ein positives Urteil enthalten: nicht ausliefern.
+            reportsComplete = false;
+            letztesPdf = null;
+            letztesMd = null;
+        }
+        sichereLaufstatus(terminalerLaufstatus());
+    }
+
+    private void merkeLogfehler() {
+        if (log != null && log.schreibfehler() != null)
+            merkeNachweisfehler("Protokoll unvollständig: " + log.schreibfehler().getMessage());
+    }
+
+    private void merkeNachweisfehler(String message) {
+        if (!nachweisFehler.contains(message)) nachweisFehler.add(message);
+        letzteFehlermeldung = message;
+        if (phase == Phase.FERTIG) phase = Phase.FEHLGESCHLAGEN;
+        System.err.println(message);
+    }
+
+    private String terminalerLaufstatus() {
+        boolean knownFailure = auftraege.stream().anyMatch(a -> a.status == Auftrag.Status.FEHLGESCHLAGEN
+                || a.status == Auftrag.Status.VERIFIKATION_FEHLGESCHLAGEN)
+                || globalePruefungen.stream().anyMatch(p -> !p.ok());
+        if (knownFailure) return "FAIL";
+        if (abgebrochen || phase == Phase.ABGEBROCHEN) return "ABORTED";
+        if (!nachweiseVollstaendig() || !laufErfolgreich()) return "UNVERIFIED";
+        return "PASS";
+    }
+
+    private void sichereLaufstatus(String state) {
+        try { schreibeLaufstatus(state); }
+        catch (Exception e) {
+            merkeNachweisfehler("Laufstatus konnte nicht gespeichert werden: " + e.getMessage());
+            reportsComplete = false;
+            letztesPdf = null;
+            letztesMd = null;
+        }
+    }
+
+    private synchronized void schreibeLaufstatus(String state) throws Exception {
+        if (log == null) throw new java.io.IOException("Kein Laufverzeichnis");
+        Map<String, Object> status = new LinkedHashMap<>();
+        status.put("schemaVersion", 1);
+        status.put("kind", "SIMULATOR_RUN");
+        status.put("runId", log.runVerzeichnis.getFileName().toString());
+        status.put("state", state);
+        status.put("mode", modusLetzter);
+        status.put("category", kategorieLetzter.name());
+        if (laufStartInstant == null) throw new IllegalStateException("Eindeutiger Laufstart fehlt");
+        status.put("startedAt", laufStartInstant.toString());
+        status.put("completedAt", laufEndeInstant == null ? null : laufEndeInstant.toString());
+        status.put("totalCases", auftraege.isEmpty() ? konfiguration.auftraege()
+                * (kategorieLetzter == Kategorie.STRESS ? 2 : 1) : auftraege.size());
+        status.put("completedCases", auftraege.stream().filter(a -> a.endeZeit != null).count());
+        status.put("verifiedCases", auftraege.stream().filter(a -> a.status == Auftrag.Status.VERIFIZIERT).count());
+        status.put("failedCases", auftraege.stream().filter(a -> a.status == Auftrag.Status.FEHLGESCHLAGEN).count());
+        status.put("verificationErrors", auftraege.stream().filter(a -> a.status == Auftrag.Status.VERIFIKATION_FEHLGESCHLAGEN).count()
+                + globalePruefungen.stream().filter(p -> !p.ok()).count());
+        status.put("success", "PASS".equals(state) && laufErfolgreich());
+        status.put("reportsComplete", reportsComplete);
+        status.put("logComplete", log.vollstaendig());
+        status.put("evidenceErrors", nachweisFehler());
+        status.put("message", letzteFehlermeldung);
+        status.put("buildEvidence", buildEvidence);
+        List<Map<String, String>> reports = new ArrayList<>();
+        if (reportsComplete) {
+            for (String filename : List.of(letztesPdf, letztesMd)) {
+                Path file = Path.of(filename);
+                reports.add(Map.of("path", file.getFileName().toString(), "sha256", sha256(file)));
+            }
+        }
+        status.put("reports", reports);
+        Path pending = log.runVerzeichnis.resolve("run-state.json.tmp");
+        Files.writeString(pending, Json.write(status), StandardCharsets.UTF_8);
+        try { Files.move(pending, log.runVerzeichnis.resolve("run-state.json"),
+                StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING); }
+        catch (java.nio.file.AtomicMoveNotSupportedException e) {
+            Files.move(pending, log.runVerzeichnis.resolve("run-state.json"), StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    private static String sha256(Path file) throws Exception {
+        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(file)));
     }
 
     private void pruefeDatenbank() throws Exception {
@@ -838,7 +1045,8 @@ public final class Simulator {
     public List<Auftrag.Pruefung> globalePruefungen() { return globalePruefungen; }
 
     public boolean laufErfolgreich() {
-        return phase == Phase.FERTIG && auftraege.stream().allMatch(a -> a.status == Auftrag.Status.VERIFIZIERT)
+        return phase == Phase.FERTIG && !auftraege.isEmpty() && nachweisFehler().isEmpty()
+                && auftraege.stream().allMatch(a -> a.status == Auftrag.Status.VERIFIZIERT)
                 && globalePruefungen.stream().allMatch(Auftrag.Pruefung::ok);
     }
 
@@ -846,6 +1054,7 @@ public final class Simulator {
     void aktualisiereAbschlussphase() {
         phase = abgebrochen ? Phase.ABGEBROCHEN
                 : !auftraege.isEmpty()
+                && nachweisFehler().isEmpty()
                 && auftraege.stream().allMatch(a -> a.status == Auftrag.Status.VERIFIZIERT)
                 && globalePruefungen.stream().allMatch(Auftrag.Pruefung::ok)
                 ? Phase.FERTIG : Phase.FEHLGESCHLAGEN;
@@ -945,10 +1154,7 @@ public final class Simulator {
     }
 
     private void globalerKonsistenzcheck() {
-        long erwartete = kategorieLetzter == Kategorie.STRESS ? (long) Math.ceil(auftraege.size() / 2.0)
-                : "WEB".equals(modusLetzter) ? auftraege.stream().filter(a -> Boolean.TRUE.equals(
-                        a.kontext.get("vorgangErstellt"))).count()
-                : auftraege.stream().filter(a -> a.bgId != null).count();
+        long erwartete = auftraege.stream().mapToLong(a -> a.erwarteteVorgaenge).sum();
         uebernehmeGlobalePruefungen(GlobaleVerifikation.pruefe(
                 () -> DriverManager.getConnection(dbUrl, dbUser, dbPass), erwartete, auftraege));
     }
@@ -1005,6 +1211,8 @@ public final class Simulator {
         sb.append("Verifik.-fehler : ").append(verifikationFehler).append('\n');
         sb.append("Summe verifizierter Auszahlungen: ").append(summe.toPlainString()).append(" EUR\n");
         sb.append("Lauf erfolgreich: ").append(laufErfolgreich()).append('\n');
+        sb.append("Reportdateien vollständig: ").append(reportsComplete).append('\n');
+        sb.append("Nachweisfehler   : ").append(nachweisFehler()).append('\n');
         sb.append("Globale Prüfungen: ").append(globalePruefungen).append('\n');
         sb.append("Abgebrochen     : ").append(abgebrochen).append('\n');
         return sb.toString();
@@ -1027,6 +1235,7 @@ public final class Simulator {
      *  gewartet wird im 250-ms-Takt auf dem CountdownLatch stattBusy-Waiting. */
     Auftrag nimmAuftrag() {
         while (true) {
+            if (abgebrochen) return null;
             int index = naechsterAuftrag.get();
             if (index >= auftraege.size()) {
                 return null;
@@ -1067,6 +1276,29 @@ public final class Simulator {
         if (barriere != null && auftrag.id <= stressPhase1Ende) {
             barriere.countDown();
         }
+        // Zwischenstände begrenzen die verlorene Fortschrittsanzeige bei Prozessabbruch;
+        // gleichzeitige Worker schreiben maximal einmal je Sekunde.
+        synchronized (this) {
+            long now = System.nanoTime();
+            if (log != null && konfiguration != null && now - letzterZwischenstandNano >= TimeUnit.SECONDS.toNanos(1)) {
+                letzterZwischenstandNano = now;
+                sichereLaufstatus("RUNNING");
+            }
+        }
+    }
+
+    void meldeWorkerAbsturz(Auftrag auftrag, Throwable failure) {
+        String message = "Worker abgebrochen: " + failure.getClass().getSimpleName() + ": " + failure.getMessage();
+        if (auftrag != null) {
+            auftrag.fehlerText = message;
+            auftrag.endeZeit = LocalDateTime.now();
+            auftrag.endeNano = System.nanoTime();
+            auftrag.status = Auftrag.Status.FEHLGESCHLAGEN;
+            auftragSpielenBeendet(auftrag);
+        } else merkeNachweisfehler(message);
+        letzteFehlermeldung = message;
+        if (log != null) log.fehler("WORKER", message);
+        stoppe(); // Wartende Stress-Worker verlassen die Phasenbarriere sofort.
     }
 
     String zufallsKollege(String ausser) {

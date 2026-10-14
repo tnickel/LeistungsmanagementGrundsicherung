@@ -11,19 +11,22 @@ class MitarbeiterErwarteterFehlerTest {
     @TempDir Path temp;
 
     @Test void runnerAkzeptiertNurDenTatsaechlichGeworfenenErwartetenCode() throws Exception {
-        for (String verhalten : List.of("keinFehler", "falscherCode", "richtigerCode")) {
-            var simulator = new Simulator();
+        for (String verhalten : List.of("keinFehler", "falscherCode", "falscherGrund", "richtigerCode")) {
+            var simulator = new Simulator(auftrag -> new Fachzustand(java.util.Map.of()));
             try (var log = new SweetLog(temp.resolve(verhalten))) {
                 var logFeld = Simulator.class.getDeclaredField("log");
                 logFeld.setAccessible(true);
                 logFeld.set(simulator, log);
-                var aktion = SzenarioAktion.schrittMitErwartetemFehler("Abwehr", "VALIDATION",
+                var aktion = SzenarioAktion.schrittMitErwartetemFehler("Abwehr", "VALIDATION", List.of("erwartete Abwehr"),
                         (service, ich, kollege, ctx) -> {
                             if (verhalten.equals("falscherCode")) {
                                 throw new FachlicheException("NICHT_GEFUNDEN", "falscher Fehler");
                             }
                             if (verhalten.equals("richtigerCode")) {
                                 throw new FachlicheException("VALIDATION", "erwartete Abwehr");
+                            }
+                            if (verhalten.equals("falscherGrund")) {
+                                throw new FachlicheException("VALIDATION", "Vorgang ist historisiert — völlig andere Abweisung");
                             }
                             return "unerwartet erfolgreich";
                         });

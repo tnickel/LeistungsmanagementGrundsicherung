@@ -25,7 +25,8 @@ import java.util.UUID;
  * Zahlbeträge werden vorab mit derselben puren Berechnung
  * ({@link Leistungsberechnung}, KdU-Prüfung aus wie im Service-Standard)
  * ermittelt, mit der später die Fachschicht rechnet — Abweichungen in der
- * Datenbank können also nur aus der Persistierung/Parallelität entstehen.
+ * Datenbank werden zusätzlich durch eine unabhängige BigDecimal-Nachrechnung
+ * sämtlicher dokumentierter Rechenblöcke im Verifikator abgesichert.
  *
  * <p>Mit festem Seed ist jeder Lauf reproduzierbar (gleiche Szenarien in gleicher
  * Reihenfolge); ohne Seed (0) wird ein zufälliger gewählt und protokolliert.</p>
@@ -86,6 +87,8 @@ public final class SzenarioBibliothek {
                     case 9 -> konkurrenz(i);
                     default -> kassenlauf(i);
                 });
+            } else if (i <= 19) {
+                auftraege.add(grenzfall(i));
             } else if (i % 50 == 0) {
                 auftraege.add(kassenlauf(i));
             } else {
@@ -126,12 +129,6 @@ public final class SzenarioBibliothek {
         return auftraege;
     }
 
-    /**
-     * Erzeugt {@code anzahl} LAST-Aufträge: der schlanke Standardweg (Vorgang +
-     * SozialFall + Anordnung) in hoher Stückzahl, um Transaktionssteuerung,
-     * Sperren und die Datenbank unter Last zu setzen. Erwartungshaltung wie bei
-     * den Positivfällen (Zahlbetrag, Budget); Freigabe entfällt bewusst.
-     */
     /**
      * Erzeugt den STRESS-Topf als ZWEI Wellen über dieselben User: Die ersten
      * {@code anzahl} Aufträge (STRESS-ANLEGEN) legen je einen User an (Vorgang +
@@ -196,8 +193,8 @@ public final class SzenarioBibliothek {
                             + "User an — Vorgang mit Startbudget und SEPA-Daten sowie den "
                             + "SozialFall mit Regelbedarfsstufe und Wohnkosten. Bewusst NOCH "
                             + "ohne Auszahlung: Die zweite Welle nimmt denselben User wieder "
-                            + "auf und ändert ihn. Geprüft wird, dass der User mit Fall in "
-                            + "Version 1 und unverändertem Budget in der Datenbank steht.",
+                            + "auf und ändert ihn. Geprüft wird, dass Vorgang und SozialFall "
+                            + "dauerhaft vorhanden sind; finale Version und Budget prüft Welle 2.",
                             rechnungenNeu));
 
             // ---------------- Welle 2: Nachbearbeitung ----------------
@@ -254,6 +251,7 @@ public final class SzenarioBibliothek {
             welle2.add(new Auftrag(anzahl + i, "STRESS-BEARBEITEN", az, name,
                     "Welle 2: Nachbearbeitung (Miete ändern + Anordnung)", bearbeiten,
                     erwartungenBearbeiten)
+                    .mitErwarteterVorgangsanzahl(0)
                     .dokumentiere("Zweite Welle des Stresstests auf demselben User: Der "
                             + "Sachbearbeiter findet den Vorgang über das Aktenzeichen wieder, "
                             + "erhöht die Miete (das optimistische Locking muss die Version "
@@ -316,12 +314,16 @@ public final class SzenarioBibliothek {
                     return "Zahlung " + erg.zahlung().id() + " über "
                             + erg.zahlung().auszahlungsbetrag().toPlainString() + " EUR (ANGELEGT)";
                 }),
+                SzenarioAktion.schrittMitErwartetemFehler("Selbstfreigabe vor Kollegenfreigabe abwehren",
+                        FachlicheException.BERECHTIGUNG, List.of("Vier-Augen-Prinzip verletzt: Erfasser und Freigebender dürfen nicht identisch sein"), (s, ich, kollege, ctx) -> {
+                    s.freigebenZahlung((Long) ctx.get("zahlungId"), ich);
+                    return "unerwartete Selbstfreigabe";
+                }),
                 SzenarioAktion.schritt("Freigabe durch Kollegen (Vier-Augen)", (s, ich, kollege, ctx) -> {
                     s.freigebenZahlung((Long) ctx.get("zahlungId"), kollege);
                     return "freigegeben durch " + kollege;
                 }));
 
-        Long bg = null;
         return new Auftrag(nr, "STANDARDRENTE", az, name,
                 "AlleinstehendeR, RBS " + rbs + ", Anordnung + Vier-Augen-Freigabe",
                 aktionen, erwartungenStandard(zahlbetrag, budget, rbs, true))
@@ -503,7 +505,8 @@ public final class SzenarioBibliothek {
                         + "Bedarfsgemeinschaft erfasst (Regelbedarfsstufe 6, geringerer "
                         + "Regelsatz), die Mutter erhält zusätzlich den "
                         + "Alleinerziehenden-Mehrbedarf: bei einem Kind unter 7 oder zwei bis "
-                        + "drei Kindern unter 16 pauschal 36 % der Stufe 1. Die Wiedervorlage "
+                        + "drei Kindern unter 16 pauschal 36 % der Stufe 1; andernfalls 12 % je minderjährigem Kind, "
+                        + "höchstens 60 %. Entscheidend sind die dokumentierten Kinderzahlen. Die Wiedervorlage "
                         + "wird mit einem künftigen Datum gesetzt. Geprüft wird, ob alle "
                         + "Personen als getrennte Zeilen in der Datenbank liegen, die "
                         + "Kinderzahlen an der Mutter gespeichert sind, das "
@@ -614,7 +617,7 @@ public final class SzenarioBibliothek {
             aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
                     "Auszahlung anordnen — KEIN_ANSPRUCH erwartet (§ 43/90)",
                     FachlicheException.KEIN_ANSPRUCH,
-                    (s, ich, kollege, ctx) -> {
+                    List.of("Einkommen/Vermögen übersteigen den Gesamtbedarf"), (s, ich, kollege, ctx) -> {
                         s.ordneAuszahlungAn(new Auszahlungsauftrag(
                                 (Long) ctx.get("bgId"), UUID.randomUUID().toString(), "2026-10", ich));
                         return "unerwartet erfolgreich — hätte KEIN_ANSPRUCH werfen müssen";
@@ -884,7 +887,7 @@ public final class SzenarioBibliothek {
                 SzenarioAktion.schrittMitErwartetemFehler(
                         "Parallel: veralteter Maskenstand speichern — KONKURRENZ erwartet",
                         FachlicheException.KONKURRENZ,
-                        (s, ich, kollege, ctx) -> {
+                        List.of("Der SozialFall wurde zwischenzeitlich durch einen anderen Bearbeiter geändert"), (s, ich, kollege, ctx) -> {
                             SozialFall alt = (SozialFall) ctx.get("fallAlt");
                             s.aktualisiereSozialFall(alt, alt.version(), ich);
                             return "unerwartet erfolgreich — hätte KONKURRENZ werfen müssen";
@@ -912,36 +915,52 @@ public final class SzenarioBibliothek {
     }
 
     private Auftrag kassenlauf(int nr) {
-        String kassenPraefix = praefix;
+        String az = aktenzeichen(nr) + "-K";
+        List<SozialFall> faelle = List.of(fallEntwurf(1, false, false, 0, false,
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, "0", "0"));
+        List<Rechenblock> rechnungen = new ArrayList<>();
+        BigDecimal summe = berechne(rechnungen, "Eigene freigegebene Kassen-Testzahlung", faelle, BigDecimal.ZERO, new BigDecimal("2000"));
         List<SzenarioAktion> aktionen = List.of(
-                SzenarioAktion.schritt("Kassenlauf über alle bereiten Zahlungen", (s, ich, kollege, ctx) -> {
-                    var erg = s.uebergebeBereiteZahlungen(ich, kassenPraefix);
+                SzenarioAktion.schritt("Eigenen Kassen-Vorgang und Testzahlung vorbereiten", (s, ich, kollege, ctx) -> {
+                    var bg = s.legeBedarfsgemeinschaftAn(az, "Kassen-Testzahlung", new BigDecimal("2000"), null, ich);
+                    ctx.put("bgId", bg.id());
+                    s.legeSozialFallAn(bg.id(), faelle.getFirst(), ich);
+                    var payment = s.ordneAuszahlungAn(new Auszahlungsauftrag(bg.id(), UUID.randomUUID().toString(), "2026-10", ich));
+                    ctx.put("zahlungId", payment.zahlung().id());
+                    s.freigebenZahlung(payment.zahlung().id(), kollege);
+                    return "genau eine eigene Zahlung über " + summe + " EUR freigegeben";
+                }),
+                SzenarioAktion.schritt("Kassenlauf ausschließlich über den eigenen Vorgang", (s, ich, kollege, ctx) -> {
+                    String kennung = "sb-sim-k-" + UUID.randomUUID().toString().substring(0, 20);
+                    ctx.put("kassenKennung", kennung);
+                    var erg = s.uebergebeBereiteZahlungen(kennung, az);
                     ctx.put("kassenAnzahl", erg.anzahl());
+                    ctx.put("kassenSumme", erg.summe());
                     return erg.anzahl() + " Zahlung(en) über " + erg.summe().toPlainString() + " EUR übergeben";
                 }));
         List<Erwartung> erwartungen = List.of(
-                // Ein leerer Kassenlauf (noch keine BEREIT-Zahlungen) schreibt bewusst
-                // kein Journal (Early-Return im Service) — nur bei Übergabe ≥ 1 muss
-                // der vorgangsübergreifende Journaleintrag existieren.
-                Erwartung.text("Kassenlauf-Journal korrekt (eintragspflichtig erst bei Übergabe ≥ 1)",
-                        "SELECT CASE WHEN ? = 0 THEN 'ok' WHEN (SELECT COUNT(*) FROM JOURNAL "
-                                + "WHERE BG_ID IS NULL AND AKTION_TEXT LIKE 'Kassenlauf%' "
-                                + "AND SACHBEARBEITER_ID = ?) >= 1 THEN 'ok' ELSE 'fehlt' END "
-                                + "FROM DUAL",
-                        ctx -> List.of(ctx.get("kassenAnzahl"), ctx.get("mitarbeiter")), "ok"));
-        return new Auftrag(nr, "KASSENLAUF", "-", "Kasse",
-                "Kassenlauf (BEREIT → UEBERGEBEN), läuft parallel zu Freigaben",
+                Erwartung.ganzeZahl("Kassenantwort übergibt exakt eine vorbereitete Zahlung", "SELECT ? FROM DUAL",
+                        ctx -> List.of(ctx.get("kassenAnzahl")), 1),
+                Erwartung.betrag("Kassenantwort nennt die exakte vorbereitete Summe", "SELECT ? FROM DUAL",
+                        ctx -> List.of(ctx.get("kassenSumme")), summe.toPlainString()),
+                Erwartung.ganzeZahl("Eigene Zahlung vollständig und ausschließlich UEBERGEBEN",
+                        "SELECT COUNT(*) FROM ZAHLUNG WHERE BG_ID = ? AND ID = ? AND ZAHLUNGSSTATUS='UEBERGEBEN' AND FREIGEGEBEN_VON=? AND AUSZAHLUNGSBETRAG=?",
+                        ctx -> List.of(ctx.get("bgId"), ctx.get("zahlungId"), ctx.get("kollege"), summe), 1),
+                Erwartung.ganzeZahl("Keine zusätzliche Zahlung im eigenen Kassen-Vorgang", "SELECT COUNT(*) FROM ZAHLUNG WHERE BG_ID=?",
+                        ctx -> List.of(ctx.get("bgId")), 1),
+                Erwartung.ganzeZahl("Genau ein aktueller Kassenjournal-Eintrag mit exakter Menge und Summe",
+                        "SELECT COUNT(*) FROM JOURNAL WHERE BG_ID IS NULL AND SACHBEARBEITER_ID=? AND AKTION_TEXT=?",
+                        ctx -> List.of(ctx.get("kassenKennung"), String.format(java.util.Locale.GERMAN,
+                                "Kassenlauf: %d Zahlungen über %,.2f EUR übergeben", 1, summe)), 1),
+                Erwartung.ganzeZahl("Keine zusätzliche Kassenbuchung derselben eindeutigen Kennung",
+                        "SELECT COUNT(*) FROM JOURNAL WHERE SACHBEARBEITER_ID=?", ctx -> List.of(ctx.get("kassenKennung")), 1));
+        return new Auftrag(nr, "KASSENLAUF", az, "Kasse",
+                "Deterministischer Kassenlauf: eigene BEREIT-Zahlung wird exakt einmal übergeben",
                 aktionen, erwartungen)
-                .dokumentiere("Die Kasse schließt den Tagesablauf ab: Sie übernimmt alle "
-                        + "freigegebenen (BEREIT) Zahlungen und übergibt sie zur Auszahlung "
-                        + "(UEBERGEBEN), inklusive Sammelvermerk im Journal. Dieser Auftrag "
-                        + "läuft absichtlich PARALLEL zu den anderen Testfällen — während "
-                        + "andere Mitarbeitende noch anordnen und freigeben, greift die Kasse "
-                        + "gleichzeitig auf denselben Datenbestand zu. Damit werden "
-                        + "Zugriffsfolgen (Sperren, Deadlock-Wiederholung) realistisch "
-                        + "geprüft. Hinweis: Findet die Kasse keine freigegebene Zahlung vor, "
-                        + "übernimmt sie nichts und schreibt bewusst kein Journal — auch das "
-                        + "ist korrekt und wird so erwartet.", null);
+                .dokumentiere("Jeder Kassenauftrag bereitet eine eigene BEREIT-Zahlung vor und übergibt nur den eigenen "
+                        + "Vorgang. Geprüft werden Rückgabeanzahl und -summe, Zahlungs-ID, Übergabestatus, Freigebender und "
+                        + "genau ein Mengen-/Summenjournal unter einer einmaligen Kennung. Andere parallel freigegebene "
+                        + "Zahlungen gehören zu anderen Aufträgen und verändern diese Sollmenge nicht.", rechnungen);
     }
 
     // ------------------------------------------------------------------
@@ -957,6 +976,96 @@ public final class SzenarioBibliothek {
     private static final String[] MONATE_2026 = {
             "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06",
             "2026-07", "2026-08", "2026-09", "2026-10", "2026-11", "2026-12"};
+
+    /** Feste Grenzfälle: unabhängig von Seed und Zufall bereits im kleinen Topf vorhanden. */
+    private Auftrag grenzfall(int nr) {
+        String typ = switch (nr) {
+            case 11 -> "ENTBINDUNG-FOLGEMONAT";
+            case 12 -> "VERMOEGEN-FOLGEMONAT";
+            case 13, 14, 15 -> "ALLEINERZIEHEND-" + (nr - 9) + "KINDER";
+            case 16 -> "MEHRBEDARF-ABS6";
+            case 17 -> "KDU-ZENTRAL";
+            case 18 -> "KDU-BG-GRENZE";
+            case 19 -> "MINDERJAEHRIG-OHNE-ERWACHSENE";
+            default -> throw new IllegalArgumentException("Unbekannter Grenzfall");
+        };
+        var parameter = nr == 17 ? new Leistungsberechnung.KduParameter(new BigDecimal("0.10"), BigDecimal.ZERO)
+                : nr == 18 ? new Leistungsberechnung.KduParameter(BigDecimal.ZERO, new BigDecimal("600.00"))
+                : Leistungsberechnung.KduParameter.AUS;
+        List<SozialFall> persons = new ArrayList<>();
+        int children = nr >= 13 && nr <= 15 ? nr - 9 : nr == 16 ? 6 : 0;
+        int rbs = nr == 18 || nr == 16 ? 2 : nr == 19 ? 6 : 1;
+        persons.add(grenzPerson(rbs, nr == 16, nr == 11 || nr == 16, children, nr == 16,
+                nr == 17 || nr == 18 ? "350" : "300", nr == 17 || nr == 18 ? "50" : "0",
+                nr == 17 || nr == 18 ? "100" : "0", nr == 11 ? "2026-10" : null));
+        if (nr == 18) persons.add(grenzPerson(2, false, false, 0, false, "350", "50", "100", null));
+        for (int i = 0; i < children; i++) persons.add(grenzPerson(4, false, false, 0, false, "0", "0", "0", null));
+        List<String> months = nr == 11 || nr == 12 ? List.of("2026-10", "2026-11") : List.of("2026-10");
+        BigDecimal initialAssets = new BigDecimal(nr == 12 ? "10500.00" : nr == 19 ? "1000.00" : "0.00");
+        List<Leistungsberechnung.Berechnungsergebnis> results = new ArrayList<>();
+        List<BigDecimal> assets = new ArrayList<>();
+        BigDecimal currentAssets = initialAssets, total = BigDecimal.ZERO;
+        for (String month : months) {
+            assets.add(currentAssets);
+            var result = Leistungsberechnung.berechne(0, Bewilligungsplan.faelleFuerMonat(persons, month), parameter, currentAssets);
+            results.add(result); total = total.add(result.zahlbetrag());
+            currentAssets = currentAssets.subtract(result.verwertbaresVermoegen());
+        }
+        BigDecimal budget = total.add(new BigDecimal("100.00")), finalAssets = currentAssets;
+        List<Rechenblock> blocks = new ArrayList<>();
+        BigDecimal remaining = budget;
+        for (int i = 0; i < months.size(); i++) {
+            var result = results.get(i);
+            blocks.add(new Rechenblock(typ + " — " + months.get(i), months.get(i), persons, assets.get(i), remaining,
+                    result, List.of("Deterministischer technischer Grenzfall des dokumentierten Produktvertrags; eine juristische Zulässigkeit aller Merkmalskombinationen wird damit nicht bewiesen."),
+                    remaining.subtract(result.zahlbetrag()), parameter));
+            remaining = remaining.subtract(result.zahlbetrag());
+        }
+        String az = aktenzeichen(nr), name = "Grenzfall " + nr;
+        List<SzenarioAktion> actions = new ArrayList<>();
+        actions.add(SzenarioAktion.schritt("Vorgang mit festem Budget und Vermögen anlegen", (s, ich, kollege, ctx) -> {
+            var bg = s.legeBedarfsgemeinschaftAn(az, name, budget, null,
+                    "DE89370400440532013000", "MARKDEF1100", name, initialAssets, ich);
+            ctx.put("bgId", bg.id()); return "Vorgang " + bg.id();
+        }));
+        actions.add(SzenarioAktion.schritt("Vollständige Haushaltsmerkmale erfassen", (s, ich, kollege, ctx) -> {
+            for (var person : persons) s.legeSozialFallAn((Long) ctx.get("bgId"), person, ich);
+            return persons.size() + " Personen";
+        }));
+        if (months.size() == 2) actions.add(SzenarioAktion.schritt("Bescheid mit zwei Monatswerten erteilen", (s, ich, kollege, ctx) -> {
+            var notice = s.erteileBescheid((Long) ctx.get("bgId"), "2026-10", "2026-11", ich);
+            return notice.bescheidNr();
+        }));
+        for (String month : months) actions.add(SzenarioAktion.schritt("Auszahlung " + month + " anordnen", (s, ich, kollege, ctx) -> {
+            var result = s.ordneAuszahlungAn(new Auszahlungsauftrag((Long) ctx.get("bgId"), UUID.randomUUID().toString(), month, ich));
+            ctx.put("zahlungId", result.zahlung().id()); return result.zahlung().auszahlungsbetrag().toPlainString() + " EUR";
+        }));
+        List<Erwartung> expectations = new ArrayList<>();
+        expectations.add(Erwartung.ganzeZahl("Exakte Zahl der Monatszahlungen", "SELECT COUNT(*) FROM ZAHLUNG WHERE BG_ID = ?", ctx -> List.of(ctx.get("bgId")), months.size()));
+        expectations.add(Erwartung.ganzeZahl("Vollständiger Haushalt persistiert", "SELECT COUNT(*) FROM SOZIAL_FALL WHERE BG_ID = ?", ctx -> List.of(ctx.get("bgId")), persons.size()));
+        for (int i = 0; i < months.size(); i++) {
+            String month = months.get(i); var result = results.get(i);
+            expectations.add(Erwartung.betrag("Zahlbetrag " + month, "SELECT AUSZAHLUNGSBETRAG FROM ZAHLUNG WHERE BG_ID = ? AND ZAHLUNGSMONAT = ?",
+                    ctx -> List.of(ctx.get("bgId"), month), result.zahlbetrag().toPlainString()));
+            expectations.add(Erwartung.betrag("Vermögenseinsatz " + month, "SELECT VERMOEGENSEINSATZ FROM ZAHLUNG WHERE BG_ID = ? AND ZAHLUNGSMONAT = ?",
+                    ctx -> List.of(ctx.get("bgId"), month), result.verwertbaresVermoegen().toPlainString()));
+            expectations.add(Erwartung.text("Vier-Augen-Warteschlange " + month, "SELECT ZAHLUNGSSTATUS FROM ZAHLUNG WHERE BG_ID = ? AND ZAHLUNGSMONAT = ?",
+                    ctx -> List.of(ctx.get("bgId"), month), "ANGELEGT"));
+        }
+        expectations.add(Erwartung.betrag("Endbudget nach allen Monaten", "SELECT BUDGET_REST FROM BEDARFSGEMEINSCHAFT WHERE ID = ?", ctx -> List.of(ctx.get("bgId")), "100.00"));
+        expectations.add(Erwartung.betrag("Vermögen nach allen Monaten", "SELECT VERMOEGEN FROM BEDARFSGEMEINSCHAFT WHERE ID = ?", ctx -> List.of(ctx.get("bgId")), finalAssets.toPlainString()));
+        if (months.size() == 2) expectations.add(Erwartung.ganzeZahl("Genau ein Bescheid deckt beide Monate", "SELECT COUNT(*) FROM BESCHEID WHERE BG_ID = ? AND BEWILLIGUNG_VON = ? AND BEWILLIGUNG_BIS = ?",
+                ctx -> List.of(ctx.get("bgId"), "2026-10", "2026-11"), 1));
+        return new Auftrag(nr, typ, az, name, "Fester Grenzfall mit vollständig dokumentierten Recheneingaben und SQL-Endzustand", actions, expectations)
+                .dokumentiere(typ + ": feste Eingaben statt zufälliger Grenzabdeckung; alle Monatszahlungen, Vermögenseinsätze und das Endbudget werden per SQL geprüft.", blocks);
+    }
+
+    private static SozialFall grenzPerson(int rbs, boolean g, boolean pregnant, int children, boolean ww,
+            String rent, String operating, String heating, String delivery) {
+        return new SozialFall(0, 0, rbs, g, pregnant, 0, 0, children, ww,
+                new BigDecimal(rent), new BigDecimal(operating), new BigDecimal(heating),
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, delivery, 0);
+    }
 
     /** Positiver Kombinationsfall: zufälliger Haushalt (Single/Paar/Alleinerziehend/
      *  Paar mit Kindern), gestreute Merkmale, Einkommen, Vermögen und ein zufälliger
@@ -981,7 +1090,7 @@ public final class SzenarioBibliothek {
                 faelle.add(kombiFall(1, monatIdx, miete, betrieb, heizung, 0, 0));
             } else if (variante == 1) {
                 haushalt = "Paar (2 × RBS 2)";
-                faelle.add(kombiFall(2, monatIdx, kduSplit ? miete : miete,
+                faelle.add(kombiFall(2, monatIdx, miete,
                         kduSplit ? BigDecimal.ZERO : betrieb,
                         kduSplit ? BigDecimal.ZERO : heizung, 0, 0));
                 faelle.add(kombiFall(2, monatIdx, BigDecimal.ZERO,
@@ -999,7 +1108,7 @@ public final class SzenarioBibliothek {
             } else {
                 int kinder = 1 + random.nextInt(2);
                 haushalt = "Paar mit " + kinder + " Kind(ern)";
-                faelle.add(kombiFall(2, monatIdx, kduSplit ? miete : miete,
+                faelle.add(kombiFall(2, monatIdx, miete,
                         kduSplit ? BigDecimal.ZERO : betrieb,
                         kduSplit ? BigDecimal.ZERO : heizung, 0, 0));
                 faelle.add(kombiFall(2, monatIdx, BigDecimal.ZERO,
@@ -1036,10 +1145,12 @@ public final class SzenarioBibliothek {
             BigDecimal verwertbar = ergebnis.verwertbaresVermoegen();
 
             // ---------------- Weg ziehen ----------------
-            boolean mitStornoNeu = verwertbar.signum() == 0 && random.nextInt(100) < 15;
+            boolean mitStornoNeu = random.nextInt(100) < 15;
             boolean mitDoppelklick = !mitStornoNeu && random.nextInt(100) < 20;
             boolean mitFreigabe = random.nextInt(100) < 45;
-            boolean mitBescheid = random.nextInt(100) < 35;
+            // Eine Mietänderung benötigt einen Änderungsbescheid; dessen Workflow
+            // ist nicht implementiert. Ein Positivfall darf den alten Monatsplan nicht umgehen.
+            boolean mitBescheid = random.nextInt(100) < 35 && !mitStornoNeu;
             boolean mitWiedervorlage = random.nextInt(100) < 20;
             BigDecimal mieteNeu = BigDecimal.ZERO;
             BigDecimal zahlbetragNeu = BigDecimal.ZERO;
@@ -1067,10 +1178,10 @@ public final class SzenarioBibliothek {
             int bescheidVonIdx = 0;
             int bescheidBisIdx = 0;
             if (mitBescheid) {
-                int a = random.nextInt(Math.min(3, monatIdx) + 1);
-                int bRest = 11 - a - (monatIdx - a);
-                int b = random.nextInt(Math.max(0, Math.min(bRest, 11 - monatIdx)) + 1);
-                bescheidVonIdx = monatIdx - a;
+                int b = random.nextInt(12 - monatIdx);
+                // Erste tatsächliche Auszahlung muss dem ersten Monatsplanwert
+                // entsprechen; Vermögen darf nicht schon in ungezahlten Vormonaten verbraucht sein.
+                bescheidVonIdx = monatIdx;
                 bescheidBisIdx = monatIdx + b;
             }
 
@@ -1170,6 +1281,9 @@ public final class SzenarioBibliothek {
                 aktionen.add(SzenarioAktion.schritt("Anordnung sofort stornieren (Status ANGELEGT)",
                         (s, ich, kollege, ctx) -> {
                             s.storniereZahlung((Long) ctx.get("zahlungId"), ich);
+                            var restored = s.ladeDetail((Long) ctx.get("bgId")).bedarfsgemeinschaft();
+                            ctx.put("vermoegenNachStorno", restored.vermoegen());
+                            ctx.put("budgetNachStorno", restored.budgetRest());
                             return "storniert — Monat wieder frei";
                         }));
                 aktionen.add(SzenarioAktion.schritt("Miete auf " + mieteNeuFinal.toPlainString()
@@ -1231,6 +1345,14 @@ public final class SzenarioBibliothek {
                 erwartungen.add(Erwartung.text("erste Zahlung STORNIERT",
                         "SELECT ZAHLUNGSSTATUS FROM ZAHLUNG WHERE ID = ?",
                         ctx -> List.of(ctx.get("zahlungId")), "STORNIERT"));
+                erwartungen.add(Erwartung.betrag("Vermögen unmittelbar nach Storno vollständig zurückgebucht", "SELECT ? FROM DUAL",
+                        ctx -> List.of(ctx.get("vermoegenNachStorno")), vermoegen.toPlainString()));
+                erwartungen.add(Erwartung.betrag("Budget unmittelbar nach Storno vollständig zurückgebucht", "SELECT ? FROM DUAL",
+                        ctx -> List.of(ctx.get("budgetNachStorno")), budget.toPlainString()));
+                erwartungen.add(Erwartung.betrag("Stornierte Zahlung behält dokumentierten Vermögenseinsatz",
+                        "SELECT VERMOEGENSEINSATZ FROM ZAHLUNG WHERE ID=?", ctx -> List.of(ctx.get("zahlungId")), verwertbar.toPlainString()));
+                erwartungen.add(Erwartung.betrag("Neuzahlung setzt zurückgebuchtes Vermögen erneut ein",
+                        "SELECT VERMOEGENSEINSATZ FROM ZAHLUNG WHERE ID=?", ctx -> List.of(ctx.get("letzteZahlungId")), verwertbar.toPlainString()));
                 erwartungen.add(Erwartung.ganzeZahl("Fall in Version 2 (optimistisches Locking)",
                         "SELECT VERSION FROM SOZIAL_FALL WHERE ID = ?",
                         ctx -> List.of(ctx.get("fallId")), 2));
@@ -1243,8 +1365,8 @@ public final class SzenarioBibliothek {
             }
             if (mitBescheid) {
                 erwartungen.add(Erwartung.ganzeZahl("genau ein erteilter Bewilligungsbescheid",
-                        "SELECT COUNT(*) FROM BESCHEID WHERE BG_ID = ?",
-                        ctx -> List.of(ctx.get("bgId")), 1));
+                        "SELECT COUNT(*) FROM BESCHEID WHERE BG_ID = ? AND BEWILLIGUNG_VON=? AND BEWILLIGUNG_BIS=? AND STATUS='ERTEILT'",
+                        ctx -> List.of(ctx.get("bgId"), bescheidVon, bescheidBis), 1));
             }
             if (verwertbar.signum() > 0) {
                 erwartungen.add(Erwartung.betrag("Vermögen nach Verbrauchsfortschreibung (§ 90)",
@@ -1350,7 +1472,7 @@ public final class SzenarioBibliothek {
      * Datenbank-Endzustand.
      */
     private Auftrag kombinationNegativ(int nr) {
-        String kassenPraefix = praefix;
+        String kassenPraefix = aktenzeichen(nr);
         for (int versuch = 0; versuch < 5000; versuch++) {
             int rbs = 1 + random.nextInt(3);
             BigDecimal miete = zufallsBetrag(200, 600, 10);
@@ -1456,7 +1578,7 @@ public final class SzenarioBibliothek {
                 aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
                         "Vorgang anlegen mit ungültiger IBAN (" + kaputteIban + ") — VALIDATION erwartet",
                         FachlicheException.VALIDATION,
-                        (s, ich, kollege, ctx) -> {
+                        List.of("Ungültige IBAN"), (s, ich, kollege, ctx) -> {
                             s.legeBedarfsgemeinschaftAn(az, name, budget, null,
                                     kaputteIban, "MARKDEF1100", name, ich);
                             return "unerwartet erfolgreich — ungültige IBAN wäre durchgerutscht";
@@ -1464,7 +1586,7 @@ public final class SzenarioBibliothek {
                 aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
                         "Vorgang anlegen mit ungültigem BIC (" + kaputterBic + ") — VALIDATION erwartet",
                         FachlicheException.VALIDATION,
-                        (s, ich, kollege, ctx) -> {
+                        List.of("Ungültiger BIC"), (s, ich, kollege, ctx) -> {
                             s.legeBedarfsgemeinschaftAn(az, name, budget, null,
                                     "DE89370400440532013000", kaputterBic, name, ich);
                             return "unerwartet erfolgreich — ungültiger BIC wäre durchgerutscht";
@@ -1476,6 +1598,7 @@ public final class SzenarioBibliothek {
                         "SEPA-Anlage abgewehrt (IBAN/BIC-Variante " + kaputteIban.length()
                                 + "/" + kaputterBic.length() + " Zeichen)",
                         aktionen, erwartungen)
+                        .mitErwarteterVorgangsanzahl(0)
                         .dokumentiere("Kombinierter Abwehrfall der Gruppe Anlage: Für den neuen "
                                 + "Vorgang werden zwei bewusst unbrauchbare Bankverbindungen "
                                 + "versucht — eine IBAN mit gestörter Prüfziffer oder Länge und "
@@ -1511,7 +1634,7 @@ public final class SzenarioBibliothek {
                 aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
                         "Bescheid mit 'von' nach 'bis' — VALIDATION erwartet",
                         FachlicheException.VALIDATION,
-                        (s, ich, kollege, ctx) -> {
+                        List.of("liegt nach 'bis'"), (s, ich, kollege, ctx) -> {
                             s.erteileBescheid((Long) ctx.get("bgId"), "2026-11", "2026-10", ich);
                             return "unerwartet erfolgreich — umgekehrter Zeitraum wäre durchgerutscht";
                         }));
@@ -1520,7 +1643,7 @@ public final class SzenarioBibliothek {
                 aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
                         "Bescheid über " + bescheidLaenge + " Monate — VALIDATION erwartet (max. 12)",
                         FachlicheException.VALIDATION,
-                        (s, ich, kollege, ctx) -> {
+                        List.of("höchstens zwölf Monate"), (s, ich, kollege, ctx) -> {
                             s.erteileBescheid((Long) ctx.get("bgId"), bescheidVonFalsch,
                                     bescheidBisFalsch, ich);
                             return "unerwartet erfolgreich — überlanger Zeitraum wäre durchgerutscht";
@@ -1548,7 +1671,7 @@ public final class SzenarioBibliothek {
                 aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
                         "Parallel: veralteter Maskenstand speichern — KONKURRENZ erwartet",
                         FachlicheException.KONKURRENZ,
-                        (s, ich, kollege, ctx) -> {
+                        List.of("Der SozialFall wurde zwischenzeitlich durch einen anderen Bearbeiter geändert"), (s, ich, kollege, ctx) -> {
                             SozialFall stale = (SozialFall) ctx.get("stale");
                             s.aktualisiereSozialFall(stale, stale.version(), ich);
                             return "unerwartet erfolgreich — hätte KONKURRENZ werfen müssen";
@@ -1559,7 +1682,7 @@ public final class SzenarioBibliothek {
                         "Freigabe der nicht existierenden Zahlung " + fakeId
                                 + " — NICHT_GEFUNDEN erwartet",
                         FachlicheException.NICHT_GEFUNDEN,
-                        (s, ich, kollege, ctx) -> {
+                        List.of("Zahlung " + fakeId + " ist nicht vorhanden"), (s, ich, kollege, ctx) -> {
                             s.freigebenZahlung(fakeId, kollege);
                             return "unerwartet erfolgreich";
                         }));
@@ -1567,7 +1690,7 @@ public final class SzenarioBibliothek {
                         "Anordnung auf den nicht existierenden Vorgang " + fakeId
                                 + " — NICHT_GEFUNDEN erwartet",
                         FachlicheException.NICHT_GEFUNDEN,
-                        (s, ich, kollege, ctx) -> {
+                        List.of("Bedarfsgemeinschaft " + fakeId + " ist nicht vorhanden"), (s, ich, kollege, ctx) -> {
                             s.ordneAuszahlungAn(new Auszahlungsauftrag(fakeId,
                                     UUID.randomUUID().toString(), monat, ich));
                             return "unerwartet erfolgreich";
@@ -1586,7 +1709,7 @@ public final class SzenarioBibliothek {
                         "Anordnung für " + monat + " außerhalb des Bewilligungszeitraums — "
                                 + "VALIDATION erwartet",
                         FachlicheException.VALIDATION,
-                        (s, ich, kollege, ctx) -> {
+                        List.of("liegt kein erteilter Bewilligungsbescheid vor"), (s, ich, kollege, ctx) -> {
                             s.ordneAuszahlungAn(new Auszahlungsauftrag((Long) ctx.get("bgId"),
                                     UUID.randomUUID().toString(), monat, ich));
                             return "unerwartet erfolgreich — Zahlung außerhalb des Bescheids wäre durchgerutscht";
@@ -1619,7 +1742,7 @@ public final class SzenarioBibliothek {
                 }
                 if (fehlerSchritt != null) {
                     aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(fehlerSchritt, fehlerCode,
-                            (s, ich, kollege, ctx) -> {
+                            List.of(FachlicheException.KEIN_ANSPRUCH.equals(fehlerCode) ? "Einkommen/Vermögen übersteigen den Gesamtbedarf" : FachlicheException.BUDGET_ERSCHOEPFT.equals(fehlerCode) ? "übersteigt das verfügbare Restbudget" : "hat keinen SozialFall"), (s, ich, kollege, ctx) -> {
                                 s.ordneAuszahlungAn(new Auszahlungsauftrag((Long) ctx.get("bgId"),
                                         UUID.randomUUID().toString(), monat, ich));
                                 return "unerwartet erfolgreich — hätte abgewehrt werden müssen";
@@ -1638,7 +1761,7 @@ public final class SzenarioBibliothek {
                     case "doppelt" -> aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
                             "Zweite Anordnung für " + monat + " (neue Vorgangsnummer) — VALIDATION erwartet",
                             FachlicheException.VALIDATION,
-                            (s, ich, kollege, ctx) -> {
+                            List.of("existiert bereits eine nicht stornierte Zahlung"), (s, ich, kollege, ctx) -> {
                                 s.ordneAuszahlungAn(new Auszahlungsauftrag((Long) ctx.get("bgId"),
                                         UUID.randomUUID().toString(), monat, ich));
                                 return "unerwartet erfolgreich — Doppelzahlung wäre durchgerutscht";
@@ -1646,7 +1769,7 @@ public final class SzenarioBibliothek {
                     case "selbst" -> aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
                             "Selbstfreigabe durch den Erfasser — BERECHTIGUNG erwartet",
                             FachlicheException.BERECHTIGUNG,
-                            (s, ich, kollege, ctx) -> {
+                            List.of("Vier-Augen-Prinzip verletzt: Erfasser und Freigebender dürfen nicht identisch sein"), (s, ich, kollege, ctx) -> {
                                 s.freigebenZahlung((Long) ctx.get("zahlungId"), ich);
                                 return "unerwartet erfolgreich — Selbstfreigabe wäre durchgerutscht";
                             }));
@@ -1659,7 +1782,7 @@ public final class SzenarioBibliothek {
                         aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
                                 "Zweite Freigabe — VALIDATION erwartet",
                                 FachlicheException.VALIDATION,
-                                (s, ich, kollege, ctx) -> {
+                                List.of("Nur angelegte Zahlungen können freigegeben werden"), (s, ich, kollege, ctx) -> {
                                     s.freigebenZahlung((Long) ctx.get("zahlungId"), kollege);
                                     return "unerwartet erfolgreich — Doppel-Freigabe wäre durchgerutscht";
                                 }));
@@ -1675,7 +1798,7 @@ public final class SzenarioBibliothek {
                         aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
                                 "Storno nach Kassenübergabe — VALIDATION erwartet",
                                 FachlicheException.VALIDATION,
-                                (s, ich, kollege, ctx) -> {
+                                List.of("Nur bereitgestellte oder angelegte Zahlungen können storniert werden"), (s, ich, kollege, ctx) -> {
                                     s.storniereZahlung((Long) ctx.get("zahlungId"), ich);
                                     return "unerwartet erfolgreich — Storno nach Übergabe wäre durchgerutscht";
                                 }));
@@ -1843,7 +1966,7 @@ public final class SzenarioBibliothek {
                 SzenarioAktion.schrittMitErwartetemFehler(
                         "Auszahlung anordnen — KEIN_ANSPRUCH erwartet (§ 43 Abs. 1)",
                         FachlicheException.KEIN_ANSPRUCH,
-                        (s, ich, kollege, ctx) -> {
+                        List.of("Einkommen/Vermögen übersteigen den Gesamtbedarf"), (s, ich, kollege, ctx) -> {
                             s.ordneAuszahlungAn(new Auszahlungsauftrag((Long) ctx.get("bgId"),
                                     UUID.randomUUID().toString(), "2026-10", ich));
                             return "unerwartet erfolgreich — hätte KEIN_ANSPRUCH werfen müssen";
@@ -1917,7 +2040,7 @@ public final class SzenarioBibliothek {
                 SzenarioAktion.schrittMitErwartetemFehler(
                         "Auszahlung anordnen — BUDGET_ERSCHOEPFT erwartet",
                         FachlicheException.BUDGET_ERSCHOEPFT,
-                        (s, ich, kollege, ctx) -> {
+                        List.of("übersteigt das verfügbare Restbudget"), (s, ich, kollege, ctx) -> {
                             s.ordneAuszahlungAn(new Auszahlungsauftrag((Long) ctx.get("bgId"),
                                     UUID.randomUUID().toString(), "2026-10", ich));
                             return "unerwartet erfolgreich — hätte BUDGET_ERSCHOEPFT werfen müssen";
@@ -1990,7 +2113,7 @@ public final class SzenarioBibliothek {
                 SzenarioAktion.schrittMitErwartetemFehler(
                         "Zweite Anordnung für 2026-10 — VALIDATION erwartet (Doppelzahlung)",
                         FachlicheException.VALIDATION,
-                        (s, ich, kollege, ctx) -> {
+                        List.of("existiert bereits eine nicht stornierte Zahlung"), (s, ich, kollege, ctx) -> {
                             s.ordneAuszahlungAn(new Auszahlungsauftrag((Long) ctx.get("bgId"),
                                     UUID.randomUUID().toString(), "2026-10", ich));
                             return "unerwartet erfolgreich — Doppelzahlung wäre durchgerutscht";
@@ -2068,7 +2191,7 @@ public final class SzenarioBibliothek {
                 SzenarioAktion.schrittMitErwartetemFehler(
                         "Selbstfreigabe durch den Erfasser — BERECHTIGUNG erwartet",
                         FachlicheException.BERECHTIGUNG,
-                        (s, ich, kollege, ctx) -> {
+                        List.of("Vier-Augen-Prinzip verletzt: Erfasser und Freigebender dürfen nicht identisch sein"), (s, ich, kollege, ctx) -> {
                             s.freigebenZahlung((Long) ctx.get("zahlungId"), ich);
                             return "unerwartet erfolgreich — Selbstfreigabe wäre durchgerutscht";
                         }));
@@ -2144,7 +2267,7 @@ public final class SzenarioBibliothek {
                 SzenarioAktion.schrittMitErwartetemFehler(
                         "Zweite Freigabe — VALIDATION erwartet (nur ANGELEGT ist freigebbar)",
                         FachlicheException.VALIDATION,
-                        (s, ich, kollege, ctx) -> {
+                        List.of("Nur angelegte Zahlungen können freigegeben werden"), (s, ich, kollege, ctx) -> {
                             s.freigebenZahlung((Long) ctx.get("zahlungId"), kollege);
                             return "unerwartet erfolgreich — Doppel Freigabe wäre durchgerutscht";
                         }));
@@ -2153,6 +2276,15 @@ public final class SzenarioBibliothek {
                 Erwartung.einsVon("Zahlung BEREIT (oder bereits zur Kasse übergeben)",
                         "SELECT ZAHLUNGSSTATUS FROM ZAHLUNG WHERE ID = ?",
                         ctx -> List.of(ctx.get("zahlungId")), "BEREIT|UEBERGEBEN"),
+                Erwartung.ganzeZahl("Legitimer Freigabevermerk unverändert beim Kollegen",
+                        "SELECT COUNT(*) FROM ZAHLUNG WHERE ID=? AND FREIGEGEBEN_VON=? AND SACHBEARBEITER_ID=?",
+                        ctx -> List.of(ctx.get("zahlungId"), ctx.get("kollege"), ctx.get("mitarbeiter")), 1),
+                Erwartung.ganzeZahl("Genau ein Fachjournal zur legitimen Freigabe",
+                        "SELECT COUNT(*) FROM JOURNAL WHERE BG_ID=? AND SACHBEARBEITER_ID=? AND AKTION_TEXT LIKE '%freigegeben (rechnerisch festgestellt)'",
+                        ctx -> List.of(ctx.get("bgId"), ctx.get("kollege")), 1),
+                Erwartung.ganzeZahl("Fachjournal enthält nur Anlage, Fall, Zahlung und Freigabe",
+                        "SELECT COUNT(*) FROM JOURNAL WHERE BG_ID=? AND AKTION_TEXT NOT LIKE 'Einsicht: %'",
+                        ctx -> List.of(ctx.get("bgId")), 4),
                 Erwartung.betrag("Budget korrekt gemindert",
                         "SELECT BUDGET_REST FROM BEDARFSGEMEINSCHAFT WHERE ID = ?",
                         ctx -> List.of(ctx.get("bgId")), budget.subtract(zahlbetrag).toPlainString()));
@@ -2183,7 +2315,7 @@ public final class SzenarioBibliothek {
 
     /** Storno nach Kassenübergabe → VALIDATION; Budget darf nicht zurückgebucht werden. */
     private Auftrag negStornoNachUebergabe(int nr) {
-        String kassenPraefix = praefix;
+        String kassenPraefix = aktenzeichen(nr);
         int rbs = 1 + random.nextInt(3);
         BigDecimal miete = zufallsBetrag(250, 500, 10);
         BigDecimal betrieb = zufallsBetrag(30, 90, 5);
@@ -2227,7 +2359,7 @@ public final class SzenarioBibliothek {
                 SzenarioAktion.schrittMitErwartetemFehler(
                         "Storno nach Kassenübergabe — VALIDATION erwartet",
                         FachlicheException.VALIDATION,
-                        (s, ich, kollege, ctx) -> {
+                        List.of("Nur bereitgestellte oder angelegte Zahlungen können storniert werden"), (s, ich, kollege, ctx) -> {
                             s.storniereZahlung((Long) ctx.get("zahlungId"), ich);
                             return "unerwartet erfolgreich — Storno nach Übergabe wäre durchgerutscht";
                         }));
@@ -2277,7 +2409,7 @@ public final class SzenarioBibliothek {
                 SzenarioAktion.schrittMitErwartetemFehler(
                         "Vorgang anlegen mit IBAN mit falscher Prüfziffer — VALIDATION erwartet",
                         FachlicheException.VALIDATION,
-                        (s, ich, kollege, ctx) -> {
+                        List.of("Ungültige IBAN"), (s, ich, kollege, ctx) -> {
                             s.legeBedarfsgemeinschaftAn(az, name, budget, null,
                                     "DE00370400440532013000", "MARKDEF1100", name, ich);
                             return "unerwartet erfolgreich — ungültige IBAN wäre durchgerutscht";
@@ -2285,7 +2417,7 @@ public final class SzenarioBibliothek {
                 SzenarioAktion.schrittMitErwartetemFehler(
                         "Vorgang anlegen mit zu kurzem BIC (7 Zeichen) — VALIDATION erwartet",
                         FachlicheException.VALIDATION,
-                        (s, ich, kollege, ctx) -> {
+                        List.of("Ungültiger BIC"), (s, ich, kollege, ctx) -> {
                             s.legeBedarfsgemeinschaftAn(az, name, budget, null,
                                     "DE89370400440532013000", "MARKDEF", name, ich);
                             return "unerwartet erfolgreich — zu kurzer BIC wäre durchgerutscht";
@@ -2297,6 +2429,7 @@ public final class SzenarioBibliothek {
                         ctx -> List.of(az), 0));
         return new Auftrag(nr, "NEG-BANKVERBINDUNG", az, name,
                 "Ungültige SEPA-Daten abgewehrt (IBAN-Prüfziffer, BIC-Länge)", aktionen, erwartungen)
+                .mitErwarteterVorgangsanzahl(0)
                 .dokumentiere("Hintergrund: Eine Auszahlung nützt der Person nur, wenn das "
                         + "Geld tatsächlich ankommen kann. Bankverbindungen tragen deshalb "
                         + "eingebaute Selbstprüfungen: Die IBAN (internationale Kontonummer) "
@@ -2348,14 +2481,14 @@ public final class SzenarioBibliothek {
                 SzenarioAktion.schrittMitErwartetemFehler(
                         "Bescheid mit 'von' nach 'bis' — VALIDATION erwartet",
                         FachlicheException.VALIDATION,
-                        (s, ich, kollege, ctx) -> {
+                        List.of("liegt nach 'bis'"), (s, ich, kollege, ctx) -> {
                             s.erteileBescheid((Long) ctx.get("bgId"), "2026-11", "2026-10", ich);
                             return "unerwartet erfolgreich — umgekehrter Zeitraum wäre durchgerutscht";
                         }),
                 SzenarioAktion.schrittMitErwartetemFehler(
                         "Bescheid über 13 Monate — VALIDATION erwartet (§ 44 Abs. 3: max. 12)",
                         FachlicheException.VALIDATION,
-                        (s, ich, kollege, ctx) -> {
+                        List.of("höchstens zwölf Monate"), (s, ich, kollege, ctx) -> {
                             s.erteileBescheid((Long) ctx.get("bgId"), "2026-10", "2027-10", ich);
                             return "unerwartet erfolgreich — Zeitraum über 12 Monate wäre durchgerutscht";
                         }));
@@ -2406,21 +2539,21 @@ public final class SzenarioBibliothek {
                 SzenarioAktion.schrittMitErwartetemFehler(
                         "Freigabe einer nicht existierenden Zahlung — NICHT_GEFUNDEN erwartet",
                         FachlicheException.NICHT_GEFUNDEN,
-                        (s, ich, kollege, ctx) -> {
+                        List.of("Zahlung " + -999L + " ist nicht vorhanden"), (s, ich, kollege, ctx) -> {
                             s.freigebenZahlung(-999L, kollege);
                             return "unerwartet erfolgreich";
                         }),
                 SzenarioAktion.schrittMitErwartetemFehler(
                         "Storno einer nicht existierenden Zahlung — NICHT_GEFUNDEN erwartet",
                         FachlicheException.NICHT_GEFUNDEN,
-                        (s, ich, kollege, ctx) -> {
+                        List.of("Zahlung " + -999L + " ist nicht vorhanden"), (s, ich, kollege, ctx) -> {
                             s.storniereZahlung(-999L, ich);
                             return "unerwartet erfolgreich";
                         }),
                 SzenarioAktion.schrittMitErwartetemFehler(
                         "Auszahlung auf einen nicht existierenden Vorgang — NICHT_GEFUNDEN erwartet",
                         FachlicheException.NICHT_GEFUNDEN,
-                        (s, ich, kollege, ctx) -> {
+                        List.of("Bedarfsgemeinschaft " + -999L + " ist nicht vorhanden"), (s, ich, kollege, ctx) -> {
                             s.ordneAuszahlungAn(new Auszahlungsauftrag(-999L,
                                     UUID.randomUUID().toString(), "2026-10", ich));
                             return "unerwartet erfolgreich";
@@ -2552,6 +2685,9 @@ public final class SzenarioBibliothek {
                     "SELECT CASE WHEN FREIGEGEBEN_VON = ? THEN 'ok' ELSE 'abweichend' END "
                             + "FROM ZAHLUNG WHERE ID = ?",
                     ctx -> List.of(ctx.get("kollege"), ctx.get("zahlungId")), "ok"));
+            e.add(Erwartung.ganzeZahl("Genau ein Freigabejournal durch den Kollegen",
+                    "SELECT COUNT(*) FROM JOURNAL WHERE BG_ID=? AND SACHBEARBEITER_ID=? AND AKTION_TEXT LIKE '%freigegeben (rechnerisch festgestellt)'",
+                    ctx -> List.of(ctx.get("bgId"), ctx.get("kollege")), 1));
         } else {
             e.add(erwartungNichtFreigegeben("zahlungId"));
         }

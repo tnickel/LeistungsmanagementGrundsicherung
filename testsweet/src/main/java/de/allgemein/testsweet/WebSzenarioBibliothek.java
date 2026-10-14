@@ -96,6 +96,12 @@ public final class WebSzenarioBibliothek {
         }
 
         List<Erwartung> erwartungen = new ArrayList<>();
+        erwartungen.add(Erwartung.ganzeZahl("Genau eine Zahlungszeile einschließlich stornierter Zahlungen",
+                "SELECT COUNT(*) FROM ZAHLUNG WHERE BG_ID = (SELECT ID FROM BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN = ?)",
+                ctx -> List.of(aktenzeichen), 1));
+        erwartungen.add(Erwartung.ganzeZahl("Erfasser und legitimer Freigebender bleiben exakt zugeordnet",
+                "SELECT COUNT(*) FROM ZAHLUNG WHERE BG_ID=(SELECT ID FROM BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN=?) AND SACHBEARBEITER_ID=? AND FREIGEGEBEN_VON=?",
+                ctx -> List.of(aktenzeichen, ctx.get("mitarbeiter"), ctx.get("kollege")), 1));
         erwartungen.add(Erwartung.text(mitFreigabeEnde
                         ? "Zahlung über die Oberfläche freigegeben (BEREIT)"
                         : "Zahlung nach Storno über die Oberfläche (STORNIERT)",
@@ -182,8 +188,9 @@ public final class WebSzenarioBibliothek {
                         "kein Vorgang durch die abgewehrte Anmeldung entstanden",
                         "SELECT COUNT(*) FROM BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN = ?",
                         ctx -> List.of(az), 0)))
+                .mitErwarteterVorgangsanzahl(0)
                 .mitWebAktionen(List.of(
-                        WebAktion.schritt("Anmeldung mit FALSCHEM Passwort versuchen",
+                        WebAktion.abweisung("Anmeldung mit FALSCHEM Passwort versuchen",
                                 WebHelfer::anmeldungFehlschlag)))
                 .dokumentiere("Hintergrund: Die Anmeldung ist die Tür zum System — alles, was an "
         + "Sicherheit gilt, steht und fällt damit, dass sie nur die richtige Kombination "
@@ -213,13 +220,14 @@ public final class WebSzenarioBibliothek {
                         "kein Vorgang mit dem Aktenzeichen angelegt",
                         "SELECT COUNT(*) FROM BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN = ?",
                         ctx -> List.of(az), 0)))
+                .mitErwarteterVorgangsanzahl(0)
                 .mitWebAktionen(List.of(
                         WebAktion.wiederholbar("Anmeldung an der Weboberfläche", WebHelfer::anmeldung),
-                        WebAktion.schritt("Vorgang mit IBAN mit falscher Prüfziffer anlegen",
+                        WebAktion.abweisung("Vorgang mit IBAN mit falscher Prüfziffer anlegen",
                                 (d, ctx) -> WebHelfer.vorgangAnlegenFehlschlag(d, ctx, az,
                                         "Web, Negativ " + nr, BigDecimal.valueOf(1200),
                                         "DE00370400440532013000", "MARKDEF1100", "IBAN")),
-                        WebAktion.schritt("Vorgang mit zu kurzem BIC (7 Zeichen) anlegen",
+                        WebAktion.abweisung("Vorgang mit zu kurzem BIC (7 Zeichen) anlegen",
                                 (d, ctx) -> WebHelfer.vorgangAnlegenFehlschlag(d, ctx, az,
                                         "Web, Negativ " + nr, BigDecimal.valueOf(1200),
                                         "DE89370400440532013000", "MARKDEF", "BIC"))))
@@ -267,7 +275,7 @@ public final class WebSzenarioBibliothek {
                                 (d, ctx) -> WebHelfer.fallAnlegen(d, ctx, rbs, false, false,
                                         BigDecimal.valueOf(400), BigDecimal.valueOf(60),
                                         BigDecimal.valueOf(80))),
-                        WebAktion.schritt("Auszahlung OHNE Zahlungsmonat anordnen",
+                        WebAktion.abweisung("Auszahlung OHNE Zahlungsmonat anordnen",
                                 WebHelfer::auszahlungOhneMonat)))
                 .dokumentiere("Hintergrund: Eine Auszahlungsanordnung braucht zwingend eine "
         + "Aussage darüber, FÜR WELCHEN MONAT sie gilt — der Monat steuert, welche "
@@ -314,7 +322,7 @@ public final class WebSzenarioBibliothek {
                                 (d, ctx) -> WebHelfer.fallAnlegenMitRente(d, ctx, rbs, false,
                                         false, BigDecimal.valueOf(300), BigDecimal.valueOf(50),
                                         BigDecimal.valueOf(70), rente)),
-                        WebAktion.schritt("Auszahlung anordnen — KEIN_ANSPRUCH erwartet",
+                        WebAktion.abweisung("Auszahlung anordnen — KEIN_ANSPRUCH erwartet",
                                 (d, ctx) -> WebHelfer.auszahlungFehlschlag(d, ctx, "2026-10",
                                         true, "kein Anspruch", "KEIN_ANSPRUCH"))))
                 .dokumentiere("Hintergrund: Grundsicherung erhält, wer seinen Bedarf "
@@ -373,7 +381,7 @@ public final class WebSzenarioBibliothek {
                                 + zahlbetrag.toPlainString() + " EUR)",
                                 (d, ctx) -> WebHelfer.fallAnlegen(d, ctx, rbs, false, false,
                                         miete, betrieb, heizung)),
-                        WebAktion.schritt("Auszahlung anordnen — BUDGET_ERSCHOEPFT erwartet",
+                        WebAktion.abweisung("Auszahlung anordnen — BUDGET_ERSCHOEPFT erwartet",
                                 (d, ctx) -> WebHelfer.auszahlungFehlschlag(d, ctx, "2026-10",
                                         true, "übersteigt das verfügbare Restbudget", "BUDGET"))))
                 .dokumentiere("Hintergrund: Das Startbudget eines Vorgangs ist der Geldtopf, aus "
@@ -430,7 +438,7 @@ public final class WebSzenarioBibliothek {
                                         miete, betrieb, heizung)),
                         WebAktion.schritt("Erste Auszahlung für 2026-10 anordnen",
                                 (d, ctx) -> WebHelfer.auszahlungAnordnen(d, ctx, "2026-10")),
-                        WebAktion.schritt("ZWEITE Auszahlung für 2026-10 — VALIDATION erwartet",
+                        WebAktion.abweisung("ZWEITE Auszahlung für 2026-10 — VALIDATION erwartet",
                                 (d, ctx) -> WebHelfer.auszahlungFehlschlag(d, ctx, "2026-10",
                                         false, "existiert bereits eine nicht stornierte Zahlung"))))
                 .dokumentiere("Hintergrund: Pro Vorgang und Monat darf es genau EINE wirksame "
@@ -470,6 +478,9 @@ public final class WebSzenarioBibliothek {
         return new Auftrag(nr, "WEB-NEG-STORNO-SB", az, "Web, Negativ " + nr,
                 "Storno einer freigegebenen Zahlung ist der Sachbearbeiter-Rolle nicht möglich",
                 List.of(), List.of(
+                        Erwartung.ganzeZahl("Genau eine Zahlungszeile einschließlich stornierter Zahlungen",
+                                "SELECT COUNT(*) FROM ZAHLUNG WHERE BG_ID = (SELECT ID FROM BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN = ?)",
+                                ctx -> List.of(az), 1),
                         Erwartung.text("Zahlung bleibt freigegeben (kein Storno durch SB)",
                                 "SELECT ZAHLUNGSSTATUS FROM ZAHLUNG WHERE ZAHLUNGSMONAT = ? "
                                         + "AND BG_ID = (SELECT ID FROM BEDARFSGEMEINSCHAFT "
@@ -494,7 +505,7 @@ public final class WebSzenarioBibliothek {
                                 (d, ctx) -> WebHelfer.vorgangSuchen(d, ctx, az)),
                         WebAktion.schritt("Zahlung freigeben (rechnerisch feststellen)",
                                 WebHelfer::freigeben),
-                        WebAktion.schritt("Storno-Knopf wird der Sachbearbeiter-Rolle korrekt vorenthalten",
+                        WebAktion.abweisung("Storno-Knopf wird der Sachbearbeiter-Rolle korrekt vorenthalten",
                                 WebHelfer::pruefeKeinStornoFuerSachbearbeiter)))
                 .dokumentiere("Hintergrund: Eine freigegebene Zahlung (Status BEREIT) "
         + "steht kurz davor, im nächsten Kassenlauf an die Zahlstelle "
@@ -541,6 +552,9 @@ public final class WebSzenarioBibliothek {
         return new Auftrag(nr, "WEB-LAST-DURCHLAUF", az, "Web, Last " + nr,
                 "Schlanker UI-Durchlauf (Anordnung ohne Freigabe)",
                 List.of(), List.of(
+                        Erwartung.ganzeZahl("Genau eine Zahlungszeile einschließlich stornierter Zahlungen",
+                                "SELECT COUNT(*) FROM ZAHLUNG WHERE BG_ID = (SELECT ID FROM BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN = ?)",
+                                ctx -> List.of(az), 1),
                         Erwartung.einsVon("Zahlung wirksam (Vier-Augen-Warteschlange)",
                                 "SELECT ZAHLUNGSSTATUS FROM ZAHLUNG WHERE ZAHLUNGSMONAT = ? "
                                         + "AND BG_ID = (SELECT ID FROM BEDARFSGEMEINSCHAFT "

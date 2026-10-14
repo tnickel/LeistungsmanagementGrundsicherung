@@ -30,6 +30,7 @@ import java.util.concurrent.CountDownLatch;
 public final class LmgServerMain {
 
     public static void main(String[] args) throws Exception {
+        HttpServerLimits.configure();
         // JDBC-Treiber explizit laden: im In-Prozess-Lauf (mvn exec:java) hat
         // DriverManager sonst keinen Zugriff auf den Treiber des Projekt-Klassenpfads.
         Class.forName("oracle.jdbc.OracleDriver");
@@ -56,9 +57,9 @@ public final class LmgServerMain {
         CountDownLatch beendet = new CountDownLatch(1);
         try {
             pool = erzeugePool(config);
-            if (config.poolSize() < 2 * config.maxTasks()) {
-                // Jeder Task kann zwei Verbindungen halten (Fachtransaktion + Saga-Journal)
-                System.err.println("WARNUNG: lmg.poolSize (" + config.poolSize() + ") < 2 x lmg.maxTasks ("
+            if (config.poolSize() < 3 * config.maxTasks()) {
+                // Ein HTTP-Saga-Task hält Fachtx, Live-Claim und Saga-Journalverbindung.
+                System.err.println("WARNUNG: lmg.poolSize (" + config.poolSize() + ") < 3 x lmg.maxTasks ("
                         + config.maxTasks() + ") — unter Last drohen Pool-Timeouts/Verklemmungen.");
             }
             TxManager txManager = new TxManager(pool);
@@ -75,13 +76,13 @@ public final class LmgServerMain {
             Benutzerverwaltung benutzerverwaltung = new Benutzerverwaltung(
                     demoKonten ? Benutzerverwaltung.STANDARD_KONTEN : config.benutzer(),
                     java.time.Duration.ofMinutes(config.sessionTimeoutMinuten()));
-            server = new LmgServer(tasks, service, diagnose, sagas, benutzerverwaltung, bindAdresse, config.port());
-
             // Wiederanlauf VOR dem server.start() (CR-050): keine neuen Anfragen, während
             // halbfertige Sagas kompensiert werden.
-            int wiederanlauf = diagnose.wiederanlauf();
+            int wiederanlauf = requireSuccessfulRecovery(diagnose.wiederanlaufDetails());
             // Ab jetzt laufen Sagas im Betrieb: der Admin-Wiederanlauf darf nur "verwaiste" übernehmen
             sagas.setzeMindestInaktivitaet(java.time.Duration.ofMinutes(5));
+            // Erst nach erfolgreichem Recovery einen HTTP-Listener/Executor anlegen.
+            server = new LmgServer(tasks, service, diagnose, sagas, benutzerverwaltung, bindAdresse, config.port());
 
             // Geordneter Shutdown (CR-017): Drain-Logik des TaskController läuft jetzt auch
             // bei SIGTERM/SIGINT/Ctrl+C — vorher war sie über den nie erreichten Ende-von-main
@@ -157,5 +158,16 @@ public final class LmgServerMain {
         return new UcpConnectionPool(config.url(), config.user(), config.password(),
                 Math.min(2, config.poolSize()), config.poolSize(),
                 config.dbConnectTimeoutMs(), config.dbReadTimeoutMs());
+    }
+
+    /** Ein fehlgeschlagener Scan oder eine unvollständige Kompensation ist kein grüner Serverstart. */
+    static int requireSuccessfulRecovery(Systemdiagnose.WiederanlaufErgebnis recovery) {
+        var requiredTypes = java.util.Set.of(de.allgemein.lmg.saga.AntragsSagaProzess.definition().type(),
+                de.allgemein.tx.demo.AntragsDemoProzess.definition().type());
+        if (recovery == null || !recovery.jeTyp().keySet().containsAll(requiredTypes) || recovery.fehlerhaft() != 0) {
+            throw new IllegalStateException("Wiederanlauf beim Start fehlgeschlagen oder unvollständig; "
+                    + "Server bleibt gestoppt. Saga-Journal und technische Diagnose manuell prüfen");
+        }
+        return recovery.insgesamt();
     }
 }

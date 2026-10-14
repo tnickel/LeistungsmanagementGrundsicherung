@@ -28,21 +28,34 @@ final class Verifikator {
 
     /** Verifiziert alle Aufträge sequenziell; Rückgabe: Anzahl verifizierter (ok) Aufträge. */
     int verifiziereAlle(List<Auftrag> auftraege, SweetLog log) throws Exception {
-        int verifiziert = 0;
         try (Connection c = DriverManager.getConnection(url, user, pass)) {
-            c.setAutoCommit(true);
+            return verifiziereAlle(c, auftraege, log);
+        }
+    }
+
+    /** Wiederverwendet eine bereits verfügbare Poolverbindung, ohne sie physisch zu schließen. */
+    int verifiziereAlle(Connection c, List<Auftrag> auftraege, SweetLog log) throws Exception {
+        int verifiziert = 0;
+        if (!c.getAutoCommit()) c.rollback();
+        c.setAutoCommit(true);
             for (Auftrag auftrag : auftraege) {
                 if (auftrag.status != Auftrag.Status.FERTIG_GESPIELT
                         && auftrag.status != Auftrag.Status.VERIFIKATION_FEHLGESCHLAGEN
                         && auftrag.status != Auftrag.Status.VERIFIZIERT) {
                     continue; // FEHLGESCHLAGEN oder abgebrochen: keine Aussagekraft
                 }
-                boolean alleOk = true;
+                boolean alleOk = !auftrag.erwartungen.isEmpty() && auftrag.pruefungen().stream().allMatch(Auftrag.Pruefung::ok);
                 for (Erwartung erwartung : auftrag.erwartungen) {
                     Auftrag.Pruefung pruefung = pruefe(c, auftrag, erwartung);
                     auftrag.ergaenzePruefung(pruefung);
                     log.pruefung(auftrag, pruefung);
                     alleOk &= pruefung.ok();
+                }
+                if (!auftrag.rechenbloecke.isEmpty()) {
+                    Auftrag.Pruefung rechnung = pruefeRechnung(auftrag);
+                    auftrag.ergaenzePruefung(rechnung);
+                    log.pruefung(auftrag, rechnung);
+                    alleOk &= rechnung.ok();
                 }
                 auftrag.status = alleOk
                         ? Auftrag.Status.VERIFIZIERT
@@ -51,35 +64,57 @@ final class Verifikator {
                     verifiziert++;
                 }
             }
-        }
         return verifiziert;
     }
 
     private Auftrag.Pruefung pruefe(Connection c, Auftrag auftrag, Erwartung erwartung) {
         Map<String, Object> ctx = auftrag.kontext;
+        List<Object> parameter = List.of();
         try (PreparedStatement stmt = c.prepareStatement(erwartung.sql())) {
-            List<Object> parameter = erwartung.parameter().apply(ctx);
+            parameter = erwartung.parameter().apply(ctx);
             for (int i = 0; i < parameter.size(); i++) {
                 stmt.setObject(i + 1, parameter.get(i));
             }
             try (ResultSet rs = stmt.executeQuery()) {
-                String ist = rs.next() ? stringVon(rs.getObject(1)) : "<keine Zeile>";
+                if (!rs.next()) {
+                    return new Auftrag.Pruefung(erwartung.beschreibung(), erwartung.erwartet(),
+                            "<keine Zeile>", false, "Skalarprüfung verlangt exakt eine Ergebniszeile", erwartung.sql(), parameter);
+                }
+                String ist = stringVon(rs.getObject(1));
+                if (rs.next()) {
+                    return new Auftrag.Pruefung(erwartung.beschreibung(), erwartung.erwartet(),
+                            "<mehrere Zeilen>", false, "Skalarprüfung verlangt exakt eine Ergebniszeile", erwartung.sql(), parameter);
+                }
                 if (ist == null) {
                     // DB-NULL ist eine Aussage: Prüfung sauber als false werten
                     // (mit deutlichem Kennzeichen) statt in einer NPE zu enden.
                     return new Auftrag.Pruefung(erwartung.beschreibung(),
                             erwartung.erwartet(), "<NULL>", false,
-                            "Datenbank-NULL statt eines Werts");
+                            "Datenbank-NULL statt eines Werts", erwartung.sql(), parameter);
                 }
                 return new Auftrag.Pruefung(erwartung.beschreibung(),
                         erwartung.erwartet(), ist,
-                        vergleiche(erwartung, ist), null);
+                        vergleiche(erwartung, ist), null, erwartung.sql(), parameter);
             }
         } catch (Exception e) {
             Auftrag.Pruefung fehlgeschlagen = new Auftrag.Pruefung(erwartung.beschreibung(),
                     erwartung.erwartet(), "<SQL-Fehler>",
-                    false, e.getClass().getSimpleName() + ": " + e.getMessage());
+                    false, e.getClass().getSimpleName() + ": " + e.getMessage(), erwartung.sql(), parameter);
             return fehlgeschlagen;
+        }
+    }
+
+    static Auftrag.Pruefung pruefeRechnung(Auftrag auftrag) {
+        try {
+            List<String> errors = LlmCalculationReference.verifyBlocks(MdBericht.rechenbloecke(auftrag.rechenbloecke));
+            return new Auftrag.Pruefung("Unabhängige Nachrechnung sämtlicher Rechenblöcke (Referenz 2026)",
+                    "0 Abweichungen", errors.isEmpty() ? "0 Abweichungen" : errors.size() + " Abweichungen", errors.isEmpty(),
+                    errors.isEmpty() ? auftrag.rechenbloecke.size() + " Rechenblöcke mit unabhängigen Konstanten und BigDecimal geprüft"
+                            : String.join("; ", errors), "-- INDEPENDENT_CALCULATION_2026: BigDecimal-Zweitimplementierung; sämtliche Personen und Zwischenwerte", List.of());
+        } catch (Exception e) {
+            return new Auftrag.Pruefung("Unabhängige Nachrechnung sämtlicher Rechenblöcke (Referenz 2026)",
+                    "0 Abweichungen", "<Referenzfehler>", false, e.getClass().getSimpleName() + ": " + e.getMessage(),
+                    "-- INDEPENDENT_CALCULATION_2026: BigDecimal-Zweitimplementierung", List.of());
         }
     }
 

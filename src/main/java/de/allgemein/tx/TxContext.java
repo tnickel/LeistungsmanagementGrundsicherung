@@ -4,7 +4,8 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Savepoint;
 import java.time.Duration;
-import java.time.Instant;
+import java.util.Objects;
+import java.util.function.LongSupplier;
 
 /**
  * Steuert genau eine laufende Oracle-Transaktion (Vorbild: CICS-Task mit SYNCPOINT).
@@ -14,13 +15,22 @@ import java.time.Instant;
 public final class TxContext implements AutoCloseable {
 
     private final Connection connection;
-    private final Instant deadline;
+    private final Duration timeout;
+    private final LongSupplier nanoTime;
+    private final long startedAtNanos;
     private volatile TxStatus status = TxStatus.ACTIVE;
 
     TxContext(Connection connection, Duration timeout) throws SQLException {
+        this(connection, timeout, System::nanoTime);
+    }
+
+    /** Stellbare monotone Uhr für deterministische Grenztests, ohne Änderung der Systemzeit. */
+    TxContext(Connection connection, Duration timeout, LongSupplier nanoTime) throws SQLException {
+        this.timeout = Objects.requireNonNull(timeout, "timeout");
+        this.nanoTime = Objects.requireNonNull(nanoTime, "nanoTime");
         connection.setAutoCommit(false);
         this.connection = connection;
-        this.deadline = Instant.now().plus(timeout);
+        this.startedAtNanos = nanoTime.getAsLong();
     }
 
     public Connection connection() {
@@ -45,12 +55,15 @@ public final class TxContext implements AutoCloseable {
     }
 
     public Duration remaining() {
-        return Duration.between(Instant.now(), deadline);
+        // Differenzbildung funktioniert auch über einen nanoTime-Zählerüberlauf.
+        // Die Wanduhr (NTP, manuelle Zeitkorrektur) beeinflusst das Budget nicht.
+        return timeout.minusNanos(nanoTime.getAsLong() - startedAtNanos);
     }
 
     /** Zwischen den Schritten aufrufen: bricht ab, sobald das Zeitlimit überschritten ist. */
     public void checkDeadline() {
-        if (remaining().isNegative()) {
+        Duration left = remaining();
+        if (left.isNegative() || left.isZero()) {
             throw TxException.timeout("Zeitlimit der Transaktion überschritten");
         }
     }

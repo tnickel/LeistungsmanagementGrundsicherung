@@ -64,7 +64,7 @@ final class LastBericht {
             verifiziert += a.status == Auftrag.Status.VERIFIZIERT ? 1 : 0;
             nio += a.status == Auftrag.Status.VERIFIKATION_FEHLGESCHLAGEN ? 1 : 0;
             fehl += a.status == Auftrag.Status.FEHLGESCHLAGEN ? 1 : 0;
-            summe = summe.add(a.pruefungen().stream()
+            if (a.status == Auftrag.Status.VERIFIZIERT) summe = summe.add(a.pruefungen().stream()
                     .filter(p -> p.beschreibung().startsWith("Auszahlungsbetrag"))
                     .filter(p -> p.ok())
                     .map(p -> new BigDecimal(p.ist()))
@@ -82,10 +82,10 @@ final class LastBericht {
                 (int) liste.stream().filter(a -> a.status == Auftrag.Status.VERIFIZIERT).count(),
                 (int) liste.stream().filter(a -> a.status == Auftrag.Status.VERIFIKATION_FEHLGESCHLAGEN).count(),
                 (int) liste.stream().filter(a -> a.status == Auftrag.Status.FEHLGESCHLAGEN).count(),
-                (long) liste.stream().mapToLong(Auftrag::dauerMs).average().orElse(0))));
+                (long) liste.stream().filter(a -> a.status != Auftrag.Status.OFFEN && a.status != Auftrag.Status.IN_BEARBEITUNG).mapToLong(Auftrag::dauerMs).average().orElse(0))));
         Map<String, MaZeile> maZeilen = new LinkedHashMap<>();
-        jeMa.forEach((kuerzel, liste) -> maZeilen.put(kuerzel, new MaZeile(liste.size(),
-                (long) liste.stream().mapToLong(Auftrag::dauerMs).average().orElse(0))));
+        jeMa.forEach((kuerzel, liste) -> maZeilen.put(kuerzel, new MaZeile((int)liste.stream().filter(a -> a.status != Auftrag.Status.OFFEN && a.status != Auftrag.Status.IN_BEARBEITUNG).count(),
+                (long) liste.stream().filter(a -> a.status != Auftrag.Status.OFFEN && a.status != Auftrag.Status.IN_BEARBEITUNG).mapToLong(Auftrag::dauerMs).average().orElse(0))));
         return new Aggregate(auftraege.size(), verifiziert, nio, fehl,
                 summe.setScale(2),
                 gezahlt > 0 ? minMs : 0, gezahlt > 0 ? sumMs / gezahlt : 0, maxMs,
@@ -100,7 +100,7 @@ final class LastBericht {
         Aggregate agg = aggregate(simulator);
         SweetPdf inhalt = new SweetPdf();
         String zeitstempel = simulator.laufStart().format(TAG);
-        inhalt.fettZeile("Lauf erfolgreich: " + simulator.laufErfolgreich(),
+        inhalt.fettZeile("Automatischer Last-/Stresslauf erfolgreich: " + simulator.laufErfolgreich(),
                 simulator.laufErfolgreich() ? SweetPdf.GRUEN : SweetPdf.ROT, 10f);
         for (Auftrag.Pruefung pruefung : simulator.globalePruefungen()) {
             inhalt.text(pruefung.beschreibung() + ": erwartet " + pruefung.erwartet() + ", ist "
@@ -305,7 +305,8 @@ final class LastBericht {
         md.append(simulator.letzteKategorie() == Simulator.Kategorie.STRESS
                 ? "# stresstest_gesamtreport\n\n" : "# lasttest_gesamtreport\n\n");
         md.append("# lauf\n\n");
-        kv(md, "lauf_erfolgreich", String.valueOf(simulator.laufErfolgreich()));
+        kv(md, "automatik_bestanden", String.valueOf(simulator.laufErfolgreich()));
+        kv(md, "pruefumfang", "Automatischer Last-/Stresslauf; KI-Stichprobe und Gesamtzertifikat werden separat bewertet");
         simulator.globalePruefungen().forEach(p -> kv(md, "globale_pruefung", p.toString()));
         kv(md, "kategorie", String.valueOf(simulator.letzteKategorie()));
         kv(md, "modus", "WEB".equalsIgnoreCase(simulator.letzterModus()) ? "WEB" : "FACHSCHICHT");
@@ -331,7 +332,7 @@ final class LastBericht {
         kv(md, "dauer_ms_max", String.valueOf(agg.dauerMaxMs()));
         double durchsatz = simulator.laufdauerSekunden() > 0
                 ? agg.gesamt() * 60.0 / simulator.laufdauerSekunden() : 0;
-        kv(md, "durchsatz_auftraege_pro_min", String.format(java.util.Locale.GERMAN, "%.1f", durchsatz));
+        kv(md, "durchsatz_auftraege_pro_min", String.format(java.util.Locale.ROOT, "%.1f", durchsatz));
 
         md.append("\n# je_szenario_typ\n\n");
         agg.jeTyp().forEach((typ, zeile) -> md.append(typ).append(" = anzahl ")

@@ -170,8 +170,17 @@ class CodereviewRegressionDbTest {
         service.freigebenZahlung(ergebnis.zahlung().id(), "sb-zweit");
         long versionNachBuchung = service.ladeDetail(bg.id()).bedarfsgemeinschaft().version();
         service.aktualisiereBedarfsgemeinschaft(bg.id(), false, null, versionNachBuchung);
-        var kassenlauf = service.uebergebeBereiteZahlungen("sb-kasse");
+        var fremd = service.legeBedarfsgemeinschaftAn("BG-CR-FREMDE-KASSE", "Fremde vorbereitete Zahlung",
+                new BigDecimal("900.00"), null, "sb-test");
+        service.legeSozialFallAn(fremd.id(), new SozialFall(1, fremd.id(), 1, false, false,
+                new BigDecimal("300.00"), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, 1L), "sb-test");
+        var fremdeZahlung = service.ordneAuszahlungAn(new Auszahlungsauftrag(fremd.id(), "CR-FREMDE-KASSE",
+                "2026-10", "sb-test")).zahlung();
+        service.freigebenZahlung(fremdeZahlung.id(), "sb-zweit");
+        var kassenlauf = service.uebergebeBereiteZahlungen("sb-kasse", bg.aktenzeichen());
         assertEquals(0, kassenlauf.anzahl(), "Historisierte BEREIT-Zahlung wird nicht übergeben");
+        assertEquals("BEREIT", service.ladeDetail(fremd.id()).zahlungen().getFirst().status(),
+                "Fremde vorbereitete Zahlung bleibt unverändert");
         assertEquals("BEREIT", text(verbindung(),
                 "SELECT ZAHLUNGSSTATUS FROM ZAHLUNG WHERE ID = " + ergebnis.zahlung().id()));
     }

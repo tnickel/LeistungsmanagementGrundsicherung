@@ -15,9 +15,10 @@ final class KiPruefAnhang {
         pdf.kasten("Dateiübergabe geprüft: " + (transported ? "BESTÄTIGT" : "AUSSTEHEND / NICHT BESTÄTIGT"),
                 true, SweetPdf.WEISS, transported ? SweetPdf.FUELL_GRUEN : SweetPdf.FUELL_GRAU, 10f);
         pdf.leereZeile(5f);
-        pdf.kasten("Fachprüfung: " + (passed ? "BESTANDEN" : value(evidence, "state", "AUSSTEHEND")),
+        boolean failed = "FAIL".equals(evidence.get("state")) || "FAIL".equals(evidence.get("caseVerdict")) || Boolean.TRUE.equals(evidence.get("hasFailures"));
+        pdf.kasten("Fachprüfung: " + (passed ? "BESTANDEN im ausgewählten Prüfumfang" : failed ? "NICHT BESTANDEN" : "UNVOLLSTÄNDIG / NICHT BESTÄTIGT"),
                 true, SweetPdf.WEISS, passed ? SweetPdf.FUELL_GRUEN
-                        : "FAIL".equals(evidence.get("state")) ? SweetPdf.FUELL_ROT : SweetPdf.FUELL_GRAU, 10f);
+                        : failed ? SweetPdf.FUELL_ROT : SweetPdf.FUELL_GRAU, 10f);
         pdf.leereZeile(6f);
         lines(evidence, text -> pdfLine(pdf, text));
     }
@@ -42,6 +43,10 @@ final class KiPruefAnhang {
         long total = number(evidence.get("totalCases"));
         return "PASS".equals(evidence.get("state")) && transportVerified(evidence)
                 && !Boolean.TRUE.equals(evidence.get("running")) && total > 0
+                && Boolean.TRUE.equals(evidence.get("calculationVerified"))
+                && Boolean.TRUE.equals(evidence.get("reviewCoverageVerified"))
+                && !Boolean.TRUE.equals(evidence.get("hasFailures"))
+                && "PASS".equals(evidence.get("caseVerdict"))
                 && number(evidence.get("completedCases")) == total;
     }
 
@@ -51,8 +56,29 @@ final class KiPruefAnhang {
             return;
         }
         out.accept("reviewId = " + value(evidence, "reviewId", "-") + " | Modell = " + value(evidence, "model", "-"));
-        out.accept("Fachstatus = " + value(evidence, "state", "UNVERIFIED") + " | geprüfte Fälle = "
+        out.accept("Protokollstatus (Rohstatus) = " + value(evidence, "state", "UNVERIFIED") + " | beantwortete Fälle = "
                 + number(evidence.get("completedCases")) + " / " + number(evidence.get("totalCases")));
+        out.accept("Prüfumfang: ausgewählte Fälle; keine Aussage über nicht gelieferte Fälle oder Regelzweige.");
+        out.accept("Einzelfallurteil = " + value(evidence, "caseVerdict", "UNVERIFIED")
+                + " | Bekannte fachliche Fehler = " + value(evidence, "hasFailures", "false"));
+        if (evidence.get("message") != null) out.accept("Abschluss / Grenze = " + evidence.get("message"));
+        for (Object raw : list(evidence.get("findings"))) {
+            if (raw instanceof Map<?,?> finding) out.accept("BEFUND " + value(finding,"caseId","-") + ": "
+                    + value(finding,"description",value(finding,"message",String.valueOf(finding))));
+            else out.accept("BEFUND: " + raw);
+        }
+        for (Object raw : list(evidence.get("cases"))) {
+            if (!(raw instanceof Map<?,?> checked)) continue;
+            boolean confirmed = transportVerified(evidence) && Boolean.TRUE.equals(evidence.get("reviewCoverageVerified"))
+                    && !Boolean.TRUE.equals(evidence.get("hasUnverifiedFindings"));
+            out.accept("\nFall " + value(checked,"caseId","-") + " | "
+                    + (confirmed ? "Einzelurteil = " : "UNVERIFIZIERTES MODELL-ROHURTEIL = ") + value(checked,"verdict","UNVERIFIED"));
+            for (Object finding : list(checked.get("findings"))) out.accept("- Befund: " + finding);
+            out.accept("Rechenbegründung des Modells: " + value(checked,"reasoning","Nicht vorhanden"));
+            if (checked.get("calculations") != null) out.accept("Strukturierte Rechenblöcke: " + de.allgemein.lmg.web.Json.write(checked.get("calculations")));
+            if (checked.get("checks") != null) out.accept("Workflow-Prüfungen: " + de.allgemein.lmg.web.Json.write(checked.get("checks")));
+        }
+        if (evidence.get("referenceChecks") != null) out.accept("Unabhängige Referenzprüfung: " + de.allgemein.lmg.web.Json.write(evidence.get("referenceChecks")));
         out.accept("Der Transportnachweis bestätigt die protokollierten Anfrage-/Antwortdateien und ihre Inhalte. "
                 + "Er ersetzt keine fachlich erfolgreiche Prüfung oder Aussage über nicht geprüfte Fälle.");
         for (Object raw : list(evidence.get("transportChecks"))) {

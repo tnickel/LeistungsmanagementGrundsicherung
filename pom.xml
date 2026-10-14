@@ -55,6 +55,17 @@
         <configuration>
           <mainClass>${exec.mainClass}</mainClass>
         </configuration>
+        <executions>
+          <execution><id>evidence-test-begin</id><phase>initialize</phase><goals><goal>exec</goal></goals>
+            <configuration><executable>java</executable><arguments><argument>${project.basedir}/tools/BuildStamp.java</argument><argument>test-begin</argument><argument>${project.basedir}</argument><argument>main</argument><argument>${settings.localRepository}</argument></arguments></configuration>
+          </execution>
+          <execution><id>evidence-build-stamp</id><phase>process-classes</phase><goals><goal>exec</goal></goals>
+            <configuration><executable>java</executable><arguments><argument>${project.basedir}/tools/BuildStamp.java</argument><argument>stamp</argument><argument>${project.basedir}</argument><argument>main</argument></arguments></configuration>
+          </execution>
+          <execution><id>evidence-test-finish</id><phase>test</phase><goals><goal>exec</goal></goals>
+            <configuration><executable>java</executable><arguments><argument>${project.basedir}/tools/BuildStamp.java</argument><argument>test-finish</argument><argument>${project.basedir}</argument><argument>main</argument><argument>${settings.localRepository}</argument></arguments></configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>

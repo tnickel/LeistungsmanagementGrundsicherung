@@ -8,7 +8,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -192,9 +191,9 @@ public final class ZahlungDao {
             stmt.setBigDecimal(13, einsatz);
             stmt.executeUpdate();
         }
-        return new Zahlung(id, bgId, fallId, vorgangsNr, zahlungsmonat, betrag,
-                status != null ? status : "BEREIT", Instant.now(),
-                sachbearbeiterId, freigegebenVon, iban, bic, empfaengerName, einsatz);
+        // DB-Default und Spaltenpräzision sind maßgeblich, auch für ERSTELLT_AM.
+        return finde(ctx, id).orElseThrow(() -> new SQLException(
+                "Eingefügte Zahlung ist innerhalb der Transaktion nicht lesbar"));
     }
 
     public Zahlung einfuegen(TxContext ctx, long id, long bgId, Long fallId, String vorgangsNr,
@@ -251,7 +250,7 @@ public final class ZahlungDao {
                 fallIstNull ? null : fallId,
                 rs.getString(4),
                 rs.getString(5),
-                rs.getBigDecimal(6),
+                rs.getBigDecimal(6).setScale(2, java.math.RoundingMode.UNNECESSARY),
                 rs.getString(7),
                 erstellt == null ? null : erstellt.toInstant(),
                 rs.getString(9),
@@ -259,6 +258,6 @@ public final class ZahlungDao {
                 rs.getString(11),
                 rs.getString(12),
                 rs.getString(13),
-                rs.getBigDecimal(14));
+                rs.getBigDecimal(14).setScale(2, java.math.RoundingMode.UNNECESSARY));
     }
 }

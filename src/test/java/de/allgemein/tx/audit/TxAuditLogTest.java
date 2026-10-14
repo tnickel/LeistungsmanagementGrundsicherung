@@ -37,6 +37,20 @@ class TxAuditLogTest {
         assertEquals("ROLLBACK", events.get(0).eventType());
         assertEquals("RETRY", events.get(1).eventType());
         assertEquals("COMMIT", events.get(2).eventType());
+        assertTrue(TxAuditLog.getRecentEvents(0).isEmpty());
+        assertTrue(TxAuditLog.getRecentEvents(-1).isEmpty());
+    }
+
+    @Test
+    void threadNameKannKeineZweiteAuditzeileEinschleusen() {
+        String original = Thread.currentThread().getName();
+        try {
+            Thread.currentThread().setName("worker\nTX.COMMIT id=gefälscht");
+            TxAuditLog.recordTxCommit("echt", 1, 1, null);
+            assertFalse(TxAuditLog.getRecentEvents(1).getFirst().toLogLine().contains("\n"));
+        } finally {
+            Thread.currentThread().setName(original);
+        }
     }
 
     @Test

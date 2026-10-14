@@ -1,6 +1,9 @@
 package de.allgemein.tx;
 
 import java.sql.SQLException;
+import java.util.ArrayDeque;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -14,6 +17,8 @@ public final class RetryPolicy {
 
     private static final Set<Integer> RETRYABLE_ORA_CODES = Set.of(54, 60, 8177);
     private static final Set<String> RETRYABLE_SQL_STATES = Set.of("40001", "61000");
+    /** Basis höchstens 30 s; einschließlich Jitter höchstens 45 s pro Pause. */
+    static final long MAX_BACKOFF_MILLIS = 30_000;
 
     private final long initialBackoffMillis;
 
@@ -28,28 +33,46 @@ public final class RetryPolicy {
         this.initialBackoffMillis = initialBackoffMillis;
     }
 
-    /** Durchsucht die Oracle-Fehlerkette, ob irgendein Fehler wiederholbar ist. */
+    /** Durchsucht NextException und Ursachen zyklensicher nach bekannten Sperrenkonflikten. */
     public static boolean isRetryable(SQLException e) {
-        SQLException current = e;
-        while (current != null) {
-            if (RETRYABLE_ORA_CODES.contains(current.getErrorCode())) {
-                return true;
+        if (e == null) return false;
+        var pending = new ArrayDeque<Throwable>();
+        Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        pending.add(e);
+        while (!pending.isEmpty()) {
+            Throwable current = pending.removeFirst();
+            if (!visited.add(current)) continue;
+            if (current instanceof SQLException sql) {
+                if (RETRYABLE_ORA_CODES.contains(sql.getErrorCode())
+                        || RETRYABLE_SQL_STATES.contains(sql.getSQLState() == null ? "" : sql.getSQLState())) {
+                    return true;
+                }
+                if (sql.getNextException() != null) pending.addLast(sql.getNextException());
             }
-            String sqlState = current.getSQLState();
-            if (sqlState != null && RETRYABLE_SQL_STATES.contains(sqlState)) {
-                return true;
-            }
-            current = current.getNextException();
+            if (current.getCause() != null) pending.addLast(current.getCause());
         }
         return false;
     }
 
+    long backoffMillis(int failedAttempt) {
+        if (failedAttempt < 1) {
+            throw new IllegalArgumentException("failedAttempt muss >= 1 sein");
+        }
+        long base = Math.min(initialBackoffMillis, MAX_BACKOFF_MILLIS);
+        long multiplier = 1L << Math.min(failedAttempt - 1, 10);
+        return base > MAX_BACKOFF_MILLIS / multiplier ? MAX_BACKOFF_MILLIS : base * multiplier;
+    }
+
+    long delayMillis(int failedAttempt) {
+        long backoff = backoffMillis(failedAttempt);
+        return backoff + ThreadLocalRandom.current().nextLong(backoff / 2 + 1);
+    }
+
     /** Wartet vor dem nächsten Versuch: Backoff verdoppelt sich pro Fehlversuch, plus Zufallsanteil. */
     public void sleepBeforeAttempt(int failedAttempt) {
-        long backoff = initialBackoffMillis << Math.min(failedAttempt - 1, 10);
-        long jitter = ThreadLocalRandom.current().nextLong(backoff / 2 + 1);
+        long delay = delayMillis(failedAttempt);
         try {
-            Thread.sleep(backoff + jitter);
+            Thread.sleep(delay);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw TxException.nonRetryable("Warten auf Wiederholversuch unterbrochen", e);

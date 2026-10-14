@@ -94,9 +94,9 @@ def d01():
 
     schicht(ax, 12, 40, 106, 11.5, "Fachschicht — Leistungsmanagement Grundsicherung (SGB XII)",
             "SozialLeistungsService (Auszahlung, Freigabe, Kassenlauf, Storno) · Leistungsberechnung (rein)\n"
-            "SepaValidator (ISO 13616, Modulo 97) · BescheidGenerator (§ 37 SGB X) · DAOs (PreparedStatements)", "fach")
+            "SepaValidator · BescheidGenerator (Monatsplan) · DAOs", "fach")
     pfeil(ax, 65, 40, 65, 34.5)
-    label(ax, 87, 37.2, "jede API-Anfrage läuft als Task")
+    label(ax, 87, 37.2, "Facharbeit läuft als begrenzter Task")
 
     schicht(ax, 12, 21, 106, 13.5, "Transaktionssteuerung (Kernbibliothek de.allgemein.tx)",
             "TaskController (begrenzte Parallelität, Warteschlange, Zeitlimit-Wachhund, Statistik)\n"
@@ -112,48 +112,21 @@ def d01():
 
 # ---------------------------------------------------------------- 2 kurze Transaktion
 def d02():
-    fig, ax = neue_fig("Ablauf einer kurzen Transaktion (TxManager.execute)", 7.2)  # ylim 81
-    cx, rx = 38, 96
-
-    box(ax, cx - 22, 69, 44, 5.5, "Aufruf: TxManager.execute(facharbeit)", "tx", 10, True)
-    pfeil(ax, cx, 69, cx, 67.5)
-    box(ax, cx - 22, 62, 44, 5.5, "Verbindung aus dem Pool holen,\nautoCommit aus, Isolation setzen", "neutral", 9.3)
-    pfeil(ax, cx, 62, cx, 57.5)
-    box(ax, cx - 22, 52, 44, 5.5, "Facharbeit ausführen\n(SQL auf der Transaktionsverbindung)", "fach", 9.3)
-    pfeil(ax, cx, 52, cx, 47.5)
-    entscheidung(ax, cx, 43, 30, 9, "Exception\naufgetreten?")
-    pfeil(ax, cx, 38.5, cx, 33.5)
-    label(ax, cx - 4.5, 36, "nein")
-    box(ax, cx - 22, 28, 44, 5.5, "COMMIT — Änderungen sind\nrevisionssicher übernommen", "ok", 9.8, True)
-    pfeil(ax, cx, 28, cx, 23.5)
-    box(ax, cx - 22, 18, 44, 5.5, "Verbindung in jedem Fall zurück\nin den Pool (Auto-Commit zurückgesetzt)", "neutral", 9.3)
-
-    # Fehlerpfad
-    pfeil(ax, cx + 15, 43, rx - 19, 43)
-    label(ax, cx + 19, 44.6, "ja")
-    box(ax, rx - 19, 55, 38, 5.5, "ROLLBACK — nichts bleibt\nhalb gebucht (atomar)", "komp", 9.3)
-    pfeil(ax, rx, 55, rx, 50.5)
-    entscheidung(ax, rx, 46, 40, 9, "Wiederholbar?\nORA-00054 · 00060 · 08177")
-    pfeil(ax, rx, 41.5, rx, 36.5)
-    label(ax, rx + 4, 39, "ja")
-    box(ax, rx - 19, 31, 38, 5.5, "Backoff: 200 → 400 → 800 ms\n(je + Zufallsanteil bis 50 %)", "tx", 9.3)
-    pfeil(ax, rx, 31, rx, 27.5)
-    label(ax, rx + 4.5, 29.2, "ja (bis 3 Versuche)")
-    box(ax, rx - 19, 22, 38, 5.5, "ganze Transaktion erneut\nausführen (Wiederholung)", "tx", 9.3)
-
-    pfeil(ax, rx - 19, 24.8, 66, 24.8, stil="-")
-    pfeil(ax, 66, 24.8, 66, 49, stil="-")
-    pfeil(ax, 66, 49, 16, 49, stil="-")
-    pfeil(ax, 16, 49, 16, 52)
-    label(ax, 73, 39.5, "Transaktion\nerneut versuchen", farbe="#1d4ed8", size=8)
-
-    pfeil(ax, rx + 20, 46, 124, 46, stil="-")
-    pfeil(ax, 124, 46, 124, 24.7, stil="-")
-    pfeil(ax, 124, 24.7, rx + 19, 24.7)
-    label(ax, 112, 47.8, "nein")
-    box(ax, rx - 19, 12, 38, 5.5, "Abbruch: TxException mit Ursache\nan den Aufrufer (kein Retry)", "komp", 9.3)
-    pfeil(ax, rx, 22, rx, 17.5)
-    label(ax, rx + 3.5, 19.8, "nach 3. Fehlversuch oder Fachfehler")
+    fig, ax = neue_fig("Kurze Transaktion mit Rollback und begrenztem Retry", 6.2)
+    box(ax, 33, 56, 64, 8, "Verbindung holen und Transaktion beginnen\nFacharbeit ausführen, monotone Deadline prüfen", "tx", 10)
+    pfeil(ax, 65, 56, 65, 51)
+    entscheidung(ax, 65, 46, 34, 10, "Facharbeit erfolgreich?")
+    pfeil(ax, 82, 46, 99, 46); label(ax, 90, 48, "ja")
+    box(ax, 99, 41, 29, 10, "COMMIT\nVerbindung freigeben\nErgebnis zurückgeben", "ok", 9)
+    pfeil(ax, 65, 41, 65, 36); label(ax, 69, 38, "nein")
+    box(ax, 42, 28, 46, 8, "ROLLBACK\nVerbindung freigeben", "komp", 10)
+    pfeil(ax, 65, 28, 65, 23)
+    entscheidung(ax, 65, 17, 40, 12, "Sperrkonflikt und\nVersuch übrig?")
+    pfeil(ax, 85, 17, 99, 17); label(ax, 92, 19, "nein")
+    box(ax, 99, 12, 29, 10, "Abbruch\nFehler zurückgeben\nkein erneuter Versuch", "komp", 9)
+    pfeil(ax, 45, 17, 28, 17); label(ax, 36, 19, "ja")
+    box(ax, 2, 12, 26, 10, "Backoff mit Jitter\nStandard: 200, 400 ms\nmaximal zwei Pausen", "tx", 8.6)
+    pfeil(ax, 15, 22, 15, 60, stil="-"); pfeil(ax, 15, 60, 33, 60)
     speichern(fig, "d02_kurze_transaktion.png")
 
 
@@ -165,13 +138,13 @@ def d03():
     schritte = [
         ("1 · Vorgang erfassen", "Bedarfsgemeinschaft +\nSozialFall anlegen"),
         ("2 · Bedarfsprüfung", "SGB-XII-Berechnung;\nZahlbetrag ≤ 0 → Abbruch"),
-        ("3 · Bescheid erteilen", "Bewilligungsbescheid\n(§ 37 SGB X) anlegen"),
-        ("4 · Erstauszahlung", "Zahlung BEREIT +\nRestbudget mindern"),
+        ("3 · Bescheid erteilen", "Bewilligungsbescheid\nmit Monatsplan anlegen"),
+        ("4 · Erstauszahlung", "Zahlung ANGELEGT +\nRestbudget mindern"),
     ]
     komp = [
-        "Kompensation:\nVorgang löschen",
+        "Kompensation:\nEigenen Vorgang historisieren",
         "Kompensation:\nJournaleintrag (nichts\nzu zurückrollen)",
-        "Kompensation:\nBescheid aufheben\n(AUFGEHOBEN)",
+        "Kompensation:\nEigenen Bescheid aufheben\n(AUFGEHOBEN)",
         "Kompensation:\nZahlung stornieren,\nBudget zurückbuchen",
     ]
     for i, (t, u) in enumerate(schritte):
@@ -189,10 +162,10 @@ def d03():
     pfeil(ax, 127.5, 22, 2.5, 22, farbe="#b91c1c", lw=1.7)
     label(ax, 65, 24.2, "Fehler in einem Schritt → Saga FAILED, danach Rückwärtskompensation "
                         "der bereits gelaufenen Schritte in umgekehrter Reihenfolge", farbe="#b91c1c", size=8.8)
-    box(ax, 2, 6, 41, 10, "Journal: TX_SAGA + TX_SAGA_STEP\nJede Schreiboperation committet sofort —\n"
+    box(ax, 2, 6, 41, 10, "Journal: TX_SAGA + TX_SAGA_STEP\nIN_FLIGHT/DONE werden bestätigt —\n"
         "das Journal überlebt einen Absturz.", "neutral", 8.8)
-    box(ax, 44.5, 6, 41, 10, "Zustände der Saga:\nRUNNING → COMPLETED bzw.\nFAILED → COMPENSATING → COMPENSATED", "neutral", 8.8)
-    box(ax, 87, 6, 41, 10, "Wiederanlauf recover() beim Serverstart:\nHalb fertige Sagas werden sauber beendet —\nKompensationen sind idempotent.", "neutral", 8.8)
+    box(ax, 44.5, 6, 41, 10, "Zustände der Saga:\nRUNNING → COMPLETED bzw.\nFAILED → COMPENSATED / FAILED", "neutral", 8.8)
+    box(ax, 87, 6, 41, 10, "Wiederanlauf beim Serverstart:\nExklusiver Claim; lebende Sagas überspringen.\nFehler bleiben FAILED und prüfbedürftig.", "neutral", 8.3)
     speichern(fig, "d03_saga.png")
 
 
@@ -200,53 +173,37 @@ def d03():
 def d04():
     fig, ax = neue_fig("Zahlungsworkflow: Vier-Augen-Prinzip und Statusweg", 5.8)  # ylim 65
     box(ax, 2, 38, 26, 10, "Auszahlung anordnen\n(Sachbearbeiter; eine kurze\nTransaktion mit Idempotenz,\nSEPA- und Budgetprüfung)", "fach", 8.8)
-    box(ax, 46, 38, 26, 10, "ANGELEGT\n„angelegt“ — erfasst,\nwartet auf Freigabe durch\nden Zweitsachbearbeiter", "ent", 9.0, True)
-    box(ax, 104, 38, 26, 10, "BEREIT\n„bereit“ — für den\nKassenlauf vorgemerkt", "ok", 9.0, True)
-    box(ax, 104, 12, 26, 8, "ÜBERGEBEN\nfachliche Übergabe an\nKasse/Zahlungsdienst", "tx", 9.0, True)
-    box(ax, 46, 3, 26, 8, "STORNIERT\nRestbudget zurückgebucht\n(Journaleintrag)", "komp", 9.0, True)
+    box(ax, 46, 38, 26, 10, "ANGELEGT\nwartet auf\nVier-Augen-Freigabe", "ent", 9.0, True)
+    box(ax, 102, 38, 26, 10, "BEREIT\nfür Kassenlauf\nvorgemerkt", "ok", 9.0, True)
+    box(ax, 102, 12, 26, 8, "UEBERGEBEN\nÜbergabe an Kasse", "tx", 9.0, True)
+    box(ax, 46, 3, 26, 8, "STORNIERT\nBudget zurückgebucht\nmit Journaleintrag", "komp", 9.0, True)
 
     pfeil(ax, 28, 44, 46, 44)
-    label(ax, 37, 47.2, "Vier-Augen aktiv\n(Standard)")
+    label(ax, 37, 47.2, "immer ANGELEGT")
     pfeil(ax, 72, 44, 104, 44)
-    label(ax, 88, 48.4, "Freigabe durch Zweitsachbearbeiter\n(rechnerische Feststellung,\nSelbstfreigabe wird abgewehrt)")
-    pfeil(ax, 28, 40.5, 104, 40.5, style="arc3,rad=0.09")
-    label(ax, 66, 31.2, "ohne Vier-Augen —\nAusnahme nur für die Kennung „admin“")
+    label(ax, 88, 48.4, "Freigabe durch Zweitsachbearbeiter\n(rechnerische Feststellung,\nAdmin-Sonderrolle beachten)")
     pfeil(ax, 117, 38, 117, 20)
-    label(ax, 121.5, 29, "Kassenlauf (nur Admin):\neine Transaktion setzt alle\nBEREIT-Zahlungen auf ÜBERGEBEN", ha="left")
+    label(ax, 123, 29, "Kasse\n(Admin)", size=8)
     pfeil(ax, 59, 38, 59, 11)
-    label(ax, 54.5, 24, "Storno —\njeder Bearbeiter")
+    label(ax, 54.5, 24, "Storno —\nnur Admin")
     pfeil(ax, 104, 40, 72, 7, style="arc3,rad=0.18")
     label(ax, 90, 16.5, "Storno — nur Admin")
 
-    box(ax, 2, 12, 36, 9, "Bei jeder Anordnung mindert der\nZahlbetrag das Restbudget (BUDGET_REST);\nStorno bucht den Betrag zurück.", "neutral", 8.8)
+    box(ax, 2, 12, 36, 9, "Anordnung mindert Restbudget.\nStorno stellt Budget und\nVermögenseinsatz wieder her.", "neutral", 8.8)
     speichern(fig, "d04_zahlungsworkflow.png")
 
 
 # ---------------------------------------------------------------- 5 Bedarfsberechnung
 def d05():
-    fig, ax = neue_fig("Berechnungsfluss Bedarfs- und Einkommensermittlung (SGB XII, Referenzjahr 2026)", 6.4)  # ylim 72
-    box(ax, 4, 60, 52, 6.5, "Regelbedarf je Regelbedarfsstufe (RBS 1–6)\n563,00 · 506,00 · 451,00 · 471,00 · 390,00 · 357,00 EUR", "fach", 9.0)
-    box(ax, 4, 51, 52, 6.5, "+ Mehrbedarf Merkzeichen G: 17 % des Regelbedarfs\n(§ 30 Abs. 1 SGB XII) — z. B. 95,71 EUR bei RBS 1", "fach", 9.0)
-    box(ax, 4, 42, 52, 6.5, "+ dezentrale Warmwassererzeugung: stufenabhängig\n2,3 / 1,4 / 1,2 / 0,8 % je RBS (§ 30 Abs. 7)", "fach", 9.0)
-    box(ax, 4, 33, 52, 6.5, "+ Kosten der Unterkunft und Heizung (KdU):\nKaltmiete + Betriebskosten + Heizung, BG-weit summiert", "fach", 9.0)
-    pfeil(ax, 30, 60, 30, 57.5); pfeil(ax, 30, 51, 30, 48.5); pfeil(ax, 30, 42, 30, 39.5)
-    pfeil(ax, 30, 33, 30, 26.5)
-
-    box(ax, 74, 60, 52, 6.5, "Einkommen: Rente wird voll angerechnet,\nBrutto-Erwerbseinkommen für die Freibetragsprüfung", "fach", 9.0)
-    box(ax, 74, 51, 52, 6.5, "− Erwerbsfreibetrag: min(30 % des Brutto,\n281,50 EUR = 50 % der RBS 1) nach § 82 Abs. 3 SGB XII", "fach", 9.0)
-    box(ax, 74, 42, 52, 6.5, "= anrechenbares Einkommen\n(mindestens 0 EUR)", "fach", 9.0)
-    pfeil(ax, 100, 60, 100, 57.5); pfeil(ax, 100, 51, 100, 48.5)
-    pfeil(ax, 100, 42, 100, 26.5)
-
-    box(ax, 30, 19, 70, 7.5, "Zahlbetrag der Bedarfsgemeinschaft =\nGesamtbedarf (Summe aller SozialFälle)\n− anrechenbares Einkommen", "tx", 9.4, True)
-    pfeil(ax, 30, 26.5, 30, 22.7, stil="-"); pfeil(ax, 30, 22.7, 34, 22.7)
-    pfeil(ax, 100, 26.5, 100, 22.7, stil="-"); pfeil(ax, 100, 22.7, 96, 22.7)
-    pfeil(ax, 65, 19, 65, 14)
-    entscheidung(ax, 65, 10, 30, 8, "Zahlbetrag > 0?")
-    pfeil(ax, 80, 10, 96, 10); label(ax, 88, 11.8, "ja")
-    box(ax, 96, 6.5, 32, 7, "Auszahlung möglich —\nBudgetprüfung gegen\ndas Restbudget", "ok", 9.0)
-    pfeil(ax, 50, 10, 34, 10); label(ax, 42, 11.8, "nein")
-    box(ax, 2, 6.5, 32, 7, "KEIN_ANSPRUCH —\nfachlicher Hinweis,\nkeine Auszahlung", "komp", 9.0)
+    fig, ax = neue_fig("Berechnungsfluss im implementierten Modell 2026", 6.4)
+    box(ax, 3, 57, 59, 10, "Regelbedarf RBS 1–6 nach SATZSTAND\n563 · 506 · 451 · 471 · 390 · 357 EUR", "fach", 9.4)
+    box(ax, 3, 43, 59, 10, "+ G, Schwangerschaft, Alleinerziehende\nAbs. 1–5 zusammen höchstens Regelbedarf;\n+ dezentrales Warmwasser separat", "fach", 9.2)
+    box(ax, 3, 29, 59, 10, "+ Kaltmiete + Betriebskosten + Heizung\nzentraler Warmwasserabzug optional;\nBG-Gesamtgrenze optional", "fach", 9.2)
+    pfeil(ax, 32, 57, 32, 53); pfeil(ax, 32, 43, 32, 39)
+    box(ax, 69, 57, 59, 10, "Rente + Brutto-Erwerbseinkommen\n− min(30 % Erwerb, 281,50 EUR)\n− erfasste Absetzbeträge; mindestens 0", "fach", 9.2)
+    box(ax, 69, 39, 59, 12, "Verwertbares Vermögen\nBestand − Schonvermögen, mindestens 0;\nVerbrauch wird je Auszahlung dokumentiert\nund im Folgemonat fortgeschrieben", "fach", 9.2)
+    box(ax, 16, 9, 100, 13, "Zahlbetrag = Gesamtbedarf − anrechenbares Einkommen − Vermögenseinsatz\n\nFür eine Zahlung zusätzlich: positiver Anspruch, Restbudget, aktive BG,\neindeutige Bescheiddeckung und passender bewilligter Monatsbetrag", "tx", 9.2)
+    pfeil(ax, 32, 29, 32, 22); pfeil(ax, 98, 39, 98, 22)
     speichern(fig, "d05_bedarfsberechnung.png")
 
 
@@ -255,7 +212,7 @@ def d06():
     fig, ax = neue_fig("Anmeldung, Sitzungs-Token und serverseitige Berechtigungsprüfung", 6.2)  # ylim 69
     box(ax, 2, 54, 26, 8, "Anmeldemaske\nKennung + Passwort\n(z. B. admin-01 / admin)", "web", 9.0)
     box(ax, 44, 54, 34, 8, "Benutzerverwaltung prüft\ndas Konto (Umgebung\nLMG_BENUTZER bzw. Standardkonten)", "fach", 9.0)
-    box(ax, 96, 54, 32, 8, "Zufalls-Sitzungs-Token (UUID)\nim Serverspeicher;\nBrowser legt ihn im localStorage ab", "tx", 8.8)
+    box(ax, 96, 54, 32, 8, "Zufalls-Sitzungs-Token (UUID)\nim Serverspeicher;\nBrowser legt ihn im sessionStorage ab", "tx", 8.8)
     pfeil(ax, 28, 58, 44, 58); label(ax, 36, 60.2, "POST /api/anmeldung", size=8)
     pfeil(ax, 78, 58, 96, 58); label(ax, 87, 60.2, "Erfolg", size=8.4)
     pfeil(ax, 61, 54, 61, 49, stil="-"); pfeil(ax, 61, 49, 15, 49, stil="-"); pfeil(ax, 15, 49, 15, 54)
@@ -269,7 +226,7 @@ def d06():
     box(ax, 94, 24, 34, 7, "401 ANMELDUNG —\n„Bitte anmelden“,\nOberfläche zeigt die Login-Maske", "komp", 8.8)
     pfeil(ax, 65, 23, 65, 18); label(ax, 61, 20.5, "ja")
     entscheidung(ax, 65, 12.5, 36, 11, "Admin-Endpunkt?\n(Systemstatus,\nKassenlauf, Storno)")
-    pfeil(ax, 47, 12.5, 30, 12.5); label(ax, 38.5, 14.3, "nein")
+    pfeil(ax, 47, 12.5, 30, 12.5); label(ax, 38.5, 16, "nein oder\nRolle admin", size=8)
     box(ax, 2, 9, 28, 7, "Fachverarbeitung läuft —\ndie Kennung aus der Anmeldung\nlandet revisionssicher im Journal", "ok", 8.8)
     pfeil(ax, 83, 12.5, 94, 12.5); label(ax, 87, 15.6, "Rolle ≠ admin", size=8.2)
     box(ax, 94, 9, 34, 7, "403 BERECHTIGUNG —\n„Diese Funktion erfordert\ndie Admin-Rolle“", "komp", 8.8)
