@@ -294,6 +294,44 @@
             Prüfmenge, Gesetzesgrundlagen und Prüfauftrag werden vollständig als benannte
             Dokumenttexte gesendet. Manifest, Dateihashes und Modellantworten bleiben im Laufverzeichnis nachprüfbar.
         </p>
+        <details style="margin-top:8px">
+            <summary style="cursor:pointer">ℹ️ Was macht die GLM-Prüfung eigentlich? — Fallauswahl und Ablauf erklärt</summary>
+            <div class="hinweis" style="margin-top:8px">
+                <p><strong>Denkt sich das LLM Testfälle aus?</strong> Nein. Das Modell erfindet nichts und greift
+                auch nicht selbst auf die Datenbank zu. Grundlage sind immer die <em>echten Simulator-Läufe</em>:
+                Ein Positiv- und ein Negativ-Lauf spielen zufällig erzeugte Fälle gegen die laufende Fachanwendung
+                und die echte Oracle-Datenbank und verifizieren anschließend jeden Datenbank-Endzustand per SQL.
+                Die vollständige Dokumentation dieser Läufe (Eingaben, Rechenwege, SQL-Prüfungen, Schrittprotokoll)
+                liegt je Lauf in <code>testsweet/logs/run-…/</code>.</p>
+                <p><strong>Woher kommen die 50 guten und 50 schlechten Fälle?</strong> Die Stichprobe wird aus den
+                beiden <em>neuesten erfolgreichen</em> Positiv- und Negativ-Berichten gezogen, abwechselnd:
+                bei 100 Prüf Fällen also etwa 50 Positivfälle (Auszahlung wird korrekt berechnet und gebucht) und
+                50 Negativfälle (bewusst provozierte Regelverstöße, die die Anwendung abwehren muss — mit
+                unverändertem Datenbank-Endzustand). Zuerst werden dabei die festen Fach-Grenzfälle genommen
+                (z.&nbsp;B. Entbindungs-Folgemonat, Vermögensverbrauch, KdU-Angemessenheitsgrenze,
+                Mehrbedarfs-Deckel §&nbsp;30 Abs. 6), danach weitere Fälle aus dem Bericht. Fehlen Fälle,
+                wird die Prüfung abgelehnt statt heimlich gekürzt.</p>
+                <p><strong>Sind die Fälle jedes Mal gleich?</strong> Nein. Der Kombinationsgenerator erzeugt je
+                Seed andere Konstellationen (Haushalte, Merkmale, Einkommen, Vermögen, Verstoß-Kombinationen) —
+                jeder neue Simulatorlauf liefert also eine andere Stichprobe. Nur die Grenzfälle oben sind
+                strukturell immer dabei. Wer die Prüfung wiederholen will, startet vorher neue Läufe.</p>
+                <p><strong>Was bekommt das Modell genau?</strong> Pro Anfrage drei vollständige Dokumenttexte:
+                den Prüfauftrag (was und wie geprüft wird), die Gesetzesgrundlagen 2026 (Referenz) und einen
+                Batch von 1–10 Fällen mit allen Eingaben, Rechenwegen, SQL-Verifikationen (V1…Vn) und dem
+                gekennzeichneten Schrittprotokoll ([S1]…). Es erhält <em>keinen</em> Zugang zur Fachanwendung —
+                es rechnet die dokumentierten Beweise nach.</p>
+                <p><strong>Was rechnet es nach?</strong> Jeden Zwischenwert selbst: Regelbedarf je Stufe, jeden
+                Mehrbedarf, KdU, Erwerbsfreibetrag, Absetzbeträge, anrechenbares Einkommen, Vermögensanrechnung
+                und Abweisungsbeträge — dazu SQL-Soll-/Ist-Vergleiche und die Ablauflogik (Vier-Augen,
+                Idempotenz, Budgetführung). Urteil je Fall und je Prüfpunkt: PASS / FAIL / UNVERIFIED.</p>
+                <p><strong>Wer kontrolliert das Modell?</strong> Eine eigenständige Java-Referenz rechnet
+                anschließend unabhängig nach und gleicht jede Modellzahl ab; formal ungültige Antworten werden
+                vollständig wiederholt (maximal drei Versuche, siehe Wiederholungsstatistik oben). Genau dieser
+                unabhängige Gegencheck verhindert den Zirkelschluss, dass Test und Anwendung dieselbe
+                Rechenroutine benutzen — das Modell rechnet mit den Gesetzen, nicht mit dem Programmcode.
+                Details je Lauf: <code>testsweet/logs/llm-review-…/protocol.md</code>.</p>
+            </div>
+        </details>
         <div id="llm-status">Lade …</div>
         <ul id="llm-findings" class="review-error" hidden></ul>
         <div id="llm-fortschritt" class="llm-fortschritt" hidden>
