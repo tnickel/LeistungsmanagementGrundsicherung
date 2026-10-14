@@ -223,6 +223,7 @@ public final class LlmReviewService implements AutoCloseable {
                 }
                 List<Map<String, String>> messages = List.of(Map.of("role", "system", "content", contractString("systemMessage")),
                         Map.of("role", "user", "content", user));
+                boolean korrekturHinweis = false;
                 for (int attempt = 1; attempt <= MAX_SEND_ATTEMPTS; attempt++) {
                     String suffix = (n + 1) + "-attempt-" + attempt + ".json";
                     Path requestFile = p.directory().resolve("request-" + suffix);
@@ -233,6 +234,7 @@ public final class LlmReviewService implements AutoCloseable {
                     transport.put("responseFile", responseFile.getFileName().toString());
                     transport.put("requestedModel", settings.model()); transport.put("responseValidated", false);
                     transport.put("caseIds", batch.cases().stream().map(ReviewCase::id).toList());
+                    if (korrekturHinweis) transport.put("korrekturHinweis", true);
                     transport.put("documents", List.of(sentDocument("llm-pruefauftrag.txt", p.prompt()),
                             sentDocument("gesetzesgrundlagen-2026.md", p.law()), sentDocument(batch.name(), batch.text())));
                     List<Map<String,Object>> observed = List.of();
@@ -276,9 +278,16 @@ public final class LlmReviewService implements AutoCloseable {
                             throw new RetryExhaustedException("3 Versuche fehlgeschlagen bei Fallgruppe " + (n + 1)
                                     + "/" + p.batches().size() + " (" + safeError(error) + "); Logdateien auswerten: " + p.directory());
                         }
+                        // Zielkorrektur statt identischem Voll-Resend: Bei niedriger Temperatur
+                        // scheitert die identische Wiederholung identisch. Der erneuten
+                        // Anfrage wird die konkrete Mängelliste und die geforderte
+                        // Check-Abdeckung je Fall mitgegeben (Nachweis im Versuchsprotokoll).
+                        messages = List.of(Map.of("role", "system", "content", contractString("systemMessage")),
+                                Map.of("role", "user", "content", user + korrekturAnweisung(safeError(error), requirements)));
+                        korrekturHinweis = true;
                         publish(p, settings, "RUNNING", reviewed.size(), completedBatches,
                                 "Fallgruppe " + (n + 1) + "/" + p.batches().size() + ": Versuch " + attempt
-                                        + "/" + MAX_SEND_ATTEMPTS + " ungültig (" + safeError(error) + "); erneutes vollständiges Senden in 30 Sekunden");
+                                        + "/" + MAX_SEND_ATTEMPTS + " ungültig (" + safeError(error) + "); gezielte Korrekturanforderung in 30 Sekunden");
                         addTransportStatus(transportChecks, attemptChecks, false);
                         Thread.sleep(retryDelay);
                     }
@@ -325,6 +334,7 @@ public final class LlmReviewService implements AutoCloseable {
             protocol.append("\n- Fallgruppe ").append(attempt.get("batch"))
                     .append(", Versuch ").append(attempt.get("attempt"))
                     .append(Boolean.TRUE.equals(attempt.get("responseValidated")) ? ": gültig" : ": fehlgeschlagen")
+                    .append(Boolean.TRUE.equals(attempt.get("korrekturHinweis")) ? " (mit Korrekturzusatz gesendet)" : "")
                     .append("; Request: ").append(attempt.get("requestFile"))
                     .append("; Response: ").append(attempt.get("responseFile"));
             if (attempt.containsKey("error")) protocol.append("; Grund: ").append(attempt.get("error"));
@@ -557,8 +567,33 @@ public final class LlmReviewService implements AutoCloseable {
             text.append("\n# Vollständiger Laufkopf ").append(source.category()).append(" / ").append(source.runId())
                     .append("\nQuelle: ").append(relative(source.path())).append("\n\n").append(source.header());
         }
-        for (ReviewCase c : cases) text.append("\n# Fall-ID: ").append(c.id()).append("\n\n").append(c.text());
+        for (ReviewCase c : cases) {
+            // Die Pflicht-Prüfpunkte stehen sichtbar IM Falltext: Das Modell soll die
+            // geforderte Check-Abdeckung nicht aus dem Umschlag ableiten müssen.
+            List<?> pruefpunkte = (List<?>) LlmCalculationReference.requirement(c.id(), c.text()).get("checkIds");
+            text.append("\n# Fall-ID: ").append(c.id()).append("\ngeforderte_pruefpunkte = ")
+                    .append(pruefpunkte.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(", ")))
+                    .append("\n\n").append(c.text());
+        }
         return text.toString();
+    }
+
+    /** Präzise Mängel- und Abdeckungsrückmeldung für den erneuten Sendeversuch. */
+    static String korrekturAnweisung(String fehler, List<Map<String, Object>> requirements) {
+        StringBuilder anweisung = new StringBuilder("\n\n=== KORREKTURANWEISUNG ===\n")
+                .append("Deine letzte Antwort wurde formal verworfen und wird nicht gewertet.\nFehler: ")
+                .append(fehler).append(".\n")
+                .append("Das checks-Array muss je Fall EXAKT die genannten Kennungen enthalten — jede mit ")
+                .append("eigenem verdict und eigener reasoning, keine fehlende, keine doppelte, keine zusätzliche:\n");
+        for (Map<String, Object> r : requirements) {
+            anweisung.append("- ").append(r.get("caseId")).append(": ")
+                    .append(((List<?>) r.get("checkIds")).stream().map(String::valueOf)
+                            .collect(java.util.stream.Collectors.joining(", ")))
+                    .append('\n');
+        }
+        anweisung.append("Berechne alle Werte erneut selbstständig und gib ausschließlich das vollständige ")
+                .append("korrigierte JSON-Objekt nach Schema 2 aus.");
+        return anweisung.toString();
     }
 
     private Map<String, Object> sourceMeta(Source source) throws IOException {
@@ -760,6 +795,20 @@ public final class LlmReviewService implements AutoCloseable {
         return cases;
     }
 
+    /** Fehlermeldung des letzten gescheiterten Versuchs derselben Fallgruppe vor dem Erfolg. */
+    private static String letzterFehlversuch(List<Map<String, Object>> attempts, int batch, int vorVersuch) {
+        String fehler = null;
+        int beste = 0;
+        for (Map<String, Object> attempt : attempts) {
+            if (!(attempt.get("batch") instanceof Number b) || b.intValue() != batch
+                    || !(attempt.get("attempt") instanceof Number a) || a.intValue() >= vorVersuch
+                    || attempt.get("error") == null || a.intValue() <= beste) continue;
+            beste = a.intValue();
+            fehler = String.valueOf(attempt.get("error"));
+        }
+        return fehler;
+    }
+
     private void validateStored(Path directory) throws IOException {
         String manifestText = readDocument(directory.resolve("manifest.json"));
         Map<?, ?> manifest = (Map<?, ?>) Json.parse(manifestText);
@@ -850,10 +899,23 @@ public final class LlmReviewService implements AutoCloseable {
             String expectedUser = userMessage(requestedIds, readDocument(directory.resolve("llm-pruefauftrag.txt")),
                     readDocument(directory.resolve("gesetzesgrundlagen-2026.md")), String.valueOf(batch.get("name")),
                     readDocument(directory.resolve(String.valueOf(batch.get("name")))), batchRequirements);
+            String gesendet = String.valueOf(((Map<?, ?>) messages.getLast()).get("content"));
+            boolean auftragGilt = expectedUser.equals(gesendet);
+            // Wiederholungssendungen dürfen ausschließlich den exakt rekonstruierbaren
+            // Korrekturzusatz tragen: gleicher Auftrag plus Mängel- und Abdeckungsliste
+            // des unmittelbar vorherigen Fehlversuchs derselben Fallgruppe.
+            if (!auftragGilt && Boolean.TRUE.equals(check.get("korrekturHinweis"))
+                    && check.get("attempt") instanceof Number versuch) {
+                String vorherigerFehler = letzterFehlversuch(attempts, n + 1, versuch.intValue());
+                if (vorherigerFehler != null
+                        && (expectedUser + korrekturAnweisung(vorherigerFehler, batchRequirements)).equals(gesendet)) {
+                    auftragGilt = true;
+                }
+            }
             if (messages.size() != 2 || !"system".equals(((Map<?, ?>) messages.getFirst()).get("role"))
                     || !contractString("systemMessage").equals(((Map<?, ?>) messages.getFirst()).get("content"))
                     || !"user".equals(((Map<?, ?>) messages.getLast()).get("role"))
-                    || !expectedUser.equals(((Map<?, ?>) messages.getLast()).get("content"))) {
+                    || !auftragGilt) {
                 throw new IOException("Gesendeter Auftrag stimmt nicht mit eingefrorenen Dokumenten/Fall-IDs überein");
             }
             StringBuilder user = new StringBuilder();

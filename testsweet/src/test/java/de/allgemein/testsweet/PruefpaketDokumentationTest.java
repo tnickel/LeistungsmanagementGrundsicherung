@@ -89,6 +89,28 @@ class PruefpaketDokumentationTest {
                 () -> LlmAnswerValidator.validate("```json\n{\"schemaVersion\":2, \"kaputt\"\n```", List.of("A"), requirement));
     }
 
+    @Test void korrekturanweisungNenntFehlerUndJeFallAlleCheckIds() {
+        var requirements = List.<java.util.Map<String, Object>>of(
+                java.util.Map.of("caseId", "POSITIV:run-1:TF1", "checkIds", List.of("V1", "V2", "S1", "S2")),
+                java.util.Map.of("caseId", "NEGATIV:run-2:TF2", "checkIds", List.of("V1", "S1")));
+        String text = LlmReviewService.korrekturAnweisung("SQL-/Workflowabdeckung unvollständig/doppelt", requirements);
+        assertTrue(text.contains("=== KORREKTURANWEISUNG ==="));
+        assertTrue(text.contains("Fehler: SQL-/Workflowabdeckung unvollständig/doppelt"));
+        assertTrue(text.contains("POSITIV:run-1:TF1: V1, V2, S1, S2"), text);
+        assertTrue(text.contains("NEGATIV:run-2:TF2: V1, S1"), text);
+        assertTrue(text.contains("vollständige korrigierte JSON-Objekt"));
+    }
+
+    @Test void gefordertePruefpunkteZeileVeraendertDieAbgeleiteteAnforderungNicht() {
+        String fall = "## TF 01 X SWEET-1\n### verifikation\n\nV1: OK | Kontrolle\n"
+                + "    sql    = SELECT 1 FROM DUAL\n    params = []\n    erwartet = 1 | ist = 1\n\n"
+                + "### protokoll\n\n2026-10-14 13:40:34 sb-sim-01 | [S1] Anlage -> OK — Vorgang 1\n";
+        var ohne = LlmCalculationReference.requirement("X", fall);
+        var mit = LlmCalculationReference.requirement("X", "geforderte_pruefpunkte = V1, S1\n" + fall);
+        assertEquals(ohne.get("checkIds"), mit.get("checkIds"));
+        assertEquals(List.of("V1", "S1"), mit.get("checkIds"));
+    }
+
     @Test void einkommenStehtImErgebnistextDesErfassungsschritts() {
         // Der Text des Erfassungsschritts entsteht erst im Lauf — hier prüfen wir den
         // Klartext-Helfer, der Rente/Erwerb nur bei Werten über Null anfügt.

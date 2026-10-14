@@ -147,8 +147,12 @@ class LlmReviewServiceTest {
                 assertEquals(0, ((List<?>) status.get("transportChecks")).size());
                 assertEquals(3, ((List<?>) status.get("attemptChecks")).size());
                 assertEquals(3, bodies.size());
-                assertEquals(bodies.get(0), bodies.get(1));
-                assertEquals(bodies.get(1), bodies.get(2));
+                // Wiederholungen tragen den exakt dokumentierten Korrekturzusatz: bei
+                // gleicher Mängellage ist Versuch 3 identisch zu Versuch 2, aber der
+                // Erstversuch bleibt unverändert dokumentiert.
+                assertFalse(bodies.get(0).equals(bodies.get(1)), scenario);
+                assertEquals(bodies.get(1), bodies.get(2), scenario);
+                assertTrue(bodies.get(1).contains("KORREKTURANWEISUNG"), scenario);
                 Path directory = Path.of((String) status.get("artifactDirectory"));
                 String protocol = Files.readString(directory.resolve("protocol.md"));
                 assertTrue(protocol.contains("3 Versuche fehlgeschlagen"));
@@ -161,7 +165,7 @@ class LlmReviewServiceTest {
         }
     }
 
-    @Test void invalidCaseIdsAreResentWithWholeIdenticalRequestAndCanRecover() throws Exception {
+    @Test void invalidCaseIdsAreResentWithTargetedCorrectionAndCanRecover() throws Exception {
         fixtures();
         List<String> bodies = new CopyOnWriteArrayList<>();
         java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
@@ -173,16 +177,23 @@ class LlmReviewServiceTest {
             assertEquals("PASS", status.get("state"), status.toString());
             assertEquals(true, status.get("transportVerified"));
             assertEquals(4, bodies.size()); // erster Batch dreimal, zweiter Batch einmal
-            assertEquals(bodies.get(0), bodies.get(1));
-            assertEquals(bodies.get(1), bodies.get(2));
+            // Erstversuch ohne Zusatz; Wiederholungen mit dem Korrekturzusatz inklusive
+            // Mängelliste und geforderter Check-Abdeckung je Fall.
+            assertFalse(bodies.get(0).contains("KORREKTURANWEISUNG"));
+            assertTrue(bodies.get(1).contains("KORREKTURANWEISUNG"));
+            assertTrue(bodies.get(1).contains("Fall-ID-Liste unvollständig"));
+            assertEquals(bodies.get(1), bodies.get(2)); // gleiche Mängellage, gleicher Zusatz
             Path directory = Path.of((String) status.get("artifactDirectory"));
             assertEquals(2, ((List<?>) status.get("transportChecks")).size());
             assertEquals(4, ((List<?>) status.get("attemptChecks")).size());
             assertEquals(false, ((Map<?, ?>) ((List<?>) status.get("attemptChecks")).get(0)).get("responseValidated"));
             assertEquals(false, ((Map<?, ?>) ((List<?>) status.get("attemptChecks")).get(1)).get("responseValidated"));
+            assertEquals(false, ((Map<?, ?>) ((List<?>) status.get("attemptChecks")).get(0)).containsKey("korrekturHinweis"));
+            assertEquals(true, ((Map<?, ?>) ((List<?>) status.get("attemptChecks")).get(1)).get("korrekturHinweis"));
             assertEquals(2, ((Number) status.get("completedCases")).intValue());
             String protocol = Files.readString(directory.resolve("protocol.md"));
             assertTrue(protocol.contains("Fall-ID-Liste unvollständig"));
+            assertTrue(protocol.contains("mit Korrekturzusatz gesendet"));
             try (LlmReviewService restored = serviceForTests()) {
                 assertEquals("PASS", restored.status().get("state"), restored.status().toString());
             }

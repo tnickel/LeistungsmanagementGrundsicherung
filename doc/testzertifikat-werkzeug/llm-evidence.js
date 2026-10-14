@@ -12,6 +12,19 @@ function readInside(base,name) {
 }
 function sameIds(actual,expected) { return Array.isArray(actual) && Array.isArray(expected) && actual.length===expected.length
   && new Set(actual).size===actual.length && new Set(expected).size===expected.length && actual.every(x=>typeof x === "string" && expected.includes(x)); }
+// Wortgetreue Spiegelung von LlmReviewService.korrekturAnweisung (Java): Der
+// Korrekturzusatz eines Wiederholungssendens muss exakt rekonstruierbar sein.
+function correctionInstruction(fehler,requirements) {
+  let text="\n\n=== KORREKTURANWEISUNG ===\n"
+    +"Deine letzte Antwort wurde formal verworfen und wird nicht gewertet.\nFehler: "
+    +fehler+".\n"
+    +"Das checks-Array muss je Fall EXAKT die genannten Kennungen enthalten — jede mit "
+    +"eigenem verdict und eigener reasoning, keine fehlende, keine doppelte, keine zusätzliche:\n";
+  for (const r of requirements) text+="- "+r.caseId+": "+r.checkIds.join(", ")+"\n";
+  text+="Berechne alle Werte erneut selbstständig und gib ausschließlich das vollständige "
+    +"korrigierte JSON-Objekt nach Schema 2 aus.";
+  return text;
+}
 function answer(content,expected,requirements) {
   const value=JSON.parse(content);
   if (value.schemaVersion!==2 || !sameIds(value.caseIds,expected) || !Array.isArray(value.cases)
@@ -182,7 +195,19 @@ function verify(directory,repo,options={}) {
     const envelope=JSON.parse(user.slice(0,split));
     if (canonical(envelope)!==canonical({caseIds:batch.caseIds,requirements:req.map(coverage),instruction:contract.instruction})) throw Error("Gesendeter Auftrag/Fallabdeckung widerspricht Vertrag");
     const names=["llm-pruefauftrag.txt","gesetzesgrundlagen-2026.md",batch.name];
-    if (user.slice(split+2)!==names.map(name=>named(name,readInside(directory,name).toString("utf8"))).join("")) throw Error("Gesendete Dokumenttexte stimmen nicht mit Snapshots überein");
+    // Wiederholungssendungen dürfen ausschließlich den exakt rekonstruierbaren
+    // Korrekturzusatz des unmittelbar vorherigen Fehlversuchs tragen (Spiegel der
+    // Java-Seite in LlmReviewService.korrekturAnweisung).
+    let suffix="";
+    if (check.korrekturHinweis===true && Number.isInteger(check.attempt)) {
+      let previous=null,best=0;
+      for (const attempt of result.attemptChecks) {
+        if (attempt.batch===check.batch && Number.isInteger(attempt.attempt) && attempt.attempt<check.attempt
+            && attempt.error!=null && attempt.attempt>best) { best=attempt.attempt;previous=String(attempt.error); }
+      }
+      if (previous!==null) suffix=correctionInstruction(previous,req);
+    }
+    if (user.slice(split+2)!==names.map(name=>named(name,readInside(directory,name).toString("utf8"))).join("")+suffix) throw Error("Gesendete Dokumenttexte stimmen nicht mit Snapshots überein");
     if (!Array.isArray(check.documents) || !sameIds(check.documents.map(d=>d.name),names)) throw Error("Drei gesendete Dokumente nicht belegt");
     for (const doc of check.documents) { const raw=readInside(directory,doc.name);if (hash(raw)!==doc.sha256 || raw.length!==doc.bytes) throw Error("Gesendeter Dokumenthash ungültig"); }
     fromResponses.push(...answer(response.choices[0].message.content,batch.caseIds,req));received.push(...batch.caseIds);
