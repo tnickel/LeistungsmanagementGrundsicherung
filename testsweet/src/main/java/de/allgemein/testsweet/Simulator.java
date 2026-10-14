@@ -126,6 +126,8 @@ public final class Simulator {
     private volatile long laufEndeNano;
     private final AtomicInteger naechsterAuftrag = new AtomicInteger();
     private volatile String letzteFehlermeldung;
+    /** true, wenn der Lauf an einem DB-Verbindungsproblem scheiterte (für den Klartext-Dialog). */
+    private volatile boolean dbNichtErreichbar;
     private volatile String letztesLogVerzeichnis;
     private volatile String letztesPdf;
     private volatile String letztesMd;
@@ -204,6 +206,10 @@ public final class Simulator {
 
     public String letzteFehlermeldung() {
         return letzteFehlermeldung;
+    }
+
+    public boolean dbNichtErreichbar() {
+        return dbNichtErreichbar;
     }
 
     /** Logverzeichnis des letzten Laufs (bleibt nach Laufende für die Auswertung sichtbar). */
@@ -828,6 +834,7 @@ public final class Simulator {
 
     private void setzeLaufZurueck() {
         abgebrochen = false;
+        dbNichtErreichbar = false;
         letzteFehlermeldung = null;
         letztesPdf = null;
         letztesMd = null;
@@ -873,6 +880,7 @@ public final class Simulator {
     private void beendeAbgebrochenenLauf(Exception cause) {
         abgebrochen = true;
         phase = Phase.ABGEBROCHEN;
+        dbNichtErreichbar = DbErreichbarkeit.istVerbindungsproblem(cause);
         letzteFehlermeldung = cause.getClass().getSimpleName() + ": " + cause.getMessage();
         if (log != null) log.fehler("SIMULATOR", "Lauf abgebrochen: " + letzteFehlermeldung);
         beendeLauf();
@@ -1297,6 +1305,7 @@ public final class Simulator {
             auftragSpielenBeendet(auftrag);
         } else merkeNachweisfehler(message);
         letzteFehlermeldung = message;
+        if (DbErreichbarkeit.istVerbindungsproblem(failure)) dbNichtErreichbar = true;
         if (log != null) log.fehler("WORKER", message);
         stoppe(); // Wartende Stress-Worker verlassen die Phasenbarriere sofort.
     }
@@ -1314,6 +1323,10 @@ public final class Simulator {
     }
 
     /** Logbasis: immer testsweet/logs — egal ob vom Projektroot oder aus testsweet gestartet. */
+    java.nio.file.Path logBasis() {
+        return PathLogBasis();
+    }
+
     private java.nio.file.Path PathLogBasis() {
         java.nio.file.Path arbeitsverzeichnis = java.nio.file.Path.of(System.getProperty("user.dir"));
         if (arbeitsverzeichnis.getFileName() != null

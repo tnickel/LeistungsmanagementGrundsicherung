@@ -13,7 +13,7 @@ import java.util.Set;
 final class LlmAnswerValidator {
     static List<Map<String, Object>> validate(String content, List<String> expected, List<Map<String, Object>> requirements) {
         Object parsed;
-        try { parsed = Json.parse(content); } catch (RuntimeException e) { throw new IllegalArgumentException("Modellantwort ist kein vollständiges JSON"); }
+        try { parsed = Json.parse(ohneFormatHuelle(content)); } catch (RuntimeException e) { throw new IllegalArgumentException("Modellantwort ist kein vollständiges JSON"); }
         if (!(parsed instanceof Map<?, ?> object) || !(object.get("schemaVersion") instanceof Number version) || version.intValue() != 2
                 || !(object.get("caseIds") instanceof List<?> ids) || !(object.get("cases") instanceof List<?> cases))
             throw new IllegalArgumentException("Modellantwort enthält keine vollständige Fallliste nach Schema 2");
@@ -105,6 +105,21 @@ final class LlmAnswerValidator {
     private static void nonblank(Object value) { if (!(value instanceof String s) || s.isBlank()) throw new IllegalArgumentException("Prüfbegründung/Befund fehlt"); }
     private static List<?> list(Object value) { if (!(value instanceof List<?> list)) throw new IllegalArgumentException("Prüfliste fehlt"); return list; }
     private static Map<?, ?> object(Object value) { if (!(value instanceof Map<?, ?> object)) throw new IllegalArgumentException("Prüfobjekt fehlt"); return object; }
+
+    /** Entfernt unschädliche Formatierungen (Leerraum, Markdown-Codezaun) um das
+     *  JSON — der Inhalt selbst wird unverändert streng geprüft. */
+    private static String ohneFormatHuelle(String content) {
+        String text = content == null ? "" : content.trim();
+        if (text.startsWith("```")) {
+            int ersteZeile = text.indexOf('\n');
+            if (ersteZeile > 0) text = text.substring(ersteZeile + 1);
+            if (text.endsWith("```")) text = text.substring(0, text.length() - 3);
+            text = text.trim();
+        }
+        int beginn = text.indexOf('{');
+        int ende = text.lastIndexOf('}');
+        return beginn >= 0 && ende > beginn ? text.substring(beginn, ende + 1) : text;
+    }
     private static List<?> ids(List<?> rows, String key) { return rows.stream().map(r -> object(r).get(key)).toList(); }
     private static Map<?, ?> find(List<?> rows, String key, Object value) { return rows.stream().map(LlmAnswerValidator::object).filter(r -> value.equals(r.get(key))).findFirst().orElseThrow(() -> new IllegalArgumentException("Prüfbezug fehlt: " + value)); }
     private static void sameIds(List<?> actual, List<?> expected, String error) {

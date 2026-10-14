@@ -238,7 +238,8 @@
         </div>
         <div id="log">Warte auf Simulator-Start …</div>
         <div class="hinweis" style="margin-top:6px">
-            Vollständige Logfiles je Lauf: <code>testsweet/logs/run-&lt;Zeitstempel&gt;/</code>
+            Anzeige: <span id="log-quelle">–</span> · Vollständige Logfiles je Lauf:
+            <code>testsweet/logs/run-&lt;Zeitstempel&gt;</code>
             (simulation.log, je Auftrag, je Mitarbeiter, db-verifikation.log, fehler.log, zusammenfassung.txt).
         </div>
     </section>
@@ -267,6 +268,15 @@
                     <label for="zertifikat-tests-phase-progress" id="zertifikat-tests-phase-details">Aktuelle Phase</label>
                     <progress id="zertifikat-tests-phase-progress" max="100"></progress>
                 </div>
+                <p id="zertifikat-tests-glm-statistik" class="hinweis" hidden></p>
+                <details id="zertifikat-tests-befunde" hidden style="margin-top:8px">
+                    <summary style="cursor:pointer">⚠ GLM-Befunde ansehen (<span id="zertifikat-tests-befunde-anzahl">0</span>)</summary>
+                    <div id="zertifikat-tests-befunde-liste" style="max-height:300px;overflow:auto;background:#fdf3f3;border:1px solid #e8c4c4;border-radius:6px;padding:8px;font-size:13px"></div>
+                    <p style="margin:8px 0 0">
+                        <a id="zertifikat-tests-protokoll" class="btn-chip" href="/api/zertifikat/tests/glm-protokoll" target="_blank">📄 GLM-Protokoll (protocol.md) öffnen</a>
+                        <span class="hinweis"> — vollständige Nachrechnung mit Sendeversuchen, Fallurteilen und Referenzprüfung.</span>
+                    </p>
+                </details>
             </div>
             <details><summary>Was wird ausgeführt?</summary>
                 <p>Hauptprogramm- und testsweet-Tests mit Testdatenbank, Fachschicht: Positiv, Negativ, Last und Stress; Weboberfläche: Positiv, Negativ und Last. GLM prüft anschließend die unten gewählte Fallzahl (Stichprobe). Erst mit gültigen Nachweisen wird das Zertifikat erzeugt.</p>
@@ -338,7 +348,12 @@
         <div class="aktions-knöpfe">
             <button type="submit" id="llm-config-save" class="btn btn-primaer">Speichern</button>
             <button type="button" id="llm-config-test" class="btn btn-sekundaer">Verbindung zu GLM testen</button>
+            <button type="button" id="llm-config-prompt" class="btn btn-sekundaer">📄 Prompt anzeigen</button>
         </div>
+        <details id="llm-config-prompt-bereich" style="margin-top:10px">
+            <summary style="cursor:pointer">📋 Prüfauftrag (Prompt) — llm-pruefauftrag.txt</summary>
+            <pre id="llm-config-prompt-text" style="white-space:pre-wrap;background:#0f172a;color:#d1e3ea;padding:10px;border-radius:6px;font-size:12px;max-height:280px;overflow:auto"></pre>
+        </details>
         <p id="llm-config-message" class="hinweis" role="status" aria-live="polite"></p>
     </form>
 </dialog>

@@ -82,6 +82,10 @@ final class SweetServer implements AutoCloseable {
                     if (!"GET".equals(exchange.getRequestMethod())) { sendeFehler(exchange, 405, "nur GET"); return; }
                     sendeJson(exchange, certificateSuite.status());
                 }
+                case "/api/zertifikat/tests/glm-protokoll" -> {
+                    if (!"GET".equals(exchange.getRequestMethod())) { sendeFehler(exchange, 405, "nur GET"); return; }
+                    glmProtokoll(exchange);
+                }
                 case "/api/zertifikat/tests/start" -> {
                     if (!"POST".equals(exchange.getRequestMethod())) { sendeFehler(exchange, 405, "nur POST"); return; }
                     synchronized (operationLock) {
@@ -227,6 +231,15 @@ final class SweetServer implements AutoCloseable {
                 zahl(wunsch, "denkzeitMs", 120),
                 Boolean.TRUE.equals(wunsch.get("aufraeumen")),
                 kategorie);
+        // Vorabprüfung: Bei einer nicht erreichbaren Datenbank wird gar kein
+        // Lauf angelegt (kein Laufverzeichnis, kein Abbruch-Nachweis), sondern
+        // eine klare Meldung mit Startanleitung zurückgegeben.
+        DbErreichbarkeit.Ergebnis db = DbErreichbarkeit.pruefe(simulator.dbUrl, simulator.dbUser, simulator.dbPass);
+        if (!db.erreichbar()) {
+            sendeJson(exchange, 503, Map.of("ok", false, "fehler", db.hinweis(),
+                    "fehlerart", "DB_NICHT_ERREICHBAR"));
+            return;
+        }
         try {
             if ("WEB".equals(modus)) {
                 simulator.starteWeb(konfig);
@@ -237,6 +250,84 @@ final class SweetServer implements AutoCloseable {
             sendeJson(exchange, Map.of("ok", true));
         } catch (IllegalStateException e) {
             sendeFehler(exchange, 409, e.getMessage());
+        }
+    }
+
+    /** Zeilenende des simulation.log des letzten Laufs (Rückgriff, wenn kein Lauf aktiv ist). */
+    private java.util.List<String> leseLetzteLogzeilen(int anzahl) {
+        // Immer der neueste Lauf gewinnt — auch Läufe der Zertifikatssuite, die in
+        // eigenen Prozessen laufen; das Verzeichnis des letzten GUI-Laufs ist nur
+        // Rückfallebene, wenn noch kein Laufverzeichnis existiert.
+        java.nio.file.Path verzeichnis = neuestesLaufverzeichnis(simulator.logBasis());
+        if (verzeichnis == null) {
+            String letztes = simulator.letztesLogVerzeichnis();
+            if (letztes != null) {
+                java.nio.file.Path kandidat = java.nio.file.Path.of(letztes);
+                if (java.nio.file.Files.isRegularFile(kandidat.resolve("simulation.log"))) verzeichnis = kandidat;
+            }
+        }
+        if (verzeichnis == null) return List.of();
+        java.nio.file.Path datei = verzeichnis.resolve("simulation.log");
+        try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(datei.toFile(), "r")) {
+            long groesse = raf.length();
+            long von = Math.max(0, groesse - 64 * 1024); // nur das Dateiende lesen
+            raf.seek(von);
+            byte[] rest = new byte[(int) (groesse - von)];
+            raf.readFully(rest);
+            java.util.List<String> zeilen = new ArrayList<>();
+            for (String zeile : new String(rest, java.nio.charset.StandardCharsets.UTF_8).split("\n")) {
+                String text = zeile.endsWith("\r") ? zeile.substring(0, zeile.length() - 1) : zeile;
+                if (!text.isBlank()) zeilen.add(text);
+            }
+            if (von > 0 && !zeilen.isEmpty()) zeilen.remove(0); // angebrochene erste Zeile verwerfen
+            return zeilen.size() <= anzahl ? zeilen : new ArrayList<>(zeilen.subList(zeilen.size() - anzahl, zeilen.size()));
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    /** Neuestes run-<Zeitstempel>-Verzeichnis mit simulation.log (lexikalisch = chronologisch). */
+    private static java.nio.file.Path neuestesLaufverzeichnis(java.nio.file.Path basis) {
+        if (basis == null || !java.nio.file.Files.isDirectory(basis)) return null;
+        try (java.util.stream.Stream<java.nio.file.Path> liste = java.nio.file.Files.list(basis)) {
+            return liste.filter(java.nio.file.Files::isDirectory)
+                    .filter(d -> d.getFileName().toString().startsWith("run-"))
+                    .filter(d -> java.nio.file.Files.isRegularFile(d.resolve("simulation.log")))
+                    .max(java.util.Comparator.comparing(d -> d.getFileName().toString()))
+                    .orElse(null);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** protocol.md der GLM-Prüfung aus dem Zertifikatslauf — ausschließlich aus dem
+     *  von der Suite selbst protokollierten Verzeichnis unter testsweet/logs gelesen
+     *  (kein freier Dateizugriff über Parameter). */
+    private void glmProtokoll(HttpExchange exchange) throws IOException {
+        Map<String, Object> suite = certificateSuite.status();
+        Map<?, ?> summary = suite.get("llmSummary") instanceof Map<?, ?> s ? s : null;
+        String verzeichnis = summary == null ? null : String.valueOf(summary.get("artifactDirectory"));
+        if (verzeichnis == null || verzeichnis.isBlank() || "null".equals(verzeichnis)) {
+            sendeFehler(exchange, 404, "Keine GLM-Prüfung im Zertifikatslauf vorhanden");
+            return;
+        }
+        java.nio.file.Path basis = repository.resolve("testsweet").resolve("logs").toAbsolutePath().normalize();
+        java.nio.file.Path protokollVerzeichnis = java.nio.file.Path.of(verzeichnis).toAbsolutePath().normalize();
+        if (!protokollVerzeichnis.startsWith(basis)) {
+            sendeFehler(exchange, 404, "Ungültiges Protokollverzeichnis");
+            return;
+        }
+        java.nio.file.Path protokoll = protokollVerzeichnis.resolve("protocol.md");
+        if (!java.nio.file.Files.isRegularFile(protokoll)) {
+            sendeFehler(exchange, 404, "Kein GLM-Protokoll (protocol.md) vorhanden");
+            return;
+        }
+        byte[] inhalt = java.nio.file.Files.readAllBytes(protokoll);
+        exchange.getResponseHeaders().set("Content-Type", "text/markdown; charset=utf-8");
+        exchange.getResponseHeaders().set("Cache-Control", "no-store");
+        exchange.sendResponseHeaders(200, inhalt.length);
+        try (java.io.OutputStream out = exchange.getResponseBody()) {
+            out.write(inhalt);
         }
     }
 
@@ -256,6 +347,7 @@ final class SweetServer implements AutoCloseable {
         antwort.put("db", Map.of("url", simulator.dbUrl, "user", simulator.dbUser));
         antwort.put("laufdauerSekunden", simulator.laufdauerSekunden());
         antwort.put("letzteFehlermeldung", simulator.letzteFehlermeldung());
+        antwort.put("dbNichtErreichbar", simulator.dbNichtErreichbar());
         antwort.put("pdf", simulator.letztesPdf());
         antwort.put("md", simulator.letztesMd());
         antwort.put("konfiguration", simulator.konfiguration() == null
@@ -296,7 +388,16 @@ final class SweetServer implements AutoCloseable {
         antwort.put("modus", simulator.letzterModus());
 
         SweetLog log = simulator.log();
-        antwort.put("logs", log == null ? List.of() : log.letzteZeilen(120));
+        if (log != null) {
+            antwort.put("logs", log.letzteZeilen(120));
+            antwort.put("logQuelle", "live");
+        } else {
+            // Kein Lauf aktiv (nach Laufende oder Serverneustart ist das Live-Log
+            // weg): das Ende des letzten Laufs anzeigen, statt einer leeren Box.
+            java.util.List<String> letzte = leseLetzteLogzeilen(120);
+            antwort.put("logs", letzte);
+            antwort.put("logQuelle", letzte.isEmpty() ? null : "letzter-lauf");
+        }
         antwort.put("logVerzeichnis", log == null ? simulator.letztesLogVerzeichnis()
                 : log.runVerzeichnis.toString());
         return antwort;

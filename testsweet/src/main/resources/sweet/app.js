@@ -325,7 +325,15 @@ async function starteSimulation() {
         });
         const ergebnis = await antwort.json();
         if (ergebnis.fehler) {
-            alert("Start nicht möglich: " + ergebnis.fehler);
+            if (ergebnis.fehlerart === "DB_NICHT_ERREICHBAR") {
+                zeigePruefFehler("db-start-" + Date.now(),
+                    "Datenbank nicht erreichbar – Testlauf nicht gestartet",
+                    ergebnis.fehler,
+                    "Kein Laufverzeichnis — es wurde kein Lauf gestartet",
+                    {kind: "db"});
+            } else {
+                alert("Start nicht möglich: " + ergebnis.fehler);
+            }
         }
     } catch (e) {
         alert("Serverfehler beim Starten: " + e.message);
@@ -456,7 +464,13 @@ async function aktualisiere() {
     // Log-Ticker
     const log = $("log");
     const warUnten = log.scrollHeight - log.scrollTop - log.clientHeight < 50;
-    log.textContent = (status.logs || []).join("\n");
+    log.textContent = (status.logs || []).join("\n") || "— noch keine Logzeilen vorhanden —";
+    const suiteLaueft = zertifikatSuiteStatus && zertifikatSuiteStatus.running;
+    $("log-quelle").textContent = status.logQuelle === "live" ? "Live — laufender Test"
+        : suiteLaueft ? "Zertifikatssuite läuft — " + (zertifikatSuiteStatus.phaseLabel || "Phase aktiv")
+            + (status.logQuelle === "letzter-lauf" ? " · Protokoll des neuesten Laufs" : "")
+        : status.logQuelle === "letzter-lauf" ? "Ende des letzten Laufs (kein Test aktiv)"
+        : "kein Lauf vorhanden";
     if (autoScroll && warUnten) {
         log.scrollTop = log.scrollHeight;
     }
@@ -639,6 +653,18 @@ function initialisiereLlm() {
         finally { button.disabled = false; sperreZertifikatSuiteBedienung(); }
     });
     $("llm-aktualisieren").addEventListener("click", ladeLlmPruefung);
+    $("llm-config-prompt").addEventListener("click", async () => {
+        // Rein lesend: holt den tatsächlich eingesetzten Prüfauftrag frisch vom Server.
+        const button = $("llm-config-prompt"); button.disabled = true;
+        $("llm-config-message").textContent = "Prüfauftrag wird geladen …";
+        try {
+            const data = await llmRequest("/api/llmpruefung");
+            $("llm-config-prompt-text").textContent = data.prompt || "(Kein Prüfauftrag hinterlegt.)";
+            $("llm-config-prompt-bereich").open = true;
+            $("llm-config-message").textContent = "";
+        } catch (error) { $("llm-config-message").textContent = error.message; }
+        finally { button.disabled = false; }
+    });
     $("llm-paket-knopf").addEventListener("click", async () => {
         if (zertifikatSuiteGesperrt()) return;
         const button = $("llm-paket-knopf"); button.disabled = true;
@@ -733,9 +759,11 @@ function zeigeSimulatorFehler(status) {
         || (status.globalePruefungen || []).some(check => !check.ok);
     const build = programmNachweisFehlt(message);
     const source = !build && buildNachweisFehlt(message);
-    const kind = build ? "build" : failure ? "failure" : source ? "source" : status.phase === "ABGEBROCHEN" ? "aborted" : "technical";
+    const kind = build ? "build" : failure ? "failure" : source ? "source"
+        : status.dbNichtErreichbar ? "db" : status.phase === "ABGEBROCHEN" ? "aborted" : "technical";
     const title = build ? (failure ? "Testfehler und ungültiger Programmstand" : "Technischer Nachweisfehler: Programmstand passt nicht")
         : failure ? "Testfehler festgestellt – NICHT BESTANDEN" : source ? "Technischer Nachweisfehler: KI-Eingangsbelege veraltet"
+        : status.dbNichtErreichbar ? "Datenbankverbindung verloren – Testlauf abgebrochen"
         : status.phase === "ABGEBROCHEN" ? "Testlauf abgebrochen – Nachweis unvollständig" : "Technischer Fehler – Testlauf nicht bestätigt";
     zeigePruefFehler("sim-" + status.logVerzeichnis + "-" + status.phase + "-" + kind,
         title, message, status.logVerzeichnis || "Laufverzeichnis in der Testübersicht prüfen",
@@ -782,6 +810,14 @@ function pruefFehlerHilfe(kind, failure) {
         steps: ["Das unten genannte protocol.md auswerten lassen; darin stehen die drei Sendeversuche, Fehlerursachen und Verweise auf Requests und Antworten.",
             "Je nach protokollierter Ursache Modellantwort, Verbindung oder Konfiguration prüfen. Zugangsdaten nicht ungeschützt weitergeben.",
             "Nach Klärung die GLM-Prüfung erneut starten. Weitere Simulatorläufe sind nötig, wenn deren Quellen oder Nachweise veraltet sind."]
+    };
+    if (kind === "db") return {
+        severity: "DATENBANK NICHT ERREICHBAR · Aktion erforderlich",
+        summary: "Die Testdatenbank ist nicht erreichbar — der Docker-Container „lmg-oracle“ läuft wahrscheinlich nicht. Ohne Datenbank kann kein Testlauf ausgeführt oder nachgewiesen werden.",
+        impact: "Es handelt sich um eine Umgebungsstörung, nicht um einen Fehler der Fachanwendung. Es wurde kein Lauf ausgeführt bzw. der laufende Test wurde abgebrochen.",
+        steps: ["Docker Desktop öffnen und den Container „lmg-oracle“ starten — oder im Projektordner start.bat ausführen, das den Container bei Bedarf selbst hochfährt.",
+            "Etwa 20–30 Sekunden warten, bis die Datenbank bereit ist (das erste Hochfahren dauert länger).",
+            "Erneut auf „Simulation starten“ klicken. Kommt die Meldung trotz laufendem Container wieder, die technische Ursache in den Details auswerten lassen."]
     };
     if (kind === "aborted") return {
         severity: "ABBRUCH · Prüfung unvollständig",
@@ -860,6 +896,9 @@ async function ladeLlmPruefung() {
         target.className = accepted ? "ok" : knownFailure || ["PASS","FAIL","UNVERIFIED","ERROR"].includes(data.state) ? "nok" : "";
         const lines = [knownFailure ? "Fehler festgestellt – NICHT BESTANDEN" : data.state === "PASS" && !accepted ? "Prüfung unvollständig" : labels[data.state] || data.state || "Bereit", data.message || ""];
         if (data.totalCases) lines.push(`${data.completedCases || 0}/${data.totalCases} Fälle · ${data.completedBatches || 0}/${data.totalBatches || 0} Anfragen`);
+        const sendStatistik = retryStatistikText(data.retryStatistik,
+            Array.isArray(data.findings) ? data.findings.length : undefined);
+        if (sendStatistik) lines.push(sendStatistik);
         if (data.model) lines.push("Modell: " + data.model);
         if (data.artifactDirectory) lines.push("Nachweise: " + data.artifactDirectory);
         target.textContent = lines.filter(Boolean).join(" · ");
@@ -878,7 +917,9 @@ async function ladeLlmPruefung() {
         transport.textContent = data.transportVerified ? "✓ Dateiübergabe geprüft: alle Prüfdokumente vollständig gesendet, SHA-256 und API-Antworten validiert." : "Dateiübergabe: noch nicht vollständig bestätigt.";
         transport.className = data.transportVerified ? "ok" : "hinweis";
         $("llm-report-link").style.display = data.reportPdf && !data.running ? "inline-block" : "none";
-        if (data.prompt) $("llm-prompt").textContent = data.prompt;
+        $("llm-prompt").textContent = data.prompt
+            || "(Prüfauftrag wurde noch nicht geladen — „↻ Aktualisieren“ klicken oder Seite neu laden. "
+            + "Die Datei liegt im Projekt unter doc/testzertifikat-werkzeug/llm-pruefauftrag.txt.)";
         if (data.documents || data.files || data.pruefmenge) renderLlmFiles(data);
         else if (llmPackage) renderLlmFiles(llmPackage);
         llmEinzellaufAktiv = Boolean(data.running);
@@ -977,6 +1018,19 @@ function sichereZertifikatSuiteAntwort(data) {
     return data;
 }
 
+function retryStatistikText(rs, befundeZahl) {
+    // rs: {ersterVersuch, eineWiederholung, zweiWiederholungen, gescheiterteFallgruppen, wiederholteSendungen}
+    if (!rs) return "";
+    const gruppen = (rs.ersterVersuch || 0) + (rs.eineWiederholung || 0) + (rs.zweiWiederholungen || 0) + (rs.gescheiterteFallgruppen || 0);
+    if (gruppen === 0 && (rs.wiederholteSendungen || 0) === 0) return "";
+    let text = `GLM-Sendeversuche: ${gruppen} Fallgruppe(n) — ${rs.ersterVersuch || 0}× direkt gültig · `
+        + `${rs.eineWiederholung || 0}× nach 1 Wiederholung · ${rs.zweiWiederholungen || 0}× nach 2 Wiederholungen · `
+        + `${rs.gescheiterteFallgruppen || 0}× nach 3 Versuchen gescheitert · `
+        + `${rs.wiederholteSendungen || 0} formale Modellantwort(en) mussten wiederholt werden`;
+    if (Number.isInteger(befundeZahl)) text += ` · ${befundeZahl} fachliche Abweichung(en) vom Modell gemeldet`;
+    return text;
+}
+
 function renderZertifikatSuite(data) {
     zertifikatSuiteStatus = data;
     zertifikatSuiteStatusBekannt = true;
@@ -1011,6 +1065,37 @@ function renderZertifikatSuite(data) {
     } else {
         sub.removeAttribute("value");
         $("zertifikat-tests-phase-details").textContent = "Aktuelle Phase läuft; genauer Teilfortschritt wird nicht gemeldet.";
+    }
+    const statistik = retryStatistikText(data.retryStatistik || (data.llmSummary && data.llmSummary.retryStatistik),
+        Array.isArray(data.llmSummary && data.llmSummary.findings) ? data.llmSummary.findings.length
+            : Number.isInteger(data.findingsCount) ? data.findingsCount : undefined);
+    const statistikEl = $("zertifikat-tests-glm-statistik");
+    statistikEl.hidden = !statistik;
+    if (statistik) statistikEl.textContent = statistik;
+    const befunde = (data.llmSummary && data.llmSummary.findings) || [];
+    const befundeBereich = $("zertifikat-tests-befunde");
+    befundeBereich.hidden = befunde.length === 0;
+    if (befunde.length) {
+        $("zertifikat-tests-befunde-anzahl").textContent = befunde.length;
+        const liste = $("zertifikat-tests-befunde-liste");
+        liste.replaceChildren();
+        for (const finding of befunde) {
+            const eintrag = document.createElement("div");
+            eintrag.style.margin = "6px 0";
+            const text = typeof finding === "string" ? finding
+                : (finding.caseId || "Fall") + " :: " + (finding.description || finding.message || JSON.stringify(finding));
+            const trenn = text.indexOf(" :: ");
+            if (trenn > 0) {
+                const kennung = document.createElement("strong");
+                kennung.textContent = text.slice(0, trenn);
+                eintrag.appendChild(kennung);
+                eintrag.appendChild(document.createElement("br"));
+                eintrag.appendChild(document.createTextNode(text.slice(trenn + 4)));
+            } else {
+                eintrag.textContent = text;
+            }
+            liste.appendChild(eintrag);
+        }
     }
     sperreZertifikatSuiteBedienung();
     if (zertifikatSuiteAnsichtAktiv()) {

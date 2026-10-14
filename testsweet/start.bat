@@ -18,6 +18,19 @@ if errorlevel 1 (
     exit /b 1
 )
 
+rem ---------------------------------------------------------------------
+rem  Vorabpruefung: Laeuft bereits ein SweetServer auf Port 8095, fragt
+rem  ein Dialogfenster, ob er beendet werden darf (Fremdprozesse werden
+rem  nie beendet). Ohne Freigabe wird der Start abgebrochen.
+rem ---------------------------------------------------------------------
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0start-vorab.ps1"
+if errorlevel 1 (
+    echo.
+    echo [Abgebrochen] Der Start wurde nicht freigegeben - siehe Meldung oben bzw. im Dialog.
+    pause
+    exit /b 1
+)
+
 if "%~1"=="" (
     call mvn -q -f testsweet/pom.xml process-classes exec:java
 ) else (

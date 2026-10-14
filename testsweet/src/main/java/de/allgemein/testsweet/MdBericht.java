@@ -161,7 +161,7 @@ final class MdBericht {
                 + "STORNIERT gibt monat frei\n\n");
     }
 
-    private static void testfall(StringBuilder md, Auftrag a) {
+    static void testfall(StringBuilder md, Auftrag a) {
         md.append("## TF ").append(String.format("%02d", a.id)).append(' ')
                 .append(a.szenarioTyp).append(' ').append(a.aktenzeichen).append('\n');
         kv(md, "status", a.status.name());
@@ -210,9 +210,13 @@ final class MdBericht {
         }
 
         md.append("### protokoll\n\n");
+        int schrittNr = 1;
         for (Auftrag.Schritt s : a.schritte()) {
+            // [S#]-Kennung: die Nachrechnung (GLM/Referenz) muss genau diese Schritte
+            // einzeln bestätigen — mit sichtbarer Kennung zählt niemand Zeilen falsch.
             md.append(s.zeit().format(ZEIT)).append(' ').append(s.mitarbeiter())
-                    .append(" | ").append(s.aktion()).append(" -> ").append(s.ergebnis())
+                    .append(" | [S").append(schrittNr++).append("] ")
+                    .append(s.aktion()).append(" -> ").append(s.ergebnis())
                     .append('\n');
         }
         md.append('\n');

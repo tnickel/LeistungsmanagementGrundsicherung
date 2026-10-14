@@ -53,12 +53,25 @@ final class LlmCalculationReference {
                     || !global && Pattern.compile("(?m)^\\s*(?:sql|params)\\s*=\\s*\\?\\s*$").matcher(details).find())
                 missing.add(checkId + ": SQL oder Parameter nicht vollständig dokumentiert");
         }
-        Matcher steps = Pattern.compile("(?m)^\\d{4}-\\d\\d-\\d\\d [^\\r\\n]+ \\| [^\\r\\n]+ -> ([^\\r\\n]+)").matcher(text);
-        int step = 0;
-        while (steps.find()) {
-            checks.add("S" + ++step);
-            if (!steps.group(1).startsWith("OK") && !steps.group(1).startsWith("ERWARTETER FEHLER"))
-                findings.add("S" + step + ": " + steps.group(1));
+        // Neuere Prüfpakete tragen sichtbare [S#]-Kennungen je Protokollzeile —
+        // genau diese sind zu bestätigen. Ältere Pakete ohne Kennung behalten
+        // die ursprüngliche Zählung, damit gespeicherte Nachweise weiter gültig sind.
+        Matcher labeledSteps = Pattern.compile("(?m)^\\d{4}-\\d\\d-\\d\\d [^\\r\\n]+? \\| \\[(S\\d+)\\] [^\\r\\n]+ -> ([^\\r\\n]+)").matcher(text);
+        int labeled = 0;
+        while (labeledSteps.find()) {
+            labeled++;
+            checks.add(labeledSteps.group(1));
+            if (!labeledSteps.group(2).startsWith("OK") && !labeledSteps.group(2).startsWith("ERWARTETER FEHLER"))
+                findings.add(labeledSteps.group(1) + ": " + labeledSteps.group(2));
+        }
+        if (labeled == 0) {
+            Matcher steps = Pattern.compile("(?m)^\\d{4}-\\d\\d-\\d\\d [^\\r\\n]+ \\| [^\\r\\n]+ -> ([^\\r\\n]+)").matcher(text);
+            int step = 0;
+            while (steps.find()) {
+                checks.add("S" + ++step);
+                if (!steps.group(1).startsWith("OK") && !steps.group(1).startsWith("ERWARTETER FEHLER"))
+                    findings.add("S" + step + ": " + steps.group(1));
+            }
         }
         int blockIndex = 0;
         for (String part : text.split("(?m)(?=^block: )")) {

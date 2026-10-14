@@ -46,6 +46,10 @@ public class CertificateSuiteService implements AutoCloseable {
             if(!environment.getOrDefault("SWEET_BASE_URL","").isBlank()||!System.getProperty("sweet.baseurl","").isBlank())throw new IllegalStateException("Für Zertifikatstests darf kein externes Webziel (SWEET_BASE_URL/sweet.baseurl) gesetzt sein. Die Suite muss den frisch gebauten eigenen Server prüfen.");
             LlmConfig.Settings llm=new LlmConfig(root,environment).read();
             if(llm.apiKey().isBlank())throw new IllegalStateException("Zuerst den GLM-Zugang über das Zahnrad konfigurieren. Es wurde kein Test gestartet.");
+            // Vorabprüfung: Ohne Testdatenbank endete jeder einzelne Suite-Lauf im Abbruch.
+            // Besser der Gesamtablauf gar nicht erst anstoßen, sondern klar melden, was zu tun ist.
+            DbErreichbarkeit.Ergebnis db=DbErreichbarkeit.pruefeAusUmgebung(environment);
+            if(!db.erreichbar())throw new IllegalStateException(db.hinweis());
             if(requestedCases!=0&&(requestedCases<2||requestedCases>1000))throw new IllegalArgumentException("GLM-Prüffälle müssen zwischen 2 und 1000 liegen");
             String id=UUID.randomUUID().toString();directory=root.resolve("testsweet/logs/certificate-suite-"+id);Files.createDirectories(directory);
             Map<String,Object> initial=new LinkedHashMap<>();

@@ -1619,13 +1619,16 @@ public final class SzenarioBibliothek {
                                 "DE89370400440532013000", "MARKDEF1100", name, vermoegenAnlage, ich)
                         : s.legeBedarfsgemeinschaftAn(az, name, budgetFinal, null, ich);
                 ctx.put("bgId", bg.id());
-                return "Vorgang " + bg.id();
+                return "Vorgang " + bg.id() + (vermoegenAnlage.signum() > 0
+                        ? " (Vermögen " + vermoegenAnlage.toPlainString() + " EUR)" : "");
             }));
             if (!"ohneFall".equals(primaer)) {
+                String einkommenKlartext = einkommenKlartext(faelle.get(0));
                 aktionen.add(SzenarioAktion.schritt("SozialFall erfassen (RBS " + rbs + ")",
                         (s, ich, kollege, ctx) -> {
                             s.legeSozialFallAn((Long) ctx.get("bgId"), faelle.get(0), ich);
-                            return "RBS " + rbs + ", KdU " + gesamtKdu(miete, betrieb, heizung) + " EUR";
+                            return "RBS " + rbs + ", KdU " + gesamtKdu(miete, betrieb, heizung)
+                                    + " EUR" + einkommenKlartext;
                         }));
             }
 
@@ -1870,11 +1873,18 @@ public final class SzenarioBibliothek {
             }
 
             if ("rente".equals(primaer) || "erwerb".equals(primaer) || "budget".equals(primaer)
-                    || "vermoegen".equals(primaer)) {
-                berechne(rechnungen, "Nachweis: erwartete Abwehr für " + primaer,
+                    || "vermoegen".equals(primaer) || "rente".equals(sekundaer)
+                    || "erwerb".equals(sekundaer) || "budget".equals(sekundaer)) {
+                // Auch bei sekundärem Verstoß trägt der erfasste Fall schon die
+                // Verstoß-Einkommen — ohne diesen Block wäre der Abwehrbetrag im
+                // Prüfpaket nicht aus dokumentierten Eingaben nachrechenbar.
+                String ursache = "rente".equals(primaer) || "rente".equals(sekundaer) ? "rente"
+                        : "erwerb".equals(primaer) || "erwerb".equals(sekundaer) ? "erwerb"
+                        : "budget".equals(primaer) || "budget".equals(sekundaer) ? "budget" : "vermoegen";
+                berechne(rechnungen, "Nachweis: erwartete Abwehr für " + ursache,
                         faelle, "vermoegen".equals(primaer) ? hohesVermoegen : BigDecimal.ZERO,
                         budget,
-                        "Die Abwehr ist fachlich begründet: " + switch (primaer) {
+                        "Die Abwehr ist fachlich begründet: " + switch (ursache) {
                             case "rente" -> "Die Rente übersteigt den Gesamtbedarf (§ 43 Abs. 1).";
                             case "erwerb" -> "Das Erwerbseinkommen übersteigt nach Freibetrag den Bedarf.";
                             case "budget" -> "Das Startbudget liegt unter dem Zahlbetrag.";
@@ -2649,6 +2659,18 @@ public final class SzenarioBibliothek {
                 Leistungsberechnung.KduParameter.AUS, vermoegen);
         bloecke.add(new Rechenblock(titel, faelle, vermoegen, budget, ergebnis, List.of(hinweise)));
         return ergebnis.zahlbetrag();
+    }
+
+    /** Klartext der Einkommen für Schrittprotokoll und Prüfpaket — nur nonzero Teile. */
+    static String einkommenKlartext(SozialFall fall) {
+        StringBuilder text = new StringBuilder();
+        if (fall.einkommenRente().signum() > 0) {
+            text.append(", Rente ").append(fall.einkommenRente().toPlainString()).append(" EUR");
+        }
+        if (fall.einkommenErwerb().signum() > 0) {
+            text.append(", Erwerb ").append(fall.einkommenErwerb().toPlainString()).append(" EUR");
+        }
+        return text.toString();
     }
 
     /**

@@ -139,7 +139,55 @@ public final class LlmReviewService implements AutoCloseable {
                 stale.put("transportVerified", false); stale.put("integrityError", safeError(e)); progress = Map.copyOf(stale);
             }
         }
-        return new LinkedHashMap<>(progress);
+        Map<String, Object> stand = new LinkedHashMap<>(progress);
+        stand.put("retryStatistik", wiederholungsStatistik(stand));
+        return stand;
+    }
+
+    /**
+     * Wiederholungsstatistik aus den protokollierten Sendeversuchen: Je
+     * Fallgruppe zählt der Versuch, der eine gültige Antwort brachte (1. Versuch,
+     * 1 Wiederholung, 2 Wiederholungen); Fallgruppen, deren drei Sendeversuche
+     * alle fehlschlugen, zählen als gescheitert. Daneben steht die Gesamtzahl
+     * der formal ungültigen Antworten, die ein erneutes vollständiges Senden
+     * erforderten. Gültig auch während des Laufs — es wird nur der bereits
+     * protokollierte Stand ausgewertet.
+     */
+    public static Map<String, Integer> wiederholungsStatistik(Map<String, Object> stand) {
+        int ersterVersuch = 0, eineWiederholung = 0, zweiWiederholungen = 0;
+        int gescheiterteFallgruppen = 0, wiederholteSendungen = 0;
+        Map<Integer, Integer> gueltigerVersuch = new LinkedHashMap<>();
+        Map<Integer, Integer> letzterFehlversuch = new LinkedHashMap<>();
+        for (Object eintragObj : listeOderLeer(stand.get("attemptChecks"))) {
+            if (!(eintragObj instanceof Map<?, ?> eintrag)) continue;
+            int gruppe = zahl(eintrag.get("batch")), versuch = zahl(eintrag.get("attempt"));
+            if (gruppe <= 0 || versuch <= 0) continue;
+            if (Boolean.TRUE.equals(eintrag.get("responseValidated"))) gueltigerVersuch.merge(gruppe, versuch, Math::min);
+            else { wiederholteSendungen++; letzterFehlversuch.merge(gruppe, versuch, Math::max); }
+        }
+        for (Integer versuch : gueltigerVersuch.values()) {
+            if (versuch == 1) ersterVersuch++;
+            else if (versuch == 2) eineWiederholung++;
+            else zweiWiederholungen++;
+        }
+        for (Map.Entry<Integer, Integer> gruppe : letzterFehlversuch.entrySet()) {
+            if (!gueltigerVersuch.containsKey(gruppe.getKey()) && gruppe.getValue() >= 3) gescheiterteFallgruppen++;
+        }
+        Map<String, Integer> statistik = new LinkedHashMap<>();
+        statistik.put("ersterVersuch", ersterVersuch);
+        statistik.put("eineWiederholung", eineWiederholung);
+        statistik.put("zweiWiederholungen", zweiWiederholungen);
+        statistik.put("gescheiterteFallgruppen", gescheiterteFallgruppen);
+        statistik.put("wiederholteSendungen", wiederholteSendungen);
+        return statistik;
+    }
+
+    private static List<?> listeOderLeer(Object wert) {
+        return wert instanceof List<?> liste ? liste : List.of();
+    }
+
+    private static int zahl(Object wert) {
+        return wert instanceof Number n ? n.intValue() : 0;
     }
 
     public Map<String, Object> buildPackage(int maxCases) {
