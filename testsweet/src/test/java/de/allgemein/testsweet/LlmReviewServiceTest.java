@@ -87,6 +87,8 @@ class LlmReviewServiceTest {
                 assertEquals(bodies.get(i), serialized);
                 assertFalse(serialized.contains("local-test-key"));
                 Map<?, ?> request = (Map<?, ?>) Json.parse(serialized);
+                assertEquals(Map.of("type", "json_object"), request.get("response_format"));
+                assertEquals(Map.of("type", "disabled"), request.get("thinking"));
                 String user = (String) ((Map<?, ?>) ((List<?>) request.get("messages")).get(1)).get("content");
                 assertTrue(user.contains("VOLLSTÄNDIGER GESETZESTEXT\nENDE GESETZ"));
                 assertTrue(user.contains("VOLLSTÄNDIGER PRÜFAUFTRAG\nENDE PROMPT"));
@@ -190,12 +192,26 @@ class LlmReviewServiceTest {
     @Test void connectionTestUsesActualModelRequest() throws Exception {
         List<String> requests = new CopyOnWriteArrayList<>();
         HttpServer server = api(requests, (ids, body) -> Json.write(Map.of("model", "glm-5.3", "id", "connection-id",
-                "choices", List.of(Map.of("finish_reason", "stop", "message", Map.of("content", "SWEET_LLM_OK"))))));
+                "choices", List.of(Map.of("finish_reason", "stop", "message", Map.of("content", Json.write(Map.of("status", "SWEET_LLM_OK"))))))));
         try (LlmReviewService service = configured(server)) {
             assertEquals(true, service.testConnection().get("ok"));
             assertEquals(1, requests.size());
             assertTrue(requests.getFirst().contains("SWEET_LLM_OK"));
+            Map<?, ?> request = (Map<?, ?>) Json.parse(requests.getFirst());
+            assertEquals(Map.of("type", "json_object"), request.get("response_format"));
+            assertEquals(Map.of("type", "disabled"), request.get("thinking"));
         } finally { server.stop(0); }
+    }
+
+    @Test void connectionTestRejectsPlaintextWrongMarkerAndAdditionalFields() throws Exception {
+        for (String answer : List.of("SWEET_LLM_OK", Json.write(Map.of("status", "OTHER")),
+                Json.write(Map.of("status", "SWEET_LLM_OK", "extra", true)))) {
+            HttpServer server = api(new CopyOnWriteArrayList<>(), (ids, body) -> Json.write(Map.of(
+                    "model", "glm-5.3", "choices", List.of(Map.of("finish_reason", "stop", "message", Map.of("content", answer))))));
+            try (LlmReviewService service = configured(server)) {
+                assertEquals(false, service.testConnection().get("ok"), answer);
+            } finally { server.stop(0); }
+        }
     }
 
     @Test void duplicateAndUnverifiedAnswersCannotBecomePass() {

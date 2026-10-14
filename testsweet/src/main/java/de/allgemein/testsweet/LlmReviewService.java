@@ -92,9 +92,10 @@ public final class LlmReviewService implements AutoCloseable {
             LlmConfig.Settings settings = configuration.read();
             requireKey(settings);
             ApiReply reply = request(settings, List.of(Map.of("role", "user", "content",
-                    "Verbindungstest. Antworte ausschließlich mit SWEET_LLM_OK.")), 2048);
+                    "Verbindungstest. Antworte ausschließlich mit diesem JSON-Objekt: {\"status\":\"SWEET_LLM_OK\"}.")), 2048);
+            Object answer = Json.parse(reply.content());
             boolean ok = "stop".equals(reply.finishReason()) && settings.model().equalsIgnoreCase(reply.model())
-                    && reply.content().trim().equals("SWEET_LLM_OK");
+                    && Map.of("status", "SWEET_LLM_OK").equals(answer);
             return Map.of("ok", ok, "model", settings.model(), "returnedModel", reply.model(),
                     "message", ok ? "Echte Modellantwort empfangen" : "Modell antwortete, aber Verbindungstest war unvollständig oder unerwartet");
         } catch (Exception e) {
@@ -582,6 +583,7 @@ public final class LlmReviewService implements AutoCloseable {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", s.model()); body.put("messages", messages); body.put("stream", false);
         body.put("temperature", 0.1); body.put("max_tokens", maxTokens); body.put("thinking", Map.of("type", "disabled"));
+        body.put("response_format", Map.of("type", "json_object"));
         String serialized = Json.write(body);
         if (requestFile != null) writeNew(requestFile, serialized);
         HttpRequest request = HttpRequest.newBuilder(URI.create(s.baseUrl() + "/chat/completions"))

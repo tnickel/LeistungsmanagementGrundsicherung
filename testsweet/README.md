@@ -278,6 +278,11 @@ auf. Standard sind **GLM-5.3** (`glm-5.3`) und die Basisadresse
    Fälle als drei **benannte Dokumenttexte im Request**. Es werden keine bloßen Dateipfade
    übermittelt. Reichen die Quellfälle nicht aus, wird abgebrochen; es gibt keine stille
    Kürzung. Die Auswahl ist eine dokumentierte Stichprobe, kein Nachweis aller Regelzweige.
+   Alle API-Aufrufe verlangen JSON über `response_format: {"type":"json_object"}` und
+   senden `thinking: {"type":"disabled"}`. Auch der Verbindungstest erwartet ein
+   JSON-Objekt. Die API kann trotz `disabled` Reasoning-Tokens melden; diese Einstellung
+   garantiert weder vollständig ausgeschaltetes Reasoning noch fehlerfreie Antworten.
+   Die lokale Prüfung aller Fall-/Prüfpunkt-IDs und Rechenwerte bleibt verpflichtend.
    Ist eine Modellantwort formal ungültig (zum Beispiel falsche Fall-IDs, unvollständiges
    JSON, falsches Modell oder abgebrochene Ausgabe), wird dieselbe Fallgruppe mit allen
    drei Dokumenttexten nach **30 Sekunden** erneut gesendet. Pro Fallgruppe gibt es
