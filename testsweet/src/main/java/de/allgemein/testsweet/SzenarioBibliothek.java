@@ -1575,8 +1575,17 @@ public final class SzenarioBibliothek {
             boolean bescheidGueltigVorhanden = "ausserhalbBescheid".equals(primaer);
 
             if ("ANLAGE".equals(gruppe)) {
+                // Der konkrete Ungültigkeitsgrund steht im Schritttext: Die Nachrechnung
+                // soll die Abwehr aus der genannten Regel (ISO 13616/9362) herleiten
+                // können, statt die formale Gültigkeit der Bankdaten zu raten.
+                String ibanGrund = kaputteIban.length() != 22
+                        ? (kaputteIban.length() < 22 ? "zu kurzer" : "zu langer") + " IBAN ("
+                                + kaputteIban.length() + " statt 22 Zeichen für Deutschland, ISO 13616)"
+                        : "IBAN mit falscher Prüfziffer (Mod-97, ISO 13616)";
+                String bicGrund = "BIC mit unzulässiger Länge (" + kaputterBic.length()
+                        + " Zeichen statt genau 8 oder 11, ISO 9362)";
                 aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
-                        "Vorgang anlegen mit ungültiger IBAN (" + kaputteIban + ") — VALIDATION erwartet",
+                        "Vorgang anlegen mit " + ibanGrund + " (" + kaputteIban + ") — VALIDATION erwartet",
                         FachlicheException.VALIDATION,
                         List.of("Ungültige IBAN"), (s, ich, kollege, ctx) -> {
                             s.legeBedarfsgemeinschaftAn(az, name, budget, null,
@@ -1584,7 +1593,7 @@ public final class SzenarioBibliothek {
                             return "unerwartet erfolgreich — ungültige IBAN wäre durchgerutscht";
                         }));
                 aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
-                        "Vorgang anlegen mit ungültigem BIC (" + kaputterBic + ") — VALIDATION erwartet",
+                        "Vorgang anlegen mit " + bicGrund + " (" + kaputterBic + ") — VALIDATION erwartet",
                         FachlicheException.VALIDATION,
                         List.of("Ungültiger BIC"), (s, ich, kollege, ctx) -> {
                             s.legeBedarfsgemeinschaftAn(az, name, budget, null,
@@ -1878,11 +1887,18 @@ public final class SzenarioBibliothek {
                 // Auch bei sekundärem Verstoß trägt der erfasste Fall schon die
                 // Verstoß-Einkommen — ohne diesen Block wäre der Abwehrbetrag im
                 // Prüfpaket nicht aus dokumentierten Eingaben nachrechenbar.
+                // Bei Konkurrenz-Verstoß läuft die Anordnung NACH der Miete-Änderung:
+                // der Block muss den Fallzustand zum Anordnungszeitpunkt (mieteNeu)
+                // abbilden, sonst widerspricht der dokumentierte Betrag der Abwehrmeldung.
+                List<SozialFall> abwehrFaelle = verstoesse.contains("konkurrenz")
+                        ? List.of(fallEntwurf(rbs, false, false, 0, false, mieteNeu, betrieb, heizung,
+                                renteErfasst, erwerbErfasst))
+                        : faelle;
                 String ursache = "rente".equals(primaer) || "rente".equals(sekundaer) ? "rente"
                         : "erwerb".equals(primaer) || "erwerb".equals(sekundaer) ? "erwerb"
                         : "budget".equals(primaer) || "budget".equals(sekundaer) ? "budget" : "vermoegen";
                 berechne(rechnungen, "Nachweis: erwartete Abwehr für " + ursache,
-                        faelle, "vermoegen".equals(primaer) ? hohesVermoegen : BigDecimal.ZERO,
+                        abwehrFaelle, "vermoegen".equals(primaer) ? hohesVermoegen : BigDecimal.ZERO,
                         budget,
                         "Die Abwehr ist fachlich begründet: " + switch (ursache) {
                             case "rente" -> "Die Rente übersteigt den Gesamtbedarf (§ 43 Abs. 1).";

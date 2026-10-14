@@ -111,6 +111,50 @@ class PruefpaketDokumentationTest {
         assertEquals(List.of("V1", "S1"), mit.get("checkIds"));
     }
 
+    @Test void abwehrblockRechnetBeiKonkurrenzMitDerGeaendertenMiete() {
+        java.util.regex.Pattern mieteText = java.util.regex.Pattern.compile("Miete auf (\\d+\\.\\d\\d) ändern");
+        boolean konkurrenzMitBlockGesehen = false;
+        for (long seed : List.of(1L, 17L, 42L, 97L)) {
+            for (Auftrag a : new SzenarioBibliothek(seed).erzeugeNegativ(500, "SWEET-N-")) {
+                if (!a.beschreibung.contains("konkurrenz") || a.rechenbloecke.isEmpty()) continue;
+                String mieteNeu = a.aktionen.stream().map(SzenarioAktion::name)
+                        .map(mieteText::matcher).filter(java.util.regex.Matcher::find)
+                        .findFirst().map(m -> m.group(1)).orElse(null);
+                if (mieteNeu == null) continue; // Konkurrenz ohne Abwehrblock (keine Anordnung)
+                konkurrenzMitBlockGesehen = true;
+                var block = a.rechenbloecke.getFirst();
+                assertEquals(new BigDecimal(mieteNeu), block.faelle().getFirst().kduMiete(),
+                        "Seed " + seed + ", TF " + a.id + ": Block muss die Miete zum Anordnungszeitpunkt nutzen");
+            }
+        }
+        assertTrue(konkurrenzMitBlockGesehen, "Test muss mindestens einen Konkurrenzfall mit Abwehrblock finden");
+    }
+
+    @Test void sepaSchritttexteNennenDenKonkretenPruefregelverstoss() {
+        boolean ibanGrundGesehen = false, bicGrundGesehen = false;
+        for (Auftrag a : new SzenarioBibliothek(42).erzeugeNegativ(500, "SWEET-N-")) {
+            if (!a.beschreibung.startsWith("SEPA-Anlage abgewehrt")) continue;
+            for (SzenarioAktion action : a.aktionen) {
+                if (action.name().contains("IBAN") && (action.name().contains("statt 22 Zeichen")
+                        || action.name().contains("falscher Prüfziffer"))) ibanGrundGesehen = true;
+                if (action.name().contains("BIC") && action.name().contains("statt genau 8 oder 11")) bicGrundGesehen = true;
+            }
+        }
+        assertTrue(ibanGrundGesehen, "IBAN-Schritt muss Länge oder Prüfziffer als Grund nennen");
+        assertTrue(bicGrundGesehen, "BIC-Schritt muss die Regel-Länge als Grund nennen");
+    }
+
+    @Test void laufkopfDokumentiertDieSepaPruefregeln() {
+        StringBuilder md = new StringBuilder();
+        MdBericht.grundlagen(md);
+        String text = md.toString();
+        assertTrue(text.contains("sepa_iban"), text);
+        assertTrue(text.contains("genau 22"));
+        assertTrue(text.contains("Modulo 97 genau 1"));
+        assertTrue(text.contains("sepa_bic"));
+        assertTrue(text.contains("genau 8 oder 11 Zeichen"));
+    }
+
     @Test void einkommenStehtImErgebnistextDesErfassungsschritts() {
         // Der Text des Erfassungsschritts entsteht erst im Lauf — hier prüfen wir den
         // Klartext-Helfer, der Rente/Erwerb nur bei Werten über Null anfügt.

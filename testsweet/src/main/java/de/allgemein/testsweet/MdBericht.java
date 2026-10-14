@@ -134,7 +134,7 @@ final class MdBericht {
                 + "Dieser Datenanhang legt kein abweichendes Antwortformat fest.\n\n");
     }
 
-    private static void grundlagen(StringBuilder md) {
+    static void grundlagen(StringBuilder md) {
         md.append("## rechengrundlagen_2026\n\n");
         md.append("rbs_eur = {1: 563.00, 2: 506.00, 3: 451.00, 4: 471.00, 5: 390.00, 6: 357.00}  "
                 + "(Anlage zu § 28 SGB XII)\n");
@@ -158,7 +158,14 @@ final class MdBericht {
                 + "max(vermoegen - schonvermoegen, 0)  (<= 0 => KEIN_ANSPRUCH, § 43 Abs. 1)\n");
         md.append("rundung = HALF_UP auf 2 nachkommastellen; waehrung EUR\n");
         md.append("zahlstatus = ANGELEGT (wartet auf freigabe) -> BEREIT -> UEBERGEBEN; "
-                + "STORNIERT gibt monat frei\n\n");
+                + "STORNIERT gibt monat frei\n");
+        md.append("sepa_iban = ISO 13616: laenderspezifische Gesamtlaenge (Deutschland genau 22 "
+                + "Zeichen); Pruefziffer-Validierung: die verschobene Ziffernfolge (BBAN, dann "
+                + "Laendercode-Verdraengung 1314, dann Pruefziffer) ergibt Modulo 97 genau 1. "
+                + "Abweichung von Laenge oder Pruefziffer => VALIDATION 'Ungueltige IBAN'.\n");
+        md.append("sepa_bic = ISO 9362: genau 8 oder 11 Zeichen (4 Buchstaben Bankcode, 2 Buchstaben "
+                + "Laendercode, 2 alphanumerische Ortskennung, optional 3 alphanumerische "
+                + "Zweigstelle). Andere Laenge/Struktur => VALIDATION 'Ungueltiger BIC'.\n\n");
     }
 
     static void testfall(StringBuilder md, Auftrag a) {
