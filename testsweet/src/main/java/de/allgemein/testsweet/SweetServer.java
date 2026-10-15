@@ -117,6 +117,15 @@ final class SweetServer implements AutoCloseable {
                         Map<?,?> body = readJsonBody(exchange);
                         int cases = zahl(body, "faelle", 0);
                         if (cases != 0 && (cases < 2 || cases > 1000)) throw new IllegalArgumentException("Prüffälle müssen zwischen 2 und 1000 liegen");
+                        // Vorabprüfung wie beim Simulator-Start: Ohne Testdatenbank wird der
+                        // Gesamtablauf gar nicht erst angestoßen (kein Laufverzeichnis). Die
+                        // Antwort trägt fehlerart DB_NICHT_ERREICHBAR, damit die Oberfläche
+                        // denselben Datenbank-Dialog zeigt statt einer stillen Statuszeile.
+                        DbErreichbarkeit.Ergebnis db = DbErreichbarkeit.pruefe(simulator.dbUrl, simulator.dbUser, simulator.dbPass);
+                        if (!db.erreichbar()) {
+                            sendeJson(exchange, 503, Map.of("ok", false, "fehler", db.hinweis(), "fehlerart", "DB_NICHT_ERREICHBAR"));
+                            return;
+                        }
                         Map<String,Object> started = certificateSuite.start(cases);
                         synchronized (reportLock) { reviewedPdf = null; reviewedMd = null; reviewedSource = null; reviewedKey = null; }
                         sendeJson(exchange, 202, started);

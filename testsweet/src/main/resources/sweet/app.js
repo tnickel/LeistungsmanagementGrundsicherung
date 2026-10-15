@@ -1198,7 +1198,27 @@ async function starteZertifikatSuite() {
     $("zertifikat-tests-status").className = "";
     if ($("llm-retry-dialog").open) $("llm-retry-dialog").close();
     try {
-        renderZertifikatSuite(sichereZertifikatSuiteAntwort(await llmRequest("/api/zertifikat/tests/start", {faelle:Number($("llm-faelle").value)})));
+        const antwort = await fetch("/api/zertifikat/tests/start", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({faelle: Number($("llm-faelle").value)})
+        });
+        const ergebnis = await antwort.json();
+        if (!antwort.ok || ergebnis.fehler || ergebnis.ok === false) {
+            if (ergebnis.fehlerart === "DB_NICHT_ERREICHBAR") {
+                // Docker-Dialog wie beim Simulator-Start: Die Statuszeile würde der
+                // 2-Sekunden-Poll sofort mit dem alten Suite-Stand überschreiben.
+                zeigePruefFehler("db-suite-start-" + Date.now(),
+                    "Datenbank nicht erreichbar – Zertifikatslauf nicht gestartet",
+                    ergebnis.fehler,
+                    "Kein Laufverzeichnis — es wurde kein Zertifikatslauf gestartet",
+                    {kind: "db"});
+            } else {
+                alert("Start nicht möglich: " + ergebnis.fehler);
+            }
+        } else {
+            renderZertifikatSuite(sichereZertifikatSuiteAntwort(ergebnis));
+        }
     } catch (error) { zertifikatSuiteStatusFehler(error); }
     finally { zertifikatSuiteStartet = false; sperreZertifikatSuiteBedienung(); }
 }

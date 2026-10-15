@@ -1,6 +1,8 @@
 package de.allgemein.testsweet;
 
 import de.allgemein.lmg.web.Json;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import java.net.URI;
@@ -16,6 +18,18 @@ import static org.junit.jupiter.api.Assertions.*;
 /** HTTP-Vertrag und Laufsperren mit kontrolliertem Controller; startet keine externen Tests. */
 class CertificateSuiteHttpTest {
     @TempDir Path root;
+    private String txUrlVorher;
+
+    @BeforeEach void fixtureDatenbank() {
+        // Fixture-URL: DbErreichbarkeit überspringt Nicht-Oracle-URLs, damit die
+        // Start-Tests nicht von der lokalen Docker-Lage abhängen.
+        txUrlVorher=System.getProperty("tx.url");
+        System.setProperty("tx.url","jdbc:fixture:suite-http");
+    }
+
+    @AfterEach void datenbankZuruecksetzen() {
+        if(txUrlVorher==null)System.clearProperty("tx.url");else System.setProperty("tx.url",txUrlVorher);
+    }
 
     @Test void startsAsynchronouslyAndRejectsConcurrentManualMutationsAndOldReports() throws Exception {
         FakeSuite suite=new FakeSuite(root);
@@ -54,6 +68,20 @@ class CertificateSuiteHttpTest {
             assertEquals(0,suite.started);
             assertEquals(202,send(client,server,"POST","/api/zertifikat/tests/start","{}").statusCode());
             assertEquals(0,suite.requestedCases); // 0 übernimmt die gespeicherte Prüffallzahl.
+        }
+    }
+
+    @Test void suiteStartOhneDatenbankMeldetDialogstattStillerAbweisung() throws Exception {
+        System.setProperty("tx.url","jdbc:oracle:thin:@//127.0.0.1:1/XEPDB1"); // Port zu: Verbindung sofort verweigert
+        FakeSuite suite=new FakeSuite(root);
+        try(SweetServer server=new SweetServer(new Simulator(),0,root,suite);HttpClient client=HttpClient.newHttpClient()) {
+            server.start();
+            var response=send(client,server,"POST","/api/zertifikat/tests/start","{}");
+            assertEquals(503,response.statusCode());
+            Map<?,?> body=(Map<?,?>)Json.parse(response.body());
+            assertEquals("DB_NICHT_ERREICHBAR",body.get("fehlerart"));
+            assertTrue(String.valueOf(body.get("fehler")).contains("lmg-oracle"));
+            assertEquals(0,suite.started); // kein Zertifikatslauf angestoßen, kein Laufverzeichnis
         }
     }
 
