@@ -746,6 +746,12 @@ function programmNachweisFehlt(message) {
     return /Build-\/Quellstand nicht nachgewiesen|Build wurde seit Prozessstart ersetzt|Buildnachweis nicht lesbar/i.test(message);
 }
 
+function kompaktZeitZuDeutsch(kompakt) {
+    // "20261015-013136" -> "15.10.2026 um 01:31:36 Uhr" — für den Vergleich im Nachweis-Dialog.
+    const m = /^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})$/.exec(kompakt || "");
+    return m ? `${m[3]}.${m[2]}.${m[1]} um ${m[4]}:${m[5]}:${m[6]} Uhr` : null;
+}
+
 function zeigeSimulatorFehler(status) {
     if (zertifikatSuiteAnsichtAktiv()) return;
     const review = status.review || {};
@@ -765,9 +771,27 @@ function zeigeSimulatorFehler(status) {
         : failure ? "Testfehler festgestellt – NICHT BESTANDEN" : source ? "Technischer Nachweisfehler: KI-Eingangsbelege veraltet"
         : status.dbNichtErreichbar ? "Datenbankverbindung verloren – Testlauf abgebrochen"
         : status.phase === "ABGEBROCHEN" ? "Testlauf abgebrochen – Nachweis unvollständig" : "Technischer Fehler – Testlauf nicht bestätigt";
+    const optionen = {kind, failure};
+    if (kind === "source") {
+        // Vergleichbare Zeitangaben: wann der Lauf gespielt wurde vs. wann die
+        // aktuellen Programmdateien gebaut wurden — dann sieht man die Lücke.
+        const lauf = /run-(\d{8}-\d{6})/.exec(message);
+        const laufZeit = lauf ? kompaktZeitZuDeutsch(lauf[1]) : null;
+        const buildZeit = status.buildZeit ? new Date(status.buildZeit).toLocaleString("de-DE") : null;
+        if (laufZeit && buildZeit) {
+            optionen.help = {...pruefFehlerHilfe("source", failure),
+                summary: `Was ist veraltet? GLM soll Unterlagen von Simulator-Läufen nachrechnen. `
+                    + `Der neueste verfügbare Lauf (${lauf[0]}) wurde am ${laufZeit} gespielt. `
+                    + `Die aktuellen Programmdateien wurden aber erst am ${buildZeit} gebaut — `
+                    + `dazwischen liegt der Neubau. Läufe von vor dem Neubau dürfen nicht mehr `
+                    + `verwendet werden, sonst belegt das Zertifikat einen alten Stand. `
+                    + `Deshalb wurde die GLM-Prüfung vor dem ersten Senden abgebrochen — es wurde kein Fall geprüft. `
+                    + `Schnellster Weg: den grünen Knopf „Mache alle Zertifikatstests“ drücken.`};
+        }
+    }
     zeigePruefFehler("sim-" + status.logVerzeichnis + "-" + status.phase + "-" + kind,
         title, message, status.logVerzeichnis || "Laufverzeichnis in der Testübersicht prüfen",
-        {kind, failure});
+        optionen);
 }
 
 function pruefFehlerHilfe(kind, failure) {
@@ -788,7 +812,7 @@ function pruefFehlerHilfe(kind, failure) {
     };
     if (kind === "source") return {
         severity: "VERALTETE ODER FEHLENDE KI-EINGANGSBELEGE · Aktion erforderlich",
-        summary: "Was ist veraltet? GLM soll Unterlagen von Simulator-Läufen nachrechnen. Die neuesten verfügbaren Läufe wurden aber mit einer ÄLTEREN Programmversion gespielt — seitdem wurde testsweet neu gebaut und neu gestartet (z. B. durch Fehlerbehebungen). GLM darf nur Unterlagen des genau jetzt geladenen Programms prüfen, sonst belegt das Zertifikat einen alten Stand. Deshalb wurde die GLM-Prüfung vor dem ersten Senden abgebrochen — es wurde kein Fall geprüft.",
+        summary: "Was ist veraltet? GLM soll Unterlagen von Simulator-Läufen nachrechnen. Die neuesten verfügbaren Läufe wurden aber mit einer ÄLTEREN Programmversion gespielt — seitdem wurde testsweet neu gebaut und neu gestartet (z. B. durch Fehlerbehebungen). GLM darf nur Unterlagen des genau jetzt geladenen Programms prüfen, sonst belegt das Zertifikat einen alten Stand. Deshalb wurde die GLM-Prüfung vor dem ersten Senden abgebrochen — es wurde kein Fall geprüft. Schnellster Weg: den grünen Knopf „Mache alle Zertifikatstests“ drücken.",
         impact: "Kein gültiges Zertifikat. Daraus folgt weder ein GLM-Ausfall noch ein Fehler der Fachanwendung — es fehlen nur frische Simulator-Läufe zum aktuellen Programmstand.",
         steps: ["WEG 1 — Schritte einzeln: Zuerst EINEN neuen Positiv-Lauf starten (Abschnitt 1: Modus 1, Kategorie Positivfälle, dann „Simulation starten“).",
             "Danach EINEN neuen Negativ-Lauf starten (Kategorie Negativfälle). Beide müssen erfolgreich durchlaufen — sie erzeugen die frischen Unterlagen für GLM.",

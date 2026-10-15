@@ -198,12 +198,22 @@ test("Abbruch wird als ungeprüft erklärt, erfolgreiche Läufe öffnen keinen F
 });
 
 test("GLM mit veralteter Quelle nennt Neubuild, echte Retry-Erschöpfung die drei Versuche",async()=>{
-  const stale=browser();stale.response(status({state:"ERROR",caseVerdict:"UNVERIFIED",message:"Buildnachweis der POSITIV-Quelle fehlt oder ist veraltet: run-41"}));
+  const stale=browser();stale.response(status({state:"ERROR",caseVerdict:"UNVERIFIED",message:"Buildnachweis der POSITIV-Quelle fehlt oder ist veraltet: run-20261015-013136"}));
   await stale.poll();
   assert.match(stale.element("llm-retry-title").textContent,/Eingangsbelege veraltet/);
-  assert.match(stale.element("llm-retry-steps").children[0].textContent,/Aktuelle Positiv- und Negativläufe/);
-  assert.match(stale.element("llm-retry-impact").textContent,/weder ein GLM-Ausfall.*gerade geladene Programm veraltet/s);
+  // WEG 1 beginnt mit dem frischen Positiv-Lauf; mit übermittelter buildZeit steht
+  // zusätzlich der Zeitvergleich (Lauf gespielt vs. Programm gebaut) in der Zusammenfassung.
+  assert.match(stale.element("llm-retry-steps").children[0].textContent,/Positiv-Lauf starten/);
+  assert.match(stale.element("llm-retry-impact").textContent,/weder ein GLM-Ausfall.*Fehler der Fachanwendung/s);
   assert.doesNotMatch(stale.element("llm-retry-steps").children.map(c=>c.textContent).join("\n"),/mvn clean install/);
+  const mitZeit=browser();mitZeit.simulator(simulatorStatus({buildZeit:"2026-10-15T02:20:00Z",
+    nachweisFehler:[],
+    letzteFehlermeldung:null,
+    review:{state:"UNVERIFIED",automatedState:"UNVERIFIED",llmState:"ERROR",errors:["KI-Prüfung: ERROR. Buildnachweis der POSITIV-Quelle fehlt oder ist veraltet: run-20261015-013136"]}}));
+  await mitZeit.poll();
+  // Laufzeit kommt unverändert aus der Lauf-ID; die Bauzeit wird zeitzonengerecht formatiert.
+  assert.match(mitZeit.element("llm-retry-summary").textContent,/15\.10\.2026 um 01:31:36 Uhr/);
+  assert.match(mitZeit.element("llm-retry-summary").textContent,/erst am 15\.10\.2026/);
   const retry=browser();retry.response(status({state:"ERROR",caseVerdict:"UNVERIFIED",retryExhausted:true,message:"Fall-ID-Liste unvollständig"}));
   await retry.poll();
   assert.match(retry.element("llm-retry-summary").textContent,/3 Versuche fehlgeschlagen/);

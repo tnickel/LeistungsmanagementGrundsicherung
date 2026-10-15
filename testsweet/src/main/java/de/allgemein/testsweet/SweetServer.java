@@ -387,6 +387,31 @@ final class SweetServer implements AutoCloseable {
         }
     }
 
+    private volatile java.time.Instant buildZeitCache;
+    private volatile long buildZeitGelesen;
+
+    /** Zeitpunkt der neuesten kompilierten Programmdatei — Vergleichsanker für „veraltet“. */
+    private java.time.Instant neuesteBuildzeit() {
+        java.time.Instant zwischengespeichert = buildZeitCache;
+        if (zwischengespeichert != null && System.nanoTime() - buildZeitGelesen < 5_000_000_000L) return zwischengespeichert;
+        java.time.Instant neueste = null;
+        java.nio.file.Path klassen = repository.resolve("testsweet").resolve("target").resolve("classes");
+        if (java.nio.file.Files.isDirectory(klassen)) {
+            try (var stream = java.nio.file.Files.walk(klassen)) {
+                neueste = stream.filter(java.nio.file.Files::isRegularFile)
+                        .map(p -> {
+                            try { return java.nio.file.Files.getLastModifiedTime(p).toInstant(); }
+                            catch (Exception e) { return null; }
+                        })
+                        .filter(java.util.Objects::nonNull)
+                        .max(java.time.Instant::compareTo).orElse(null);
+            } catch (Exception e) { /* Anzeigefeld bleibt dann leer */ }
+        }
+        buildZeitCache = neueste;
+        buildZeitGelesen = System.nanoTime();
+        return neueste;
+    }
+
     private Map<String, Object> status() {
         Map<String, Object> antwort = new LinkedHashMap<>();
         antwort.put("phase", simulator.phase().name());
@@ -404,6 +429,8 @@ final class SweetServer implements AutoCloseable {
         antwort.put("laufdauerSekunden", simulator.laufdauerSekunden());
         antwort.put("letzteFehlermeldung", simulator.letzteFehlermeldung());
         antwort.put("dbNichtErreichbar", simulator.dbNichtErreichbar());
+        java.time.Instant buildZeit = neuesteBuildzeit();
+        antwort.put("buildZeit", buildZeit == null ? null : buildZeit.toString());
         antwort.put("pdf", simulator.letztesPdf());
         antwort.put("md", simulator.letztesMd());
         antwort.put("konfiguration", simulator.konfiguration() == null
