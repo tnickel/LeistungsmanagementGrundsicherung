@@ -545,6 +545,8 @@ final class SweetServer implements AutoCloseable {
         java.nio.file.Path prompt = repository.resolve("doc/testzertifikat-werkzeug/llm-pruefauftrag.txt");
         response.put("prompt", java.nio.file.Files.exists(prompt)
                 ? java.nio.file.Files.readString(prompt, StandardCharsets.UTF_8) : null);
+        java.time.Instant buildZeit = neuesteBuildzeit();
+        response.put("buildZeit", buildZeit == null ? null : buildZeit.toString());
         sendeJson(exchange, response);
     }
 

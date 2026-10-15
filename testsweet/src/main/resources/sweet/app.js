@@ -752,6 +752,24 @@ function kompaktZeitZuDeutsch(kompakt) {
     return m ? `${m[3]}.${m[2]}.${m[1]} um ${m[4]}:${m[5]}:${m[6]} Uhr` : null;
 }
 
+function hilfeMitZeiten(failure, message, buildZeit) {
+    // Gemeinsame Zeitvergleiche für beide Dialog-Pfade (Simulator- und GLM-Status):
+    // Laufzeit aus der Lauf-ID, Bauzeit vom Server — nur wenn beide vorliegen.
+    const hilfe = pruefFehlerHilfe("source", failure);
+    const lauf = /run-(\d{8}-\d{6})/.exec(message || "");
+    const laufZeit = lauf ? kompaktZeitZuDeutsch(lauf[1]) : null;
+    const buildZeitText = buildZeit ? new Date(buildZeit).toLocaleString("de-DE") : null;
+    if (!laufZeit || !buildZeitText) return null;
+    return {...hilfe,
+        summary: `Was ist veraltet? GLM soll Unterlagen von Simulator-Läufen nachrechnen. `
+            + `Der neueste verfügbare Lauf (${lauf[0]}) wurde am ${laufZeit} gespielt. `
+            + `Die aktuellen Programmdateien wurden aber erst am ${buildZeitText} gebaut — `
+            + `dazwischen liegt der Neubau. Läufe von vor dem Neubau dürfen nicht mehr `
+            + `verwendet werden, sonst belegt das Zertifikat einen alten Stand. `
+            + `Deshalb wurde die GLM-Prüfung vor dem ersten Senden abgebrochen — es wurde kein Fall geprüft. `
+            + `Schnellster Weg: den grünen Knopf „Mache alle Zertifikatstests“ drücken.`};
+}
+
 function zeigeSimulatorFehler(status) {
     if (zertifikatSuiteAnsichtAktiv()) return;
     const review = status.review || {};
@@ -773,21 +791,8 @@ function zeigeSimulatorFehler(status) {
         : status.phase === "ABGEBROCHEN" ? "Testlauf abgebrochen – Nachweis unvollständig" : "Technischer Fehler – Testlauf nicht bestätigt";
     const optionen = {kind, failure};
     if (kind === "source") {
-        // Vergleichbare Zeitangaben: wann der Lauf gespielt wurde vs. wann die
-        // aktuellen Programmdateien gebaut wurden — dann sieht man die Lücke.
-        const lauf = /run-(\d{8}-\d{6})/.exec(message);
-        const laufZeit = lauf ? kompaktZeitZuDeutsch(lauf[1]) : null;
-        const buildZeit = status.buildZeit ? new Date(status.buildZeit).toLocaleString("de-DE") : null;
-        if (laufZeit && buildZeit) {
-            optionen.help = {...pruefFehlerHilfe("source", failure),
-                summary: `Was ist veraltet? GLM soll Unterlagen von Simulator-Läufen nachrechnen. `
-                    + `Der neueste verfügbare Lauf (${lauf[0]}) wurde am ${laufZeit} gespielt. `
-                    + `Die aktuellen Programmdateien wurden aber erst am ${buildZeit} gebaut — `
-                    + `dazwischen liegt der Neubau. Läufe von vor dem Neubau dürfen nicht mehr `
-                    + `verwendet werden, sonst belegt das Zertifikat einen alten Stand. `
-                    + `Deshalb wurde die GLM-Prüfung vor dem ersten Senden abgebrochen — es wurde kein Fall geprüft. `
-                    + `Schnellster Weg: den grünen Knopf „Mache alle Zertifikatstests“ drücken.`};
-        }
+        const mitZeiten = hilfeMitZeiten(failure, message, status.buildZeit);
+        if (mitZeiten) optionen.help = mitZeiten;
     }
     zeigePruefFehler("sim-" + status.logVerzeichnis + "-" + status.phase + "-" + kind,
         title, message, status.logVerzeichnis || "Laufverzeichnis in der Testübersicht prüfen",
@@ -904,8 +909,13 @@ function zeigeLlmRetryFehler(data) {
         : source ? "Technischer Nachweisfehler: GLM-Eingangsbelege veraltet"
         : data.retryExhausted ? "GLM-Prüfung abgebrochen: 3 Versuche fehlgeschlagen" : "GLM-Prüfung technisch fehlgeschlagen / unvollständig";
     const reason = data.retryExhausted ? "3 Versuche fehlgeschlagen. Bitte das Logfile auswerten." : (data.message || "Prüfung ist nicht vollständig bestätigt.");
+    const optionen = {kind, failure};
+    if (kind === "source") {
+        const mitZeiten = hilfeMitZeiten(failure, [reason,...findings].join("\n"), data.buildZeit);
+        if (mitZeiten) optionen.help = mitZeiten;
+    }
     zeigePruefFehler(data.reviewId + "-" + (failure ? "FAIL" : data.state), title,
-        [reason,...findings].join("\n"), data.artifactDirectory ? data.artifactDirectory + "\\protocol.md" : "Laufverzeichnis in Abschnitt 7 prüfen", {kind, failure});
+        [reason,...findings].join("\n"), data.artifactDirectory ? data.artifactDirectory + "\\protocol.md" : "Laufverzeichnis in Abschnitt 7 prüfen", optionen);
 }
 
 async function ladeLlmPruefung() {

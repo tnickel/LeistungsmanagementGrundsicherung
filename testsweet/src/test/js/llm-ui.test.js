@@ -198,11 +198,14 @@ test("Abbruch wird als ungeprüft erklärt, erfolgreiche Läufe öffnen keinen F
 });
 
 test("GLM mit veralteter Quelle nennt Neubuild, echte Retry-Erschöpfung die drei Versuche",async()=>{
-  const stale=browser();stale.response(status({state:"ERROR",caseVerdict:"UNVERIFIED",message:"Buildnachweis der POSITIV-Quelle fehlt oder ist veraltet: run-20261015-013136"}));
+  const stale=browser();stale.response(status({state:"ERROR",caseVerdict:"UNVERIFIED",
+    buildZeit:"2026-10-15T02:20:00Z",
+    message:"Buildnachweis der POSITIV-Quelle fehlt oder ist veraltet: run-20261015-013136-797689601207190729"}));
   await stale.poll();
   assert.match(stale.element("llm-retry-title").textContent,/Eingangsbelege veraltet/);
-  // WEG 1 beginnt mit dem frischen Positiv-Lauf; mit übermittelter buildZeit steht
-  // zusätzlich der Zeitvergleich (Lauf gespielt vs. Programm gebaut) in der Zusammenfassung.
+  // Beide Dialog-Pfade (GLM- und Simulator-Status) nennen die vergleichbaren Zeiten.
+  assert.match(stale.element("llm-retry-summary").textContent,/15\.10\.2026 um 01:31:36 Uhr/);
+  assert.match(stale.element("llm-retry-summary").textContent,/erst am 15\.10\.2026/);
   assert.match(stale.element("llm-retry-steps").children[0].textContent,/Positiv-Lauf starten/);
   assert.match(stale.element("llm-retry-impact").textContent,/weder ein GLM-Ausfall.*Fehler der Fachanwendung/s);
   assert.doesNotMatch(stale.element("llm-retry-steps").children.map(c=>c.textContent).join("\n"),/mvn clean install/);
