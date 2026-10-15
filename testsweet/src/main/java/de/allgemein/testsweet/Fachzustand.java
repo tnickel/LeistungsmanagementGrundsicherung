@@ -93,4 +93,28 @@ final class Fachzustand {
         if (!differences.isEmpty()) throw new IllegalStateException(
                 "Abgewehrter Fehlversuch hat den Fachbestand verändert: " + String.join("; ", differences));
     }
+
+    /**
+     * Fachliche Prüfsumme (SHA-256, auf 16 Hex-Zeichen gekürzt) über alle Tabellen
+     * ohne die erlaubten Einsichts-Audits im Journal. Gleiche Prüfsumme zweier
+     * Zustände belegt denselben fachlichen Bestand — die Nachrechnung kann die
+     * Vorher-/Nachher-Werte selbst vergleichen, statt der Aussage zu vertrauen.
+     */
+    String pruefsumme() {
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            for (var tabelle : tabellen.entrySet()) {
+                digest.update((tabelle.getKey() + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                for (var zeile : tabelle.getValue()) {
+                    if (tabelle.getKey().equals("JOURNAL") && zeile.get("AKTION_TEXT") != null
+                            && zeile.get("AKTION_TEXT").startsWith("Einsicht: ")) continue;
+                    digest.update((new java.util.TreeMap<>(zeile) + "\n")
+                            .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                }
+            }
+            return java.util.HexFormat.of().formatHex(digest.digest()).substring(0, 16);
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 nicht verfügbar", e);
+        }
+    }
 }

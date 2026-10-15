@@ -140,7 +140,10 @@ final class Mitarbeiter implements Runnable {
             var abweichungen = vorher.abweichungen(danach);
             var pruefung = new Auftrag.Pruefung("Fehlversuch ohne Fachänderung: " + aktion.name(),
                     "unverändert", abweichungen.isEmpty() ? "unverändert" : String.join("; ", abweichungen),
-                    abweichungen.isEmpty(), "Alle Fachspalten, Versionen, Zahlungen, Bescheide und Fachjournal; neue Einsichts-Audits erlaubt",
+                    abweichungen.isEmpty(),
+                    "Vorher-Prüfsumme " + vorher.pruefsumme() + ", Nachher-Prüfsumme " + danach.pruefsumme()
+                            + " (SHA-256 über alle Fachtabellen, erlaubte Einsichts-Audits ausgeklammert; "
+                            + "gleiche Prüfsumme = unverändert)",
                     "-- STATE_SNAPSHOT: SOZIAL_FALL, BEDARFSGEMEINSCHAFT, ZAHLUNG, BESCHEID, JOURNAL; vollständiger Vorher/Nachher-Vergleich", java.util.List.of());
             auftrag.ergaenzePruefung(pruefung);
             simulator.log().pruefung(auftrag, pruefung);

@@ -1907,6 +1907,15 @@ public final class SzenarioBibliothek {
                             default -> "Das verwertbare Vermögen übersteigt den Bedarf (§§ 43, 90).";
                         });
             }
+            if ("WORKFLOW".equals(gruppe)) {
+                // Die erste Anordnung des Workflow-Falls ist fachlich zulässig und wird
+                // gezahlt — ohne diesen Block wäre der Auszahlungsbetrag nicht aus den
+                // dokumentierten Eingaben herleitbar (der Verstoß greift erst danach).
+                berechne(rechnungen, "Nachweis: erfolgreiche Anordnung (Workflow-Basis)",
+                        faelle, vermoegenAnlage, budget,
+                        "Die Anordnung ist zulässig; der Verstoß '" + primaer
+                                + "' greift erst im anschließenden Workflow (Vier-Augen, Idempotenz oder Zustandskette).");
+            }
 
             BigDecimal endbudget = "WORKFLOW".equals(gruppe) ? budget.subtract(zahlbetragFinal) : budget;
             rechnungen.replaceAll(b -> b.mitBudgetRestExpected(endbudget));

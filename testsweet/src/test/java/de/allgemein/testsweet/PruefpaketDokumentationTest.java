@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -153,6 +154,46 @@ class PruefpaketDokumentationTest {
         assertTrue(text.contains("Modulo 97 genau 1"));
         assertTrue(text.contains("sepa_bic"));
         assertTrue(text.contains("genau 8 oder 11 Zeichen"));
+    }
+
+    @Test void workflowNegativfallDokumentiertSeinenAuszahlungsbetrag() {
+        for (long seed : List.of(1L, 17L, 42L, 97L)) {
+            for (Auftrag a : new SzenarioBibliothek(seed).erzeugeNegativ(500, "SWEET-N-")) {
+                if (!a.beschreibung.startsWith("Verstoß-Kombination: doppelt")
+                        && !a.beschreibung.startsWith("Verstoß-Kombination: selbst")
+                        && !a.beschreibung.startsWith("Verstoß-Kombination: doppelfreigabe")
+                        && !a.beschreibung.startsWith("Verstoß-Kombination: stornoKasse")) continue;
+                assertFalse(a.rechenbloecke.isEmpty(),
+                        "Seed " + seed + ", TF " + a.id + ": bezahlter Workflow-Betrag muss dokumentiert sein");
+                Rechenblock block = a.rechenbloecke.getFirst();
+                assertEquals("Nachweis: erfolgreiche Anordnung (Workflow-Basis)", block.titel());
+                assertTrue(block.ergebnis().zahlbetrag().signum() > 0,
+                        "Die erste Workflow-Anordnung muss einen positiven Auszahlungsbetrag haben");
+            }
+        }
+    }
+
+    @Test void fachzustaendeMitGleicherSubstanzHabenGleichePruefsumme() {
+        java.util.Map<String, java.util.List<java.util.Map<String, String>>> tabellen = java.util.Map.of(
+                "BEDARFSGEMEINSCHAFT", List.of(java.util.Map.of("ID", "1", "AKTENZEICHEN", "SWEET-1")),
+                "JOURNAL", List.of(
+                        java.util.Map.of("ID", "10", "AKTION_TEXT", "Vorgang angelegt"),
+                        java.util.Map.of("ID", "11", "AKTION_TEXT", "Einsicht: Detail durch sb-sim-01")));
+        var basis = new Fachzustand(new java.util.LinkedHashMap<>(tabellen));
+        // Gleiche Fachsubstanz + zusätzliche Einsichts-Audit-Zeile: Prüfsumme unverändert.
+        var mitEinsicht = new Fachzustand(new java.util.LinkedHashMap<>(Map.of(
+                "BEDARFSGEMEINSCHAFT", List.of(java.util.Map.of("ID", "1", "AKTENZEICHEN", "SWEET-1")),
+                "JOURNAL", List.of(
+                        java.util.Map.of("ID", "10", "AKTION_TEXT", "Vorgang angelegt"),
+                        java.util.Map.of("ID", "11", "AKTION_TEXT", "Einsicht: Detail durch sb-sim-01"),
+                        java.util.Map.of("ID", "12", "AKTION_TEXT", "Einsicht: Detail durch sb-sim-02")))));
+        assertEquals(basis.pruefsumme(), mitEinsicht.pruefsumme());
+        // Fachbestand verändert: Prüfsumme weicht ab.
+        var veraendert = new Fachzustand(new java.util.LinkedHashMap<>(Map.of(
+                "BEDARFSGEMEINSCHAFT", List.of(java.util.Map.of("ID", "1", "AKTENZEICHEN", "SWEET-GEAENDERT")),
+                "JOURNAL", List.of(java.util.Map.of("ID", "10", "AKTION_TEXT", "Vorgang angelegt")))));
+        assertNotEquals(basis.pruefsumme(), veraendert.pruefsumme());
+        assertEquals(16, basis.pruefsumme().length());
     }
 
     @Test void einkommenStehtImErgebnistextDesErfassungsschritts() {
