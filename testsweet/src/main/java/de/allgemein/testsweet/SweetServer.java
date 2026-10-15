@@ -86,6 +86,19 @@ final class SweetServer implements AutoCloseable {
                     if (!"GET".equals(exchange.getRequestMethod())) { sendeFehler(exchange, 405, "nur GET"); return; }
                     glmProtokoll(exchange);
                 }
+                case "/api/llm/grundlagen" -> {
+                    if (!"GET".equals(exchange.getRequestMethod())) { sendeFehler(exchange, 405, "nur GET"); return; }
+                    java.nio.file.Path datei = repository.resolve("doc/testzertifikat-werkzeug/gesetzesgrundlagen-2026.md");
+                    if (!java.nio.file.Files.isRegularFile(datei)) {
+                        sendeFehler(exchange, 404, "Gesetzesgrundlagen fehlen (doc/testzertifikat-werkzeug/gesetzesgrundlagen-2026.md)");
+                        return;
+                    }
+                    sendeTextDatei(exchange, datei);
+                }
+                case "/api/llm/pruefmenge" -> {
+                    if (!"GET".equals(exchange.getRequestMethod())) { sendeFehler(exchange, 405, "nur GET"); return; }
+                    llmPruefmenge(exchange);
+                }
                 case "/api/zertifikat/tests/start" -> {
                     if (!"POST".equals(exchange.getRequestMethod())) { sendeFehler(exchange, 405, "nur POST"); return; }
                     synchronized (operationLock) {
@@ -322,7 +335,41 @@ final class SweetServer implements AutoCloseable {
             sendeFehler(exchange, 404, "Kein GLM-Protokoll (protocol.md) vorhanden");
             return;
         }
-        byte[] inhalt = java.nio.file.Files.readAllBytes(protokoll);
+        sendeTextDatei(exchange, protokoll);
+    }
+
+    /** pruefmenge.md des aktuellen/letzten GLM-Prüfpakets — dieselben Falldokumente,
+     *  die dem Modell als drittes Dokument übergeben werden. Kein freier Pfadzugriff:
+     *  geliefert wird ausschließlich aus einem llm-review-Verzeichnis unter testsweet/logs. */
+    private void llmPruefmenge(HttpExchange exchange) throws IOException {
+        java.nio.file.Path basis = repository.resolve("testsweet").resolve("logs").toAbsolutePath().normalize();
+        java.nio.file.Path kandidat = null;
+        String verzeichnis = String.valueOf(llm.status().get("artifactDirectory"));
+        if (verzeichnis != null && !verzeichnis.isBlank() && !"null".equals(verzeichnis)) {
+            java.nio.file.Path geprüft = java.nio.file.Path.of(verzeichnis).toAbsolutePath().normalize();
+            if (geprüft.startsWith(basis) && java.nio.file.Files.isRegularFile(geprüft.resolve("pruefmenge.md"))) {
+                kandidat = geprüft.resolve("pruefmenge.md");
+            }
+        }
+        if (kandidat == null && java.nio.file.Files.isDirectory(basis)) {
+            try (var liste = java.nio.file.Files.list(basis)) {
+                kandidat = liste.filter(java.nio.file.Files::isDirectory)
+                        .filter(d -> d.getFileName().toString().startsWith("llm-review-"))
+                        .map(d -> d.resolve("pruefmenge.md"))
+                        .filter(java.nio.file.Files::isRegularFile)
+                        .max(java.util.Comparator.comparing(d -> d.getParent().getFileName().toString()))
+                        .orElse(null);
+            }
+        }
+        if (kandidat == null) {
+            sendeFehler(exchange, 404, "Noch kein Prüfpaket vorhanden — zuerst „Prüfpaket ansehen“ oder eine GLM-Prüfung starten");
+            return;
+        }
+        sendeTextDatei(exchange, kandidat);
+    }
+
+    private void sendeTextDatei(HttpExchange exchange, java.nio.file.Path datei) throws IOException {
+        byte[] inhalt = java.nio.file.Files.readAllBytes(datei);
         exchange.getResponseHeaders().set("Content-Type", "text/markdown; charset=utf-8");
         exchange.getResponseHeaders().set("Cache-Control", "no-store");
         exchange.sendResponseHeaders(200, inhalt.length);

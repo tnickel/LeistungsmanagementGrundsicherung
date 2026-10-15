@@ -86,6 +86,32 @@ class CertificateSuiteHttpTest {
         }
     }
 
+    @Test void llmDokumenteSindenWieDerPromptPerKlickEinsehbar() throws Exception {
+        FakeSuite suite=new FakeSuite(root);
+        Path tool=root.resolve("doc/testzertifikat-werkzeug");
+        java.nio.file.Files.createDirectories(tool);
+        java.nio.file.Files.writeString(tool.resolve("gesetzesgrundlagen-2026.md"),
+                "# TEST-GESETZE 2026\n\n§ 42a Prüfnorm\n", java.nio.charset.StandardCharsets.UTF_8);
+        try(SweetServer server=new SweetServer(new Simulator(),0,root,suite);HttpClient client=HttpClient.newHttpClient()) {
+            server.start();
+            var grundlagen=send(client,server,"GET","/api/llm/grundlagen",null);
+            assertEquals(200,grundlagen.statusCode());
+            assertTrue(grundlagen.body().contains("TEST-GESETZE"));
+            assertEquals("no-store",grundlagen.headers().firstValue("Cache-Control").orElseThrow());
+            assertEquals(405,send(client,server,"POST","/api/llm/grundlagen","{}").statusCode());
+            assertEquals(404,send(client,server,"GET","/api/llm/pruefmenge",null).statusCode());
+            Path review=root.resolve("testsweet/logs/llm-review-testfall");
+            java.nio.file.Files.createDirectories(review);
+            java.nio.file.Files.writeString(review.resolve("pruefmenge.md"),
+                    "# Prüfmenge TESTFALL\ngeforderte_pruefpunkte = V1, S1\n", java.nio.charset.StandardCharsets.UTF_8);
+            var pruefmenge=send(client,server,"GET","/api/llm/pruefmenge",null);
+            assertEquals(200,pruefmenge.statusCode());
+            assertTrue(pruefmenge.body().contains("Prüfmenge TESTFALL"));
+            assertEquals("no-store",pruefmenge.headers().firstValue("Cache-Control").orElseThrow());
+            assertEquals(405,send(client,server,"POST","/api/llm/pruefmenge","{}").statusCode());
+        }
+    }
+
     @Test void serverShutdownClosesItsSuiteController() throws Exception {
         FakeSuite suite=new FakeSuite(root);
         SweetServer server=new SweetServer(new Simulator(),0,root,suite);server.start();server.close();
