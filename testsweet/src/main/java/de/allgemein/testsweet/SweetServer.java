@@ -95,6 +95,15 @@ final class SweetServer implements AutoCloseable {
                     }
                     sendeTextDatei(exchange, datei);
                 }
+                case "/api/llm/pruefauftrag" -> {
+                    if (!"GET".equals(exchange.getRequestMethod())) { sendeFehler(exchange, 405, "nur GET"); return; }
+                    java.nio.file.Path datei = repository.resolve("doc/testzertifikat-werkzeug/llm-pruefauftrag.txt");
+                    if (!java.nio.file.Files.isRegularFile(datei)) {
+                        sendeFehler(exchange, 404, "Prüfauftrag fehlt (doc/testzertifikat-werkzeug/llm-pruefauftrag.txt)");
+                        return;
+                    }
+                    sendeTextDatei(exchange, datei);
+                }
                 case "/api/llm/pruefmenge" -> {
                     if (!"GET".equals(exchange.getRequestMethod())) { sendeFehler(exchange, 405, "nur GET"); return; }
                     llmPruefmenge(exchange);

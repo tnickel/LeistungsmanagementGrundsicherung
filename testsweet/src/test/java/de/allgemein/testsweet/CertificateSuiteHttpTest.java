@@ -92,8 +92,15 @@ class CertificateSuiteHttpTest {
         java.nio.file.Files.createDirectories(tool);
         java.nio.file.Files.writeString(tool.resolve("gesetzesgrundlagen-2026.md"),
                 "# TEST-GESETZE 2026\n\n§ 42a Prüfnorm\n", java.nio.charset.StandardCharsets.UTF_8);
+        java.nio.file.Files.writeString(tool.resolve("llm-pruefauftrag.txt"),
+                "TEST-PRÜFAUFTRAG Version 5\n", java.nio.charset.StandardCharsets.UTF_8);
         try(SweetServer server=new SweetServer(new Simulator(),0,root,suite);HttpClient client=HttpClient.newHttpClient()) {
             server.start();
+            var auftrag=send(client,server,"GET","/api/llm/pruefauftrag",null);
+            assertEquals(200,auftrag.statusCode());
+            assertTrue(auftrag.body().contains("TEST-PRÜFAUFTRAG"));
+            assertEquals("no-store",auftrag.headers().firstValue("Cache-Control").orElseThrow());
+            assertEquals(405,send(client,server,"POST","/api/llm/pruefauftrag","{}").statusCode());
             var grundlagen=send(client,server,"GET","/api/llm/grundlagen",null);
             assertEquals(200,grundlagen.statusCode());
             assertTrue(grundlagen.body().contains("TEST-GESETZE"));
