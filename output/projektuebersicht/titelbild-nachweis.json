@@ -1,0 +1,6 @@
+{
+  "mode": "built-in image_gen",
+  "file": "output/projektuebersicht/titelbild.png",
+  "purpose": "Titelbild der Projektübersicht",
+  "prompt": "Use case: stylized-concept. Asset type: editorial cover image for a formal German software project documentation titled Projektübersicht, concerning SDN.Leistung, a Java and Oracle transaction management system for social benefit administration. Create an elegant high-end architectural still life that visualizes dependable information processing: several precisely aligned sculptural layers of matte deep navy and translucent glass, a coherent thin teal path connecting them, warm off-white studio background, subtle realistic material textures and soft daylight, composed like refined contemporary architecture photography. Restrained, credible, sophisticated, human-scale, no science fiction. Landscape composition approximately 3:2, generous empty breathing room, main forms in lower central area, usable as a wide image on a white A4 report cover. No text, no letters, no numbers, no screens, no logos, no padlocks, no shields, no robots, no watermark. This is an abstract editorial illustration, not a technical diagram."
+}
