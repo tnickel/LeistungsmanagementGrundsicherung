@@ -788,12 +788,13 @@ function pruefFehlerHilfe(kind, failure) {
     };
     if (kind === "source") return {
         severity: "VERALTETE ODER FEHLENDE KI-EINGANGSBELEGE · Aktion erforderlich",
-        summary: "Die GLM-Eingangsbelege sind veraltet oder fehlen. Klicken Sie auf „Mache alle Zertifikatstests“; danach wird das Zertifikat automatisch erstellt.",
-        impact: "Kein gültiges Zertifikat. Daraus folgt weder ein GLM-Ausfall noch, dass das gerade geladene Programm veraltet ist.",
-        steps: ["Aktuelle Positiv- und Negativläufe ausführen. Falls dabei ein Build-/Quellstandfehler erscheint, dessen Anleitung für Neubuild und Neustart befolgen.",
-            "Danach die GLM-Prüfung in Abschnitt 7 erneut starten; die alten Simulatorbelege werden nicht nachträglich gültig.",
-            "Für ein vollständiges Zertifikat müssen zusätzlich beide automatischen Testsuiten (mvn test und mvn -f testsweet/pom.xml test, mit Testdatenbank) sowie alle sieben unterstützten Simulator-Kombinationen aktuell belegt sein. Erst danach das Zertifikat neu erstellen.",
-            "Bleibt der Hinweis trotz aktueller Läufe bestehen, die technischen Details und das Laufprotokoll durch die Entwicklung auswerten lassen."]
+        summary: "Was ist veraltet? GLM soll Unterlagen von Simulator-Läufen nachrechnen. Die neuesten verfügbaren Läufe wurden aber mit einer ÄLTEREN Programmversion gespielt — seitdem wurde testsweet neu gebaut und neu gestartet (z. B. durch Fehlerbehebungen). GLM darf nur Unterlagen des genau jetzt geladenen Programms prüfen, sonst belegt das Zertifikat einen alten Stand. Deshalb wurde die GLM-Prüfung vor dem ersten Senden abgebrochen — es wurde kein Fall geprüft.",
+        impact: "Kein gültiges Zertifikat. Daraus folgt weder ein GLM-Ausfall noch ein Fehler der Fachanwendung — es fehlen nur frische Simulator-Läufe zum aktuellen Programmstand.",
+        steps: ["WEG 1 — Schritte einzeln: Zuerst EINEN neuen Positiv-Lauf starten (Abschnitt 1: Modus 1, Kategorie Positivfälle, dann „Simulation starten“).",
+            "Danach EINEN neuen Negativ-Lauf starten (Kategorie Negativfälle). Beide müssen erfolgreich durchlaufen — sie erzeugen die frischen Unterlagen für GLM.",
+            "Erst dann in Abschnitt 7 die GLM-Prüfung starten. WEG 2 — alles auf einmal: Den grünen Knopf „Mache alle Zertifikatstests“ drücken; er baut das Programm, spielt automatisch alle benötigten Läufe, lässt GLM prüfen und erstellt das Zertifikat in der richtigen Reihenfolge.",
+            "Für ein vollständiges Zertifikat müssen zusätzlich beide automatischen Testsuiten (mvn test und mvn -f testsweet/pom.xml test, mit Testdatenbank) sowie alle sieben Simulator-Kombinationen aktuell belegt sein — der Gesamtlauf erledigt das mit.",
+            "Bleibt der Hinweis trotz frischer Läufe bestehen, die technischen Details und das Laufprotokoll durch die Entwicklung auswerten lassen."]
     };
     if (kind === "failure") return {
         severity: "TESTABWEICHUNG · Aktion erforderlich",
