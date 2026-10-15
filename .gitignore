@@ -1,5 +1,8 @@
 # Build-Ausgabe
 target/
+*.class
+__pycache__/
+*.pyc
 
 # IDE
 .idea/

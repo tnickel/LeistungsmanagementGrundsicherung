@@ -1,0 +1,1322 @@
+[
+  {
+    "path": "AGENTS.md",
+    "bytes": 19879,
+    "sha256": "85f6752bc489ea5b0cd6412918d393e43ef7ea2fcaa806e4f2fd997086b2e659"
+  },
+  {
+    "path": "ddl/lmg_schema.sql",
+    "bytes": 14381,
+    "sha256": "b9c84f910fe3df8a3e04da9f3a4ee7b4564bac1477ff4c5b8d1cb508246d0aa7"
+  },
+  {
+    "path": "ddl/lmg_seed.sql",
+    "bytes": 5974,
+    "sha256": "4381d2168ab2f2978a4b507a1f1585992920b4eefb91f719397afae3da3c7171"
+  },
+  {
+    "path": "ddl/oracle_schema.sql",
+    "bytes": 3443,
+    "sha256": "f4ea9cc00c055cd95008fdae440e2752d1b01e12905babfc1c8e8ad1a82d53e6"
+  },
+  {
+    "path": "doc/architektur.md",
+    "bytes": 27906,
+    "sha256": "eba5afcaa7f096685344e0bfe43a07f502c6219ddee93f8e77fea3af2adbccbf"
+  },
+  {
+    "path": "doc/codereview/grundsicherung-gesamt-reviewPrompt.txt",
+    "bytes": 26766,
+    "sha256": "65c4c051c8e8b6850fd75988dbf861937e7c83e229261c1eb9fb8f2948b88ced"
+  },
+  {
+    "path": "doc/leistungsmanagement.md",
+    "bytes": 29972,
+    "sha256": "fdadcffdab795a18004166b408e7d4a9fd9224617baef89d3ef8dea5345eb5dd"
+  },
+  {
+    "path": "doc/projektbeschreibung.md",
+    "bytes": 3102,
+    "sha256": "1e08a1bd2e86c08cc7ff834f8f63f9c53524e5c87a4eb710e58d38f1060a850e"
+  },
+  {
+    "path": "doc/rechtsgrundlagen.md",
+    "bytes": 20350,
+    "sha256": "27713faacd43506ca15047ab058e2e42d57df408ac842d83a3ebf54f9148d77c"
+  },
+  {
+    "path": "doc/regressionstests.md",
+    "bytes": 13014,
+    "sha256": "601c6afb9e3ed520d22645641409fd368c8a4f72d6b23ffeb11e503c95d51eda"
+  },
+  {
+    "path": "doc/roadmap.md",
+    "bytes": 22956,
+    "sha256": "e80f049718bac5c8dea3320d37d169bbe40135337c1fedbf3d3cbee124355cdb"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/certificate-evidence.js",
+    "bytes": 29026,
+    "sha256": "d1aea098e3e43bd7b103ad07609f6a89be0a23b87d9f9bfb80bf79faabf94358"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/certificate-evidence.test.js",
+    "bytes": 41811,
+    "sha256": "8bc1699d67f64df6aa952805ae19ef2a965a049d2235b91a0cdb7dcdb90a9ea7"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/current-certificate.json",
+    "bytes": 1144,
+    "sha256": "89666afe8a5c72bfcc44632318a2586a174134a039c08d6d3e646fb1ead4d9d9"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/erstelle-zertifikat.bat",
+    "bytes": 680,
+    "sha256": "588ed7e83c419d79aa632947a2f90bcd67a1250ff21cade03677e5698d436e09"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/generate.js",
+    "bytes": 13225,
+    "sha256": "c2678e8848a285115cc49ef89a002a2ce0a8c83f8b5ca5db396c8c4adaf4e440"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/gesetzesgrundlagen-2026.md",
+    "bytes": 7324,
+    "sha256": "0f58fb31c769b8ab9797ff567dd06a0f2f8e44cf6b1f6fce738d096df8b4834d"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/llm-answer-json.js",
+    "bytes": 4967,
+    "sha256": "4d9db3799fd838441e5d7c2c1bf37de2920ea52a9f5faf98149346a1f44f53c8"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/llm-answer-parity-corpus.json",
+    "bytes": 24255,
+    "sha256": "e68de52eb0957aa788311374ccee8876dc4cc0d800b87ded6bfcb3c9cbadec44"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/llm-answer-parity.test.js",
+    "bytes": 874,
+    "sha256": "034e8a05b08e65f5012fdf82b04feec062ca3bc987c275bb4e024928d418bb71"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/llm-evidence.js",
+    "bytes": 23702,
+    "sha256": "46263fe769ad1e89413468c736a2b62694d2e2d3fa754330c0a5be6f1eff84f9"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/llm-nachrechnung-2026-10-13-100faelle.md",
+    "bytes": 5278,
+    "sha256": "9518f6e63bd88ec44cd4d45d00b4cc995865e3008cfc4833c5090efdb8a6a3a5"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/llm-nachrechnung-2026-10-13-auto-1328.md",
+    "bytes": 1544,
+    "sha256": "a6f6b728965c80db93492eb4813ffcf1639dea07774e0bc8a90c603130f77af8"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/llm-nachrechnung-2026-10-13.md",
+    "bytes": 7053,
+    "sha256": "bfff6813800964889cbb3e08ad674cfd279bf65e87e4134b399bc8882dd690b2"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/llm-pruefauftrag.txt",
+    "bytes": 9491,
+    "sha256": "9c8e52d6151e05e48bb60d161eb427c2cc9237f09da95bec3eb4836e890e328b"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/llm-reference.js",
+    "bytes": 9141,
+    "sha256": "12dbb08127a09175fd8d3a77ae0b7f2a44884886cd37c628f1e3daf387dc6f59"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/llm-reference.test.js",
+    "bytes": 2917,
+    "sha256": "84bb0d5339ee6edae12c6e80f82f238d99f7e0bf7d47c3b6701632c7aae9354c"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/llm-response-contract.json",
+    "bytes": 1672,
+    "sha256": "a3857c557da2e35b156f11e609ba1cd0df7ac0f9ffb3b9b144c4b27efeae960d"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/nachrechnen_100.py",
+    "bytes": 12041,
+    "sha256": "983def056aebe3f91bfc1043c4e191eea038751435ea19d440d25ead16723a2c"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/pruefmenge-positiv-100faelle.md",
+    "bytes": 361955,
+    "sha256": "438f9f4d9fd564d833e2d8a8493c85c5a993704268d6af1f32fd3618a065939c"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/pruefmenge-positiv-49faelle.md",
+    "bytes": 187280,
+    "sha256": "b1423510648b7511523110d73b3f3ff99f1a90dbaced1affabdfdb4c52a94bb1"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/publish-certificate.js",
+    "bytes": 7310,
+    "sha256": "f488432a5d81e4de537b2d058debbf46bcf1e54298d1e3437fad3af845911d5c"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/README.md",
+    "bytes": 8482,
+    "sha256": "9aa927ade14120e47fee96434eb8b994766c4686c260ca8382b5ed73a1c2c978"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/run-chronology.js",
+    "bytes": 1680,
+    "sha256": "58f6245ba7fd7733c8e1b2ee36693859a546ae99cbd23c38ab07ce1c6ce377d9"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/stand.json",
+    "bytes": 1969702,
+    "sha256": "6f8cf6b16adbb4c9db864c81ef6732f72d3b8f31d6f4188edfdbd65065c94c99"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/test_nachrechnen.py",
+    "bytes": 5870,
+    "sha256": "a9ce2e3a23192a9eb63b6508ae9b3f56673b336e4cad40e6e2a3113090ae8917"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/testzertifikat.docx",
+    "bytes": 28530,
+    "sha256": "9e34e7da8131208ef55d89eb670cb84d8f97a1e44e5d872734f7d18c9b822b2f"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/testzertifikat.pdf",
+    "bytes": 305917,
+    "sha256": "364f621d1559de3982ccfc0adff59b1f4d1a40a29f649ea324bfa200f2e2897a"
+  },
+  {
+    "path": "pom.xml",
+    "bytes": 3325,
+    "sha256": "a13b81684dcd8a83e3693781d0dd588b91c4d9284eec3aa9f2d0242423ec861b"
+  },
+  {
+    "path": "README.md",
+    "bytes": 27996,
+    "sha256": "73223904de48bfdcd14181ccf28829008f31f505b6bcd7a92129eb8675bfd15f"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/calc/BerechnungsSnapshot.java",
+    "bytes": 12800,
+    "sha256": "503ae80b3487419bdab9db210e17f1ef146f815d745d4c827d4ea67096f40184"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/calc/Bewilligungsplan.java",
+    "bytes": 3658,
+    "sha256": "b301057cdea479012cfadd297187dbfd99d648343231e68ede2ea1dbcd1a3e4e"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/calc/Leistungsberechnung.java",
+    "bytes": 21195,
+    "sha256": "e5adf342f88d66ae72ba1074856f52137c05e87dee8a34c7d33c5584bc0f2a33"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/calc/Satzstand.java",
+    "bytes": 2403,
+    "sha256": "98e1be5eed00299bb926a1f85657e818349caca9e025528091a65c1ff050ff41"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/config/LmgConfig.java",
+    "bytes": 10565,
+    "sha256": "f10efedd3b14bb47ae1225e5871480b9fa8c8e6d2fe8dfda3bf54c49c5647b1b"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/dao/BedarfsgemeinschaftDao.java",
+    "bytes": 12964,
+    "sha256": "ea2eeb364b8fb0b07c931ffc640a116ec610f9dc25c2cdf5ad426b42a72aa8ec"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/dao/BescheidDao.java",
+    "bytes": 6893,
+    "sha256": "b2a54d28763b50fea7ffec0ccde05f58c8589d6236d238752a793bd58860d42d"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/dao/JournalDao.java",
+    "bytes": 4168,
+    "sha256": "e0e316653abf3ca97f25faf1e8d525c3ccebeaf723bf893900d204f76666cdc8"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/dao/SatzstandDao.java",
+    "bytes": 2879,
+    "sha256": "dc44113bb8d2ba64015616e53c9d4b0218691babd09c481802869e76b2e70e3a"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/dao/SozialFallDao.java",
+    "bytes": 8410,
+    "sha256": "75a60238f691d1bde726d9d2e44bbff2ddef6cf5ae80b6fa86c2bf93ad81623f"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/dao/ZahlungDao.java",
+    "bytes": 12390,
+    "sha256": "6515213575533cf96958ecd5d76040ac48fc4163c4d07cbad5396f352e92628e"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/model/Bedarfsgemeinschaft.java",
+    "bytes": 2172,
+    "sha256": "f287b448170f8102d9374f66499b2abc8c93d4c5a90a692b5ec5cd769b7fa74f"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/model/Bescheid.java",
+    "bytes": 1621,
+    "sha256": "7bdfe79ca170a97c6b376cbc30cd25baa4348371705d84be399e330982c57886"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/model/Journaleintrag.java",
+    "bytes": 459,
+    "sha256": "135bcd6215081d211ebd61d57d223a16881d99e5e8c202df465641121c603a87"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/model/SozialFall.java",
+    "bytes": 5744,
+    "sha256": "317c14a7b77e8cbbbb1108a30085a395bcf7fc43145c22e2fbec089e2c517b31"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/model/VorgangslisteEintrag.java",
+    "bytes": 516,
+    "sha256": "ba8392893ed9fbf58b3f7f297589805a92cb0c83cf554a6a08f9995efc45b94e"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/model/Zahlung.java",
+    "bytes": 2282,
+    "sha256": "4c8e1a4830f6f24ac2c3e8267d3af83ec51317e694b5207b5385d5cb44ce9a50"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/saga/AntragsSagaProzess.java",
+    "bytes": 42703,
+    "sha256": "1cd88bebe283000c39a228dec8a9ff75ac400725ee2b06141843ff1d582ad734"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/service/Auszahlungsauftrag.java",
+    "bytes": 806,
+    "sha256": "67b9ed2b97644d3c8ea6ce67e0e7d8aa583459d9afb2a73aef426f67d74f8903"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/service/Auszahlungsergebnis.java",
+    "bytes": 557,
+    "sha256": "89d35270d8a408cee1174bab36ac665fc01b72200aa294723a47e2f7474643c7"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/service/BescheidDokument.java",
+    "bytes": 1838,
+    "sha256": "2ffca139b440af0155707bc1291a59d7b332ffc40d60ec7273b7df91922f6059"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/service/BescheidGenerator.java",
+    "bytes": 25046,
+    "sha256": "3c30e083388239224c5d25e61f3f8454a9e626991037f63cdedddbf6c077310f"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/service/BescheidPaymentBinding.java",
+    "bytes": 5654,
+    "sha256": "c4a2480421c812e974d683203ce2061a6106507cfbee479985b96118d5278447"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/service/FachlicheException.java",
+    "bytes": 1523,
+    "sha256": "29ac69cb8e675367a97e3e72b27ae73a9fce001030ff9ad7b5c354442fa41d88"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/service/Kassenlaeufergebnis.java",
+    "bytes": 271,
+    "sha256": "366ba15a686cbf970ee075f35adf8a4f7ca416c6c664902a00affcfadc46eee6"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/service/LeistungsService.java",
+    "bytes": 6119,
+    "sha256": "fde7895c4a351962acf6fe6699f85458c54845f96d831336b94abbd6238dcb29"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/service/SepaValidator.java",
+    "bytes": 3202,
+    "sha256": "68ccf9366a11eee96e469fe3aa0a95e20b69f9e401d527400cd1ba82b7a8e3b7"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/service/SozialLeistungsService.java",
+    "bytes": 52035,
+    "sha256": "252bf80a9f30bd6998331cf5323e7dc6b53af5f922bd0b68049ff979a5d99b63"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/service/Systemdiagnose.java",
+    "bytes": 7579,
+    "sha256": "cc6c1e3ff5046a4433866e10104e6dc405dd9ea52683d18bd550f309dfbed32f"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/service/Systemstatus.java",
+    "bytes": 1224,
+    "sha256": "f58e412a84d623540cdfe52400c5d6e538789c6ac837d842feed3c86444fa5c2"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/service/Vorgangsdetail.java",
+    "bytes": 1266,
+    "sha256": "af2374aea9347233d62d8302b4e640dfa75bd4d91f49f06771b6d7c78b49f40f"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/service/Zahlungsmonat.java",
+    "bytes": 755,
+    "sha256": "d0e59381c865d3ad801eb3a5e913b8d970ac02da1216fb5e45dafed5323fc4aa"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/web/Benutzer.java",
+    "bytes": 529,
+    "sha256": "64a9ea5bcf314f77fd505e47379ad9239a41714fb07d4ea16f762e8bacb2db95"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/web/Benutzerverwaltung.java",
+    "bytes": 11055,
+    "sha256": "2d78d6bb230b0eb11210ba5876fbee71c506b294d0595850bb7db7a690f480bb"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/web/HttpServerLimits.java",
+    "bytes": 1864,
+    "sha256": "a2214017b8dc51695b362dfb1958e8752a84fbcc42665c34f3ed2f6a95c51493"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/web/Json.java",
+    "bytes": 14423,
+    "sha256": "a366f86b571d53f388098bad35a41a9349a2dcd6e1911f2d5db74d7bb00f6e2b"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/web/LmgServer.java",
+    "bytes": 51507,
+    "sha256": "2f0c9529234ec12bac74a9705bea8dc7b3c02c8a9ad65828b350f1711ed234b9"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/web/LmgServerMain.java",
+    "bytes": 9963,
+    "sha256": "648fedb3bbfc4526532b648ad97ed499f923fdad32048b7552ad425939d7ccd6"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/audit/TxAuditEvent.java",
+    "bytes": 2014,
+    "sha256": "5305b6866281db45c3a5fbb56b6732365f18438404ceecbab0f381f27063d9a5"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/audit/TxAuditListener.java",
+    "bytes": 231,
+    "sha256": "a71ad0d6f09cc602d53c2767474fdb5a91bb5522283182c9812a8b58081d21f0"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/audit/TxAuditLog.java",
+    "bytes": 11617,
+    "sha256": "0368fdcba0ec22fd421629f4ca5c6303b4852a234822935aec17d388650198e1"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/ConnectionPool.java",
+    "bytes": 774,
+    "sha256": "e626b4b774f18066554651d26ed465815574b54dc3d42de6457e0312457fe602"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/demo/AntragsDemoProzess.java",
+    "bytes": 4682,
+    "sha256": "d9eaa5d7146a9488bfc2fc816a7400e3855117688069c1d258a34a4582d9a48e"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/demo/DemoMain.java",
+    "bytes": 4683,
+    "sha256": "a2323d6e17582e2509e49c7505f63ddb96c9f2c926cdb62984b10d4ecace34b6"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/monitoring/GenericConnectionPoolAdapter.java",
+    "bytes": 533,
+    "sha256": "6b71d0e833f4edfca3ae19a1b001e23990790a6e5068406c68f23cd6efe535fd"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/monitoring/GenericConnectionPoolMBean.java",
+    "bytes": 274,
+    "sha256": "969e0e5f9b77b27e099e9412d47e88b424cc98d6e52fd5d51b0c37984193e76d"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/monitoring/TaskControllerAdapter.java",
+    "bytes": 1405,
+    "sha256": "9c17a9c2b6a2949d7c9f62b846ba5686dd466bf364884813cd83f0e696514975"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/monitoring/TaskControllerMBean.java",
+    "bytes": 1128,
+    "sha256": "2a2b9916842fb08fdd64f36977ae13830fb50e5ae24a8284a24de1a898dbc6d9"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/monitoring/TxMonitoring.java",
+    "bytes": 3962,
+    "sha256": "ccfe315461ae95e29ddaf88688080e38fef851737d87c488808fc17f839c2b38"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/monitoring/UcpConnectionPoolAdapter.java",
+    "bytes": 2223,
+    "sha256": "e7a4668b0ddf77f0628199dec20404a9f45de5a9450e589a206e9f7b5e79ed1b"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/monitoring/UcpConnectionPoolMBean.java",
+    "bytes": 990,
+    "sha256": "de3ef761c7995c71f53b26b682686840f5aa905da440e6b9dc6ba05b10998d59"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/RetryPolicy.java",
+    "bytes": 3281,
+    "sha256": "4010a0dd19bc8bfcdb2478e93b21a0a13ea5a7f91ab4ecf69041a037771a0d8d"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/saga/SagaAction.java",
+    "bytes": 558,
+    "sha256": "45761de8b5769d9407cc0f535724dfe5b1fd95369314fb9e43d97232e1e2c6d3"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/saga/SagaClaim.java",
+    "bytes": 1462,
+    "sha256": "2891d1a22d9eeb72aea86e239c08041fe8d7419bf178b400624169de45f9e757"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/saga/SagaDefinition.java",
+    "bytes": 1360,
+    "sha256": "18803e7c1e0f554e788323439c3f9626fad591c86fc27d9dd8716c68896b0dc7"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/saga/SagaEngine.java",
+    "bytes": 22633,
+    "sha256": "d2c4034f618cf41b27cb03f7523b000ad3f2508a0687ea31e36a7caf40361c54"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/saga/SagaJournal.java",
+    "bytes": 21198,
+    "sha256": "414018e5e272714c3d91642bf55bc2261450cd11150d279bda3bce83cdcbb260"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/saga/SagaState.java",
+    "bytes": 217,
+    "sha256": "e34af6f0916c6dcba17fb387e9eb10088561288c7a02ad9b0f7a9852f7a36d48"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/saga/SagaStep.java",
+    "bytes": 418,
+    "sha256": "c48febb94e39f0c952bd4e187fe2b394aecbba1e3fa9a19f88f748945c2763be"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/saga/TxSagaJournal.java",
+    "bytes": 4320,
+    "sha256": "7a017dc7d91db0c0f550728ee046c4a4fe597fa07831de530b43e66a2e327cbc"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/saga/UnfinishedSaga.java",
+    "bytes": 2202,
+    "sha256": "6d7d756f1f47c3616d5578f7c1cffed8ca655045fa81ca1f4604c0a6456276de"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/SimpleConnectionPool.java",
+    "bytes": 11054,
+    "sha256": "690860ef73f0bba60d68c1c4b4385ab2a006f992dcf861498015b10d6addd608"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/TaskController.java",
+    "bytes": 12320,
+    "sha256": "766fa7e92a9a9fa8e39d34748fb857f0f6cbdbda0700e1c59d7ce8ecdd6a63ec"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/TaskHandle.java",
+    "bytes": 3955,
+    "sha256": "686592d4d34522c1a473e52388503f40c6df4c439a2f272b866e300c637732ab"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/TaskInfo.java",
+    "bytes": 1221,
+    "sha256": "eaad57e62ea65e14f3b8afece7fd0420523097658d7712a08b40f60cbe7a8ba7"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/TaskStats.java",
+    "bytes": 271,
+    "sha256": "db0f33045764d5984974111f824f737f4fa4e9f74a3ad59a4d54885e4936d840"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/TxContext.java",
+    "bytes": 3873,
+    "sha256": "8e225c51be5099818a20c71392298afc5b7d852474eb3eca6116aa5f1a0f7af0"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/TxException.java",
+    "bytes": 1378,
+    "sha256": "db6929fb0db3f89ed9340fa87d9804f69b55298c04dc23cd19d62f24fdd5b0cc"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/TxManager.java",
+    "bytes": 7028,
+    "sha256": "47cc7e3387feba03637c15451dc3b0455a946c15189225721f981dffb19faed4"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/TxOptions.java",
+    "bytes": 1560,
+    "sha256": "a8649235955510dc6790756cdab4b0421f6cd3705f8e7d881471f47c4136354b"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/TxStatus.java",
+    "bytes": 187,
+    "sha256": "bc316898b075e53bbbc854e97e4f76eb8cc130725bf8b2ae91bfe1d8b797d1d2"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/TxWork.java",
+    "bytes": 194,
+    "sha256": "9cb3fafde973042abd9e628f22dc82fb92170c89430e914f4452f019dc253c38"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/UcpConnectionPool.java",
+    "bytes": 7133,
+    "sha256": "a0e4edf9e57bee9825254fdae3779bc9def72584cd5b1422c4a6c6e5b0f0b2d9"
+  },
+  {
+    "path": "src/main/resources/webapp/app.js",
+    "bytes": 39951,
+    "sha256": "e7b7b936e65a24cafeb81a921d4fc56e9771076af966b50089ee52b81494b28c"
+  },
+  {
+    "path": "src/main/resources/webapp/druck.js",
+    "bytes": 220,
+    "sha256": "bb3b8a9a78e25737c0608da9d81f52e5fabd99462193ae1525ec05b9da980d66"
+  },
+  {
+    "path": "src/main/resources/webapp/index.html",
+    "bytes": 25434,
+    "sha256": "c2a6881d1da375a1406f1fd0d431824c2b17f4deb0e1539127c18997964adab5"
+  },
+  {
+    "path": "src/main/resources/webapp/style.css",
+    "bytes": 8083,
+    "sha256": "b4f06859d33106305332a6fa8bb72200a077f2dd68f03c3abc9fcb4a75dc00e6"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/calc/BerechnungsSnapshotTest.java",
+    "bytes": 4342,
+    "sha256": "0967d04f4ad3f9a6af27e63150eeeda3f2614f0f96846db1fe917de7b26620d0"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/calc/BewilligungsplanTest.java",
+    "bytes": 3840,
+    "sha256": "2e2dcd650eca6cc3537de552cfe4248c9b0c7bdcd705f42bebd2b10b839b6211"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/calc/GoldWerteTest.java",
+    "bytes": 6154,
+    "sha256": "b9cd9a837b8c2471a84bc83be66cb4be0a5aa828de1e6c6ce0834fc51223ace7"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/calc/LeistungsberechnungTest.java",
+    "bytes": 22498,
+    "sha256": "638e1cafa0f49d9df65f79947cde80957dad227321b2ff28802600f38ab0c250"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/config/LmgConfigTest.java",
+    "bytes": 2557,
+    "sha256": "f171c2a07ca4059f629fdc366757a87da4827957304e15ba47fbdb1f5705931b"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/db/CodereviewRegressionDbTest.java",
+    "bytes": 15553,
+    "sha256": "69ccffc59342a13a17e9733902296b3c5d18cb400806aa6a4e61a9cedf19ffdb"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/db/DaoInsertTimestampDbTest.java",
+    "bytes": 4301,
+    "sha256": "acd4f8aec34edde8d782c72c4ce85c7ff0de6e2d899fb403381d5a61d39f30ee"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/db/EchteDbVerifikationTest.java",
+    "bytes": 33707,
+    "sha256": "90a06b6b2459f4d9981463f4552ca6418af86b4500aa84c2982c0266f38e9d87"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/db/EinsichtsprotokollDbTest.java",
+    "bytes": 4862,
+    "sha256": "d8b568eb7d374e3a2c69c28178ba46ab9564483f497397992d84caeb82593987"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/db/EinsichtsprotokollRegressionDbTest.java",
+    "bytes": 13636,
+    "sha256": "25544e010035a2949838e5795a03b92e1d5bfa3d1c32869e5e6221c81e36a4ad"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/db/FachlicheNachpruefungDbTest.java",
+    "bytes": 19423,
+    "sha256": "163769f0c84e640f138e7d4601afae6770f7689eae0d6ea4ea54b0809d0200ba"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/db/HistorisierungSperrenDbTest.java",
+    "bytes": 10757,
+    "sha256": "4469721f45432d51a083ed0156b1856eb721eea7fef9ef305faa8d4ae3d99aa6"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/db/ProzessKillHelfer.java",
+    "bytes": 3315,
+    "sha256": "b13f3ac1be7b1f72b92ad418fcde5e1b1c5a7d5c2e1e69fdb9412465349d628f"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/db/ProzessKillRecoveryDbTest.java",
+    "bytes": 5803,
+    "sha256": "274ea9441dd5f044be2416082e191322c89956cd6a7efe7680e6bfe7f55a3282"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/db/SatzstandDbTest.java",
+    "bytes": 6474,
+    "sha256": "60db40c58392c07239b891eedae07640be9a1553eaf1a1f71877cb571fec59db"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/db/SchemaWerkzeug.java",
+    "bytes": 5876,
+    "sha256": "62c0cabc286f048b3c64e8a92d25a7746863858dfcfca23cfe738d15b67c5f62"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/db/SzenarioRegressionTest.java",
+    "bytes": 40968,
+    "sha256": "47b459ba4e06015559a1fbe55efff735f6a977dafd4eb2e22359caee770dadde"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/db/VermoegensfortschriebDbTest.java",
+    "bytes": 5805,
+    "sha256": "5d491a2511ba6967d67ff0723621c39aa397e640519729f0bb5b96f73d411599"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/db/ZahlungRennenDbTest.java",
+    "bytes": 11489,
+    "sha256": "f96e20b90ef27de14a88dc4bfbb3f57de622283b19f8500f39d2d6955727c459"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/saga/AntragsSagaValidationTest.java",
+    "bytes": 3823,
+    "sha256": "196947c522002c940c71a84cc57c4f9c9a02ee6fcdab3f5f9d5416d0ec625fa1"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/service/BescheidDokumentTest.java",
+    "bytes": 4136,
+    "sha256": "7eb0673cf47f83d92259f8bcb55a900d7961a798b430c9df2999b75f70716bcd"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/service/BescheidGeneratorTest.java",
+    "bytes": 8152,
+    "sha256": "fb1134c7ee6a182dc360e4adcf4a700f954765af7c98033d2ac95a35f8431bf0"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/service/BescheidMonatsplanTest.java",
+    "bytes": 2279,
+    "sha256": "04255640546611da3813eaa705db952450be60e8104171c23ab8f44a3b44ad36"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/service/BescheidPaymentBindingTest.java",
+    "bytes": 3725,
+    "sha256": "ce442d66e7918858091b7c9c324ab2745ddd501b43654ca123bf1623ff99b79a"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/service/SepaValidatorTest.java",
+    "bytes": 2106,
+    "sha256": "a444540ac3c0d7f30ad9ba36dbcb14da5fabc50ddf1dc1f7a2ef27c6e386d072"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/service/SozialLeistungsServiceTest.java",
+    "bytes": 3576,
+    "sha256": "9c81f5f7148d3863dbb7d424a63f3479ab6a37154d2aa86c1be88603acdb2977"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/service/ZahlungsmonatTest.java",
+    "bytes": 1532,
+    "sha256": "bf3972485ea0747cdeb4d9c93882634240d52dd6365f95de3099bec2e428d62d"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/web/BenutzerverwaltungTest.java",
+    "bytes": 2290,
+    "sha256": "a55b6e81bfb271116f565dec9da2ac6735858f654dac6139406fc540813637ba"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/web/BenutzerverwaltungZeitTest.java",
+    "bytes": 9718,
+    "sha256": "4ffc706d6fe0b7a8ac894d8e85639c38e0dcec053b522b8042906c7a502bc289"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/web/BescheidMonatsplanHttpTest.java",
+    "bytes": 5911,
+    "sha256": "0bc5a05c4aa321d69213ae2d64c0bf4e847e31d82e9d49a0b2eb3fb8eb27226a"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/web/HttpServerLimitsTest.java",
+    "bytes": 6504,
+    "sha256": "c4dabbd892574fb7783db4dfaf4d2734deab8d3997c7416150e19ef710957b25"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/web/JsonGrenzenTest.java",
+    "bytes": 2104,
+    "sha256": "84857cb80c08c68feafdb14af4a19bc6e19043c1c9b81959c4c8fb0b57ed62c8"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/web/JsonTest.java",
+    "bytes": 6788,
+    "sha256": "e0f284af98fd27887045a205224b9ec0db1e0bc5d9155413404df1e7e20f5404"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/web/LmgServerBoundaryTest.java",
+    "bytes": 9292,
+    "sha256": "f3259da083fdcaf5d16f3b68b206602fb5bb2a6225db1d9ca982dee94fb49011"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/web/LmgServerHttpTest.java",
+    "bytes": 21997,
+    "sha256": "911726fa382d90685c8e85d3009fa8131b61b5dc3b7406b25b21548cb8b8cfde"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/web/LmgStartupSafetyTest.java",
+    "bytes": 9569,
+    "sha256": "9e26a56fa7b5aa4f7e5d2bcdd576478e83f6bbd18663b904cbf3bfa0da1a75b5"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/audit/TxAuditLogRedaktionTest.java",
+    "bytes": 2824,
+    "sha256": "326cb6f2d74789a8bea79526c552d729d17ebaa4fd9a7b5e81269b02a5f2d99a"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/audit/TxAuditLogTest.java",
+    "bytes": 4085,
+    "sha256": "ee678091e826cd096e9c0925d1d3fd6670c52f0a1ef0a77f5f627e3fbcb7b870"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/DeadlockRetryEchtTest.java",
+    "bytes": 8417,
+    "sha256": "4621623b5f13a339a8a882f9fb0e9e2a033a56712f08b059af041540d2f49147"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/FakePool.java",
+    "bytes": 3495,
+    "sha256": "d3d17a6285ebd3681b1927e0014a88530d963817f416b06e79ec4dfa9c305b89"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/monitoring/TxMonitoringTest.java",
+    "bytes": 5324,
+    "sha256": "7f37b1500a478f463425c7e8105bc708bee09b9df255df493874e5463f41e25b"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/RetryPolicyTest.java",
+    "bytes": 4259,
+    "sha256": "691a3c159a41ba001cc3d0ec95a8faf743e49745b6f0c5416fc6c0e7c8719f2f"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/saga/SagaEngineTest.java",
+    "bytes": 33146,
+    "sha256": "3f7faead1f0bf83aee7320fb5dd5ecfc65fe94843af3e341b92d40bb7571ca1a"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/saga/SagaOwnershipClockDbTest.java",
+    "bytes": 10692,
+    "sha256": "28470bd8518abb1fcf29024e7d89f05ef4fe0d7287d00d0c5ecbd4e0fb34407b"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/saga/SagaParallelRecoverTest.java",
+    "bytes": 7909,
+    "sha256": "80bc60884f3e7a2ad49c721a43d717b78662e5833068c2b7a0bcb9873ee701f8"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/SimpleConnectionPoolTest.java",
+    "bytes": 14734,
+    "sha256": "cac550c0a191a55e37218c870f3409f80ac0cc6b3030fe8511e07e16fc4428e8"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/TaskControllerTest.java",
+    "bytes": 11390,
+    "sha256": "b429dd884af848163c95fd4adc266b11dcbe7ef91cd416ffc3bc7df01ce412cd"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/TaskControllerWatchdogBudgetTest.java",
+    "bytes": 3249,
+    "sha256": "9f0dbf66fbb4a133767cd9d476c8b25f0ec7c4352bf7ad9df3ad43e6dac1f8fd"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/TxContextDeadlineTest.java",
+    "bytes": 2401,
+    "sha256": "f5196ebbb17feb064c7019f246539666d52b9b536e6f9b53e108c256098c5927"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/TxManagerTest.java",
+    "bytes": 6654,
+    "sha256": "ee09686bfcae99a96c8659a11e9aad00aa11d801bdd0562fdc1692e5cfd74f3e"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/UcpConnectionPoolTest.java",
+    "bytes": 2263,
+    "sha256": "71293ae9679be9227f9759c51c6a937fb4bab301bc72731b43b80d9759c40959"
+  },
+  {
+    "path": "testsweet/pom.xml",
+    "bytes": 4121,
+    "sha256": "b71e02408ddffa5a73e96e6a1475953d587d8295919e773ca778a809d41aa7e4"
+  },
+  {
+    "path": "testsweet/README.md",
+    "bytes": 32893,
+    "sha256": "4758bc3b4816419ccd0f425795daf611f54580f21f9276b73d8b967617cfec87"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/Auftrag.java",
+    "bytes": 5366,
+    "sha256": "c657327754361554125332a7ade6b9d6280dd7395086bf5705b14dd04ef8e2c7"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/BrowserProzesse.java",
+    "bytes": 5065,
+    "sha256": "ba92ea04f2b0db5039039f493fdde8e865bb1a6d829a789da0e7bf3d546ccdf3"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/BuildEvidence.java",
+    "bytes": 10134,
+    "sha256": "f009bf42b6eda82beb8e04fb91c6478b6d3843657b9f3423a8732c7d562e166e"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/CertificateSuiteService.java",
+    "bytes": 20045,
+    "sha256": "67f072ff8f4d6535f1375db4317313b24d2a89d60084bf70ecd74b78807b704c"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/CertificateSuiteState.java",
+    "bytes": 6803,
+    "sha256": "0eae7347895729e0f881831829208683b1cffe0f40909b73e49d74d2f91d5ce0"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/CertificateSuiteWorker.java",
+    "bytes": 10895,
+    "sha256": "62f2baf68c25efa20c380003c254f28f7ea12e0250f80ee6bed79f89feb0877a"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/DbErreichbarkeit.java",
+    "bytes": 7635,
+    "sha256": "a6454f4f6bb99b0bdfa12e505cbe2dd82c5aba92921691d563723e04e5af6576"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/Erwartung.java",
+    "bytes": 2111,
+    "sha256": "d5e000bf45266e5ef6c3e2b9e9e5f0cf575f35b521015616dda544cc3fe52c56"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/Fachzustand.java",
+    "bytes": 6231,
+    "sha256": "c6c4e823a7dd4cc50abaa281eb8d03c0cc877dc0a6cb8e546b1de121b9fac2ad"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/GlobaleVerifikation.java",
+    "bytes": 5640,
+    "sha256": "f70a20056b9194b17f1b79deca398a8249822e8f655520c4a7f872db86e6c991"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/KiPruefAnhang.java",
+    "bytes": 8560,
+    "sha256": "f3658112f141b57024f03b5d6b3adf0de062ae611d666c8d3789b8323af2b384"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/LastBericht.java",
+    "bytes": 24202,
+    "sha256": "5bf87f1cee692fd53735a0212463d62607ec7789f406237ec4792bc7acd231eb"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/LlmAnswerValidator.java",
+    "bytes": 9632,
+    "sha256": "ac8cf9c8d35e48ab8c989d234be91882dd57fdc1ca6bd8f72c789f6bb2965519"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/LlmCalculationReference.java",
+    "bytes": 14278,
+    "sha256": "d151f58534853eefd41d6f916a76932e5cf53f40c8c5528a14bb612e6a3faae9"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/LlmConfig.java",
+    "bytes": 5197,
+    "sha256": "eb649f73e07f19f33ce93be3aa414e8162d295365a97e5708cf198efc5438f9e"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/LlmReviewService.java",
+    "bytes": 78708,
+    "sha256": "cebcf03fabe9326f3565e2d30e62a4021b3f7ee9703ac05abedaf9fc0ef405b6"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/MdBericht.java",
+    "bytes": 20693,
+    "sha256": "3398fb5ae81aa9ac49a635490663d2726658c645d1280970e1465b90a4ee61bc"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/Mitarbeiter.java",
+    "bytes": 7699,
+    "sha256": "be233cceb21ca916c76257432a268d45b62cf74a171178945238270403d362c9"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/Rechenblock.java",
+    "bytes": 3435,
+    "sha256": "2337cd1b90d0e3c080a64ea0221f53be559a132e4f30cf9bc81e14fed992e78c"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/ReviewOutcome.java",
+    "bytes": 2985,
+    "sha256": "feab5744b2301c951b358600c08e0999767af6d77af5e8d83e258fdffd614ee2"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/RunChronology.java",
+    "bytes": 2066,
+    "sha256": "6aba84edf69c5b5a142e9a692bc494316b6aebd7297242cca6bce8d78c2608a6"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/Simulator.java",
+    "bytes": 66296,
+    "sha256": "2f9537a21f39181acabfa599ec4fc7bbbc646d8a1077dfc484b6fcd17e6962a8"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/SweetLog.java",
+    "bytes": 14111,
+    "sha256": "21d1dabce17fcb5bb267887e9eb4f7217038bb2ca0319e58417222b3152d3086"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/SweetMain.java",
+    "bytes": 6825,
+    "sha256": "9a022a823c544dc98058579a53241e62c2e0f601d8fa33f07bb0b79a371482ea"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/SweetPdf.java",
+    "bytes": 31162,
+    "sha256": "c33c774f3d9abb9ee9c1ff4c2629d07f153100b1e2ff6f79310231b7ddd42f4e"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/SweetServer.java",
+    "bytes": 52221,
+    "sha256": "f54ba58dfeb04ae4690b71fd95206d5674fb424462c7e75c07a73872361359b8"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/SzenarioAktion.java",
+    "bytes": 5961,
+    "sha256": "7fa00b7f975e6b9015d2e615646394535c121f2fe6900064637ea3c22ad422c3"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/SzenarioBibliothek.java",
+    "bytes": 194245,
+    "sha256": "fcda3a0e1b8829c0d4a4efd3fb23d17c05bdf61f1b712d80b0b866f3e107cf95"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/Testdokumentation.java",
+    "bytes": 37503,
+    "sha256": "c3ed0356c7f710a43bbe4ca03679523fb7261063c9b652aca6857046f2b077f1"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/TestfallKatalog.java",
+    "bytes": 23458,
+    "sha256": "f236c85701388a9a8249e0827e77df32cc887954d22e285b74d8a1642077c57c"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/Verifikator.java",
+    "bytes": 7676,
+    "sha256": "b42644b6b47d0d12d37355b14218118270ca913395d645792a44fff5d316fd2e"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/WebAktion.java",
+    "bytes": 1551,
+    "sha256": "e600366fd5e8ad20c45ec85f2d6b2e38e4a3c5f1c703fb6865532a90bc04847f"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/WebHelfer.java",
+    "bytes": 30300,
+    "sha256": "7bdb634dd0a4869c4d96ab6309dd81fcfc4b842a429ca890290777565b29d3c0"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/WebMitarbeiter.java",
+    "bytes": 15964,
+    "sha256": "cad3e1eac680be72fbd2da088fa89d42cf0b530fca741df4eded9edfe3a41944"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/WebSzenarioBibliothek.java",
+    "bytes": 41839,
+    "sha256": "44564f798967ef7316f6ff125f5a196e9f4773eebd907118cb2cacb270a572e2"
+  },
+  {
+    "path": "testsweet/src/main/resources/sweet/app.js",
+    "bytes": 70741,
+    "sha256": "062b762575d895c9cf4a26e1e8140d543035966b4ef5841c7785a6c5a95baaee"
+  },
+  {
+    "path": "testsweet/src/main/resources/sweet/assets/bedarfsberechnung_sgb12.jpg",
+    "bytes": 517825,
+    "sha256": "eb86123ca716c5c370d4ced187376ba65b0dcb0d7cf776c4599890123ca1d220"
+  },
+  {
+    "path": "testsweet/src/main/resources/sweet/assets/bedarfsberechnung_sgb12.png",
+    "bytes": 369814,
+    "sha256": "e1bfa6f4e4bb1c556a38711225a6d021239cca0b25a9eb3023044ab93e31b288"
+  },
+  {
+    "path": "testsweet/src/main/resources/sweet/assets/simulator_zyklus.jpg",
+    "bytes": 416514,
+    "sha256": "79965257153b1e83e7eec889f1ef7fa57a6720ae03aced44cf53dbfef3e08a9e"
+  },
+  {
+    "path": "testsweet/src/main/resources/sweet/assets/simulator_zyklus.png",
+    "bytes": 309953,
+    "sha256": "ad6c138ec0cceca0ac3b52c741f99398ac1ba780b884e00cc99c630caef11193"
+  },
+  {
+    "path": "testsweet/src/main/resources/sweet/assets/stresstest_zwei_wellen.jpg",
+    "bytes": 490196,
+    "sha256": "1a29ae4cfd7bc7341bbc300a1d6f8fc9113ff50bb0924fdead29f0de0135cad1"
+  },
+  {
+    "path": "testsweet/src/main/resources/sweet/assets/stresstest_zwei_wellen.png",
+    "bytes": 334628,
+    "sha256": "6baac5e70b835d5761d7f48b3718a5b0cafa978afe52543f1b2da074681f7845"
+  },
+  {
+    "path": "testsweet/src/main/resources/sweet/assets/titelbild.jpg",
+    "bytes": 898213,
+    "sha256": "225da7181b64305b8da478960b96eeef9f5787e6c8de96cb0124aa4074494d27"
+  },
+  {
+    "path": "testsweet/src/main/resources/sweet/assets/transaktionsarchitektur.jpg",
+    "bytes": 362137,
+    "sha256": "b94babe00a19de6a082b444823818ddf10e9185a0ca3183fd5a8a0e79ca4a63b"
+  },
+  {
+    "path": "testsweet/src/main/resources/sweet/assets/transaktionsarchitektur.png",
+    "bytes": 229752,
+    "sha256": "eb97ad5908b4173212803b129ea2a890f94c8b6d46e3e6fcd9a7d11dc89bd032"
+  },
+  {
+    "path": "testsweet/src/main/resources/sweet/assets/vier_augen_workflow.jpg",
+    "bytes": 302918,
+    "sha256": "0db4df890269972c73e04e653969ddecdcfc3db2a37b1703c6b319cdec27cddf"
+  },
+  {
+    "path": "testsweet/src/main/resources/sweet/assets/vier_augen_workflow.png",
+    "bytes": 227951,
+    "sha256": "78ab0951e93b9300e2918c7b295f36f7253f1567d6caeed72c987ebaad311608"
+  },
+  {
+    "path": "testsweet/src/main/resources/sweet/index.html",
+    "bytes": 29274,
+    "sha256": "edcef0a02ffb237a06fdd6701f2b6b5ab9c555fc1590574433574f80d91d3379"
+  },
+  {
+    "path": "testsweet/src/main/resources/sweet/style.css",
+    "bytes": 24267,
+    "sha256": "d16871e3f9235d43962c632a1970d4e3c7a1cc5446f4fe67ff23171caa09b39e"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/lmg/web/ProduktHttpSicherheitTest.java",
+    "bytes": 12053,
+    "sha256": "25c7f9ad77c93c8a81d9c807d6fd3e7748f426154be9f10797d5573c27f058c1"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/lmg/web/ProduktPendingRecoveryDbTest.java",
+    "bytes": 5986,
+    "sha256": "430dbd33744e4aeddfd532e55a62bfbd2a945b870769a02977cbc780e37cbc80"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/BescheidDokumentDbTest.java",
+    "bytes": 4178,
+    "sha256": "e44afc79435e94cf8801133af2ac261bc96cb6016f8f9d5d760b7b08807c3117"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/BrowserProzesseTest.java",
+    "bytes": 1434,
+    "sha256": "ecf299e36ea6c03c3114d711f538a8ff21d4166fb16223c91249dcfe7a5ca2a3"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/BuildEvidenceTest.java",
+    "bytes": 4423,
+    "sha256": "6af2bb528679f2328c3b784220c4351ac0068b71122fe938257ab73d0a9af751"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/CertificateSuiteHttpTest.java",
+    "bytes": 11497,
+    "sha256": "20c8fd011f1992726cf9d1900c06d03c7b7a861bc6eacd40ed7df1ea5bd22fa8"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/CertificateSuiteServiceTest.java",
+    "bytes": 11693,
+    "sha256": "a4cc2a6cc8b2b2d29fdce41279775032c7aa38689eac0bf2052ed5a7662ac6ca"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/CertificateSuiteStateTest.java",
+    "bytes": 4387,
+    "sha256": "90d102063a79915c58e41d89cdbd4886b561061a0955c520f0e2214f9f4c2104"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/DbErreichbarkeitTest.java",
+    "bytes": 3321,
+    "sha256": "79941ac32849b86edb0b5ea533d9e55d4b622b11c85a18bcdb6013a229e83380"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/FachzustandPoolTest.java",
+    "bytes": 5681,
+    "sha256": "0a0dd80c45eea61020ad6ed2610e836d681fdca41e702fa5eb15d825a545ab6b"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/GlobaleVerifikationTest.java",
+    "bytes": 4881,
+    "sha256": "70193a8bbff4aafd71f5a4b7d81aace1273947be64614b4b9552b5823d45075c"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/KassenIsolationDbTest.java",
+    "bytes": 5382,
+    "sha256": "981bf1c9d7b76212a4b45a29b4cf9baeef224e5dd116588af577b116270e4279"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/KiPruefAnhangTest.java",
+    "bytes": 2614,
+    "sha256": "b72029efab2a24c0e888ddc6b5498e1a27371ada54c62851a90a1c9e5d103d08"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/LlmAnswerParityTest.java",
+    "bytes": 2023,
+    "sha256": "e09fdd2df5f0787443621902fff2815201e3f9b87ff62aefab3d300bf4f0b4a6"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/LlmCalculationReferenceTest.java",
+    "bytes": 8189,
+    "sha256": "7f305d4f987a7f676f73ef63af9925ec9705291291a2ffcf84ea5b57caee3ee3"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/LlmRetryStatistikTest.java",
+    "bytes": 3313,
+    "sha256": "2215aacf99f79da2c3eefdc398b19709a2774b046c5977d3f40ffb577b7dcb1d"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/LlmReviewServiceTest.java",
+    "bytes": 43344,
+    "sha256": "8ec6dac0f5dc7251cb796926543fddf036aa13e7aa2b80feb078bb0e5b3bae9e"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/MdBerichtFilterTest.java",
+    "bytes": 2407,
+    "sha256": "9460739c6bc1c3f727e02b2aafbc6255f6c206fa5fe3b48139be22eb2be61aa4"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/MitarbeiterErwarteterFehlerTest.java",
+    "bytes": 2523,
+    "sha256": "0037cfebc027d41f8374cdb7b633c2b09eeade9317c3454d8bd17b7aa79531f3"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/NachweisIntegritaetTest.java",
+    "bytes": 8420,
+    "sha256": "7f10cd531fc8e3ceed747876c11564ec6fd6ab6f09b12e42794156941be6bdff"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/NegativZustandsDbTest.java",
+    "bytes": 7751,
+    "sha256": "3ccaa9c326bf905223c2fa4f622342d4893ced3346258dd286492c1b82079380"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/NegativZustandsTest.java",
+    "bytes": 5137,
+    "sha256": "dcba24150de7f33f4b4dbdd4aadf104afa08d8a4b9f2a6261fd6e1b984c3b643"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/ProduktRetryRegressionTest.java",
+    "bytes": 3785,
+    "sha256": "4115bc1ab0481cdc2ef8486114a36535b960407338135e6aa1a8da7cbc1a58cf"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/PruefpaketDokumentationTest.java",
+    "bytes": 13981,
+    "sha256": "3ac3b633cb39d741ec40a2d2cb72f1c17350b7b53fc2eb2bdd05ffa5f40cb47c"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/ReviewLaufRegressionTest.java",
+    "bytes": 9278,
+    "sha256": "da89ad7c877b84f6ebb20d2756d7101f749a8cd0a8b4e9dab5e8dc0b777732e2"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/ReviewOutcomeTest.java",
+    "bytes": 3989,
+    "sha256": "46bce592967b3d567afee0954252b3b0a7c90cc5b894b9c885405acc27212445"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/RunChronologyTest.java",
+    "bytes": 1440,
+    "sha256": "2e476f47a73eaec7a871125ac29ef6791c9b36b8e479694390195990d6a86dd7"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/SepaPruefpaketEingabenTest.java",
+    "bytes": 4253,
+    "sha256": "8a396527335a874cac50d9459c3cfa7fe2203c77bc11eb143955e4cd145be0ab"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/SimulatorBoundaryTest.java",
+    "bytes": 6172,
+    "sha256": "4f25423e1d4b6e450eb75a202ccfc82afd3a3dd2515a7d97a1cad03194cfd9fa"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/StornoZwischenstandTest.java",
+    "bytes": 8976,
+    "sha256": "5d2f14382ae34e3c12aaffadcd5ace7edf8e0fc7620240586211cf4775b8d02f"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/SweetServerLlmHttpTest.java",
+    "bytes": 3178,
+    "sha256": "4fd3280bf797f88ea16c8d07aea785c76643aed639517b73c4ef0dfe6ec292d1"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/SweetServerReportRegressionTest.java",
+    "bytes": 8549,
+    "sha256": "0529ea7f385092a243e2ca21d63db22cdfdd58f1889ed7d9c064edc06c5ddc39"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/SweetUiRegressionTest.java",
+    "bytes": 1383,
+    "sha256": "812a747de0f67c0b7457a2ab9368e862df9488840b5cc76f6b3419f6d609dfe9"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/SzenarioAbdeckungTest.java",
+    "bytes": 13184,
+    "sha256": "fe2a2d78fde0d50d51245c006fd3892d678a00255a56e258667694257674b100"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/SzenarioAktionTest.java",
+    "bytes": 2767,
+    "sha256": "6c684e89ccdcfa71bf6089a3d8eb98bc579fc8beea314fae5baeb0995dc0c300"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/SzenarioGeneratorRegressionTest.java",
+    "bytes": 6252,
+    "sha256": "8c24c0c0b91a71084fd10df5eaa05196f8b8e21cefdfd896524683fe4981f01c"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/TestfallKatalogTest.java",
+    "bytes": 2816,
+    "sha256": "15f17c006dcbe71014426fa24c646f9bec88f8b479ad4251bd65673beb9e92d5"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/VerifikatorVergleichTest.java",
+    "bytes": 1024,
+    "sha256": "06f0b519e3a3998112c59529b77c1ae8aefc599cc879bb7f35eb23d199f00a39"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/WebDialogRegressionTest.java",
+    "bytes": 2645,
+    "sha256": "4e8acdb1dbfdaa761260fb7f20c2c0fb6df3cbd8c691f11b764aaecf7dfee68d"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/WebLoginRegressionTest.java",
+    "bytes": 4723,
+    "sha256": "1c16388de8d63974727bc5f8c86cbe9b6841f38416e26d633aa5cee4c78ea779"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/WebVorgangSuchenRegressionTest.java",
+    "bytes": 6066,
+    "sha256": "c44d271781423966a16b47017a2fb3ba17aebc20ff7f8b5d982311a022cc09c2"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/WebWiederaufnahmeTest.java",
+    "bytes": 4754,
+    "sha256": "255250b48e1e7eeb5a34879bd5191ace18c4c4476717b6386ede466d058d7033"
+  },
+  {
+    "path": "testsweet/src/test/js/llm-ui.test.js",
+    "bytes": 26188,
+    "sha256": "80097d105d16d407c755d8bfcae587e2ce312685cf3e87a24139f8e306e74548"
+  },
+  {
+    "path": "tools/BuildStamp.java",
+    "bytes": 16732,
+    "sha256": "f8cb78e601ba2fa698dfb0917edee14bba5127cfff03af110fe711940bb09669"
+  },
+  {
+    "path": "tools/evidence-sources.txt",
+    "bytes": 286,
+    "sha256": "46e442526edbb376a7aa693394bc7fda2e5ff1175d17d603290fe28e56ad84fc"
+  }
+]

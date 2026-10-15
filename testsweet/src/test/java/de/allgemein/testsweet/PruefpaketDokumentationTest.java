@@ -78,13 +78,14 @@ class PruefpaketDokumentationTest {
         assertTrue(checkIds.containsAll(List.of("S1", "S2")), String.valueOf(checkIds));
     }
 
-    @Test void jsonInFormatHuelleWirdGeprueftKaputtesJsonWeiterhinAbgewiesen() {
+    @Test void nurVollstaendigesJsonOhneFormatHuelleWirdGeprueft() {
         String valid = "{\"schemaVersion\":2,\"caseIds\":[\"A\"],\"cases\":[{\"caseId\":\"A\","
                 + "\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"vollständig geprüft\","
                 + "\"calculations\":[],\"checks\":[]}]}";
         var requirement = List.<java.util.Map<String, Object>>of(java.util.Map.of(
                 "caseId", "A", "calculations", List.of(), "checkIds", List.of()));
-        assertEquals(1, LlmAnswerValidator.validate("```json\n" + valid + "\n```", List.of("A"), requirement).size());
+        assertThrows(IllegalArgumentException.class,
+                () -> LlmAnswerValidator.validate("```json\n" + valid + "\n```", List.of("A"), requirement));
         assertEquals(1, LlmAnswerValidator.validate("\n  " + valid + "  \n", List.of("A"), requirement).size());
         assertThrows(IllegalArgumentException.class,
                 () -> LlmAnswerValidator.validate("```json\n{\"schemaVersion\":2, \"kaputt\"\n```", List.of("A"), requirement));

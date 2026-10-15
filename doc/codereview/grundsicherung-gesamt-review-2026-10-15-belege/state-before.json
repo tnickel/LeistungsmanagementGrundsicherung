@@ -1,0 +1,36 @@
+{
+  "stage": "before",
+  "capturedAt": "2026-10-15T09:59:51.9967071+02:00",
+  "commit": "3c909c29e22f90a7208f74e835614e1878056eff",
+  "branch": "main",
+  "status": [
+    "?? doc/Learning/",
+    "?? doc/codereview/EigeneDoku.docx",
+    "?? doc/codereview/grundsicherung-gesamt-review-2026-10-15-belege/",
+    "?? doc/codereview/grundsicherung-gesamt-reviewPrompt.txt",
+    "?? doc/learning-werkzeug/",
+    "?? doc/testzertifikat-werkzeug/__pycache__/",
+    "?? tmp/"
+  ],
+  "java": [
+    "openjdk version \"25.0.4.1\" 2026-08-18 LTS",
+    "OpenJDK Runtime Environment Temurin-25.0.4.1+1 (build 25.0.4.1+1-LTS)",
+    "OpenJDK 64-Bit Server VM Temurin-25.0.4.1+1 (build 25.0.4.1+1-LTS, mixed mode, sharing)"
+  ],
+  "maven": [
+    "WARNING: A restricted method in java.lang.System has been called",
+    "WARNING: java.lang.System::load has been called by org.fusesource.jansi.internal.JansiLoader in an unnamed module (file:/D:/DevelopmentTools/apache-maven-3.9.6/lib/jansi-2.4.0.jar)",
+    "WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module",
+    "WARNING: Restricted methods will be blocked in a future release unless native access is enabled",
+    "",
+    "Apache Maven 3.9.6 (bc0240f3c744dd6b6ec2920b3cd08dcc295161ae)",
+    "Maven home: D:\\DevelopmentTools\\apache-maven-3.9.6",
+    "Java version: 25.0.4.1, vendor: Eclipse Adoptium, runtime: C:\\Program Files\\Eclipse Adoptium\\jdk-25.0.4.101-hotspot",
+    "Default locale: de_DE, platform encoding: UTF-8",
+    "OS name: \"windows 11\", version: \"10.0\", arch: \"amd64\", family: \"windows\""
+  ],
+  "docker": [
+    "lmg-oracle Up 9 minutes 0.0.0.0:1521->1521/tcp, [::]:1521->1521/tcp"
+  ],
+  "files": 250
+}

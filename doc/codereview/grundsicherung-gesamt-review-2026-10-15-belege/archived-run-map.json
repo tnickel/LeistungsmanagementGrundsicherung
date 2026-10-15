@@ -1,0 +1,58 @@
+[
+  {
+    "name": "run-20261015-100328-17716845934957858882",
+    "source": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\run-20261015-100328-17716845934957858882",
+    "target": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\doc\\codereview\\grundsicherung-gesamt-review-2026-10-15-belege\\archived-runtime-runs\\run-20261015-100328-17716845934957858882",
+    "stateFile": "run-state.json",
+    "stateSha256": "da240e2c322f4cf31411ee5d74eba8afd2a8afa2537d4e390928484d664b4c89"
+  },
+  {
+    "name": "run-20261015-100338-436171106041524070",
+    "source": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\run-20261015-100338-436171106041524070",
+    "target": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\doc\\codereview\\grundsicherung-gesamt-review-2026-10-15-belege\\archived-runtime-runs\\run-20261015-100338-436171106041524070",
+    "stateFile": "run-state.json",
+    "stateSha256": "2f60f0486ba00513bb6c1a397c5a6fdd4a4a57a3d9973b225e3b8f0719630edf"
+  },
+  {
+    "name": "run-20261015-100346-211625280496513741",
+    "source": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\run-20261015-100346-211625280496513741",
+    "target": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\doc\\codereview\\grundsicherung-gesamt-review-2026-10-15-belege\\archived-runtime-runs\\run-20261015-100346-211625280496513741",
+    "stateFile": "run-state.json",
+    "stateSha256": "828be79b8e2b8cb08d3fa8fc76c27ddc8d08155946d558b26d413dd345015605"
+  },
+  {
+    "name": "run-20261015-100350-14808705979089760654",
+    "source": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\run-20261015-100350-14808705979089760654",
+    "target": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\doc\\codereview\\grundsicherung-gesamt-review-2026-10-15-belege\\archived-runtime-runs\\run-20261015-100350-14808705979089760654",
+    "stateFile": "run-state.json",
+    "stateSha256": "c1e81cfdf3a1bd1e734199f361edd419a149e7963a783e603dedd91d4f194502"
+  },
+  {
+    "name": "run-20261015-100353-13234168534251085179",
+    "source": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\run-20261015-100353-13234168534251085179",
+    "target": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\doc\\codereview\\grundsicherung-gesamt-review-2026-10-15-belege\\archived-runtime-runs\\run-20261015-100353-13234168534251085179",
+    "stateFile": "run-state.json",
+    "stateSha256": "6f3a159f1d16aa091fa52573f795106e54f7370486241263af9b066e7118e6e5"
+  },
+  {
+    "name": "run-20261015-100608-12296938910290168033",
+    "source": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\run-20261015-100608-12296938910290168033",
+    "target": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\doc\\codereview\\grundsicherung-gesamt-review-2026-10-15-belege\\archived-runtime-runs\\run-20261015-100608-12296938910290168033",
+    "stateFile": "run-state.json",
+    "stateSha256": "4156d30e9dd76255a8ab70a10f57276cd34470203bf1b27c532869162a6facae"
+  },
+  {
+    "name": "run-20261015-100741-8270573836449113349",
+    "source": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\run-20261015-100741-8270573836449113349",
+    "target": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\doc\\codereview\\grundsicherung-gesamt-review-2026-10-15-belege\\archived-runtime-runs\\run-20261015-100741-8270573836449113349",
+    "stateFile": "run-state.json",
+    "stateSha256": "f6d97cfeb986c8baebc886b4de342e66d7081147db7561db1b9f3fbf586772d7"
+  },
+  {
+    "name": "llm-review-1b22edef-e45f-4e74-a86d-001ff7a63d51",
+    "source": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\llm-review-1b22edef-e45f-4e74-a86d-001ff7a63d51",
+    "target": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\doc\\codereview\\grundsicherung-gesamt-review-2026-10-15-belege\\archived-runtime-runs\\llm-review-1b22edef-e45f-4e74-a86d-001ff7a63d51",
+    "stateFile": "result.json",
+    "stateSha256": "edd1660200f11efe6b7c9d020fcd5e1ba377b63a34c882053e87474cbf70007c"
+  }
+]

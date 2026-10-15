@@ -1,0 +1,27 @@
+runtime=25.0.4.1+1-LTS
+RETRY: ORA-54; actualDriverSQLState=61000; projectRetry=true
+RETRY: ORA-60; actualDriverSQLState=61000; projectRetry=true
+RETRY: ORA-8177; actualDriverSQLState=72000; projectRetry=true
+RETRY: ORA-18; actualDriverSQLState=61000; projectRetry=true
+RETRY: ORA-4031; actualDriverSQLState=61000; projectRetry=true
+RETRY: ORA-1; actualDriverSQLState=23000; projectRetry=false
+RETRY: ORA-4020; actualDriverSQLState=61000; projectRetry=true
+RETRY: ORA-20; actualDriverSQLState=61000; projectRetry=true
+Okt. 15, 2026 10:06:10 AM de.allgemein.tx.TxManager execute
+WARNUNG: Transaktionsversuch 1/3 fehlgeschlagen, Wiederholung folgt: TxException ORA-04031
+Okt. 15, 2026 10:06:10 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T08:06:10.722420600Z [main] TX.RETRY id=dbaa92e6-1de3-4d34-a8aa-bdbdd0def0c2 attempt=1 details="TxException ORA-04031"
+Okt. 15, 2026 10:06:10 AM de.allgemein.tx.TxManager execute
+WARNUNG: Transaktionsversuch 2/3 fehlgeschlagen, Wiederholung folgt: TxException ORA-04031
+Okt. 15, 2026 10:06:10 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T08:06:10.725419900Z [main] TX.RETRY id=dbaa92e6-1de3-4d34-a8aa-bdbdd0def0c2 attempt=2 details="TxException ORA-04031"
+Okt. 15, 2026 10:06:10 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T08:06:10.728419500Z [main] TX.ROLLBACK id=dbaa92e6-1de3-4d34-a8aa-bdbdd0def0c2 attempt=3 duration=118ms error="TxException ORA-04031"
+RETRY-EXECUTE: ORA-4031; attempts=3; retryable=true
+PENDING: first=RecoveryReport[completed=0, compensated=0, failed=1, errors=0]; second=RecoveryReport[completed=0, compensated=0, failed=1, errors=0]; state=FAILED
+ABA: samePhysical=true; activeSecondAutoCommit=true; thirdIsActiveSecond=true; staleFinishCalls=[rollback, autocommit=true]
+Okt. 15, 2026 10:06:10 AM de.allgemein.tx.SimpleConnectionPool release
+WARNUNG: release() ignoriert: Verbindung ist nicht (mehr) aus diesem Pool ausgeliehen (Doppel-Release oder fremde Instanz)
+Okt. 15, 2026 10:06:10 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T08:06:10.746933700Z [tx-task-1] TX.COMMIT id=def34be4-234a-44f8-bab7-1c2279f10b7c attempt=1 duration=0ms
+CANCEL: cancelled=true; done=true; calls=[autocommit=false, commit, rollback, autocommit=true]; stats=TaskStats[active=0, completed=0, failed=1, timedOut=0, rejected=0, avgDurationMillis=0.0]

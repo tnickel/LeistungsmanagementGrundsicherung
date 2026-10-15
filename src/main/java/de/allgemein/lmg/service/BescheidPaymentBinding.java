@@ -35,7 +35,7 @@ public final class BescheidPaymentBinding {
         }
     }
 
-    /** V1/Altbescheid: konstanter bewilligter Betrag; V2: vollständig gebundener Monatsplan. */
+    /** V1/Altbescheid: konstanter bewilligter Betrag; V2/V3: vollständig gebundener Monatsplan. */
     public static BigDecimal approvedAmount(Bescheid decision, String month) {
         try {
             YearMonth from = YearMonth.parse(decision.bewilligungVon());
@@ -50,26 +50,11 @@ public final class BescheidPaymentBinding {
             // Bei snapshotlosen Altbescheiden ist der bewilligte skalare Betrag die einzige Quelle.
             if (decision.berechnung() == null) return first;
             var snapshot = readSnapshot(decision);
-            if (snapshot.ergebnis().bgId() != decision.bgId()
-                    || snapshot.ergebnis().zahlbetrag().compareTo(first) != 0) {
-                throw new IllegalArgumentException("Snapshot passt nicht zum Bescheid");
-            }
             if (snapshot.monate().isEmpty()) return snapshot.ergebnis().zahlbetrag();
-            YearMonth expected = from;
-            BigDecimal approved = null;
             for (var entry : snapshot.monate()) {
-                if (expected.isAfter(to) || !entry.monat().equals(expected.toString())
-                        || entry.ergebnis().bgId() != decision.bgId()
-                        || entry.ergebnis().zahlbetrag().signum() < 0) {
-                    throw new IllegalArgumentException("Monatsplan ist unvollständig oder widersprüchlich");
-                }
-                if (expected.equals(target)) approved = entry.ergebnis().zahlbetrag();
-                expected = expected.plusMonths(1);
+                if (entry.monat().equals(target.toString())) return entry.ergebnis().zahlbetrag();
             }
-            if (!expected.equals(to.plusMonths(1)) || approved == null) {
-                throw new IllegalArgumentException("Monatsplan deckt Bewilligungszeitraum nicht ab");
-            }
-            return approved;
+            throw new IllegalArgumentException("Monatsplan deckt Zielmonat nicht ab");
         } catch (IllegalArgumentException | NullPointerException e) {
             throw invalid("Gespeicherter Bewilligungsbescheid oder Berechnungs-Snapshot ist ungültig; "
                     + "fachliche Prüfung erforderlich, keine Neuberechnung historischer Inhalte");
@@ -78,7 +63,30 @@ public final class BescheidPaymentBinding {
 
     public static BerechnungsSnapshot.Gelesen readSnapshot(Bescheid decision) {
         try {
-            return BerechnungsSnapshot.lese(decision.berechnung());
+            var snapshot = BerechnungsSnapshot.lese(decision.berechnung());
+            YearMonth from = YearMonth.parse(decision.bewilligungVon());
+            YearMonth to = YearMonth.parse(decision.bewilligungBis());
+            if (from.isAfter(to) || to.isAfter(from.plusMonths(11))
+                    || decision.zahlbetrag() == null || decision.zahlbetrag().signum() < 0
+                    || snapshot.ergebnis().bgId() != decision.bgId()
+                    || snapshot.ergebnis().zahlbetrag().compareTo(decision.zahlbetrag()) != 0) {
+                throw new IllegalArgumentException("Snapshot passt nicht zum Bescheid");
+            }
+            if (!snapshot.monate().isEmpty()) {
+                YearMonth expected = from;
+                for (var entry : snapshot.monate()) {
+                    if (expected.isAfter(to) || !entry.monat().equals(expected.toString())
+                            || entry.ergebnis().bgId() != decision.bgId()
+                            || entry.ergebnis().zahlbetrag().signum() < 0) {
+                        throw new IllegalArgumentException("Monatsplan ist unvollständig oder widersprüchlich");
+                    }
+                    expected = expected.plusMonths(1);
+                }
+                if (!expected.equals(to.plusMonths(1))) {
+                    throw new IllegalArgumentException("Monatsplan deckt Bewilligungszeitraum nicht ab");
+                }
+            }
+            return snapshot;
         } catch (IllegalArgumentException | NullPointerException e) {
             throw invalid("Gespeicherter Berechnungs-Snapshot ist beschädigt; fachliche Prüfung erforderlich");
         }

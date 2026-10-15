@@ -295,6 +295,11 @@ public final class AntragsSagaProzess {
         String sb = data.containsKey("sachbearbeiterId") ? (String) data.get("sachbearbeiterId") : "saga-engine";
         LocalDate bescheidDatum = LocalDate.now();
         String bescheidNr = "BESCH-" + aktenzeichen + "-" + bescheidDatum.getYear() + "-" + bescheidId;
+        var dokumentBg = new de.allgemein.lmg.dao.BedarfsgemeinschaftDao().finde(c, bgId)
+                .orElseThrow(() -> new SQLException("Gesperrter Vorgang fehlt"));
+        String snapshot = de.allgemein.lmg.service.BescheidDokument.snapshot(plan, dokumentBg,
+                bescheidId, bescheidNr, bescheidDatum, monatVon, monatBis, sb,
+                LmgConfig.load().rechtsbehelf());
 
         try (PreparedStatement stmt = c.prepareStatement(
                 "INSERT INTO BESCHEID (ID, BG_ID, BESCHEID_NR, BESCHEID_DATUM, BEWILLIGUNG_VON, BEWILLIGUNG_BIS, "
@@ -308,7 +313,7 @@ public final class AntragsSagaProzess {
             stmt.setString(6, monatBis);
             stmt.setBigDecimal(7, ergebnis.zahlbetrag());
             stmt.setString(8, sb);
-            stmt.setString(9, BerechnungsSnapshot.schreibe(plan));
+            stmt.setString(9, snapshot);
             stmt.executeUpdate();
         }
         schreibeJournal(c, bgId, "Bescheid " + bescheidNr + " ueber " + ergebnis.zahlbetrag() + " EUR erteilt", sb);

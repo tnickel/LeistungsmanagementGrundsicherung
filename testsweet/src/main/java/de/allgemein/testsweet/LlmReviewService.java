@@ -457,7 +457,7 @@ public final class LlmReviewService implements AutoCloseable {
         Path contractPath = tool.resolve("llm-response-contract.json");
         String contractText = readDocument(contractPath);
         responseContract = (Map<?, ?>) Json.parse(contractText);
-        if (!(responseContract.get("schemaVersion") instanceof Number version) || version.intValue() != 2)
+        if (!LlmAnswerValidator.schemaVersion2(responseContract.get("schemaVersion")))
             throw new IllegalArgumentException("Antwortvertrag Version 2 fehlt");
         Source positive = newestSource("POSITIV"), negative = newestSource("NEGATIV");
         List<ReviewCase> positiveOrder = new ArrayList<>(positive.cases());
@@ -814,8 +814,8 @@ public final class LlmReviewService implements AutoCloseable {
         Map<?, ?> manifest = (Map<?, ?>) Json.parse(manifestText);
         boolean terminal = Files.isRegularFile(directory.resolve("result.json"));
         Map<?, ?> result = (Map<?, ?>) Json.parse(readDocument(directory.resolve(terminal ? "result.json" : "status.json")));
-        if (!(manifest.get("schemaVersion") instanceof Number mv) || mv.intValue() != 2
-                || !(result.get("schemaVersion") instanceof Number rv) || rv.intValue() != 2
+        if (!LlmAnswerValidator.schemaVersion2(manifest.get("schemaVersion"))
+                || !LlmAnswerValidator.schemaVersion2(result.get("schemaVersion"))
                 || !Files.isRegularFile(directory.resolve("started.json"))
                 || !"LLM_REVIEW".equals(manifest.get("kind")) || !"LLM_REVIEW".equals(result.get("kind"))
                 || !manifest.get("reviewId").equals(result.get("reviewId")) || !manifest.get("model").equals(result.get("model"))
@@ -826,6 +826,7 @@ public final class LlmReviewService implements AutoCloseable {
         if (!manifest.get("reviewId").equals(start.get("reviewId")) || !manifest.get("model").equals(start.get("model"))) throw new IOException("Startnachweis passt nicht zur Prüfung");
         List<Map<String, Object>> allRequirements = (List<Map<String, Object>>) manifest.get("caseRequirements");
         responseContract = (Map<?, ?>) Json.parse(readDocument(directory.resolve("llm-response-contract.json")));
+        if (!LlmAnswerValidator.schemaVersion2(responseContract.get("schemaVersion"))) throw new IOException("Antwortvertrag Version 2 fehlt");
         verifyHash(directory, "llm-response-contract.json", String.valueOf(manifest.get("responseContractSha256")));
         verifyHash(root, "doc/testzertifikat-werkzeug/llm-response-contract.json", String.valueOf(manifest.get("responseContractSha256")));
         if (!(manifest.get("buildEvidence") instanceof Map<?, ?> evidence) || !buildVerifier.matches(evidence, root)) throw new IOException("Getesteter Software-/Buildstand hat sich geändert oder ist nicht belegt");

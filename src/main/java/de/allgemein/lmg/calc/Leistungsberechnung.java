@@ -20,7 +20,8 @@ import java.util.Map;
  *     Merkzeichen G        Abs. 1:  17 % des Regelbedarfs
  *     Schwangerschaft      Abs. 2:  17 % des Regelbedarfs (ab der 13. SSW — Erfassung als Flag)
  *     Alleinerziehend      Abs. 3:  36 % der RBS 1 (Kind &lt; 7 J. oder 2–3 Kinder &lt; 16 J.),
- *                                    sonst 12 % je minderjährigem Kind; Deckel 60 % der RBS 1
+ *                                    Vergleich mit 12 % je minderjährigem Kind: höherer Betrag,
+ *                                    Deckel 60 % der RBS 1 (kein abweichender Einzelfallbedarf)
  *     Obergrenze           Abs. 6:  Summe der Mehrbedarfe nach Abs. 1–5 höchstens der Regelbedarf
  *     Warmwasser (dezentral) Abs. 7: stufenabhängig 2,3 % / 2,3 % / – / 1,4 % / 1,2 % / 0,8 %
  *                                    (Stufen 1–6; für Stufe 3 sieht das Gesetz keinen Satz vor);
@@ -29,9 +30,9 @@ import java.util.Map;
  *                                    grenze gilt für die Summe der Bedarfsgemeinschaft
  *                                    gem. § 35 Abs. 7 (Karenzzeit/Absenkungsfrist sind nicht
  *                                    abgebildet); der Überschuss wird nicht anerkannt und
- *                                    gekennzeichnet (Übernahme unter Vorbehalt). Optionaler
- *                                    örtlicher Heizkosten-Abzug nur bei zentralem Warmwasser
- *                                    (Default 0 = aus)
+ *                                    gekennzeichnet (Übernahme unter Vorbehalt). Zentrale
+ *                                    Warmwasserkosten gehören zu den Heizkosten (Abs. 5),
+ *                                    ohne zusätzlichen Warmwasserabzug
  *   Einkommen § 82:
  *     Absetzbeträge        Abs. 2:  Steuern, Sozialversicherung, Versicherungen, Erwerbsaufwendungen
  *     Erwerbsfreibetrag    Abs. 3:  min(30 % Brutto-Erwerbseinkommen, 50 % der RBS 1)
@@ -65,7 +66,7 @@ public final class Leistungsberechnung {
     /** Mehrbedarf Alleinerziehende (§ 30 Abs. 3 SGB XII): 36 % bei Kind unter 7 bzw. 2–3 Kindern unter 16. */
     public static final BigDecimal MEHRBEDARF_ALLEINERZIEHEND_36 = new BigDecimal("0.36");
 
-    /** Mehrbedarf Alleinerziehende (§ 30 Abs. 3 SGB XII): 12 % je weiterem Kind unter 16. */
+    /** Vergleichsvariante Alleinerziehende (§ 30 Abs. 3 SGB XII): 12 % je minderjährigem Kind. */
     public static final BigDecimal MEHRBEDARF_ALLEINERZIEHEND_JE_KIND = new BigDecimal("0.12");
 
     /** Obergrenze Alleinerziehenden-Mehrbedarf (§ 30 Abs. 3 SGB XII): 60 % der Regelbedarfsstufe 1. */
@@ -102,7 +103,7 @@ public final class Leistungsberechnung {
 
     /**
      * Summierte Berechnung über alle SozialFälle einer Bedarfsgemeinschaft;
-     * die KdU-Parameter (Warmwasser-Abzug, Angemessenheitsgrenze) sind deaktiviert.
+     * die KdU-Angemessenheitsgrenze ist deaktiviert.
      * Nutzt die Seed-Referenz 2026 — Produktionsaufrufe übergeben den DB-Satzstand.
      */
     public static Berechnungsergebnis berechne(long bgId, List<SozialFall> faelle) {
@@ -192,21 +193,16 @@ public final class Leistungsberechnung {
         BigDecimal mehrbedarf = mehrbedarfAbs1bis5.add(mehrbedarfWarmwasser);
 
         BigDecimal kduRoh = fall.kduMiete().add(fall.kduBetriebskosten()).add(fall.kduHeizung());
-        // Optionaler örtlicher Abzug nur bei zentraler Warmwasserbereitung: nur dort stecken
-        // Warmwasserkosten in den Heizkosten (§ 35 Abs. 5). Bei dezentraler Erzeugung gilt
-        // stattdessen der Mehrbedarf nach § 30 Abs. 7 — ein Abzug wäre eine Doppelkürzung.
-        BigDecimal warmwasserAbzugKdu = !fall.warmwasser()
-                ? fall.kduHeizung().multiply(kduParameter.warmwasserAbzugHeizungProzent())
-                        .setScale(SCALE, RoundingMode.HALF_UP)
-                : BigDecimal.ZERO.setScale(SCALE);
-        BigDecimal kduOhneWarmwasser = kduRoh.subtract(warmwasserAbzugKdu).max(BigDecimal.ZERO)
-                .setScale(SCALE, RoundingMode.HALF_UP);
+        // § 35 Abs. 5 SGB XII schließt zentrale Warmwasserkosten in den Heizbedarf ein.
+        // Der frühere Abzugsparameter bleibt einlesbar, mindert aber keinen Bedarf mehr.
+        BigDecimal warmwasserAbzugKdu = BigDecimal.ZERO.setScale(SCALE);
+        BigDecimal kduVorGrenze = kduRoh.max(BigDecimal.ZERO).setScale(SCALE, RoundingMode.HALF_UP);
         // § 42a i.V.m. § 35 SGB XII: unangemessene Aufwendungen nur bis zur Grenze der
         // Bedarfsgemeinschaft; der Überschuss wird nicht als Bedarf anerkannt (Vorbehalt).
         BigDecimal kdu = kduRest == null
-                ? kduOhneWarmwasser
-                : kduOhneWarmwasser.min(kduRest.max(BigDecimal.ZERO));
-        boolean kduUnangemessen = kdu.compareTo(kduOhneWarmwasser) < 0;
+                ? kduVorGrenze
+                : kduVorGrenze.min(kduRest.max(BigDecimal.ZERO));
+        boolean kduUnangemessen = kdu.compareTo(kduVorGrenze) < 0;
 
         BigDecimal gesamtbedarf = regelbedarf.add(mehrbedarf).add(kdu);
 
@@ -226,8 +222,11 @@ public final class Leistungsberechnung {
 
     /**
      * Alleinerziehenden-Mehrbedarf (§ 30 Abs. 3 SGB XII), Bemessungsgrundlage ist stets die
-     * Regelbedarfsstufe 1: bei Kind unter 7 oder zwei/drei Kindern unter 16 einmal 36 %
-     * (Nr. 1), sonst 12 % je minderjährigem Kind (Nr. 2); gedeckelt auf 60 % der RBS 1.
+     * Regelbedarfsstufe 1: 36 % bei Kind unter 7 oder zwei/drei Kindern unter 16 (Nr. 1)
+     * werden mit 12 % je minderjährigem Kind (Nr. 2) verglichen; der höhere Betrag gilt,
+     * gedeckelt auf 60 %. Auslegung: Wissenschaftliche Dienste, WD 6-046/24, S. 8–11.
+     * Abweichender Einzelfallbedarf und die tatsächliche alleinige Erziehung sind hier
+     * nicht eigenständig modelliert; Kinderzahlen bilden die erfasste Standardkonstellation ab.
      */
     private static BigDecimal mehrbedarfAlleinerziehend(SozialFall fall, Satzstand satzstand) {
         int kinderU16 = Math.max(fall.anzKinderUnter16(), fall.anzKinderUnter7());
@@ -236,9 +235,8 @@ public final class Leistungsberechnung {
             return BigDecimal.ZERO.setScale(SCALE);
         }
         boolean nr1 = fall.anzKinderUnter7() >= 1 || (kinderU16 >= 2 && kinderU16 <= 3);
-        BigDecimal anteil = nr1
-                ? MEHRBEDARF_ALLEINERZIEHEND_36
-                : MEHRBEDARF_ALLEINERZIEHEND_JE_KIND.multiply(BigDecimal.valueOf(minderjaehrig));
+        BigDecimal anteil = MEHRBEDARF_ALLEINERZIEHEND_JE_KIND.multiply(BigDecimal.valueOf(minderjaehrig));
+        if (nr1) anteil = anteil.max(MEHRBEDARF_ALLEINERZIEHEND_36);
         BigDecimal rbs1 = satzstand.regelbedarf(1);
         BigDecimal betrag = rbs1.multiply(anteil).setScale(SCALE, RoundingMode.HALF_UP);
         BigDecimal deckel = rbs1.multiply(MEHRBEDARF_ALLEINERZIEHEND_DECKEL_RBS1)
@@ -278,12 +276,16 @@ public final class Leistungsberechnung {
         return anteilig.min(kappung);
     }
 
-    /** Örtliche Parameter der KdU-Prüfung (§ 42a i.V.m. § 35 SGB XII); Default: deaktiviert. */
+    /**
+     * Örtliche KdU-Grenze (§ 42a i.V.m. § 35 SGB XII); Default: deaktiviert.
+     * {@code warmwasserAbzugHeizungProzent} wird aus Kompatibilitätsgründen weiter
+     * angenommen und validiert, hat aber keine Rechenwirkung (§ 35 Abs. 5 SGB XII).
+     */
     public record KduParameter(
             BigDecimal warmwasserAbzugHeizungProzent,
             BigDecimal angemessenheitsgrenze) {
 
-        /** Prüfung deaktiviert: kein Warmwasser-Abzug, keine Angemessenheitsgrenze. */
+        /** Keine Angemessenheitsgrenze; der Altparameter Warmwasserabzug ist wirkungslos. */
         public static final KduParameter AUS =
                 new KduParameter(BigDecimal.ZERO, BigDecimal.ZERO);
 

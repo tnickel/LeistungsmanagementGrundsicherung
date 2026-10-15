@@ -138,7 +138,8 @@ public final class LmgServer implements AutoCloseable {
         // Einziger Endpunkt, der den Token aus dem Query-String akzeptiert:
         // window.open kann keinen Authorization-Header setzen. Alle anderen
         // Endpunkte lesen den Token ausschließlich aus dem Header.
-        Benutzer benutzer = benutzerAusHeaderOderQuery(exchange);
+        long bgId = Long.parseLong(pfad.split("/")[3]);
+        Benutzer benutzer = benutzerAusHeaderOderQuery(exchange, bgId);
         if (benutzer == null) {
             byte[] msg = "Nicht autorisiert. Bitte anmelden.".getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=utf-8");
@@ -150,8 +151,6 @@ public final class LmgServer implements AutoCloseable {
             }
             return;
         }
-        String[] teile = pfad.split("/");
-        long bgId = Long.parseLong(teile[3]);
         try {
             // Auch der Druck läuft als Task: Wachhund + begrenzte Parallelität greifen
             String html = tasks.submit("GET " + pfad, TxOptions.DEFAULT, ctx -> service.generiereBescheidHtml(bgId, benutzer.kennung()))
@@ -263,7 +262,7 @@ public final class LmgServer implements AutoCloseable {
     }
 
     /** Header vor Query-String (nur für den Druck-Link, s. bescheidDruck). */
-    private Benutzer benutzerAusHeaderOderQuery(HttpExchange exchange) {
+    private Benutzer benutzerAusHeaderOderQuery(HttpExchange exchange, long bgId) {
         String token = tokenAus(exchange.getRequestHeaders().getFirst("Authorization"));
         if (token != null) {
             return benutzerverwaltung.zuToken(token).orElse(null);
@@ -274,7 +273,7 @@ public final class LmgServer implements AutoCloseable {
                     // Query-Token nur noch als EINMALIGES Druck-Token (60 s, verbraucht
                     // sich beim Abruf — CR-027): Das Sitzungs-Token selbst landet damit
                     // nicht mehr in URLs, Browser-Historie oder Bookmarks.
-                    return benutzerverwaltung.verbraucheDruckToken(part.substring("token=".length()))
+                    return benutzerverwaltung.verbraucheDruckToken(part.substring("token=".length()), bgId)
                             .orElse(null);
                 }
             }
@@ -293,7 +292,12 @@ public final class LmgServer implements AutoCloseable {
     private static boolean brauchtAdmin(String pfad) {
         return pfad.startsWith("/api/system/")
                 || pfad.equals("/api/kassenlauf")
-                || pfad.matches("/api/zahlungen/\\d+/storno");
+                || istZahlungsAktion(pfad.split("/"), "storno");
+    }
+
+    /** Dieselbe Routenstruktur für Berechtigungsprüfung und Handler, unabhängig von ID-Schreibweisen. */
+    private static boolean istZahlungsAktion(String[] teile, String aktion) {
+        return teile.length == 5 && teile[2].equals("zahlungen") && teile[4].equals(aktion);
     }
 
     private Map<String, Object> bearbeiteApi(HttpExchange exchange, String methode, String pfad,
@@ -320,7 +324,10 @@ public final class LmgServer implements AutoCloseable {
             // Einmal-Token für den Bescheid-Druck (CR-027): window.open kann keinen
             // Authorization-Header setzen; das Kurzzeit-Token ersetzt das Sitzungs-
             // Token in der URL und verbraucht sich beim ersten Abruf.
-            return Map.of("drucktoken", benutzerverwaltung.erzeugeDruckToken(angemeldet));
+            Map<String, Object> body = leseKoerper(exchange);
+            return Map.of("drucktoken", benutzerverwaltung.erzeugeDruckToken(
+                    tokenAus(exchange.getRequestHeaders().getFirst("Authorization")),
+                    zahlWert(body.get("bgId"), "bgId")));
         }
         if (pfad.equals("/api/bedarfsgemeinschaften") && "GET".equals(methode)) {
             return Map.of("eintraege", listeMap(service.listeBedarfsgemeinschaften()));
@@ -475,8 +482,12 @@ public final class LmgServer implements AutoCloseable {
             return Map.of("zahlung", zahlungMap(freigegeben),
                     "hinweis", "Zahlung freigegeben (Status: BEREIT, rechnerisch festgestellt).");
         }
-        if (teile.length == 5 && teile[2].equals("zahlungen") && teile[4].equals("storno")
-                && "POST".equals(methode)) {
+        if (istZahlungsAktion(teile, "storno") && "POST".equals(methode)) {
+            // Sicherheitsgrenze direkt am erreichbaren Schreibhandler; keine Regex-Parität voraussetzen.
+            if (!angemeldet.istAdmin()) {
+                throw new FachlicheException(FachlicheException.BERECHTIGUNG,
+                        "Diese Funktion erfordert die Admin-Rolle");
+            }
             Zahlung storniert = service.storniereZahlung(Long.parseLong(teile[3]), angemeldet.kennung());
             return Map.of("zahlung", zahlungMap(storniert),
                     "hinweis", "Zahlung storniert, Restbudget erhöht.");

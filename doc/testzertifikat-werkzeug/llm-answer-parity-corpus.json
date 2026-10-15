@@ -1,0 +1,353 @@
+{
+  "expectedCaseIds": [
+    "C1"
+  ],
+  "requirements": [
+    {
+      "caseId": "C1",
+      "calculations": [
+        {
+          "blockId": "B1",
+          "persons": [
+            {
+              "personId": "p1",
+              "values": {
+                "betrag": "563.00"
+              }
+            }
+          ],
+          "household": {
+            "summe": "563.00"
+          }
+        }
+      ],
+      "checkIds": [
+        "V1"
+      ],
+      "sourceFindings": [],
+      "missingInputs": []
+    }
+  ],
+  "fixtures": [
+    {
+      "name": "raw-json",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": true,
+      "state": "PASS"
+    },
+    {
+      "name": "ascii-whitespace",
+      "content": " \t\r\n{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}\r\n ",
+      "accepted": true,
+      "state": "PASS"
+    },
+    {
+      "name": "markdown-json",
+      "content": "```json\n{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}\n```",
+      "accepted": false
+    },
+    {
+      "name": "markdown-plain",
+      "content": "```\n{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}\n```",
+      "accepted": false
+    },
+    {
+      "name": "prefix-text",
+      "content": "Antwort: {\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": false
+    },
+    {
+      "name": "suffix-text",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]} Ende",
+      "accepted": false
+    },
+    {
+      "name": "second-document",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]} {}",
+      "accepted": false
+    },
+    {
+      "name": "fraction-version",
+      "content": "{\"schemaVersion\":2.9,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": false
+    },
+    {
+      "name": "rounded-fraction-version",
+      "content": "{\"schemaVersion\":2.0000000000000000001,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": false
+    },
+    {
+      "name": "decimal-version-two",
+      "content": "{\"schemaVersion\":2.0,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": true,
+      "state": "PASS"
+    },
+    {
+      "name": "exponent-version-two",
+      "content": "{\"schemaVersion\":2e0,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": true,
+      "state": "PASS"
+    },
+    {
+      "name": "string-version",
+      "content": "{\"schemaVersion\":\"2\",\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": false
+    },
+    {
+      "name": "missing-version",
+      "content": "{\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": false
+    },
+    {
+      "name": "duplicate-root-key",
+      "content": "{\"schemaVersion\":1,\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": false
+    },
+    {
+      "name": "escaped-duplicate-key",
+      "content": "{\"schemaVersion\":2,\"schema\\u0056ersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": false
+    },
+    {
+      "name": "duplicate-nested-key",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"0.00\",\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": false
+    },
+    {
+      "name": "duplicate-case-id",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\",\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": false
+    },
+    {
+      "name": "missing-check",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[]}]}",
+      "accepted": false
+    },
+    {
+      "name": "missing-calculation-field",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": false
+    },
+    {
+      "name": "additional-calculation-field",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\",\"extra\":\"0.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": false
+    },
+    {
+      "name": "null-value",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":null}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": false
+    },
+    {
+      "name": "boolean-value",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":true}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": false
+    },
+    {
+      "name": "integer-money",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":563}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": true,
+      "state": "PASS"
+    },
+    {
+      "name": "two-decimal-money",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":563.00}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": true,
+      "state": "PASS"
+    },
+    {
+      "name": "three-decimal-money",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":563.000}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": false
+    },
+    {
+      "name": "nonplain-exponent-money",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":1e2}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": false
+    },
+    {
+      "name": "plain-exponent-money",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":1e-2}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": true,
+      "state": "PASS",
+      "requirements": [
+        {
+          "caseId": "C1",
+          "calculations": [
+            {
+              "blockId": "B1",
+              "persons": [
+                {
+                  "personId": "p1",
+                  "values": {
+                    "betrag": "0.01"
+                  }
+                }
+              ],
+              "household": {
+                "summe": "563.00"
+              }
+            }
+          ],
+          "checkIds": [
+            "V1"
+          ],
+          "sourceFindings": [],
+          "missingInputs": []
+        }
+      ]
+    },
+    {
+      "name": "large-exact-numeric-money",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":9007199254740993}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": true,
+      "state": "PASS",
+      "requirements": [
+        {
+          "caseId": "C1",
+          "calculations": [
+            {
+              "blockId": "B1",
+              "persons": [
+                {
+                  "personId": "p1",
+                  "values": {
+                    "betrag": "9007199254740993"
+                  }
+                }
+              ],
+              "household": {
+                "summe": "563.00"
+              }
+            }
+          ],
+          "checkIds": [
+            "V1"
+          ],
+          "sourceFindings": [],
+          "missingInputs": []
+        }
+      ]
+    },
+    {
+      "name": "negative-zero-money",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":-0.00}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": true,
+      "state": "PASS",
+      "requirements": [
+        {
+          "caseId": "C1",
+          "calculations": [
+            {
+              "blockId": "B1",
+              "persons": [
+                {
+                  "personId": "p1",
+                  "values": {
+                    "betrag": "0.00"
+                  }
+                }
+              ],
+              "household": {
+                "summe": "563.00"
+              }
+            }
+          ],
+          "checkIds": [
+            "V1"
+          ],
+          "sourceFindings": [],
+          "missingInputs": []
+        }
+      ]
+    },
+    {
+      "name": "arithmetic-mismatch",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"562.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": true,
+      "state": "UNVERIFIED"
+    },
+    {
+      "name": "explicit-fail",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"FAIL\",\"findings\":[\"Befund\"],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": true,
+      "state": "FAIL"
+    },
+    {
+      "name": "explicit-unverified",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"UNVERIFIED\",\"findings\":[\"Daten fehlen\"],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": true,
+      "state": "UNVERIFIED"
+    },
+    {
+      "name": "contradictory-pass-findings",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[\"Befund bleibt erhalten\"],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": true,
+      "state": "FAIL"
+    },
+    {
+      "name": "workflow-fail",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"FAIL\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": true,
+      "state": "FAIL"
+    },
+    {
+      "name": "workflow-unverified",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"UNVERIFIED\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": true,
+      "state": "UNVERIFIED"
+    },
+    {
+      "name": "fail-without-findings",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"FAIL\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": false
+    },
+    {
+      "name": "blank-reasoning",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\" \",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\" \"}]}]}",
+      "accepted": false
+    },
+    {
+      "name": "valid-surrogate-pair",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft \\ud83d\\ude00\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft \\ud83d\\ude00\"}]}]}",
+      "accepted": true,
+      "state": "PASS"
+    },
+    {
+      "name": "unpaired-high-surrogate",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"\\ud800\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"\\ud800\"}]}]}",
+      "accepted": false
+    },
+    {
+      "name": "unpaired-low-surrogate",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"\\udc00\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"\\udc00\"}]}]}",
+      "accepted": false
+    },
+    {
+      "name": "exponent-limit",
+      "content": "{\"extra\":1e1000,\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": false
+    },
+    {
+      "name": "digit-limit",
+      "content": "{\"extra\":11111111111111111111111111111111111111111111111111111111111111111,\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": false
+    },
+    {
+      "name": "depth-limit",
+      "content": "{\"extra\":[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[0]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]],\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"geprueft\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"geprueft\"}]}]}",
+      "accepted": false
+    },
+    {
+      "name": "java-nonbreaking-space",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"\\u00a0\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"\\u00a0\"}]}]}",
+      "accepted": true,
+      "state": "PASS"
+    },
+    {
+      "name": "java-whitespace-separator",
+      "content": "{\"schemaVersion\":2,\"caseIds\":[\"C1\"],\"cases\":[{\"caseId\":\"C1\",\"verdict\":\"PASS\",\"findings\":[],\"reasoning\":\"\\u001c\",\"calculations\":[{\"blockId\":\"B1\",\"persons\":[{\"personId\":\"p1\",\"values\":{\"betrag\":\"563.00\"}}],\"household\":{\"summe\":\"563.00\"}}],\"checks\":[{\"checkId\":\"V1\",\"verdict\":\"PASS\",\"reasoning\":\"\\u001c\"}]}]}",
+      "accepted": false
+    }
+  ]
+}

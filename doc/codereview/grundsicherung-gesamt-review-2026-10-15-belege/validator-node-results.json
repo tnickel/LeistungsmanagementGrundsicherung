@@ -1,0 +1,16 @@
+[
+  {
+    "name": "raw",
+    "accepted": true
+  },
+  {
+    "name": "markdown-fence",
+    "accepted": false,
+    "error": "Unexpected token '`', \"```json\n{\"\"... is not valid JSON"
+  },
+  {
+    "name": "fractional-version",
+    "accepted": false,
+    "error": "Unvollständige strukturierte Fallabdeckung (Schema 2 erforderlich)"
+  }
+]

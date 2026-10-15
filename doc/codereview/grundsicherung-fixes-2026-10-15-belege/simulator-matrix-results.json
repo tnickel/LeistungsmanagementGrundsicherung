@@ -1,0 +1,86 @@
+[
+  {
+    "mode": "web",
+    "category": "POSITIV",
+    "employees": 3,
+    "configuredOrders": 60,
+    "seed": 20261015,
+    "startedAt": "2026-10-15T11:51:18.9629932+02:00",
+    "finishedAt": "2026-10-15T11:53:40.5560558+02:00",
+    "exitCode": 0,
+    "log": "web-POSITIV.log",
+    "schema": "FIX_20261015"
+  },
+  {
+    "mode": "web",
+    "category": "NEGATIV",
+    "employees": 3,
+    "configuredOrders": 60,
+    "seed": 20261015,
+    "startedAt": "2026-10-15T11:53:40.5575626+02:00",
+    "finishedAt": "2026-10-15T11:55:30.7805797+02:00",
+    "exitCode": 0,
+    "log": "web-NEGATIV.log",
+    "schema": "FIX_20261015"
+  },
+  {
+    "mode": "web",
+    "category": "LAST",
+    "employees": 3,
+    "configuredOrders": 30,
+    "seed": 20261015,
+    "startedAt": "2026-10-15T11:55:30.7818903+02:00",
+    "finishedAt": "2026-10-15T11:56:31.3095518+02:00",
+    "exitCode": 0,
+    "log": "web-LAST.log",
+    "schema": "FIX_20261015"
+  },
+  {
+    "mode": "run",
+    "category": "POSITIV",
+    "employees": 8,
+    "configuredOrders": 500,
+    "seed": 20261015,
+    "startedAt": "2026-10-15T11:56:31.3110348+02:00",
+    "finishedAt": "2026-10-15T11:56:42.1068500+02:00",
+    "exitCode": 0,
+    "log": "run-POSITIV.log",
+    "schema": "FIX_20261015"
+  },
+  {
+    "mode": "run",
+    "category": "NEGATIV",
+    "employees": 8,
+    "configuredOrders": 500,
+    "seed": 20261015,
+    "startedAt": "2026-10-15T11:56:42.1083552+02:00",
+    "finishedAt": "2026-10-15T11:56:51.8550321+02:00",
+    "exitCode": 0,
+    "log": "run-NEGATIV.log",
+    "schema": "FIX_20261015"
+  },
+  {
+    "mode": "run",
+    "category": "LAST",
+    "employees": 8,
+    "configuredOrders": 120,
+    "seed": 20261015,
+    "startedAt": "2026-10-15T11:56:51.8567174+02:00",
+    "finishedAt": "2026-10-15T11:56:55.5298403+02:00",
+    "exitCode": 0,
+    "log": "run-LAST.log",
+    "schema": "FIX_20261015"
+  },
+  {
+    "mode": "run",
+    "category": "STRESS",
+    "employees": 4,
+    "configuredOrders": 21,
+    "seed": 20261015,
+    "startedAt": "2026-10-15T11:56:55.5311276+02:00",
+    "finishedAt": "2026-10-15T11:56:59.1669398+02:00",
+    "exitCode": 0,
+    "log": "run-STRESS.log",
+    "schema": "FIX_20261015"
+  }
+]

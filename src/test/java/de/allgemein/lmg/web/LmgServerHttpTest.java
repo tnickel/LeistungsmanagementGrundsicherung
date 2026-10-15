@@ -163,9 +163,15 @@ class LmgServerHttpTest {
             throw new UnsupportedOperationException();
         }
 
+        final java.util.concurrent.atomic.AtomicInteger stornoAufrufe = new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.atomic.AtomicInteger druckAufrufe = new java.util.concurrent.atomic.AtomicInteger();
+
         @Override
         public Zahlung storniereZahlung(long zahlungId, String sachbearbeiterId) {
-            throw new UnsupportedOperationException();
+            stornoAufrufe.incrementAndGet();
+            return new Zahlung(zahlungId, 1, null, "HTTP-TEST-1", "2026-10",
+                    java.math.BigDecimal.TEN, "STORNIERT", Instant.now(), sachbearbeiterId, "sb-y",
+                    "DE89370400440532013000", "MARKDEF1100", "Max Mustermann");
         }
 
         @Override
@@ -191,6 +197,7 @@ class LmgServerHttpTest {
 
         @Override
         public String generiereBescheidHtml(long bgId, String sachbearbeiterId) {
+            druckAufrufe.incrementAndGet();
             return "<html><body><h1>Bescheid-Test</h1></body></html>";
         }
     }
@@ -201,6 +208,8 @@ class LmgServerHttpTest {
     private HttpClient client;
     private String basis;
     private ServiceFake serviceFake;
+    private Benutzerverwaltung benutzerverwaltung;
+    private static final Instant AUTH_ZEIT = Instant.parse("2026-10-15T10:00:00Z");
 
     @BeforeEach
     void aufbauen() throws IOException {
@@ -208,8 +217,9 @@ class LmgServerHttpTest {
         TxManager txManager = new TxManager(pool);
         tasks = new TaskController(txManager, 4, 50);
         Systemdiagnose diagnose = new Systemdiagnose(txManager, tasks, null, Instant.now());
-        Benutzerverwaltung benutzerverwaltung = new Benutzerverwaltung(
-                "admin-01:admin:admin;sb-01:sb-01:sachbearbeiter", Duration.ofMinutes(60));
+        benutzerverwaltung = new Benutzerverwaltung(
+                "admin-01:admin:admin;sb-01:sb-01:sachbearbeiter", Duration.ofSeconds(30));
+        benutzerverwaltung.setzeUhrFuerTests(java.time.Clock.fixed(AUTH_ZEIT, java.time.ZoneOffset.UTC));
         serviceFake = new ServiceFake();
         server = new LmgServer(tasks, serviceFake, diagnose, null, benutzerverwaltung, 0);
         server.start();
@@ -273,6 +283,21 @@ class LmgServerHttpTest {
                 "/api/zahlungen/7/storno//", "/api/kassenlauf/", "/api/system/status/")) {
             assertEquals(403, sende("POST", pfad, "{}", token).statusCode(), pfad);
         }
+    }
+
+    @Test
+    void alternativeStornoIdsErreichenAlsSachbearbeiterNiemalsDenService() {
+        String token = meldeAn("sb-01", "sb-01");
+        for (String id : List.of("7", "+7", "%2B7", "%D9%A7", "0007", "-7")) {
+            for (String ende : List.of("", "/", "//")) {
+                assertEquals(403, sende("POST", "/api/zahlungen/" + id + "/storno" + ende,
+                        "{}", token).statusCode(), id + ende);
+            }
+        }
+        assertEquals(0, serviceFake.stornoAufrufe.get(), "keine unzulässige Fachoperation");
+        String admin = meldeAn("admin-01", "admin");
+        assertEquals(200, sende("POST", "/api/zahlungen/7/storno", "{}", admin).statusCode());
+        assertEquals(1, serviceFake.stornoAufrufe.get(), "Admin-Storno funktioniert weiterhin");
     }
 
     @Test
@@ -361,7 +386,7 @@ class LmgServerHttpTest {
     @Test
     void druckTokenGiltGenauEinmalUndFremdeTokenBleibenDraussen() {
         String token = meldeAn("sb-01", "sb-01");
-        HttpResponse<String> tokenAntwort = sende("POST", "/api/drucktoken", "{}", token);
+        HttpResponse<String> tokenAntwort = sende("POST", "/api/drucktoken", "{\"bgId\":1}", token);
         assertEquals(200, tokenAntwort.statusCode());
         Map<?, ?> body = (Map<?, ?>) Json.parse(tokenAntwort.body());
         String druckToken = String.valueOf(body.get("drucktoken"));
@@ -383,6 +408,62 @@ class LmgServerHttpTest {
         assertEquals("no-store", sende("GET",
                 "/api/bedarfsgemeinschaften/1/bescheid/druck?token=ungueltig", null, null)
                 .headers().firstValue("Cache-Control").orElse(""));
+    }
+
+    private String druckToken(String sitzung, long bgId) {
+        HttpResponse<String> antwort = sende("POST", "/api/drucktoken",
+                "{\"bgId\":" + bgId + "}", sitzung);
+        assertEquals(200, antwort.statusCode());
+        return String.valueOf(((Map<?, ?>) Json.parse(antwort.body())).get("drucktoken"));
+    }
+
+    @Test
+    void druckTokenNachLogoutOderIdleLiefertKeineBescheiddaten() {
+        String sitzung = meldeAn("sb-01", "sb-01");
+        String druck = druckToken(sitzung, 1);
+        assertEquals(200, sende("POST", "/api/abmeldung", "{}", sitzung).statusCode());
+        assertEquals(401, sende("GET", "/api/bedarfsgemeinschaften/1/bescheid/druck?token=" + druck,
+                null, null).statusCode());
+        sitzung = meldeAn("sb-01", "sb-01");
+        druck = druckToken(sitzung, 1);
+        benutzerverwaltung.setzeUhrFuerTests(java.time.Clock.fixed(AUTH_ZEIT.plusSeconds(30),
+                java.time.ZoneOffset.UTC));
+        assertEquals(401, sende("GET", "/api/bedarfsgemeinschaften/1/bescheid/druck?token=" + druck,
+                null, null).statusCode());
+        assertEquals(0, serviceFake.druckAufrufe.get());
+    }
+
+    @Test
+    void druckTokenIstAnDieAngeforderteBgGebunden() {
+        String sitzung = meldeAn("sb-01", "sb-01");
+        String druck = druckToken(sitzung, 1);
+        assertEquals(401, sende("GET", "/api/bedarfsgemeinschaften/2/bescheid/druck?token=" + druck,
+                null, null).statusCode());
+        assertEquals(0, serviceFake.druckAufrufe.get());
+        assertEquals(401, sende("GET", "/api/bedarfsgemeinschaften/1/bescheid/druck?token=" + druck,
+                null, null).statusCode(), "falsches Ziel verbraucht das Token ebenfalls");
+    }
+
+    @Test
+    void druckTokenBodyMussEinePositiveGanzzahlBgIdEnthalten() {
+        String sitzung = meldeAn("sb-01", "sb-01");
+        for (String body : List.of("", "{}", "{\"bgId\":0}", "{\"bgId\":-1}",
+                "{\"bgId\":1.5}", "{\"bgId\":\"1\"}")) {
+            assertEquals(400, sende("POST", "/api/drucktoken", body, sitzung).statusCode(), body);
+        }
+    }
+
+    @Test
+    void druckHeaderVerwendetAktiveSitzungUndQueryNurEinmalToken() {
+        String sitzung = meldeAn("sb-01", "sb-01");
+        String pfad = "/api/bedarfsgemeinschaften/1/bescheid/druck";
+        assertEquals(200, sende("GET", pfad, null, sitzung).statusCode());
+        assertEquals(401, sende("GET", pfad + "?token=" + sitzung, null, null).statusCode());
+        String druck = druckToken(sitzung, 1);
+        assertEquals(401, sende("GET", pfad + "?token=" + druck, null, "ungueltig").statusCode(),
+                "ungültiger Header wird nicht durch ein Querytoken ersetzt");
+        assertEquals(200, sende("GET", pfad + "?token=" + druck, null, null).statusCode());
+        assertEquals(2, serviceFake.druckAufrufe.get());
     }
 
     @Test

@@ -1,0 +1,71 @@
+{
+  "verdict": "NICHT BESTANDEN",
+  "layers": [
+    {
+      "id": "JUNIT:main",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "JUNIT:testsweet",
+      "state": "UNVERIFIED",
+      "reasons": [
+        "testsweet/target/test-evidence-history/cc90f473-5f98-41db-b1dd-7c6d5d05f037/TEST-de.allgemein.testsweet.LlmAnswerParityTest.xml: Doppelte JUnit Einzeltests",
+        "JUnit-Testklasseninventar ist unvollständig/unerwartet"
+      ]
+    },
+    {
+      "id": "FACH:POSITIV",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "FACH:NEGATIV",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "FACH:LAST",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "FACH:STRESS",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "WEB:POSITIV",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "WEB:NEGATIV",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "WEB:LAST",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "GLM",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "BUILD",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "CERTIFICATE_SUITE",
+      "state": "FAIL",
+      "reasons": [
+        "Quellen wurden seit Start der Zertifikats-Suite geändert",
+        "Zertifikats-Suite fehlgeschlagen oder abgebrochen"
+      ]
+    }
+  ]
+}

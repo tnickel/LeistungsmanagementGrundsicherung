@@ -8,6 +8,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -91,18 +92,20 @@ class BenutzerverwaltungZeitTest {
     void druckTokenGiltGenauEinmal() {
         BeweglicheUhr uhr = new BeweglicheUhr();
         Benutzerverwaltung verwaltung = verwaltungMitUhr(uhr);
-        String druck = verwaltung.erzeugeDruckToken(new Benutzer("sb-01", "sachbearbeiter"));
-        assertTrue(verwaltung.verbraucheDruckToken(druck).isPresent());
-        assertFalse(verwaltung.verbraucheDruckToken(druck).isPresent(), "One-time: second call empty");
+        String sitzung = verwaltung.anmelden("sb-01", "sb-01");
+        String druck = verwaltung.erzeugeDruckToken(sitzung, 7);
+        assertTrue(verwaltung.verbraucheDruckToken(druck, 7).isPresent());
+        assertFalse(verwaltung.verbraucheDruckToken(druck, 7).isPresent(), "Einmaliger Abruf");
     }
 
     @Test
     void druckTokenEndetNachSechzigSekunden() {
         BeweglicheUhr uhr = new BeweglicheUhr();
         Benutzerverwaltung verwaltung = verwaltungMitUhr(uhr);
-        String druck = verwaltung.erzeugeDruckToken(new Benutzer("sb-01", "sachbearbeiter"));
-        uhr.plus(Duration.ofSeconds(61));
-        assertFalse(verwaltung.verbraucheDruckToken(druck).isPresent(), "abgelaufen");
+        String sitzung = verwaltung.anmelden("sb-01", "sb-01");
+        String druck = verwaltung.erzeugeDruckToken(sitzung, 7);
+        uhr.plus(Duration.ofSeconds(60));
+        assertFalse(verwaltung.verbraucheDruckToken(druck, 7).isPresent(), "am Fristende abgelaufen");
     }
 
     @Test
@@ -121,6 +124,85 @@ class BenutzerverwaltungZeitTest {
                 () -> verwaltung.anmelden("sb-01", "sb-01"));
         assertTrue(gesperrt.getMessage().contains("Zu viele fehlgeschlagene"),
                 "die Sperre darf durch Phantom-Kennungen nicht verdrängt werden");
+    }
+
+    @Test
+    void vollePhantomSperrmapVerhindertKeineNeueSperreFuerEinEchtesKonto() throws Exception {
+        BeweglicheUhr uhr = new BeweglicheUhr();
+        Benutzerverwaltung verwaltung = verwaltungMitUhr(uhr);
+        for (int i = 0; i < 1024; i++) {
+            String kennung = "phantom-" + i;
+            for (int j = 0; j < 5; j++) {
+                assertThrows(FachlicheException.class, () -> verwaltung.anmelden(kennung, "x"));
+            }
+        }
+        for (int i = 0; i < 5; i++) {
+            assertThrows(FachlicheException.class, () -> verwaltung.anmelden("sb-01", "falsch"));
+        }
+        FachlicheException gesperrt = assertThrows(FachlicheException.class,
+                () -> verwaltung.anmelden("sb-01", "sb-01"));
+        assertTrue(gesperrt.getMessage().contains("Zu viele fehlgeschlagene"));
+        assertTrue(verwaltung.anmelden("admin-01", "admin") != null);
+        assertTrue(assertThrows(FachlicheException.class,
+                () -> verwaltung.anmelden("phantom-0", "x")).getMessage().contains("Zu viele"),
+                "bestehende aktive Phantomsperren bleiben erhalten");
+        var feld = Benutzerverwaltung.class.getDeclaredField("fehlversuche");
+        feld.setAccessible(true);
+        assertEquals(1024, ((java.util.Map<?, ?>) feld.get(verwaltung)).size(),
+                "der Phantom-Speicher bleibt begrenzt");
+        var kontofeld = Benutzerverwaltung.class.getDeclaredField("kontoFehlversuche");
+        kontofeld.setAccessible(true);
+        assertEquals(1, ((java.util.Map<?, ?>) kontofeld.get(verwaltung)).size(),
+                "echte Zähler wachsen höchstens mit den konfigurierten Konten");
+        uhr.plus(Duration.ofSeconds(30));
+        assertTrue(verwaltung.anmelden("sb-01", "sb-01") != null, "Sperre endet regulär");
+    }
+
+    @Test
+    void druckTokenIstAnZielBgGebundenUndFehlversuchVerbrauchtEs() {
+        Benutzerverwaltung verwaltung = verwaltungMitUhr(new BeweglicheUhr());
+        String sitzung = verwaltung.anmelden("sb-01", "sb-01");
+        String druck = verwaltung.erzeugeDruckToken(sitzung, 7);
+        assertFalse(verwaltung.verbraucheDruckToken(druck, 8).isPresent());
+        assertFalse(verwaltung.verbraucheDruckToken(druck, 7).isPresent());
+    }
+
+    @Test
+    void logoutWiderruftNurDruckTokenDerHerkunftssitzung() {
+        Benutzerverwaltung verwaltung = verwaltungMitUhr(new BeweglicheUhr());
+        String ersteSitzung = verwaltung.anmelden("sb-01", "sb-01");
+        String zweiteSitzung = verwaltung.anmelden("sb-01", "sb-01");
+        String ersterDruck = verwaltung.erzeugeDruckToken(ersteSitzung, 7);
+        String zweiterDruck = verwaltung.erzeugeDruckToken(zweiteSitzung, 7);
+        verwaltung.abmelden(ersteSitzung);
+        verwaltung.anmelden("sb-01", "sb-01");
+        assertFalse(verwaltung.verbraucheDruckToken(ersterDruck, 7).isPresent(),
+                "erneute Anmeldung darf ein widerrufenes Token nicht reaktivieren");
+        assertTrue(verwaltung.verbraucheDruckToken(zweiterDruck, 7).isPresent());
+    }
+
+    @Test
+    void druckTokenPrueftIdleAuchVorAblaufSeinerEigenenFrist() {
+        BeweglicheUhr uhr = new BeweglicheUhr();
+        Benutzerverwaltung verwaltung = new Benutzerverwaltung("sb-01:sb-01:sachbearbeiter",
+                Duration.ofSeconds(30));
+        verwaltung.setzeUhrFuerTests(uhr);
+        String sitzung = verwaltung.anmelden("sb-01", "sb-01");
+        String druck = verwaltung.erzeugeDruckToken(sitzung, 7);
+        uhr.plus(Duration.ofSeconds(30));
+        assertFalse(verwaltung.verbraucheDruckToken(druck, 7).isPresent(),
+                "Sitzung ist nach 30s idle, obwohl die Drucktokenfrist 60s beträgt");
+        assertFalse(verwaltung.zuToken(sitzung).isPresent());
+    }
+
+    @Test
+    void druckTokenErfordertAktiveSitzungUndPositiveBgId() {
+        Benutzerverwaltung verwaltung = verwaltungMitUhr(new BeweglicheUhr());
+        assertThrows(FachlicheException.class, () -> verwaltung.erzeugeDruckToken("unbekannt", 7));
+        String sitzung = verwaltung.anmelden("sb-01", "sb-01");
+        assertThrows(IllegalArgumentException.class, () -> verwaltung.erzeugeDruckToken(sitzung, 0));
+        verwaltung.abmelden(sitzung);
+        assertThrows(FachlicheException.class, () -> verwaltung.erzeugeDruckToken(sitzung, 7));
     }
 
     @Test

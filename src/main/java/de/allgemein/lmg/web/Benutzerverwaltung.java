@@ -47,12 +47,14 @@ public final class Benutzerverwaltung {
     private record Fehlversuche(int anzahl, Instant gesperrtBis) {
     }
 
-    private record DruckToken(Benutzer benutzer, Instant faelltAb) {
+    private record DruckToken(String sitzungsToken, long bgId, Instant faelltAb) {
     }
 
     private final Map<String, Konto> konten = new LinkedHashMap<>();
     private final Map<String, Sitzung> sitzungen = new ConcurrentHashMap<>();
+    /** Phantomkennungen sind gedeckelt; echte Konten haben davon unabhängige Zähler. */
     private final Map<String, Fehlversuche> fehlversuche = new ConcurrentHashMap<>();
+    private final Map<String, Fehlversuche> kontoFehlversuche = new ConcurrentHashMap<>();
     private final Map<String, DruckToken> druckTokens = new ConcurrentHashMap<>();
     private final Duration idleTimeout;
 
@@ -95,38 +97,42 @@ public final class Benutzerverwaltung {
     }
 
     /** Prüft Kennung und Passwort; liefert ein Sitzungs-Token oder bricht fachlich ab. */
-    public String anmelden(String kennung, String passwort) {
+    public synchronized String anmelden(String kennung, String passwort) {
         String bereinigt = kennung == null ? "" : kennung.trim();
         // Schlüssel der Drosselung begrenzen: beliebig lange Eingaben dürfen den Speicher nicht füllen
         String schluessel = bereinigt.length() > MAX_KENNUNG_LAENGE
                 ? bereinigt.substring(0, MAX_KENNUNG_LAENGE) : bereinigt;
-        Fehlversuche bisher = fehlversuche.get(schluessel);
+        Konto konto = bereinigt.isEmpty() ? null : konten.get(bereinigt);
+        Map<String, Fehlversuche> zaehler = konto == null ? fehlversuche : kontoFehlversuche;
+        // Konfigurierte Konten nicht auf einen Phantomschlüssel verkürzen.
+        if (konto != null) schluessel = bereinigt;
+        Fehlversuche bisher = zaehler.get(schluessel);
         if (bisher != null && bisher.gesperrtBis() != null && uhr.instant().isBefore(bisher.gesperrtBis())) {
             throw new FachlicheException(FachlicheException.VALIDATION,
                     "Zu viele fehlgeschlagene Anmeldeversuche — bitte kurz warten");
         }
-        Konto konto = bereinigt.isEmpty() ? null : konten.get(bereinigt);
         if (konto == null || !passwortGleich(konto.passwort(), passwort)) {
-            registriereFehlversuch(schluessel);
+            registriereFehlversuch(schluessel, zaehler);
             // Identische Meldung für unbekannte Kennung und falsches Passwort
             throw new FachlicheException(FachlicheException.VALIDATION, "Kennung oder Passwort ist falsch");
         }
-        fehlversuche.remove(schluessel);
+        zaehler.remove(schluessel);
         raeumeSitzungenAuf();
         String token = UUID.randomUUID().toString();
         sitzungen.put(token, new Sitzung(new Benutzer(bereinigt, konto.rolle()), uhr.instant()));
         return token;
     }
 
-    /** Zählt atomar einen Fehlversuch; aktive Sperren werden nie verdrängt. */
-    private void registriereFehlversuch(String schluessel) {
-        if (!fehlversuche.containsKey(schluessel) && fehlversuche.size() >= MAX_FEHLVERSUCH_EINTRAEGE) {
+    /** Aufruf unter dem Anmeldemonitor: Deckel und Zähler gelten auch bei parallelen Requests. */
+    private void registriereFehlversuch(String schluessel, Map<String, Fehlversuche> zaehler) {
+        if (zaehler == fehlversuche && !fehlversuche.containsKey(schluessel)
+                && fehlversuche.size() >= MAX_FEHLVERSUCH_EINTRAEGE) {
             raumeFehlversucheAuf();
             if (fehlversuche.size() >= MAX_FEHLVERSUCH_EINTRAEGE) {
-                return; // nur noch aktive Sperren vorhanden: neue Kennung wird nicht verfolgt
+                return; // nur unbekannte Kennungen; echte Konten werden separat immer gezählt
             }
         }
-        fehlversuche.compute(schluessel, (k, alt) -> {
+        zaehler.compute(schluessel, (k, alt) -> {
             Instant jetzt = uhr.instant();
             int anzahl = alt == null ? 1 : alt.anzahl() + 1;
             if (anzahl >= MAX_FEHLVERSUCHE) {
@@ -140,14 +146,16 @@ public final class Benutzerverwaltung {
     private void raumeFehlversucheAuf() {
         Instant jetzt = uhr.instant();
         fehlversuche.entrySet().removeIf(e -> e.getValue().gesperrtBis() == null
-                || jetzt.isAfter(e.getValue().gesperrtBis()));
+                || !jetzt.isBefore(e.getValue().gesperrtBis()));
     }
 
     /** Entfernt abgelaufene Sitzungen, damit die Map nicht unbegrenzt wächst. */
     private void raeumeSitzungenAuf() {
         Instant jetzt = uhr.instant();
         sitzungen.entrySet().removeIf(e ->
-                Duration.between(e.getValue().zuletztAktiv(), jetzt).compareTo(idleTimeout) > 0);
+                Duration.between(e.getValue().zuletztAktiv(), jetzt).compareTo(idleTimeout) >= 0);
+        druckTokens.entrySet().removeIf(e -> !sitzungen.containsKey(e.getValue().sitzungsToken())
+                || !jetzt.isBefore(e.getValue().faelltAb()));
     }
 
     /** Constant-time-Vergleich, damit die Antwortzeit nicht verrät, wo das erste falsche Zeichen steht. */
@@ -158,7 +166,7 @@ public final class Benutzerverwaltung {
     }
 
     /** Liefert die Sitzung zum Token und verlängert sie; abgelaufene Sitzungen enden. */
-    public Optional<Benutzer> zuToken(String token) {
+    public synchronized Optional<Benutzer> zuToken(String token) {
         if (token == null) {
             return Optional.empty();
         }
@@ -166,8 +174,8 @@ public final class Benutzerverwaltung {
         if (sitzung == null) {
             return Optional.empty();
         }
-        if (Duration.between(sitzung.zuletztAktiv(), uhr.instant()).compareTo(idleTimeout) > 0) {
-            sitzungen.remove(token);
+        if (Duration.between(sitzung.zuletztAktiv(), uhr.instant()).compareTo(idleTimeout) >= 0) {
+            abmelden(token);
             return Optional.empty();
         }
         // computeIfPresent: eine parallel abgemeldete Sitzung wird nicht wiederbelebt
@@ -181,29 +189,33 @@ public final class Benutzerverwaltung {
      * Authorization-Header setzen; statt des Sitzungs-Tokens in der URL erhält der
      * Druck-Link ein Kurzzeit-Token, das sich beim ersten Abruf verbraucht.
      */
-    public String erzeugeDruckToken(Benutzer benutzer) {
-        Instant jetzt = uhr.instant();
-        druckTokens.entrySet().removeIf(e -> jetzt.isAfter(e.getValue().faelltAb()));
+    public synchronized String erzeugeDruckToken(String sitzungsToken, long bgId) {
+        if (bgId <= 0) throw new IllegalArgumentException("bgId muss positiv sein");
+        raeumeSitzungenAuf();
+        if (zuToken(sitzungsToken).isEmpty()) {
+            throw new FachlicheException(FachlicheException.BERECHTIGUNG,
+                    "Drucktoken erfordert eine aktive Sitzung");
+        }
         String token = UUID.randomUUID().toString();
-        druckTokens.put(token, new DruckToken(benutzer, jetzt.plus(DRUCK_TOKEN_GUELTIG)));
+        druckTokens.put(token, new DruckToken(sitzungsToken, bgId,
+                uhr.instant().plus(DRUCK_TOKEN_GUELTIG)));
         return token;
     }
 
-    /** Verbraucht das Druck-Token (genau ein Abruf möglich); ungültig/abgelaufen → leer. */
-    public Optional<Benutzer> verbraucheDruckToken(String token) {
-        if (token == null || token.isBlank()) {
-            return Optional.empty();
-        }
+    /** Einmaliger Abruf nur für die Ziel-BG und eine weiterhin aktive Herkunftssitzung. */
+    public synchronized Optional<Benutzer> verbraucheDruckToken(String token, long bgId) {
+        if (token == null || token.isBlank()) return Optional.empty();
         DruckToken druck = druckTokens.remove(token);
-        if (druck == null || uhr.instant().isAfter(druck.faelltAb())) {
+        if (druck == null || druck.bgId() != bgId || !uhr.instant().isBefore(druck.faelltAb())) {
             return Optional.empty();
         }
-        return Optional.of(druck.benutzer());
+        return zuToken(druck.sitzungsToken());
     }
 
-    public void abmelden(String token) {
+    public synchronized void abmelden(String token) {
         if (token != null) {
             sitzungen.remove(token);
+            druckTokens.entrySet().removeIf(e -> token.equals(e.getValue().sitzungsToken()));
         }
     }
 

@@ -989,17 +989,25 @@ public final class SzenarioBibliothek {
             case 19 -> "MINDERJAEHRIG-OHNE-ERWACHSENE";
             default -> throw new IllegalArgumentException("Unbekannter Grenzfall");
         };
-        var parameter = nr == 17 ? new Leistungsberechnung.KduParameter(new BigDecimal("0.10"), BigDecimal.ZERO)
+        var parameter = nr == 17 ? new Leistungsberechnung.KduParameter(new BigDecimal("0.20"), BigDecimal.ZERO)
                 : nr == 18 ? new Leistungsberechnung.KduParameter(BigDecimal.ZERO, new BigDecimal("600.00"))
                 : Leistungsberechnung.KduParameter.AUS;
         List<SozialFall> persons = new ArrayList<>();
         int children = nr >= 13 && nr <= 15 ? nr - 9 : nr == 16 ? 6 : 0;
         int rbs = nr == 18 || nr == 16 ? 2 : nr == 19 ? 6 : 1;
-        persons.add(grenzPerson(rbs, nr == 16, nr == 11 || nr == 16, children, nr == 16,
-                nr == 17 || nr == 18 ? "350" : "300", nr == 17 || nr == 18 ? "50" : "0",
-                nr == 17 || nr == 18 ? "100" : "0", nr == 11 ? "2026-10" : null));
+        int childrenU7 = nr == 13 || nr == 15 ? 1 : 0;
+        int childrenU16 = nr == 13 ? 2 : nr == 14 || nr == 15 ? 3 : 0;
+        persons.add(new SozialFall(0, 0, rbs, nr == 16, nr == 11 || nr == 16,
+                childrenU7, childrenU16, children, nr == 16,
+                new BigDecimal(nr == 17 || nr == 18 ? "350" : "300"),
+                new BigDecimal(nr == 17 || nr == 18 ? "50" : "0"),
+                new BigDecimal(nr == 17 || nr == 18 ? "100" : "0"),
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                BigDecimal.ZERO, BigDecimal.ZERO, nr == 11 ? "2026-10" : null, 0));
         if (nr == 18) persons.add(grenzPerson(2, false, false, 0, false, "350", "50", "100", null));
-        for (int i = 0; i < children; i++) persons.add(grenzPerson(4, false, false, 0, false, "0", "0", "0", null));
+        // Passende Beispielalter: U7-Kinder Stufe 6, übrige U16-Kinder Stufe 5, 16/17 Jahre Stufe 4.
+        for (int i = 0; i < children; i++) persons.add(grenzPerson(i < childrenU7 ? 6 : i < childrenU16 ? 5 : 4,
+                false, false, 0, false, "0", "0", "0", null));
         List<String> months = nr == 11 || nr == 12 ? List.of("2026-10", "2026-11") : List.of("2026-10");
         BigDecimal initialAssets = new BigDecimal(nr == 12 ? "10500.00" : nr == 19 ? "1000.00" : "0.00");
         List<Leistungsberechnung.Berechnungsergebnis> results = new ArrayList<>();
@@ -1045,8 +1053,16 @@ public final class SzenarioBibliothek {
         expectations.add(Erwartung.ganzeZahl("Vollständiger Haushalt persistiert", "SELECT COUNT(*) FROM SOZIAL_FALL WHERE BG_ID = ?", ctx -> List.of(ctx.get("bgId")), persons.size()));
         for (int i = 0; i < months.size(); i++) {
             String month = months.get(i); var result = results.get(i);
+            // Vorab handgerechnete Beträge sichern die reparierten Grenzfälle unabhängig vom Produktrechner.
+            String paymentExpected = switch (nr) {
+                case 13 -> "2822.24"; // 563 + 270,24 + 300 + 357 + 390 + 2 × 471
+                case 14 -> "3312.80"; // 563 + 337,80 + 300 + 3 × 390 + 2 × 471
+                case 15 -> "3750.80"; // 563 + 337,80 + 300 + 357 + 2 × 390 + 3 × 471
+                case 17 -> "1063.00"; // 563 + 350 + 50 + 100; Altparameter 20 % ohne Abzug
+                default -> result.zahlbetrag().toPlainString();
+            };
             expectations.add(Erwartung.betrag("Zahlbetrag " + month, "SELECT AUSZAHLUNGSBETRAG FROM ZAHLUNG WHERE BG_ID = ? AND ZAHLUNGSMONAT = ?",
-                    ctx -> List.of(ctx.get("bgId"), month), result.zahlbetrag().toPlainString()));
+                    ctx -> List.of(ctx.get("bgId"), month), paymentExpected));
             expectations.add(Erwartung.betrag("Vermögenseinsatz " + month, "SELECT VERMOEGENSEINSATZ FROM ZAHLUNG WHERE BG_ID = ? AND ZAHLUNGSMONAT = ?",
                     ctx -> List.of(ctx.get("bgId"), month), result.verwertbaresVermoegen().toPlainString()));
             expectations.add(Erwartung.text("Vier-Augen-Warteschlange " + month, "SELECT ZAHLUNGSSTATUS FROM ZAHLUNG WHERE BG_ID = ? AND ZAHLUNGSMONAT = ?",
@@ -1281,11 +1297,15 @@ public final class SzenarioBibliothek {
                 aktionen.add(SzenarioAktion.schritt("Anordnung sofort stornieren (Status ANGELEGT)",
                         (s, ich, kollege, ctx) -> {
                             s.storniereZahlung((Long) ctx.get("zahlungId"), ich);
-                            var restored = s.ladeDetail((Long) ctx.get("bgId")).bedarfsgemeinschaft();
-                            ctx.put("vermoegenNachStorno", restored.vermoegen());
-                            ctx.put("budgetNachStorno", restored.budgetRest());
                             return "storniert — Monat wieder frei";
                         }));
+                aktionen.add(SzenarioAktion.pruefung("Persistierten Zwischenstand nach Storno prüfen", List.of(
+                        Erwartung.betrag("Vermögen unmittelbar nach Storno vollständig zurückgebucht",
+                                "SELECT VERMOEGEN FROM BEDARFSGEMEINSCHAFT WHERE ID = ?",
+                                ctx -> List.of(ctx.get("bgId")), vermoegen.toPlainString()),
+                        Erwartung.betrag("Budget unmittelbar nach Storno vollständig zurückgebucht",
+                                "SELECT BUDGET_REST FROM BEDARFSGEMEINSCHAFT WHERE ID = ?",
+                                ctx -> List.of(ctx.get("bgId")), budget.toPlainString()))));
                 aktionen.add(SzenarioAktion.schritt("Miete auf " + mieteNeuFinal.toPlainString()
                         + " korrigieren", (s, ich, kollege, ctx) -> {
                     SozialFall geladen = s.ladeDetail((Long) ctx.get("bgId")).faelle().get(0);
@@ -1345,10 +1365,6 @@ public final class SzenarioBibliothek {
                 erwartungen.add(Erwartung.text("erste Zahlung STORNIERT",
                         "SELECT ZAHLUNGSSTATUS FROM ZAHLUNG WHERE ID = ?",
                         ctx -> List.of(ctx.get("zahlungId")), "STORNIERT"));
-                erwartungen.add(Erwartung.betrag("Vermögen unmittelbar nach Storno vollständig zurückgebucht", "SELECT ? FROM DUAL",
-                        ctx -> List.of(ctx.get("vermoegenNachStorno")), vermoegen.toPlainString()));
-                erwartungen.add(Erwartung.betrag("Budget unmittelbar nach Storno vollständig zurückgebucht", "SELECT ? FROM DUAL",
-                        ctx -> List.of(ctx.get("budgetNachStorno")), budget.toPlainString()));
                 erwartungen.add(Erwartung.betrag("Stornierte Zahlung behält dokumentierten Vermögenseinsatz",
                         "SELECT VERMOEGENSEINSATZ FROM ZAHLUNG WHERE ID=?", ctx -> List.of(ctx.get("zahlungId")), verwertbar.toPlainString()));
                 erwartungen.add(Erwartung.betrag("Neuzahlung setzt zurückgebuchtes Vermögen erneut ein",
@@ -1575,6 +1591,8 @@ public final class SzenarioBibliothek {
             boolean bescheidGueltigVorhanden = "ausserhalbBescheid".equals(primaer);
 
             if ("ANLAGE".equals(gruppe)) {
+                String gueltigeIban = "DE89370400440532013000";
+                String gueltigerBic = "MARKDEF1100";
                 // Der konkrete Ungültigkeitsgrund steht im Schritttext: Die Nachrechnung
                 // soll die Abwehr aus der genannten Regel (ISO 13616/9362) herleiten
                 // können, statt die formale Gültigkeit der Bankdaten zu raten.
@@ -1585,21 +1603,15 @@ public final class SzenarioBibliothek {
                 String bicGrund = "BIC mit unzulässiger Länge (" + kaputterBic.length()
                         + " Zeichen statt genau 8 oder 11, ISO 9362)";
                 aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
-                        "Vorgang anlegen mit " + ibanGrund + " (" + kaputteIban + ") — VALIDATION erwartet",
+                        "Vorgang anlegen mit " + ibanGrund + " — synthetische Eingaben: IBAN="
+                                + kaputteIban + ", BIC=" + gueltigerBic + " — VALIDATION erwartet",
                         FachlicheException.VALIDATION,
-                        List.of("Ungültige IBAN"), (s, ich, kollege, ctx) -> {
-                            s.legeBedarfsgemeinschaftAn(az, name, budget, null,
-                                    kaputteIban, "MARKDEF1100", name, ich);
-                            return "unerwartet erfolgreich — ungültige IBAN wäre durchgerutscht";
-                        }));
+                        List.of("Ungültige IBAN"), new SzenarioAktion.SepaAnlage(az, name, budget, kaputteIban, gueltigerBic)));
                 aktionen.add(SzenarioAktion.schrittMitErwartetemFehler(
-                        "Vorgang anlegen mit " + bicGrund + " (" + kaputterBic + ") — VALIDATION erwartet",
+                        "Vorgang anlegen mit " + bicGrund + " — synthetische Eingaben: IBAN="
+                                + gueltigeIban + ", BIC=" + kaputterBic + " — VALIDATION erwartet",
                         FachlicheException.VALIDATION,
-                        List.of("Ungültiger BIC"), (s, ich, kollege, ctx) -> {
-                            s.legeBedarfsgemeinschaftAn(az, name, budget, null,
-                                    "DE89370400440532013000", kaputterBic, name, ich);
-                            return "unerwartet erfolgreich — ungültiger BIC wäre durchgerutscht";
-                        }));
+                        List.of("Ungültiger BIC"), new SzenarioAktion.SepaAnlage(az, name, budget, gueltigeIban, kaputterBic)));
                 erwartungen.add(Erwartung.ganzeZahl("kein Vorgang mit fehlerhaften SEPA-Daten angelegt",
                         "SELECT COUNT(*) FROM BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN = ?",
                         ctx -> List.of(az), 0));
@@ -2439,24 +2451,20 @@ public final class SzenarioBibliothek {
         BigDecimal budget = zufallsBetrag(900, 1400, 50);
         String name = hauptperson();
         String az = aktenzeichen(nr);
+        String kaputteIban = "DE00370400440532013000", gueltigerBic = "MARKDEF1100";
+        String gueltigeIban = "DE89370400440532013000", kaputterBic = "MARKDEF";
 
         List<SzenarioAktion> aktionen = List.of(
                 SzenarioAktion.schrittMitErwartetemFehler(
-                        "Vorgang anlegen mit IBAN mit falscher Prüfziffer — VALIDATION erwartet",
+                        "Vorgang anlegen mit IBAN mit falscher Prüfziffer — synthetische Eingaben: IBAN="
+                                + kaputteIban + ", BIC=" + gueltigerBic + " — VALIDATION erwartet",
                         FachlicheException.VALIDATION,
-                        List.of("Ungültige IBAN"), (s, ich, kollege, ctx) -> {
-                            s.legeBedarfsgemeinschaftAn(az, name, budget, null,
-                                    "DE00370400440532013000", "MARKDEF1100", name, ich);
-                            return "unerwartet erfolgreich — ungültige IBAN wäre durchgerutscht";
-                        }),
+                        List.of("Ungültige IBAN"), new SzenarioAktion.SepaAnlage(az, name, budget, kaputteIban, gueltigerBic)),
                 SzenarioAktion.schrittMitErwartetemFehler(
-                        "Vorgang anlegen mit zu kurzem BIC (7 Zeichen) — VALIDATION erwartet",
+                        "Vorgang anlegen mit zu kurzem BIC (7 Zeichen) — synthetische Eingaben: IBAN="
+                                + gueltigeIban + ", BIC=" + kaputterBic + " — VALIDATION erwartet",
                         FachlicheException.VALIDATION,
-                        List.of("Ungültiger BIC"), (s, ich, kollege, ctx) -> {
-                            s.legeBedarfsgemeinschaftAn(az, name, budget, null,
-                                    "DE89370400440532013000", "MARKDEF", name, ich);
-                            return "unerwartet erfolgreich — zu kurzer BIC wäre durchgerutscht";
-                        }));
+                        List.of("Ungültiger BIC"), new SzenarioAktion.SepaAnlage(az, name, budget, gueltigeIban, kaputterBic)));
 
         List<Erwartung> erwartungen = List.of(
                 Erwartung.ganzeZahl("kein Vorgang mit dem fehlerhaften Aktenzeichen angelegt",
@@ -2468,7 +2476,7 @@ public final class SzenarioBibliothek {
                 .dokumentiere("Hintergrund: Eine Auszahlung nützt der Person nur, wenn das "
                         + "Geld tatsächlich ankommen kann. Bankverbindungen tragen deshalb "
                         + "eingebaute Selbstprüfungen: Die IBAN (internationale Kontonummer) "
-                        + "endet auf eine Prüfziffer, die aus den übrigen Zeichen berechnet "
+                        + "enthält nach dem Ländercode eine Prüfziffer, die aus den übrigen Zeichen berechnet "
                         + "wird — tippt man eine Ziffer falsch, passt die Rechnung nicht mehr, "
                         + "und die Nummer ist als ungültig erkennbar (Norm ISO 13616, "
                         + "Modulo-97-Verfahren). Der BIC (Bankcode) wiederum hat eine feste "

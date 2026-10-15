@@ -8,3 +8,4 @@ dir:tools
 file:pom.xml
 file:testsweet/pom.xml
 tool:doc/testzertifikat-werkzeug
+file:doc/testzertifikat-werkzeug/llm-answer-parity-corpus.json

@@ -37,6 +37,20 @@ class SzenarioAbdeckungTest {
         assertFalse(LlmCalculationReference.verifyBlocks(mutated).isEmpty());
     }
 
+    @Test void fruehereFalscheMehrbedarfUndWarmwasserSollwerteFallenInNachrechnungAuf() {
+        var cases = new SzenarioBibliothek(42).erzeuge(19);
+        for (int index : List.of(12, 13, 14)) {
+            String text = MdBericht.rechenbloecke(cases.get(index).rechenbloecke);
+            String wrong = text.replaceFirst("(?m)^p1_mehrbedarf_alleinerziehend\\s*=\\s*[0-9.]+", "p1_mehrbedarf_alleinerziehend=202.68");
+            assertNotEquals(text, wrong);
+            assertTrue(LlmCalculationReference.verifyBlocks(wrong).stream().anyMatch(e -> e.contains("mehrbedarf_alleinerziehend")));
+        }
+        String text = MdBericht.rechenbloecke(cases.get(16).rechenbloecke);
+        String wrong = text.replaceFirst("(?m)^p1_kdu_warmwasser_abzug\\s*=\\s*[0-9.]+", "p1_kdu_warmwasser_abzug=20.00");
+        assertNotEquals(text, wrong);
+        assertTrue(LlmCalculationReference.verifyBlocks(wrong).stream().anyMatch(e -> e.contains("kdu_warmwasser_abzug")));
+    }
+
     @Test void festeGrenzfaelleSindSeedunabhaengigUndHabenHandgerechneteMonatswerte() {
         var cases = new SzenarioBibliothek(42).erzeuge(19);
         var other = new SzenarioBibliothek(97).erzeuge(19);
@@ -53,7 +67,8 @@ class SzenarioAbdeckungTest {
         var capped = cases.get(15).rechenbloecke.getFirst().ergebnis().faelle().getFirst();
         assertEquals("517.64",capped.mehrbedarf().toPlainString());assertEquals("1323.64",capped.gesamtbedarf().toPlainString());
         var heating = cases.get(16).rechenbloecke.getFirst().ergebnis().faelle().getFirst();
-        assertEquals("10.00",heating.kduWarmwasserAbzug().toPlainString());assertEquals("490.00",heating.kdu().toPlainString());
+        assertEquals("0.00",heating.kduWarmwasserAbzug().toPlainString());assertEquals("500.00",heating.kdu().toPlainString());
+        assertEquals("1063.00",heating.zahlbetrag().toPlainString());
         var shared = cases.get(17).rechenbloecke.getFirst().ergebnis();
         assertEquals("500.00",shared.faelle().get(0).kdu().toPlainString());assertEquals("100.00",shared.faelle().get(1).kdu().toPlainString());
         assertEquals("1612.00",shared.zahlbetrag().toPlainString());
@@ -62,6 +77,25 @@ class SzenarioAbdeckungTest {
         assertTrue(cases.subList(10,19).stream().allMatch(o -> Verifikator.pruefeRechnung(o).ok()));
         assertTrue(cases.get(10).aktionen.stream().anyMatch(a -> a.name().contains("Bescheid")));
         assertTrue(cases.get(11).erwartungen.stream().filter(e -> e.sql().contains("VERMOEGENSEINSATZ")).count() == 2);
+    }
+
+    @Test void reparierteGrenzfaellePruefenJungeKinderUndFesteSqlSollwerteStattProduktSollwerte() {
+        var cases = new SzenarioBibliothek(42).erzeuge(19);
+        int[][] counts = {{1,2,4},{0,3,5},{1,3,6}};
+        String[] expected = {"2822.24","3312.80","3750.80"};
+        for (int i = 0; i < counts.length; i++) {
+            var order = cases.get(12 + i);
+            var parent = order.rechenbloecke.getFirst().faelle().getFirst();
+            assertEquals(counts[i][0],parent.anzKinderUnter7());
+            assertEquals(counts[i][1],parent.anzKinderUnter16());
+            assertEquals(counts[i][2],parent.anzKinderMinderjaehrig());
+            assertEquals(expected[i],order.rechenbloecke.getFirst().ergebnis().zahlbetrag().toPlainString());
+            var sql = order.erwartungen.stream().filter(e -> e.sql().startsWith("SELECT AUSZAHLUNGSBETRAG")).findFirst().orElseThrow();
+            assertEquals(expected[i],sql.erwartet());
+        }
+        var central = cases.get(16);
+        assertEquals("0.20",central.rechenbloecke.getFirst().kduParameter().warmwasserAbzugHeizungProzent().toPlainString());
+        assertEquals("1063.00",central.erwartungen.stream().filter(e -> e.sql().startsWith("SELECT AUSZAHLUNGSBETRAG")).findFirst().orElseThrow().erwartet());
     }
 
     @Test void kduServicesRemainImmutableAndSeparateAcrossParallelScenarioParameters() throws Exception {

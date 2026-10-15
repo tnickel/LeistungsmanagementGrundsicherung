@@ -38,7 +38,7 @@ class TaskControllerWatchdogBudgetTest {
     }
 
     private static SQLException oraDeadlock() {
-        return new SQLException("ORA-00060: deadlock detected while waiting for resource", "61000");
+        return new SQLException("ORA-00060: deadlock detected while waiting for resource", "61000", 60);
     }
 
     @Test

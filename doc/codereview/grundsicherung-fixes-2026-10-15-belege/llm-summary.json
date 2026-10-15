@@ -1,0 +1,63 @@
+{
+  "state": "PASS",
+  "completedCases": 18,
+  "totalCases": 18,
+  "completedBatches": 6,
+  "totalBatches": 6,
+  "transportVerified": true,
+  "calculationVerified": true,
+  "reviewCoverageVerified": true,
+  "hasFailures": false,
+  "caseVerdict": "PASS",
+  "retryStatistik": {
+    "ersterVersuch": 5,
+    "eineWiederholung": 1,
+    "zweiWiederholungen": 0,
+    "gescheiterteFallgruppen": 0,
+    "wiederholteSendungen": 1
+  },
+  "artifactDirectory": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\llm-review-ec2fa5e3-3336-441d-998f-cdf7cba3654f",
+  "model": "glm-5.3",
+  "selectedCaseIds": [
+    "POSITIV:run-20261015-115631-1169453738460289625:TF11",
+    "NEGATIV:run-20261015-115642-14459122975747498654:TF01",
+    "POSITIV:run-20261015-115631-1169453738460289625:TF12",
+    "NEGATIV:run-20261015-115642-14459122975747498654:TF02",
+    "POSITIV:run-20261015-115631-1169453738460289625:TF13",
+    "NEGATIV:run-20261015-115642-14459122975747498654:TF03",
+    "POSITIV:run-20261015-115631-1169453738460289625:TF14",
+    "NEGATIV:run-20261015-115642-14459122975747498654:TF04",
+    "POSITIV:run-20261015-115631-1169453738460289625:TF15",
+    "NEGATIV:run-20261015-115642-14459122975747498654:TF05",
+    "POSITIV:run-20261015-115631-1169453738460289625:TF16",
+    "NEGATIV:run-20261015-115642-14459122975747498654:TF06",
+    "POSITIV:run-20261015-115631-1169453738460289625:TF17",
+    "NEGATIV:run-20261015-115642-14459122975747498654:TF07",
+    "POSITIV:run-20261015-115631-1169453738460289625:TF18",
+    "NEGATIV:run-20261015-115642-14459122975747498654:TF08",
+    "POSITIV:run-20261015-115631-1169453738460289625:TF19",
+    "NEGATIV:run-20261015-115642-14459122975747498654:TF09"
+  ],
+  "sources": [
+    {
+      "category": "POSITIV",
+      "runStateSha256": "d915aaeebf2e95e9a97ab07aa336ddaa39ae6adb5fa0c405c0398c5d5f0a319b",
+      "runStatePath": "testsweet/logs/run-20261015-115631-1169453738460289625/run-state.json",
+      "snapshotPath": "source-POSITIV.md",
+      "sha256": "0c427db75ae8e3ef443fad787147eb05fc04b703954f69e7d8c139af29dd2218",
+      "runId": "run-20261015-115631-1169453738460289625",
+      "path": "testsweet/logs/run-20261015-115631-1169453738460289625/testdokumentation.md",
+      "mode": "FACHSCHICHT"
+    },
+    {
+      "category": "NEGATIV",
+      "runStateSha256": "7591461e8542a9dd654bd00cf95c398bf74b0d0f23f1dbf798cd646b1e635e91",
+      "runStatePath": "testsweet/logs/run-20261015-115642-14459122975747498654/run-state.json",
+      "snapshotPath": "source-NEGATIV.md",
+      "sha256": "9e91d3809525ea0f23e1e265267be2ac0cbcf6abd3726917b89651c8d84fc649",
+      "runId": "run-20261015-115642-14459122975747498654",
+      "path": "testsweet/logs/run-20261015-115642-14459122975747498654/testdokumentation.md",
+      "mode": "FACHSCHICHT"
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "state": "UNVERIFIED",
+  "hasFailures": true,
+  "caseVerdict": "FAIL",
+  "integrityError": "Getesteter Software-/Buildstand hat sich geändert oder ist nicht belegt",
+  "completedCases": 100,
+  "findings": [
+    {
+      "caseId": "NEGATIV:run-20261015-095737-11962585195940553265:TF22",
+      "source": "LLM",
+      "description": "S6/V2: Die Abwehr 'Storno nach Kassenübergabe (UEBERGEBEN) => VALIDATION' stützt sich auf die Regel, dass nur ANGELEGT-/BEREIT-Zahlungen stornierbar sind. Diese Regel ist in den mitgelieferten Rechtsgrundlagen (Zahlstatus-Übergänge) nicht dokumentiert; die Abwehr ist fachlich plausibel, aber aus den gelieferten Normen nicht unabhängig herleitbar und bleibt unverifiziert.",
+      "reasoning": "Rechenblock vollständig nachgerechnet und korrekt: p1 RBS1 563.00 + KdU 455.00 = 1018.00, Einkommen 0, Zahlbetrag 1018.00; Schonvermögen 10.000, Vermögen 0 -> kein Einsatz; Budget 2000-1018=982.00 (=budget_rest_erwartet, V6). Workflow: erfolgreiche Zahlung 1018.00 ANGELEGT->BEREIT(sb-sim-03)->UEBERGEBEN (V3-V7), kein Bescheid (V8), Vermögen unverändert (V9), 4 Journale (V10). Beide Fehlversuche lassen DB laut Snapshot-Prüfsummen unverändert (V1, V2). Verbleibende Unsicherheit nur bei der Rechtsgrundlage der Storno-Abwehr nach UEBERGEBEN und der 12-Monats-Grenze."
+    },
+    {
+      "caseId": "NEGATIV:run-20261015-095737-11962585195940553265:TF22",
+      "source": "LLM",
+      "description": "V1/S3: Die 22-Monats-VALIDATION stützt sich auf § 44 Abs. 3 SGB XII (max. 12 Monate), der im Datenanhang zitiert, aber in der mitgelieferten Kurzfassung der Gesetzesgrundlagen nicht enthalten ist; Regelzweig daher nur eingeschränkt prüfbar.",
+      "reasoning": "Rechenblock vollständig nachgerechnet und korrekt: p1 RBS1 563.00 + KdU 455.00 = 1018.00, Einkommen 0, Zahlbetrag 1018.00; Schonvermögen 10.000, Vermögen 0 -> kein Einsatz; Budget 2000-1018=982.00 (=budget_rest_erwartet, V6). Workflow: erfolgreiche Zahlung 1018.00 ANGELEGT->BEREIT(sb-sim-03)->UEBERGEBEN (V3-V7), kein Bescheid (V8), Vermögen unverändert (V9), 4 Journale (V10). Beide Fehlversuche lassen DB laut Snapshot-Prüfsummen unverändert (V1, V2). Verbleibende Unsicherheit nur bei der Rechtsgrundlage der Storno-Abwehr nach UEBERGEBEN und der 12-Monats-Grenze."
+    },
+    {
+      "caseId": "POSITIV:run-20261015-095729-6862928961689414961:TF23",
+      "source": "LLM",
+      "description": "V8: sql='SELECT ? FROM DUAL' mit params=[0] und erwartet=0 ist eine Tautologie (Literale in sich selbst geprüft), kein Datenbanknachweis über VERMOEGEN der BG 58668; die behauptete Rückbuchung des Vermögens nach Storno ist damit nicht per SQL belegt (nur indirekt über ids.vermoegenNachStorno=0).",
+      "reasoning": "Beide Rechenblöcke vollständig und korrekt nachgerechnet: B1 p1 506+11.64 (2.3% von 506, dezentral)+615 KdU=1132.64, Freibetrag 39.00, Absetz 390.00, anrechenbar 0; p2 506+86.02+11.64=603.66, anrechenbar 440+930-279-380=711.00; BG 1736.30-711=1025.30, Budget hyp 370.00. B2 Miete 530: KdU 645, Gesamt 1162.64, BG 1766.30-711=1055.30, Budget hyp 340.00. Workflow stimmig: 1025.30 angeordnet, storniert (Budget 1395.30 zurück), korrigiert 1055.30, Endbudget 340.00 (V4/V5/V6/V7/V10-V12 alle korrekt). Aber V8 und V9 sind tautologische Pseudoprüfungen (SELECT ? FROM DUAL), die keinen echten DB-Zustandsnachweis erbringen; daher kein PASS."
+    },
+    {
+      "caseId": "POSITIV:run-20261015-095729-6862928961689414961:TF23",
+      "source": "LLM",
+      "description": "V9: sql='SELECT ? FROM DUAL' mit params=[1395.3] und erwartet=1395.30 ist ebenfalls selbstreferenziell und verifiziert nicht BUDGET_REST der BEDARFSGEMEINSCHAFT 58668; der Budget-Rückbuchungsnachweis beruht nur auf ids.budgetNachStorno.",
+      "reasoning": "Beide Rechenblöcke vollständig und korrekt nachgerechnet: B1 p1 506+11.64 (2.3% von 506, dezentral)+615 KdU=1132.64, Freibetrag 39.00, Absetz 390.00, anrechenbar 0; p2 506+86.02+11.64=603.66, anrechenbar 440+930-279-380=711.00; BG 1736.30-711=1025.30, Budget hyp 370.00. B2 Miete 530: KdU 645, Gesamt 1162.64, BG 1766.30-711=1055.30, Budget hyp 340.00. Workflow stimmig: 1025.30 angeordnet, storniert (Budget 1395.30 zurück), korrigiert 1055.30, Endbudget 340.00 (V4/V5/V6/V7/V10-V12 alle korrekt). Aber V8 und V9 sind tautologische Pseudoprüfungen (SELECT ? FROM DUAL), die keinen echten DB-Zustandsnachweis erbringen; daher kein PASS."
+    },
+    {
+      "caseId": "NEGATIV:run-20261015-095737-11962585195940553265:TF22",
+      "source": "REFERENCE_2026",
+      "description": "V2: Storno-Abwehr nach UEBERGEBEN: Zustandsunverändertheit durch Prüfsummen 80d45175f4a389f7 belegt, die storno-einschränkende Regel selbst ist aber in den gelieferten Grundlagen nicht dokumentiert.",
+      "reasoning": "workflowUnverified"
+    },
+    {
+      "caseId": "NEGATIV:run-20261015-095737-11962585195940553265:TF22",
+      "source": "REFERENCE_2026",
+      "description": "S6: Abwehr nach UEBERGEBEN folgt einer im Datenanhang behaupteten, aber in den mitgelieferten Rechtsgrundlagen nicht ausgewiesenen Storno-Beschränkung; Zustandsunverändertheit belegt, Regelbasis nicht verifizierbar.",
+      "reasoning": "workflowUnverified"
+    },
+    {
+      "caseId": "POSITIV:run-20261015-095729-6862928961689414961:TF23",
+      "source": "REFERENCE_2026",
+      "description": "V8: 'SELECT ? FROM DUAL' mit param 0 prüft nur das Literal; keine echte Abfrage des Vermögenszustands, Nachweis unzureichend (siehe findings).",
+      "reasoning": "workflowFindings"
+    },
+    {
+      "caseId": "POSITIV:run-20261015-095729-6862928961689414961:TF23",
+      "source": "REFERENCE_2026",
+      "description": "V9: 'SELECT ? FROM DUAL' mit param 1395.3 ist tautologisch; Budget-Rückbuchung nicht durch SQL gegen BEDARFSGEMEINSCHAFT belegt (siehe findings).",
+      "reasoning": "workflowFindings"
+    }
+  ]
+}

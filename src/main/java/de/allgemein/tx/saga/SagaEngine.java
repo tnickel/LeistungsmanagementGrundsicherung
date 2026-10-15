@@ -290,12 +290,21 @@ public final class SagaEngine {
             return SagaState.COMPLETED;
         }
 
+        if (alleSchrittePending(saga, steps)) {
+            // start() legt Kopf und Schritte atomar an. Ohne IN_FLIGHT-Marker
+            // konnte nach dem Write-Ahead-Vertrag noch keine Fachwirkung eintreten.
+            // Unter dem exklusiven Claim terminal beenden, auch für alte FAILED-Köpfe.
+            claim.finish(SagaState.COMPENSATED);
+            return SagaState.COMPENSATED;
+        }
+
         boolean hatBegonnen = saga.stepStates().values().stream()
                 .anyMatch(s -> UnfinishedSaga.STEP_DONE.equals(s)
                         || UnfinishedSaga.STEP_IN_FLIGHT.equals(s)
                         || UnfinishedSaga.STEP_COMPENSATED.equals(s));
         if (!hatBegonnen) {
-            // Der erste Schritt wurde nie committet — nichts zu kompensieren.
+            // Keine belegte Fachwirkung, aber auch keine vollständige bekannte
+            // PENDING-Liste: beschädigte/geänderte Journale nicht grün abschließen.
             claim.finish(SagaState.FAILED);
             return SagaState.FAILED;
         }
@@ -352,6 +361,14 @@ public final class SagaEngine {
             if (!saga.isStepDone(i)) {
                 return false;
             }
+        }
+        return true;
+    }
+
+    private static boolean alleSchrittePending(UnfinishedSaga saga, List<SagaStep> steps) {
+        if (steps.isEmpty() || saga.stepStates().size() != steps.size()) return false;
+        for (int i = 0; i < steps.size(); i++) {
+            if (!UnfinishedSaga.STEP_PENDING.equals(saga.stepStates().get(i))) return false;
         }
         return true;
     }

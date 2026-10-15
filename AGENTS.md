@@ -33,8 +33,9 @@ Redo-Logging, Recovery) — wir programmieren nur die Steuerungsschicht darüber
   in Batches mit 1–10 Fällen. Prüfauftrag, Gesetzesgrundlagen und vollständige Fallgruppen
   werden als benannte Dokumenttexte übertragen; Request-/Response-/Quellsnapshots mit SHA-256
   und Reportanhang belegen Dateiübergabe und fachliches Urteil getrennt. Bei formal
-  ungültiger Modellantwort höchstens drei identische Sendeversuche mit 30 Sekunden Pause;
-  danach Abbruch mit protokolliertem Fehler. Lokale Schlüsseldatei
+  ungültiger Modellantwort höchstens drei Sendeversuche mit 30 Sekunden Pause;
+  die vollständigen Dokumenttexte bleiben erhalten, Wiederholungen ergänzen einen
+  gezielten Korrekturhinweis. Danach Abbruch mit protokolliertem Fehler. Lokale Schlüsseldatei
   ist Git-ignoriert. Maßgeblich sind die aktuellen quellen- und buildgebundenen JUnit-,
   Simulator- und GLM-Belege im Testzertifikat. „Mache alle Zertifikatstests“ führt
   Neubuild, beide automatischen Testsuiten, alle sieben Simulator-Kombinationen,
@@ -241,3 +242,9 @@ Enterprise Edition (VirtualBox, Port 1921/o19c1p1) sowie 23ai Free verifiziert:
   Kassenlauf, Historisierung). Verifiziert wird je Szenario der persistierte Endzustand
   per SQL direkt auf den Tabellen (Beträge, Status, Sachbearbeiter-Zuordnungen,
   Journal-Chronologie); Datenhygiene über Aktenzeichen-Präfix `BG-REG-`.
+
+## Nachtrag 2026-10-15 — Gesamt-Review-Korrekturen (v0.5.8)
+
+Die zehn bestätigten Funde des Gesamt-Reviews werden durch Rollenprüfung auch im Stornohandler, getrennte Login-Fehlversuchszähler für konfigurierte Konten, sitzungs-/BG-gebundene Drucktoken, vollständige Bescheiddokumente im Snapshot v3, korrigierte elektronische Widerspruchsbelehrung, terminale Recovery leerer PENDING-Sagas, ausschließlich vendorcodegebundene Retry-Auswahl und denselben strikten LLM-Antwortvertrag in Java/Node adressiert. Fachlich gilt die günstigere Alleinerziehendenalternative; zentrale Warmwasserkosten werden nicht abgezogen. `lmg.kdu.warmwasserabzug` bleibt als validierter, wirkungsloser Altparameter lesbar.
+
+testsweet enthält zusätzliche Produkt-HTTP-, Produktkern-, Oracle- und gemeinsame Java/Node-Paritätsregressionen. Storno-Zwischenstände werden vor Folgeänderungen unmittelbar per SQL geprüft; falsche Werte und SQL-Fehler stoppen den Auftrag. Neue Handwert-Konstellationen prüfen vier bis sechs minderjährige Kinder und einen ungleich null gesetzten Altparameter. Details und tatsächliche Verifikation: `doc/codereview/grundsicherung-fixbericht-2026-10-15.md` (historische Testzahlen oben sind kein Nachweis für diesen Quellenstand).

@@ -34,14 +34,19 @@ public final class BerechnungsSnapshot {
             Leistungsberechnung.Berechnungsergebnis ergebnis,
             List<SozialFall> faelle,
             BigDecimal vermoegen,
-            List<Bewilligungsplan.Monat> monate) {
+            List<Bewilligungsplan.Monat> monate,
+            String dokumentHtml) {
         public Gelesen {
             faelle = List.copyOf(faelle);
             monate = List.copyOf(monate);
         }
         public Gelesen(Leistungsberechnung.Berechnungsergebnis ergebnis,
                        List<SozialFall> faelle, BigDecimal vermoegen) {
-            this(ergebnis, faelle, vermoegen, List.of());
+            this(ergebnis, faelle, vermoegen, List.of(), null);
+        }
+        public Gelesen(Leistungsberechnung.Berechnungsergebnis ergebnis,
+                       List<SozialFall> faelle, BigDecimal vermoegen, List<Bewilligungsplan.Monat> monate) {
+            this(ergebnis, faelle, vermoegen, monate, null);
         }
     }
 
@@ -64,6 +69,18 @@ public final class BerechnungsSnapshot {
             monate.add(eintrag);
         }
         wurzel.put("monate", monate);
+        return Json.write(wurzel);
+    }
+
+    /** Version 3 bewahrt zusätzlich das vollständig erzeugte Erteilungsdokument. */
+    @SuppressWarnings("unchecked")
+    public static String schreibe(Bewilligungsplan.Plan plan, String dokumentHtml) {
+        if (dokumentHtml == null || dokumentHtml.isBlank()) {
+            throw new IllegalArgumentException("Erteilungsdokument fehlt");
+        }
+        Map<String, Object> wurzel = new LinkedHashMap<>((Map<String, Object>) Json.parse(schreibe(plan)));
+        wurzel.put("version", 3);
+        wurzel.put("dokumentHtml", dokumentHtml);
         return Json.write(wurzel);
     }
 
@@ -118,11 +135,18 @@ public final class BerechnungsSnapshot {
         }
         Map<String, Object> wurzel = (Map<String, Object>) wurzelObj;
         int version = zahlAlsInt(wurzel.get("version"), "version");
-        if (version != VERSION && version != 2) {
+        if (version != VERSION && version != 2 && version != 3) {
             throw new IllegalArgumentException("Berechnungs-Snapshot hat Version " + version
-                    + ", lesbar sind Version 1 und 2");
+                    + ", lesbar sind Version 1, 2 und 3");
         }
-        if (version == 2) {
+        if (version >= 2) {
+            String dokument = null;
+            if (version == 3) {
+                if (!(wurzel.get("dokumentHtml") instanceof String html) || html.isBlank()) {
+                    throw new IllegalArgumentException("Berechnungs-Snapshot enthält kein Erteilungsdokument");
+                }
+                dokument = html;
+            }
             if (!(wurzel.get("monate") instanceof List<?> eintraege) || eintraege.isEmpty()) {
                 throw new IllegalArgumentException("Berechnungs-Snapshot enthält keinen Monatsplan");
             }
@@ -140,7 +164,7 @@ public final class BerechnungsSnapshot {
                 monate.add(new Bewilligungsplan.Monat(monat, gelesen.ergebnis(), gelesen.faelle(), gelesen.vermoegen()));
             }
             Bewilligungsplan.Monat erster = monate.get(0);
-            return new Gelesen(erster.ergebnis(), erster.faelle(), erster.vermoegen(), monate);
+            return new Gelesen(erster.ergebnis(), erster.faelle(), erster.vermoegen(), monate, dokument);
         }
         long bgId = zahlAlsLong(wurzel.get("bgId"), "bgId");
         List<Leistungsberechnung.FallBerechnung> fallBerechnungen = new ArrayList<>();
@@ -210,12 +234,20 @@ public final class BerechnungsSnapshot {
 
     private static long zahlAlsLong(Object wert, String feld) {
         if (wert instanceof Number n) {
-            return n.longValue();
+            try {
+                return new BigDecimal(n.toString()).longValueExact();
+            } catch (ArithmeticException | NumberFormatException e) {
+                throw new IllegalArgumentException("Berechnungs-Snapshot: Feld '" + feld + "' ist keine exakte Ganzzahl", e);
+            }
         }
         throw new IllegalArgumentException("Berechnungs-Snapshot: Feld '" + feld + "' fehlt oder unlesbar: " + wert);
     }
 
     private static int zahlAlsInt(Object wert, String feld) {
-        return (int) zahlAlsLong(wert, feld);
+        try {
+            return Math.toIntExact(zahlAlsLong(wert, feld));
+        } catch (ArithmeticException e) {
+            throw new IllegalArgumentException("Berechnungs-Snapshot: Feld '" + feld + "' überschreitet den Wertebereich", e);
+        }
     }
 }

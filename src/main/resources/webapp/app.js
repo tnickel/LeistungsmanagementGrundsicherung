@@ -690,11 +690,14 @@ $("btn-bescheid-erteilen").addEventListener("click", async () => {
 
 $("btn-bescheid-drucken").addEventListener("click", async () => {
   if (!detail || !detail.bedarfsgemeinschaft) return;
+  const bgId = detail.bedarfsgemeinschaft.id;
   try {
     // Einmal-Token für den Druck-Link (CR-027): Das Sitzungs-Token bleibt im
     // Authorization-Header und landet nicht mehr in URL/Historie/Bookmarks.
-    const antwort = await api("/api/drucktoken", { method: "POST" });
-    const url = `/api/bedarfsgemeinschaften/${detail.bedarfsgemeinschaft.id}/bescheid/druck?token=${encodeURIComponent(antwort.drucktoken)}`;
+    const antwort = await api("/api/drucktoken", {
+      method: "POST", body: JSON.stringify({ bgId }),
+    });
+    const url = `/api/bedarfsgemeinschaften/${bgId}/bescheid/druck?token=${encodeURIComponent(antwort.drucktoken)}`;
     window.open(url, "_blank");
   } catch (fehler) {
     zeigeDialog("Druck fehlgeschlagen", fehler.message, true);

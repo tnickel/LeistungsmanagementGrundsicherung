@@ -1,0 +1,7 @@
+{
+  "path": "AGENTS.md",
+  "beforeSha256": "85F6752BC489EA5B0CD6412918D393E43EF7EA2FCAA806E4F2FD997086B2E659",
+  "reason": "Veraltete Kurzbeschreibung identischer LLM-Wiederholungen nach abgeschlossenem Prüflauf an bereits bestehende Implementierung anpassen",
+  "afterSha256": "557F650F4FC7747587F84F5BD14D7FAAE46B43783B007C39262B6AAF0C06C5D5",
+  "changedAt": "2026-10-15T12:04:09.7026095+02:00"
+}

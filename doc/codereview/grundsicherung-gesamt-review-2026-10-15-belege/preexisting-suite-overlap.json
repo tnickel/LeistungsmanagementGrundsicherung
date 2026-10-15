@@ -1,0 +1,19 @@
+{
+  "startedAt": "2026-10-15T07:51:08.167423500Z",
+  "glmReviewId": "9b3837e4-a6e9-41fe-926c-6786cf1926f7",
+  "controllerPid": 2058072,
+  "jobId": "812c3da8-a716-46af-83d9-7b229630659d",
+  "sourceRuns": [
+    {
+      "runId": "run-20261015-095729-6862928961689414961",
+      "category": "POSITIV",
+      "mode": "FACHSCHICHT"
+    },
+    {
+      "runId": "run-20261015-095737-11962585195940553265",
+      "category": "NEGATIV",
+      "mode": "FACHSCHICHT"
+    }
+  ],
+  "workerPid": 2062088
+}

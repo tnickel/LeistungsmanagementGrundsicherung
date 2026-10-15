@@ -1,0 +1,8 @@
+# Zwischenstände der Implementierung sind keine weiteren Produktquellen.
+/auth/proposed/
+/auth/*.patch
+/auth/prepare_auth.py
+/auth/apply_prepared_auth.py
+/fach/prepared/
+/fach/prepare_fach.py
+*certificate-evidence-current.json

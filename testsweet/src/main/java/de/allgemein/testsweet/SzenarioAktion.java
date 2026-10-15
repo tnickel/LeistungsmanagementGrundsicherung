@@ -1,8 +1,10 @@
 package de.allgemein.testsweet;
 
+import de.allgemein.lmg.service.LeistungsService;
 import de.allgemein.lmg.service.SozialLeistungsService;
 import de.allgemein.lmg.service.FachlicheException;
 
+import java.math.BigDecimal;
 import java.util.Map;
 import java.util.List;
 
@@ -19,7 +21,12 @@ import java.util.List;
  * Ergebnis (z. B. KONKURRENZ beim Speichern eines veralteten Maskenstands) und das
  * Szenario läuft weiter. Jeder andere Fehler bricht den Auftrag als FEHLGESCHLAGEN ab.</p>
  */
-public record SzenarioAktion(String name, String erwarteterFehler, Aktion funktion, List<String> erwarteteFehlergruende) {
+public record SzenarioAktion(String name, String erwarteterFehler, Aktion funktion,
+        List<String> erwarteteFehlergruende, List<Erwartung> zwischenpruefungen) {
+
+    public SzenarioAktion(String name, String erwarteterFehler, Aktion funktion, List<String> erwarteteFehlergruende) {
+        this(name, erwarteterFehler, funktion, erwarteteFehlergruende, List.of());
+    }
 
     public SzenarioAktion(String name, String erwarteterFehler, Aktion funktion) {
         this(name, erwarteterFehler, funktion, List.of());
@@ -27,8 +34,11 @@ public record SzenarioAktion(String name, String erwarteterFehler, Aktion funkti
 
     public SzenarioAktion {
         erwarteteFehlergruende = List.copyOf(erwarteteFehlergruende);
+        zwischenpruefungen = List.copyOf(zwischenpruefungen);
         if (erwarteteFehlergruende.stream().anyMatch(String::isBlank))
             throw new IllegalArgumentException("Leere Fehlergrund-Fragmente sind keine Abwehrprüfung");
+        if (erwarteterFehler != null && !zwischenpruefungen.isEmpty())
+            throw new IllegalArgumentException("Zwischenstandsprüfung ist kein erwarteter Fachfehler");
     }
 
     public boolean akzeptiert(FachlicheException fehler) {
@@ -62,9 +72,33 @@ public record SzenarioAktion(String name, String erwarteterFehler, Aktion funkti
                 Map<String, Object> kontext) throws Exception;
     }
 
+    /**
+     * Tatsächliche synthetische SEPA-Eingaben eines Anlageversuchs. Der gemeinsame
+     * Delegat erlaubt einen Service-Probeaufruf derselben Aktion ohne Datenbank.
+     */
+    public record SepaAnlage(String aktenzeichen, String hauptperson, BigDecimal budget,
+            String iban, String bic) implements Aktion {
+        @Override public String ausfuehren(SozialLeistungsService service, String selbst, String kollege,
+                Map<String, Object> kontext) {
+            return ausfuehrenMit(service, selbst);
+        }
+        String ausfuehrenMit(LeistungsService service, String selbst) {
+            service.legeBedarfsgemeinschaftAn(aktenzeichen, hauptperson, budget, null,
+                    iban, bic, hauptperson, selbst);
+            return "unerwartet erfolgreich — ungültige SEPA-Daten wären durchgerutscht";
+        }
+    }
+
     /** Normaler Arbeitsschritt — Erfolg erwartet. */
     public static SzenarioAktion schritt(String name, Aktion funktion) {
         return new SzenarioAktion(name, null, funktion);
+    }
+
+    /** Tatsächlicher SQL-Zwischenstand; Mitarbeiter prüft vor dem nächsten Fachschritt. */
+    public static SzenarioAktion pruefung(String name, List<Erwartung> erwartungen) {
+        if (erwartungen.isEmpty()) throw new IllegalArgumentException("Zwischenstandsprüfung ohne Erwartungen");
+        return new SzenarioAktion(name, null, (s, ich, kollege, ctx) -> "SQL-Zwischenstand geprüft",
+                List.of(), erwartungen);
     }
 
     /** Schritt, dessen Scheitern mit genau diesem Fachfehler-Code erwartet wird. */

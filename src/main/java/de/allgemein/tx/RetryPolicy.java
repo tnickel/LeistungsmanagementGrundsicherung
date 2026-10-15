@@ -10,13 +10,12 @@ import java.util.concurrent.ThreadLocalRandom;
 /**
  * Entscheidet, welche Datenbankfehler einen Wiederholversuch der ganzen Transaktion
  * rechtfertigen, und federt zwischen den Versuchen zurück (exponentieller Backoff).
- * Wiederholbar sind vor allem Sperren-Konflikte:
+ * Wiederholbar sind ausschließlich die folgenden Oracle-Sperrenkonflikte:
  * ORA-00054 (Ressource belegt), ORA-00060 (Deadlock), ORA-08177 (Serialisierbarkeitskonflikt).
  */
 public final class RetryPolicy {
 
     private static final Set<Integer> RETRYABLE_ORA_CODES = Set.of(54, 60, 8177);
-    private static final Set<String> RETRYABLE_SQL_STATES = Set.of("40001", "61000");
     /** Basis höchstens 30 s; einschließlich Jitter höchstens 45 s pro Pause. */
     static final long MAX_BACKOFF_MILLIS = 30_000;
 
@@ -43,8 +42,9 @@ public final class RetryPolicy {
             Throwable current = pending.removeFirst();
             if (!visited.add(current)) continue;
             if (current instanceof SQLException sql) {
-                if (RETRYABLE_ORA_CODES.contains(sql.getErrorCode())
-                        || RETRYABLE_SQL_STATES.contains(sql.getSQLState() == null ? "" : sql.getSQLState())) {
+                // SQLState 61000 umfasst auch Ressourcenfehler (u. a. ORA-04031).
+                // Nur der konkrete Vendorcode erfüllt den engen Retry-Vertrag.
+                if (RETRYABLE_ORA_CODES.contains(sql.getErrorCode())) {
                     return true;
                 }
                 if (sql.getNextException() != null) pending.addLast(sql.getNextException());

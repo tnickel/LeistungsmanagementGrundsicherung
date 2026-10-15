@@ -1,0 +1,23 @@
+[
+  {
+    "name": "main-install-db",
+    "startedAt": "2026-10-15T10:50:00.0836474+02:00",
+    "finishedAt": "2026-10-15T10:50:39.3645133+02:00",
+    "exitCode": 0,
+    "log": "main-install-db.log"
+  },
+  {
+    "name": "main-config-without-db",
+    "startedAt": "2026-10-15T10:50:39.3848525+02:00",
+    "finishedAt": "2026-10-15T10:50:45.9297528+02:00",
+    "exitCode": 0,
+    "log": "main-config-without-db.log"
+  },
+  {
+    "name": "testsweet-db",
+    "startedAt": "2026-10-15T10:50:45.9329134+02:00",
+    "finishedAt": "2026-10-15T10:51:56.4407842+02:00",
+    "exitCode": 1,
+    "log": "testsweet-db.log"
+  }
+]

@@ -53,9 +53,11 @@ function calculate(blockId,text,findings,missing) {
       else if (month > delivery) pregnant=false;
     }
     const pregnancy=pregnant?percentage(rb,17n):0n,u7=number("kinder_u7"),u16=number("kinder_u16"),minor=Math.max(u7,u16,number("kinder_minderjaehrig"));
-    const single=minor === 0 ? 0n : min(percentage(56300n,BigInt(u7>0 || u16>=2 && u16<=3 ? 36 : 12*minor)),33780n);
+    const preferredRate=Math.max(12*minor,u7>0 || Math.max(u7,u16)>=2 && Math.max(u7,u16)<=3 ? 36 : 0);
+    const single=minor === 0 ? 0n : min(percentage(56300n,BigInt(preferredRate)),33780n);
     const decentralized=yes("warmwasser"),ww=decentralized?percentage(rb,wwRate[level],1000n):0n;
-    const kduDeduction=decentralized?0n:percentage(money("kdu_heizung"),rate,rateDenominator),rawKdu=max(sum("kdu_miete","kdu_betrieb","kdu_heizung")-kduDeduction,0n);
+    // Altparameter bleibt lesbar; zentrale Warmwasserkosten sind Heizbedarf (§ 35 Abs. 5).
+    const kduDeduction=0n,rawKdu=max(sum("kdu_miete","kdu_betrieb","kdu_heizung"),0n);
     const kdu=remainingKdu===null?rawKdu:min(rawKdu,max(remainingKdu,0n));if (remainingKdu!==null) remainingKdu-=kdu;
     const need=rb+min(g+pregnancy+single,rb)+ww+kdu,employed=money("erwerb"),allowance=min(percentage(employed,30n),28150n);
     const deduct=sum("abz_steuern","abz_sv","abz_vers","abz_erwerb"),countable=max(money("rente")+employed-allowance-deduct,0n);

@@ -1,0 +1,4 @@
+{
+  "verifyExit": 1,
+  "expected": "old certificate is stale after fresh review runs"
+}

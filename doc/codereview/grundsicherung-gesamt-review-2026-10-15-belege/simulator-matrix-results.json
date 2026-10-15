@@ -1,0 +1,86 @@
+[
+  {
+    "mode": "run",
+    "category": "POSITIV",
+    "employees": 8,
+    "configuredOrders": 500,
+    "seed": 20261015,
+    "startedAt": "2026-10-15T10:03:28.1935705+02:00",
+    "finishedAt": "2026-10-15T10:03:38.0398636+02:00",
+    "exitCode": 0,
+    "log": "run-POSITIV.log",
+    "schema": "REVIEW_20261015"
+  },
+  {
+    "mode": "run",
+    "category": "NEGATIV",
+    "employees": 8,
+    "configuredOrders": 500,
+    "seed": 20261015,
+    "startedAt": "2026-10-15T10:03:38.0526269+02:00",
+    "finishedAt": "2026-10-15T10:03:46.5692792+02:00",
+    "exitCode": 0,
+    "log": "run-NEGATIV.log",
+    "schema": "REVIEW_20261015"
+  },
+  {
+    "mode": "run",
+    "category": "LAST",
+    "employees": 8,
+    "configuredOrders": 120,
+    "seed": 20261015,
+    "startedAt": "2026-10-15T10:03:46.5725069+02:00",
+    "finishedAt": "2026-10-15T10:03:50.0996151+02:00",
+    "exitCode": 0,
+    "log": "run-LAST.log",
+    "schema": "REVIEW_20261015"
+  },
+  {
+    "mode": "run",
+    "category": "STRESS",
+    "employees": 4,
+    "configuredOrders": 21,
+    "seed": 20261015,
+    "startedAt": "2026-10-15T10:03:50.1011593+02:00",
+    "finishedAt": "2026-10-15T10:03:53.0785671+02:00",
+    "exitCode": 0,
+    "log": "run-STRESS.log",
+    "schema": "REVIEW_20261015"
+  },
+  {
+    "mode": "web",
+    "category": "POSITIV",
+    "employees": 3,
+    "configuredOrders": 60,
+    "seed": 20261015,
+    "startedAt": "2026-10-15T10:03:53.0807248+02:00",
+    "finishedAt": "2026-10-15T10:06:07.9162213+02:00",
+    "exitCode": 0,
+    "log": "web-POSITIV.log",
+    "schema": "REVIEW_20261015"
+  },
+  {
+    "mode": "web",
+    "category": "NEGATIV",
+    "employees": 3,
+    "configuredOrders": 60,
+    "seed": 20261015,
+    "startedAt": "2026-10-15T10:06:07.9180827+02:00",
+    "finishedAt": "2026-10-15T10:07:40.9007065+02:00",
+    "exitCode": 0,
+    "log": "web-NEGATIV.log",
+    "schema": "REVIEW_20261015"
+  },
+  {
+    "mode": "web",
+    "category": "LAST",
+    "employees": 3,
+    "configuredOrders": 30,
+    "seed": 20261015,
+    "startedAt": "2026-10-15T10:07:40.9024052+02:00",
+    "finishedAt": "2026-10-15T10:08:29.9398446+02:00",
+    "exitCode": 0,
+    "log": "web-LAST.log",
+    "schema": "REVIEW_20261015"
+  }
+]

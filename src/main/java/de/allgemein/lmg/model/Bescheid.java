@@ -11,6 +11,7 @@ import java.time.LocalDate;
  * Erteilungszeitpunkt fest — der Nachdruck zeigt ausschließlich diesen Stand, auch
  * wenn die zugrunde liegenden SozialFälle später geändert werden. Snapshot-Version 2
  * enthält die verbindlichen Einzelbeträge aller Bewilligungsmonate.
+ * Version 3 bewahrt zusätzlich das vollständige HTML-Erteilungsdokument.
  */
 public record Bescheid(
         long id,

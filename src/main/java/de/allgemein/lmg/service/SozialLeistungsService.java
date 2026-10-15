@@ -44,7 +44,7 @@ import java.util.Optional;
  *
  * <p>Bedarfs- und Einkommensermittlung: §§ 27a, 28, 30, 35, 42a, 43a, 44, 82, 90
  * SGB XII (Details in {@link Leistungsberechnung}). Die örtlichen KdU-Parameter
- * (Warmwasser-Abzug von den Heizkosten, Angemessenheitsgrenze) und die
+ * (Angemessenheitsgrenze; kein zentraler Warmwasserabzug) und die
  * Rechtsbehelfsbelehrung des Bescheids sind konfigurierbar (LmgConfig).</p>
  */
 public final class SozialLeistungsService implements LeistungsService {
@@ -624,7 +624,8 @@ public final class SozialLeistungsService implements LeistungsService {
             // Rechtsbehelfsfrist (1 Monat) beginnt, ist ein eigener, nicht erfasster Zeitpunkt.
             // Der Berechnungs-Snapshot hält den Stand der Erteilung fest: der Nachdruck bleibt
             // auch nach späteren Falländerungen beim erteilten Berechnungsstand.
-            String snapshot = BerechnungsSnapshot.schreibe(plan);
+            String snapshot = BescheidDokument.snapshot(plan, bg, id, bescheidNr, bescheidDatum,
+                    bewilligungVon, bewilligungBis, sachbearbeiterId, rechtsbehelf);
             Bescheid bescheid = bescheidDao.einfuegen(ctx, id, bgId, bescheidNr, bescheidDatum,
                     bewilligungVon, bewilligungBis, berechnung.zahlbetrag(), sachbearbeiterId, snapshot);
 
@@ -677,12 +678,13 @@ public final class SozialLeistungsService implements LeistungsService {
             // neu berechnet — mit sichtbarem Hinweis im Dokument.
             if (bescheid.berechnung() != null) {
                 BerechnungsSnapshot.Gelesen snapshot = BescheidPaymentBinding.readSnapshot(bescheid);
+                if (snapshot.dokumentHtml() != null) return snapshot.dokumentHtml();
                 Bedarfsgemeinschaft bgZurBerechnung = new Bedarfsgemeinschaft(
                         bg.id(), bg.aktenzeichen(), bg.hauptpersonName(), bg.statusAktiv(),
                         bg.budgetRest(), bg.wiedervorlageAm(), bg.version(),
                         bg.iban(), bg.bic(), bg.kontoinhaber(), snapshot.vermoegen());
-                return BescheidGenerator.generiereHtml(bgZurBerechnung, snapshot.faelle(),
-                        snapshot.ergebnis(), bescheid, rechtsbehelf, false);
+                return BescheidDokument.kennzeichneAltstand(BescheidGenerator.generiereHtml(
+                        bgZurBerechnung, snapshot.faelle(), snapshot.ergebnis(), bescheid, rechtsbehelf, false));
             }
             Leistungsberechnung.Berechnungsergebnis berechnung = berechnungDefensiv(ctx, bg, faelle);
             if (berechnung == null) {

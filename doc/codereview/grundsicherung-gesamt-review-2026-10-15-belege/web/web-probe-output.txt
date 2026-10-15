@@ -1,0 +1,16 @@
+LOGOUT sessionValid=false issuedPrintTokenValid=true
+THROTTLE_SATURATION wrongPasswordAnswers=30 throttledAnswers=0
+STORNO path=/api/zahlungen/7/storno status=403 calls=0 body={"message":"Diese Funktion erfordert die Admin-Rolle","code":"BERECHTIGUNG"}
+Okt. 15, 2026 10:01:35 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T08:01:35.287317700Z [tx-task-1] TX.COMMIT id=797435ec-cfba-432e-8cf2-13d296a40950 attempt=1 duration=15ms
+STORNO path=/api/zahlungen/+7/storno status=200 calls=1 body={"zahlung":{"id":7,"bgId":99,"fallId":null,"vorgangsNr":"REVIEW-SYNTHETIC","zahlungsmonat":"2026-10","auszahlungsbetrag":10,"status":"STORNIERT","erstelltAm":"2026-10-15T10:00:00Z","sachbearbeiterId":"sb","freigegebenVon":null,"empfaengerIban":null,"empfaengerBic":null,"empfaengerName":"Synthetic Person","vermoegenseinsatz":0.00},"hinweis":"Zahlung storniert, Restbudget erh�ht."}
+Okt. 15, 2026 10:01:35 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T08:01:35.297826800Z [tx-task-2] TX.COMMIT id=a93be098-7646-493b-a4a5-341c4304f7c8 attempt=1 duration=0ms
+STORNO path=/api/zahlungen/%2B7/storno status=200 calls=2 body={"zahlung":{"id":7,"bgId":99,"fallId":null,"vorgangsNr":"REVIEW-SYNTHETIC","zahlungsmonat":"2026-10","auszahlungsbetrag":10,"status":"STORNIERT","erstelltAm":"2026-10-15T10:00:00Z","sachbearbeiterId":"sb","freigegebenVon":null,"empfaengerIban":null,"empfaengerBic":null,"empfaengerName":"Synthetic Person","vermoegenseinsatz":0.00},"hinweis":"Zahlung storniert, Restbudget erh�ht."}
+Okt. 15, 2026 10:01:35 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T08:01:35.301145800Z [tx-task-1] TX.COMMIT id=beff49c4-5d51-44c0-9216-342c337ca217 attempt=1 duration=0ms
+STORNO path=/api/zahlungen/%EF%BC%97/storno status=200 calls=3 body={"zahlung":{"id":7,"bgId":99,"fallId":null,"vorgangsNr":"REVIEW-SYNTHETIC","zahlungsmonat":"2026-10","auszahlungsbetrag":10,"status":"STORNIERT","erstelltAm":"2026-10-15T10:00:00Z","sachbearbeiterId":"sb","freigegebenVon":null,"empfaengerIban":null,"empfaengerBic":null,"empfaengerName":"Synthetic Person","vermoegenseinsatz":0.00},"hinweis":"Zahlung storniert, Restbudget erh�ht."}
+Okt. 15, 2026 10:01:35 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T08:01:35.303651500Z [tx-task-2] TX.COMMIT id=38a6ba39-87a3-456f-a93d-798f6350875c attempt=1 duration=0ms
+PRINT_AFTER_LOGOUT attempt=1 status=200 cache=no-store
+PRINT_AFTER_LOGOUT attempt=2 status=401 cache=no-store

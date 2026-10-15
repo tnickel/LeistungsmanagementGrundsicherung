@@ -52,7 +52,7 @@ hoch- bzw. abgerundeten Summenbeträge die Regelbedarfsstufen ergeben (**Anlage*
 |---|---|---|
 | § 30 Abs. 1 | Personen, die die Altersgrenze erreicht haben oder vor Erreichen voll erwerbsgemindert sind (Nachweis des **Merkzeichens G** durch Bescheid/Ausweis): Mehrbedarf **17 %** der maßgebenden Regelbedarfsstufe | `FLAG_MERKZEICHEN_G` in `SOZIAL_FALL` |
 | § 30 Abs. 2 | **Schwangere ab der 13. Schwangerschaftswoche** (Gesetz: „nach der zwölften Schwangerschaftswoche") bis zum Ende des Entbindungsmonats: **17 %** | `FLAG_SCHWANGER` mit optionalem `ENTBINDUNGSMONAT` (YYYY-MM): Seit v0.5.8 entfällt in späteren Bezugsmonaten automatisch nur dieser Mehrbedarf, in Service und Saga; ohne erfassten Monat liegt die Einhaltung in der Erfassungsverantwortung |
-| § 30 Abs. 3 | **Alleinerziehende**, bezogen auf die **Regelbedarfsstufe 1**: 36 % bei einem Kind unter 7 oder zwei/drei Kindern unter 16; sonst 12 % je minderjährigem Kind; **maximal 60 %** der RBS 1 | `MEHRBEDARF_*`-Logik in `Leistungsberechnung` |
+| § 30 Abs. 3 | **Alleinerziehende**, bezogen auf die **Regelbedarfsstufe 1**: bei einem Kind unter 7 oder zwei/drei Kindern unter 16 mindestens 36 %; stattdessen 12 % je minderjährigem Kind, soweit günstiger; **maximal 60 %** der RBS 1 | `MEHRBEDARF_*`-Logik in `Leistungsberechnung` |
 | § 30 Abs. 6 | Deckel: Die Summe des nach **Abs. 1 bis 5** anzuerkennenden Mehrbedarfs darf die maßgebende Regelbedarfsstufe nicht übersteigen | umgesetzt; Abs. 7 bewusst außerhalb des Deckels (Wortlaut: „Absätze 1 bis 5") |
 | § 30 Abs. 7 | **Dezentrale Warmwassererzeugung**, je Regelbedarfsstufe der Person: **2,3 % (Stufe 1), 2,3 % (Stufe 2), – (Stufe 3), 1,4 % (Stufe 4), 1,2 % (Stufe 5), 0,8 % (Stufe 6)**; Höheres nur mit separatem Messnachweis | `MEHRBEDARF_WARMWASSER_*` in `Leistungsberechnung` |
 
@@ -70,7 +70,7 @@ Alter/bei Erwerbsminderung) verweist für die Einzelheiten auf § 35 SGB XII
 |---|---|---|
 | § 35 Abs. 1 | Bedarfe für Unterkunft und Heizung in Höhe der **tatsächlichen Aufwendungen, soweit angemessen**; Karenzzeit 1 Jahr; Obergrenze: Nicht anerkannt wird, was das **Anderthalbfache** der abstrakt angemessenen Aufwendungen übersteigt | Grundanerkennung umgesetzt; **nicht modelliert:** Karenzzeit (Abs. 1 S. 2–9) und 1,5×-Obergrenze (bewusste Vereinfachung) |
 | § 35 Abs. 3 | Absenkungsfrist: unangemessen hohe Aufwendungen i. d. R. längstens **6 Monate**; nach Tod eines Haushaltsmitglieds mindestens **12 Monate** Zumutbarkeits-Schutz | **nicht modelliert** (dokumentierte Vereinfachung) |
-| § 35 Abs. 5 | Bedarfe für Heizung umfassen **auch Aufwendungen für zentrale Warmwasserversorgung** | umgesetzt: bei zentraler Erzeugung Warmwasseranteil-Abzug von den Heizkosten (`lmg.kdu.warmwasserabzug`) |
+| § 35 Abs. 5 | Bedarfe für Heizung umfassen **auch Aufwendungen für zentrale Warmwasserversorgung** | umgesetzt: zentrale Warmwasserkosten bleiben Bestandteil der Heizkosten; kein pauschaler Abzug |
 | § 35 Abs. 7 | Bildung einer **Gesamtangemessenheitsgrenze** ist zulässig | umgesetzt: `lmg.kdu.angemessenheitsgrenze` je Bedarfsgemeinschaft, Kürzung mit Bescheid-Kennzeichnung |
 
 - **Herkunft:** [§ 35 SGB XII](https://www.gesetze-im-internet.de/sgb_12/__35.html),
@@ -141,7 +141,7 @@ Alter/bei Erwerbsminderung) verweist für die Einzelheiten auf § 35 SGB XII
 | Schonvermögen Grundbetrag | 10.000 EUR je Person | DVO § 1 zu § 90 Abs. 2 Nr. 9 SGB XII | `SCHONVERMOEGEN_GRUNDBETRAG` |
 | Schonvermögen je unterhaltene Person | 500 EUR | DVO § 1 (ebda.) | `SCHONVERMOEGEN_UNTERHALTENE_PERSON` |
 | KdU-Angemessenheitsgrenze | konfigurierbar (`lmg.kdu.angemessenheitsgrenze`) | § 35 Abs. 7 SGB XII | `LmgConfig`/`KduParameter` |
-| Warmwasser-Abzug Heizkosten | konfigurierbar (`lmg.kdu.warmwasserabzug`), nur bei zentraler Erzeugung | § 35 Abs. 5 SGB XII | `LmgConfig`/`KduParameter` |
+| Zentraler Warmwasseranteil | kein Abzug; `lmg.kdu.warmwasserabzug` ist ein veralteter, wirkungsloser Kompatibilitätsparameter | § 35 Abs. 5 SGB XII | `LmgConfig`/`KduParameter` |
 
 ## 4. Bewusst nicht modellierte Normen (Abgrenzungsverzeichnis)
 
@@ -162,7 +162,11 @@ Krisenfeste Dokumentation heißt auch festzuhalten, was bewusst **nicht** gilt:
 7. Änderungen nach Bescheiderteilung: Neue Bescheide speichern seit v0.5.8
    einen Monatsplan mit den bei Erteilung bereits bekannten Satzständen,
    dem Schwangerschaftsende und dem simulierten Vermögenseinsatz. Der Nachdruck
-   zeigt genau diesen Snapshot. Nachträgliche Änderungen von Sätzen, Vermögen,
+   zeigt genau diesen Snapshot. Seit der Korrektur vom 15.10.2026 bewahrt Version 3
+   zusätzlich das vollständige HTML-Erteilungsdokument mit Bankdaten, Behörde und
+   Belehrung. V1/V2 ergänzen diese Dokumentdaten sichtbar aus dem heutigen Stand;
+   ursprüngliche vollständige Dokumentdaten wurden dort nicht gespeichert.
+   Nachträgliche Änderungen von Sätzen, Vermögen,
    Einkommen oder Fällen werden nicht automatisch durch einen Änderungsbescheid
    (§ 48 SGB X) aufgearbeitet. Zahlungen rechnen weiterhin mit dem Datenbestand
    des Zahlungszeitpunkts; die verfahrensrechtliche Abstimmung solcher späteren

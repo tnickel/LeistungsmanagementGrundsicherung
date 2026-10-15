@@ -131,7 +131,12 @@ final class Mitarbeiter implements Runnable {
 
     private String ausfuehrenMitZustandspruefung(Auftrag auftrag, SzenarioAktion aktion,
             SozialLeistungsService service, String kollege, Map<String, Object> kontext) throws Exception {
-        if (aktion.erwarteterFehler() == null) return aktion.execute(service, kuerzel, kollege, kontext);
+        if (aktion.erwarteterFehler() == null) {
+            String detail = aktion.execute(service, kuerzel, kollege, kontext);
+            if (!aktion.zwischenpruefungen().isEmpty())
+                simulator.pruefeZwischenstand(auftrag, aktion.zwischenpruefungen(), kontext);
+            return detail;
+        }
         Fachzustand vorher = simulator.sichereFachzustand(auftrag);
         try {
             return aktion.execute(service, kuerzel, kollege, kontext);

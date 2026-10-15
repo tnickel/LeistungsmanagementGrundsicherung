@@ -86,7 +86,7 @@ class RetryPolicyTest {
     @Test
     void verketteteFehlerWerdenDurchsucht() throws Exception {
         SQLException first = new SQLException("erst", "23000", 1);
-        SQLException second = new SQLException("dann", "61000", 0);
+        SQLException second = new SQLException("dann", "61000", 60);
         first.setNextException(second);
         assertTrue(RetryPolicy.isRetryable(first));
     }
@@ -94,5 +94,15 @@ class RetryPolicyTest {
     @Test
     void nullSqlStateIstUnschädlich() {
         assertFalse(RetryPolicy.isRetryable(new SQLException("ohne State", null, 1)));
+    }
+
+    @Test
+    void sqlStateAlleinUndOracleRessourcenfehlerSindNichtWiederholbar() {
+        for (String state : new String[]{"61000", "40001"}) {
+            for (int code : new int[]{0, 18, 20, 4031}) {
+                assertFalse(RetryPolicy.isRetryable(new SQLException("Ressourcenfehler", state, code)),
+                        "SQLState=" + state + ", ORA=" + code);
+            }
+        }
     }
 }

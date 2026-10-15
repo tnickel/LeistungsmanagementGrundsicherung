@@ -1,0 +1,62 @@
+[
+  {
+    "path": "src/main/java/de/allgemein/lmg/web/LmgServer.java",
+    "bytes": 50784,
+    "sha256": "7558d83d0c35b199678a46b61cdc1e6010ff37798655f72af08e032f642576fc"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/web/Benutzerverwaltung.java",
+    "bytes": 9984,
+    "sha256": "8bbc38c0762b0c952e565738e40018d4c67450b256952c3c79afbd018bf672af"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/web/HttpServerLimits.java",
+    "bytes": 1864,
+    "sha256": "a2214017b8dc51695b362dfb1958e8752a84fbcc42665c34f3ed2f6a95c51493"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/web/Json.java",
+    "bytes": 14423,
+    "sha256": "a366f86b571d53f388098bad35a41a9349a2dcd6e1911f2d5db74d7bb00f6e2b"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/web/LmgServerMain.java",
+    "bytes": 9963,
+    "sha256": "648fedb3bbfc4526532b648ad97ed499f923fdad32048b7552ad425939d7ccd6"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/config/LmgConfig.java",
+    "bytes": 10565,
+    "sha256": "f10efedd3b14bb47ae1225e5871480b9fa8c8e6d2fe8dfda3bf54c49c5647b1b"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/service/SozialLeistungsService.java",
+    "bytes": 51800,
+    "sha256": "ed4c7d9582c44b9bf320b1a2beb0f182a88ff844fb4bdb96532f8889faeba0be"
+  },
+  {
+    "path": "src/main/resources/webapp/app.js",
+    "bytes": 39887,
+    "sha256": "6d23ee5a66b13333a82ef5cea8e983288247596ee6e1c583cb9f1af44539ce0e"
+  },
+  {
+    "path": "src/main/resources/webapp/druck.js",
+    "bytes": 220,
+    "sha256": "bb3b8a9a78e25737c0608da9d81f52e5fabd99462193ae1525ec05b9da980d66"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/SweetServer.java",
+    "bytes": 52221,
+    "sha256": "f54ba58dfeb04ae4690b71fd95206d5674fb424462c7e75c07a73872361359b8"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/LlmConfig.java",
+    "bytes": 5197,
+    "sha256": "eb649f73e07f19f33ce93be3aa414e8162d295365a97e5708cf198efc5438f9e"
+  },
+  {
+    "path": "testsweet/src/main/resources/sweet/app.js",
+    "bytes": 70741,
+    "sha256": "062b762575d895c9cf4a26e1e8140d543035966b4ef5841c7785a6c5a95baaee"
+  }
+]

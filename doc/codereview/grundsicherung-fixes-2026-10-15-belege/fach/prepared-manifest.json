@@ -1,0 +1,67 @@
+[
+  {
+    "path": "src/main/java/de/allgemein/lmg/calc/Leistungsberechnung.java",
+    "sourceSha256": "6fe3d11a2a1a28c31580a7461116795120a31eaf9c6d4a991140c99d3b4a104f",
+    "preparedSha256": "e5adf342f88d66ae72ba1074856f52137c05e87dee8a34c7d33c5584bc0f2a33"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/LlmCalculationReference.java",
+    "sourceSha256": "a96cc6c5f47d58ec377f95fd5dcddbbe502d6019096e280b5a5e18b21301791a",
+    "preparedSha256": "d151f58534853eefd41d6f916a76932e5cf53f40c8c5528a14bb612e6a3faae9"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/llm-reference.js",
+    "sourceSha256": "5ea4575e1f44fd7f231d7489737f93ee7dade4baaa532744410216e1fba6faae",
+    "preparedSha256": "12dbb08127a09175fd8d3a77ae0b7f2a44884886cd37c628f1e3daf387dc6f59"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/nachrechnen_100.py",
+    "sourceSha256": "dc437bb961aa9fb85a2dbc5cee40afe42f919838d6e9bae1030058cfd1888135",
+    "preparedSha256": "983def056aebe3f91bfc1043c4e191eea038751435ea19d440d25ead16723a2c"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/SzenarioBibliothek.java",
+    "sourceSha256": "f356b418202fa8754016cba130439b6cfe27bc1eee906a097c06a97e98b4bf34",
+    "preparedSha256": "5cb400534166f59a5676840371b4d1699289be922e5172a1f1f3a2b06bc72e6c"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/TestfallKatalog.java",
+    "sourceSha256": "b52b11323d94777bfd137c5b7dce58199ebb78b9fce7debb98b21275a4ae3a89",
+    "preparedSha256": "f236c85701388a9a8249e0827e77df32cc887954d22e285b74d8a1642077c57c"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/MdBericht.java",
+    "sourceSha256": "bee987ef3b2848c7608f1933cfe9ce34fea5c84176eca166ec9b24fb50658095",
+    "preparedSha256": "3398fb5ae81aa9ac49a635490663d2726658c645d1280970e1465b90a4ee61bc"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/Testdokumentation.java",
+    "sourceSha256": "b9ceea614f1314d8475626f690d9ab5681d7a48da20b8c63cef0b15fd5b6f220",
+    "preparedSha256": "c3ed0356c7f710a43bbe4ca03679523fb7261063c9b652aca6857046f2b077f1"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/gesetzesgrundlagen-2026.md",
+    "sourceSha256": "d18d27a08007a63ab9ccc7449be9b11f0084100a97b7a454e112b6b97eb45ce5",
+    "preparedSha256": "32e7d05f00ab97eca35257ad8cf6b86c5a7d44ba54993bcd63d2fccc1a85e606"
+  },
+  {
+    "path": "src/test/java/de/allgemein/lmg/calc/LeistungsberechnungTest.java",
+    "sourceSha256": "ac5f6144fc064be3d1236d40e107f7cdab9785abddcd48ac9be5d6376afc9af4",
+    "preparedSha256": "638e1cafa0f49d9df65f79947cde80957dad227321b2ff28802600f38ab0c250"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/LlmCalculationReferenceTest.java",
+    "sourceSha256": "960b61c64ff382bf4edc760c9be62da2cb410851223391ef40e268dfa2a7a2d3",
+    "preparedSha256": "7f305d4f987a7f676f73ef63af9925ec9705291291a2ffcf84ea5b57caee3ee3"
+  },
+  {
+    "path": "testsweet/src/test/java/de/allgemein/testsweet/SzenarioAbdeckungTest.java",
+    "sourceSha256": "46750a3ed55261dda967a4e6988c835f5140a83fdf8d4e8174b81d7475f2988a",
+    "preparedSha256": "9031091c7e04a574b89f3f4a45839d7ada446d1b4dc6aba97945775cbef13188"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/test_nachrechnen.py",
+    "sourceSha256": "8983cb1fd584c700e78b826b3e4fff0e7c1b02e515a407d76d4c814f6b20f314",
+    "preparedSha256": "a9ce2e3a23192a9eb63b6508ae9b3f56673b336e4cad40e6e2a3113090ae8917"
+  }
+]

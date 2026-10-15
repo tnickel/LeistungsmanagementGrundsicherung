@@ -1,0 +1,1 @@
+{"baseUrl":"https://api.z.ai/api/coding/paas/v4","model":"glm-5.3","apiKeyConfigured":true,"timeoutSeconds":300,"maxTokens":16384,"batchSize":3,"cases":100}

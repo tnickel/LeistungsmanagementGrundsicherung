@@ -1,0 +1,12 @@
+{
+  "mode": "web",
+  "category": "POSITIV",
+  "employees": 3,
+  "configuredOrders": 60,
+  "seed": 20261015,
+  "startedAt": "2026-10-15T11:25:08.0430495+02:00",
+  "finishedAt": "2026-10-15T11:27:14.9494510+02:00",
+  "exitCode": 1,
+  "log": "web-POSITIV.log",
+  "schema": "FIX_20261015"
+}

@@ -55,7 +55,7 @@ Fachschicht: Leistungsmanagement Grundsicherung (SDN.Leistung LMG)
 
 | Baustein | Verantwortung |
 |---|---|
-| `lmg.calc.Leistungsberechnung` | Reine SGB-XII-Berechnung (Regelbedarfsstufen 2026, Mehrbedarfe § 30 Abs. 1/2/3/7 mit Obergrenze Abs. 6, KdU § 42a mit Angemessenheitsgrenze/Warmwasser-Abzug, Absetzbeträge § 82 Abs. 2, Erwerbsfreibetrag § 82 Abs. 3, Vermögensanrechnung § 43 Abs. 1/§ 90 Abs. 2 Nr. 9), je SozialFall und summiert je Bedarfsgemeinschaft. |
+| `lmg.calc.Leistungsberechnung` | Reine SGB-XII-Berechnung (Regelbedarfsstufen 2026, Mehrbedarfe § 30 Abs. 1/2/3/7 mit Obergrenze Abs. 6, KdU § 42a mit Angemessenheitsgrenze einschließlich zentraler Warmwasserkosten, Absetzbeträge § 82 Abs. 2, Erwerbsfreibetrag § 82 Abs. 3, Vermögensanrechnung § 43 Abs. 1/§ 90 Abs. 2 Nr. 9), je SozialFall und summiert je Bedarfsgemeinschaft. |
 | `lmg.service.SozialLeistungsService` | Fachdienste als kurze Transaktionen: Zahlungsweg (Idempotenz → FOR-UPDATE-Sperre → Budget-Prüfung → Zahlung immer `ANGELEGT` → Restbudget mindern → Journal; Vier-Augen serverseitig erzwungen), Freigabe/Kassenlauf/Storno (guarded Statuswechsel), Masken-Speicherung mit optimistischem Locking. |
 | `lmg.service.BescheidPaymentBinding` | Prüft unter BG-Sperre eindeutige Monatsdeckung und exakte Betragsübereinstimmung mit dem gespeicherten Bewilligungsplan. Weist neue Überschneidungen aktiver Bewilligungen ab; ersetzt keine fachliche Entscheidung über Änderungsbescheide. |
 | `lmg.service.BescheidGenerator` | Amtlicher, druckfertiger Bewilligungsbescheid (§ 44 SGB XII): Verfügungssatz, Bedarfsaufschlüsselung mit KdU-Vorbehalt, fallbezogene Begründung (§ 35 SGB X), konfigurierbare Rechtsbehelfsbelehrung (§ 36 SGB X). |
@@ -348,3 +348,17 @@ Zeitstempel, Null-Mapping, vorgegebenes Bescheiddatum und Cent-Skalierung.
 Das ändert weder die Zeitbasis bestehender TIMESTAMP-Spalten noch interpretiert es
 historische Werte nachträglich als UTC. Eine solche Migration benötigt einen
 belegbaren Ursprung der gespeicherten Zeitwerte.
+
+## Gesamt-Review-Korrekturen vom 15.10.2026 (v0.5.8)
+
+- Admin-Prüfung und Zahlungsrouter verwenden dieselbe Pfadstruktur; die Stornoaktion prüft die Rolle zusätzlich direkt vor dem Serviceaufruf.
+- Fehlversuche konfigurierter Konten haben eigene Zähler. Eine volle Liste unbekannter Kennungen verdrängt deren Sperren nicht.
+- Einmal-Drucktoken sind an Herkunftssitzung und Ziel-BG gebunden. Logout, Sitzungsablauf und die 60-Sekunden-Grenze entwerten sie. POST `/api/drucktoken` erwartet `{"bgId":123}`.
+- Snapshot v3 speichert den vollständigen Bescheid als HTML zusammen mit dem Monatsplan in `BESCHEID.BERECHNUNG`. Service und Saga erzeugen ihn unter BG-Sperre in der Erteilungstransaktion. Nachdruck verwendet den gespeicherten Dokumentstand einschließlich Bankdaten, Behörde und Belehrung. V1/V2 bleiben lesbar, kennzeichnen aber die Ergänzung heutiger Dokumentdaten. Ganzzahlen und Bescheid-/BG-/Monatsplan-Bindung werden strikt geprüft. Eine neue DDL-Migration ist nicht erforderlich.
+- Die elektronische Widerspruchsform verweist auf § 84 Abs. 1 SGG i.V.m. § 36a Abs. 2/2a SGB I und § 9a Abs. 5 OZG; § 65a SGG bleibt der gerichtlichen Kommunikation zugeordnet.
+- Eine unter Claim gesperrte PENDING-Saga ohne ausgeführten Schritt wird terminal COMPENSATED abgeschlossen, der Payload gelöscht. Widersprüchliche Schrittlisten bleiben FAILED und erfordern Klärung.
+- RetryPolicy erlaubt ausschließlich die Oracle-Codes 54, 60 und 8177. SQLState 61000 allein ist keine Wiederholungsfreigabe.
+- Produkt und unabhängige Referenzen vergleichen die günstigere Alleinerziehendenalternative. Zentrale Warmwasserkosten bleiben in den Heizkosten; der alte Abzugsparameter ist wirkungslos.
+- Java und Node akzeptieren beim LLM-Antwortvertrag nur ein vollständiges JSON-Objekt mit exakt Schema 2. Ein gemeinsamer Rohbytes-Korpus prüft u.a. Codeblöcke, doppelte Schlüssel, Unicode und Dezimalpräzision.
+
+Die Korrekturen ändern bereits erteilte Bescheide nicht rückwirkend. Unzutreffende Altbescheide benötigen eine fachliche Korrektur; fehlende historische Dokumentdaten lassen sich aus alten Berechnungssnapshots nicht rekonstruieren.

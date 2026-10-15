@@ -35,9 +35,9 @@ lmg.audit.file=lmg_audit.log
 lmg.session.timeout.minuten=60
 
 # KdU-Prüfung (§ 42a i.V.m. § 35 SGB XII): 0 = deaktiviert
-#  - warmwasserabzug: örtlicher Warmwasseranteil an den Heizkosten bei ZENTRALER Erzeugung
-#    (§ 35 Abs. 5; Dezimalanteil, z. B. 0.10 für 10 %). Wird nur abgezogen, wenn der Fall
-#    NICHT dezentral erzeugt (dann gilt stattdessen der Mehrbedarf nach § 30 Abs. 7).
+#  - warmwasserabzug: veralteter Kompatibilitätsparameter (0 bis 1), ohne Rechenwirkung.
+#    Zentrale Warmwasserversorgung gehört nach § 35 Abs. 5 zu den Heizkosten; kein Abzug.
+#    Bei dezentraler Erzeugung gilt zusätzlich der Mehrbedarf nach § 30 Abs. 7.
 #  - angemessenheitsgrenze: monatliche Obergrenze der KdU je BEDARFSGEMEINSCHAFT in EUR
 #    (§ 35 Abs. 7); darüber hinausgehende Kosten werden nicht berücksichtigt und im Bescheid
 #    mit * gekennzeichnet. Karenzzeit und Absenkungsfrist (§ 35 Abs. 1/3) sind NICHT abgebildet.

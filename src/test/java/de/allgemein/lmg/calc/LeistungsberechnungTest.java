@@ -242,6 +242,19 @@ class LeistungsberechnungTest {
     }
 
     @Test
+    void alleinerziehendVergleichtBeiVierBisSechsKindernBeideAlternativen() {
+        int[][] children = {{1, 2, 4}, {0, 3, 5}, {1, 3, 6}};
+        String[] expected = {"270.24", "337.80", "337.80"};
+        for (int i = 0; i < children.length; i++) {
+            var c = children[i];
+            var f = new SozialFall(1, 1, 1, false, false, c[0], c[1], c[2], false,
+                    eur("0"), eur("0"), eur("0"), eur("0"), eur("0"),
+                    eur("0"), eur("0"), eur("0"), eur("0"), 1);
+            assertEquals(eur(expected[i]), Leistungsberechnung.berechneFall(f).mehrbedarfAlleinerziehend());
+        }
+    }
+
+    @Test
     void alleinerziehendDeckel60ProzentDerRbs1() {
         // 5 Kinder × 12 % = 60 % — am Deckel (337,80 EUR); 8 Kinder × 12 % = 96 % gekappt
         var amDeckel = vollerFall(1, false, false, 0, 5, false, "0", "0", "0", "0", "0");
@@ -297,13 +310,15 @@ class LeistungsberechnungTest {
     // ------------------------------------------------------------------
 
     @Test
-    void warmwasserAbzugVonHeizkostenNurBeiZentralemWarmwasser() {
-        // zentrales Warmwasser (Flag aus): Heizung 100 EUR, örtlicher Anteil 10 % → −10 EUR
+    void zentraleWarmwasserkostenBleibenAuchMitAltemAbzugsparameterVollstaendigBedarf() {
+        // § 35 Abs. 5: zentrale Warmwasserkosten sind Heizbedarf. Altparameter 20 % ohne Kürzung.
         var f = vollerFall(1, false, false, 0, 0, false, "400", "0", "100", "0", "0");
         var ergebnis = Leistungsberechnung.berechneFall(f,
-                new Leistungsberechnung.KduParameter(new BigDecimal("0.10"), BigDecimal.ZERO));
-        assertEquals(eur("10.00"), ergebnis.kduWarmwasserAbzug());
-        assertEquals(eur("490.00"), ergebnis.kdu());
+                new Leistungsberechnung.KduParameter(new BigDecimal("0.20"), BigDecimal.ZERO));
+        assertEquals(eur("0.00"), ergebnis.kduWarmwasserAbzug());
+        assertEquals(eur("500.00"), ergebnis.kdu());
+        assertEquals(eur("1063.00"), ergebnis.zahlbetrag());
+        assertEquals(eur("0.00"), ergebnis.mehrbedarfWarmwasser());
     }
 
     @Test

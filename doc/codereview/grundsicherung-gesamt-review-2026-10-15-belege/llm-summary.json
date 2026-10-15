@@ -1,0 +1,60 @@
+{
+  "state": "PASS",
+  "model": "glm-5.3",
+  "completedCases": 18,
+  "totalCases": 18,
+  "completedBatches": 6,
+  "totalBatches": 6,
+  "transportVerified": true,
+  "calculationVerified": true,
+  "reviewCoverageVerified": true,
+  "retryStatistik": {
+    "ersterVersuch": 6,
+    "eineWiederholung": 0,
+    "zweiWiederholungen": 0,
+    "gescheiterteFallgruppen": 0,
+    "wiederholteSendungen": 0
+  },
+  "sources": [
+    {
+      "sha256": "59ffed84298b35a7f1095e9c3acc525f733d375a4ee10c1e84506bae6b377e97",
+      "snapshotPath": "source-POSITIV.md",
+      "runStatePath": "testsweet/logs/run-20261015-100353-13234168534251085179/run-state.json",
+      "runStateSha256": "6f3a159f1d16aa091fa52573f795106e54f7370486241263af9b066e7118e6e5",
+      "category": "POSITIV",
+      "mode": "WEB",
+      "path": "testsweet/logs/run-20261015-100353-13234168534251085179/testdokumentation.md",
+      "runId": "run-20261015-100353-13234168534251085179"
+    },
+    {
+      "sha256": "27faf4bb01f2abf774da7801e620f1214826cf19336d34637b8c859cf564e7ed",
+      "snapshotPath": "source-NEGATIV.md",
+      "runStatePath": "testsweet/logs/run-20261015-100608-12296938910290168033/run-state.json",
+      "runStateSha256": "4156d30e9dd76255a8ab70a10f57276cd34470203bf1b27c532869162a6facae",
+      "category": "NEGATIV",
+      "mode": "WEB",
+      "path": "testsweet/logs/run-20261015-100608-12296938910290168033/testdokumentation.md",
+      "runId": "run-20261015-100608-12296938910290168033"
+    }
+  ],
+  "selectedCaseIds": [
+    "POSITIV:run-20261015-100353-13234168534251085179:TF01",
+    "NEGATIV:run-20261015-100608-12296938910290168033:TF01",
+    "POSITIV:run-20261015-100353-13234168534251085179:TF02",
+    "NEGATIV:run-20261015-100608-12296938910290168033:TF02",
+    "POSITIV:run-20261015-100353-13234168534251085179:TF03",
+    "NEGATIV:run-20261015-100608-12296938910290168033:TF03",
+    "POSITIV:run-20261015-100353-13234168534251085179:TF04",
+    "NEGATIV:run-20261015-100608-12296938910290168033:TF04",
+    "POSITIV:run-20261015-100353-13234168534251085179:TF05",
+    "NEGATIV:run-20261015-100608-12296938910290168033:TF05",
+    "POSITIV:run-20261015-100353-13234168534251085179:TF06",
+    "NEGATIV:run-20261015-100608-12296938910290168033:TF06",
+    "POSITIV:run-20261015-100353-13234168534251085179:TF07",
+    "NEGATIV:run-20261015-100608-12296938910290168033:TF07",
+    "POSITIV:run-20261015-100353-13234168534251085179:TF08",
+    "NEGATIV:run-20261015-100608-12296938910290168033:TF08",
+    "POSITIV:run-20261015-100353-13234168534251085179:TF09",
+    "NEGATIV:run-20261015-100608-12296938910290168033:TF09"
+  ]
+}

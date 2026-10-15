@@ -57,7 +57,7 @@ Freigabe, bis die gesamte Pflichtmatrix danach erneut geprüft wurde.
 
    ```powershell
    mvn -f testsweet/pom.xml test
-   node --test doc/testzertifikat-werkzeug/certificate-evidence.test.js
+   node --test doc/testzertifikat-werkzeug/certificate-evidence.test.js doc/testzertifikat-werkzeug/llm-answer-parity.test.js doc/testzertifikat-werkzeug/llm-reference.test.js testsweet/src/test/js/llm-ui.test.js
    python -m unittest discover -s doc/testzertifikat-werkzeug -p test_nachrechnen.py
    ```
 

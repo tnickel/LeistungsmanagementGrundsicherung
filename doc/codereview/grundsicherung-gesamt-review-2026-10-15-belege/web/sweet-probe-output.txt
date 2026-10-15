@@ -1,0 +1,17 @@
+SWEET method=DELETE path=/api/status status=200 cache=no-store csp=absent nosniff=absent
+SWEET method=DELETE path=/api/auftraege status=200 cache=no-store csp=absent nosniff=absent
+SWEET method=DELETE path=/api/testfaelle status=200 cache=no-store csp=absent nosniff=absent
+SWEET method=DELETE path=/api/llm/status status=200 cache=no-store csp=absent nosniff=absent
+SWEET method=GET path=/api/llm/config status=200 cache=no-store csp=absent nosniff=absent
+SWEET method=DELETE path=/api/llmpruefung status=200 cache=no-store csp=absent nosniff=absent
+SWEET method=GET path=/api/zertifikat/tests/status status=200 cache=no-store csp=absent nosniff=absent
+SWEET method=GET path=/api/start status=405 cache=no-store csp=absent nosniff=absent
+SWEET method=GET path=/api/stop status=405 cache=no-store csp=absent nosniff=absent
+SWEET method=GET path=/api/llm/start status=405 cache=no-store csp=absent nosniff=absent
+SWEET method=GET path=/api/llm/test status=405 cache=no-store csp=absent nosniff=absent
+SWEET method=GET path=/api/zertifikat/tests/start status=405 cache=no-store csp=absent nosniff=absent
+SWEET method=GET path=/api/zertifikat/tests/stop status=405 cache=no-store csp=absent nosniff=absent
+SWEET foreignOriginGet=403
+SWEET publicPath=/llm.local.properties status=404
+SWEET publicPath=/pom.xml status=404
+SWEET publicPath=/assets/%2e%2e/llm.local.properties status=404

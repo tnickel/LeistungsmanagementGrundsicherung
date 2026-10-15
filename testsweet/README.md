@@ -436,3 +436,15 @@ GUI, PDF und Markdown. Bereits verifizierte Aufträge werden als Verifikation mi
 Abweichung markiert. Batch-/Web-CLI-Läufe liefern bei erfolglosem Resultat Exitcode 1.
 Die Storno-Spurenprüfung ist weiterhin keine vollständige Rollback-Bilanz eines
 mehrschrittigen Auftrags.
+
+## Regressionen aus dem Gesamt-Review vom 15.10.2026
+
+Die eigene Maven-Suite prüft zusätzlich den tatsächlichen Produkt-HttpServer auf alternative numerische Storno-IDs, Rollenprüfung, Login-Drosselung bei voller Phantomliste und Drucktoken nach Logout bzw. BG-Wechsel. Produktkern-Regressionen prüfen echte Oracle-Fehlercodes sowie den PENDING-Absturzpunkt und Wiederanlauf auf Oracle. Bescheid-Datenbanktests prüfen Service- und Saga-Erteilung und identischen Nachdruck nach Bank-/Behördenwechsel.
+
+TF13–15 enthalten Haushalte mit vier, fünf und sechs minderjährigen Kindern und überschneidenden Altersgruppen. TF17 setzt den alten zentralen Warmwasser-Abzugsparameter ausdrücklich ungleich null. Die SQL-Sollbeträge sind vorab handgerechnet; Java-, Node- und Python-Referenzen wurden anhand derselben Rechtsquellen separat berichtigt.
+
+Storno-Szenarien prüfen Vermögen und Restbudget unmittelbar nach dem abgeschlossenen Storno und vor jeder Folgeänderung. Beide Werte werden in einer eigenen READ-ONLY-Transaktion direkt aus der BG-Zeile gelesen. SQL, BG-ID, Soll- und Istwert erscheinen im Auftrag und im Bericht. Abweichungen und SQL-Fehler stoppen den Auftrag. Gespeicherte Serviceantworten ersetzen diese Datenbankprüfung nicht.
+
+Java und Node lesen denselben Korpus aus `doc/testzertifikat-werkzeug/llm-answer-parity-corpus.json` mit 45 formal gültigen und ungültigen Antworten. Der Node-Testaufruf muss neben `certificate-evidence.test.js` auch `llm-answer-parity.test.js` und `llm-reference.test.js` einschließen. Der Antwortvertrag verlangt ausschließlich JSON, keine Markdown-Codeblöcke oder Einleitung, und den exakten Zahlenwert 2 als Schema-Version.
+
+SEPA-Negativfälle geben außerdem die tatsächlich verwendeten synthetischen IBAN-/BIC-Rohwerte je Anlageversuch an. Zwei Eigentests vergleichen diese Berichtsangaben mit den real an die Fachvalidierung übergebenen Argumenten. Damit lässt sich die behauptete ungültige Prüfziffer oder Länge unabhängig nachrechnen.

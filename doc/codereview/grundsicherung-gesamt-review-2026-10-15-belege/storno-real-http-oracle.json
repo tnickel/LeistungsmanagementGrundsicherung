@@ -1,0 +1,1 @@
+{"schema":"REVIEW_20261015","realOracle":true,"results":[{"httpStatus":403,"route":"/api/zahlungen/1994/storno"},{"httpStatus":200,"route":"/api/zahlungen/+1994/storno"},{"persistedStatus":"STORNIERT","persistedBudgetRest":"100"}]}

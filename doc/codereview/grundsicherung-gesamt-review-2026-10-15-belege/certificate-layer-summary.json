@@ -1,0 +1,67 @@
+{
+  "verdict": "UNVOLLSTÄNDIG",
+  "layers": [
+    {
+      "id": "JUNIT:main",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "JUNIT:testsweet",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "FACH:POSITIV",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "FACH:NEGATIV",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "FACH:LAST",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "FACH:STRESS",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "WEB:POSITIV",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "WEB:NEGATIV",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "WEB:LAST",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "GLM",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "BUILD",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "id": "CERTIFICATE_SUITE",
+      "state": "UNVERIFIED",
+      "reasons": [
+        "Zertifikats-Suite ist noch nicht vollständig abgeschlossen"
+      ]
+    }
+  ]
+}

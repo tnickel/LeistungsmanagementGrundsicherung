@@ -335,6 +335,36 @@ public final class Simulator {
         }
     }
 
+    /**
+     * Liest den bereits committeten Fachzustand vor dem nächsten mutierenden Worker-Schritt.
+     * Alle Erwartungen teilen einen Oracle-Lesesnapshot; Sollwerte kommen aus dem Szenario,
+     * Istwerte ausschließlich aus Tabellen, nicht aus der vorherigen Serviceantwort.
+     */
+    void pruefeZwischenstand(Auftrag auftrag, List<Erwartung> erwartungen,
+            Map<String, Object> kontext) throws Exception {
+        ConnectionPool verbindungen = pruefpool();
+        Connection connection = verbindungen.getConnection();
+        try {
+            if (!connection.getAutoCommit()) connection.rollback();
+            connection.setAutoCommit(false);
+            try (var statement = connection.createStatement()) {
+                statement.execute("SET TRANSACTION READ ONLY");
+            }
+            var verifier = new Verifikator(dbUrl, dbUser, dbPass);
+            boolean ok = true;
+            for (Erwartung erwartung : erwartungen) {
+                var pruefung = verifier.pruefe(connection, kontext, erwartung);
+                auftrag.ergaenzePruefung(pruefung);
+                if (log != null) log.pruefung(auftrag, pruefung);
+                ok &= pruefung.ok();
+            }
+            if (!ok) throw new IllegalStateException("SQL-Zwischenstandsprüfung fehlgeschlagen; keine weitere Fachmutation");
+        } finally {
+            try { connection.rollback(); }
+            finally { verbindungen.release(connection); }
+        }
+    }
+
     private ConnectionPool pruefpool() {
         ConnectionPool verbindungen = pool != null ? pool : webPool;
         if (verbindungen == null) throw new IllegalStateException("Kein Prüfverbindungspool für den laufenden Simulator verfügbar");

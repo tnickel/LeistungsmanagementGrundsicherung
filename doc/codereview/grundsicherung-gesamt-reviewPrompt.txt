@@ -1,0 +1,405 @@
+UMFASSENDER REVIEW — SDN.Leistung / Leistungsmanagement Grundsicherung
+Transaktionskern, Fachrecht, Geldfluss, Web, Oracle, testsweet und Testzertifikat
+Promptstand: 2026-10-15. Prüfgegenstand: der tatsächlich vorliegende Arbeitsstand.
+
+AUFTRAG
+
+Führe einen gründlichen, unabhängigen Gesamt-Review dieses Projekts durch.
+Prüfe, ob Fachentscheidungen, Zahlungen, Transaktionen und Sicherheitsgrenzen
+korrekt funktionieren und ob die Tests und Zertifikate das tatsächlich belegen.
+Eine grüne Anzeige ist selbst ein Prüfgegenstand, kein Beweis ihrer Richtigkeit.
+
+Arbeite sachlich, ohne Gefälligkeitsurteile. Suche aktiv nach Gegenbeispielen,
+prüfe aber auch deine eigenen Verdachtsmomente. Eine leere Fundliste ist zulässig;
+sie rechtfertigt weder erfundene Mängel noch die Behauptung vollständiger Fehlerfreiheit.
+Keine feste Fundzahl und keine pauschale Produktionsfreigabe.
+
+Dies ist ein Reviewauftrag, kein Reparaturauftrag. Ändere keinen Produktcode,
+keine bestehenden Tests, keine Konfiguration, keine Rechtsgrundlagen und keine
+historischen Prüfbelege. Erlaubt sind ein neuer Reviewbericht, neue Prüfprotokolle,
+isolierte temporäre Reproduktionsproben sowie die üblichen Build-/Testartefakte.
+Testdatenänderungen sind ausschließlich in der eindeutig identifizierten
+Entwickler-/Testdatenbank zulässig. Verwende eigene Laufkennungen und räume nur
+nachweislich selbst erzeugte Daten und Prozesse auf. Kein Reset fremder Daten,
+kein pauschales Beenden von Java-/Chrome-Prozessen, keine Bestandsbelege überschreiben.
+
+1. PRÜFSTAND UND MASSSTAB ZUERST FESTHALTEN
+
+Lies die geltenden AGENTS.md-Dateien. Erfasse Datum, Commit, Branch, git status,
+uncommittierte Änderungen, relevante unversionierte Dateien, Java-/Maven-Version,
+Oracle-Version/Edition und verwendete Testkonfiguration ohne Zugangsdaten.
+Erfasse Compiler-Ziel und tatsächliche Laufzeit getrennt: Ein Build mit
+--release 21 auf einem neueren JDK belegt keinen Lauf unter Java 21. Ein Test
+gegen Oracle Free belegt nicht automatisch das Verhalten unter Oracle 19c EE.
+Ein Commit allein identifiziert einen veränderten Arbeitsbaum nicht: erfasse
+zusätzlich ein SHA-256-Inventar der relevanten Quellen, Tests, DDL, Builddateien,
+Prüfprompts und Rechtsgrundlagen. Prüfe am Ende auf Änderungen des Prüfstands.
+Bei Drift sind betroffene Ergebnisse nicht auf den Endstand übertragbar.
+
+Lies insbesondere:
+  AGENTS.md, README.md, pom.xml und testsweet/pom.xml;
+  doc/projektbeschreibung.md, doc/architektur.md, doc/leistungsmanagement.md;
+  doc/rechtsgrundlagen.md, doc/regressionstests.md, doc/roadmap.md;
+  testsweet/README.md und doc/testzertifikat-werkzeug/README.md.
+Ermittle anschließend die tatsächlichen Komponenten und Einstiegspunkte.
+Versionsnummern, Testzahlen und Klassenlisten aus älteren Dokumenten sind
+historische Angaben, bis sie am aktuellen Stand verifiziert wurden.
+
+Bewertungsmaßstab:
+  - Fachrecht: geltende amtliche Rechtsquellen für den jeweiligen Bezugszeitraum.
+    doc/rechtsgrundlagen.md ist der Einstieg und selbst zu prüfen. Verifiziere
+    rechtlich entscheidende Aussagen online anhand amtlicher Primärquellen,
+    einschließlich Fassungsstand, Absatz und Anwendbarkeit. Verwende insbesondere
+    gesetze-im-internet.de und bei Änderungen amtliche Verkündungsquellen.
+    Bei fehlendem Zugriff: Rechtsbewertung ausdrücklich UNVERIFIZIERT lassen.
+  - Fachlicher Projektumfang und dokumentierte Vereinfachungen: gegen tatsächliches
+    Verhalten und behauptete Einsatzfähigkeit prüfen. Dokumentation macht eine
+    rechtswidrige Entscheidung oder ein reales Sicherheitsrisiko nicht korrekt.
+    Trenne Implementierungsfehler, Modellgrenze und Voraussetzung für den Betrieb.
+  - Architektur und Technik: geltende Projektregeln, tatsächlicher Code sowie
+    versionspassende Primärdokumentation von Oracle, Java und Abhängigkeiten.
+
+Produktname: SDN.Leistung. Fachbegriffe: SozialFall und Bedarfsgemeinschaft.
+Keine neuen Artefakte mit dem Namen des historischen Vorbild-Systems.
+
+2. ARBEITSWEISE: PARALLEL PRÜFEN, ZENTRAL GEGENPRÜFEN
+
+Erstelle zuerst einen kurzen risikobasierten Prüfplan und eine Abdeckungsmatrix.
+Nutze echte parallele Subagents innerhalb der verfügbaren Kapazität, etwa für:
+  A: Transaktionskern, Oracle, Pools, Nebenläufigkeit und Recovery;
+  B: Fachberechnung, Monatslogik, Bescheide und Geldfluss;
+  C: Web, Berechtigungen, Sozialdaten, Simulator und Zertifikatsbelegkette.
+Der koordinierende Agent prüft die Schnittstellen und konsolidiert die Ergebnisse.
+Bei geringer Kapazität teile die Gebiete in mehrere Wellen auf. Wenn keine
+Subagents verfügbar sind, dokumentiere das und prüfe systematisch sequenziell.
+Jeder Agent liefert Fundorte, Auslösebedingungen, Evidenzart und offene Fragen.
+Subagent-Urteile gelten nicht automatisch als bestätigt. Prüfe alle BLOCKER und
+KRITISCH-Befunde sowie widersprüchliche Ergebnisse zentral gegen.
+
+Beginne mit eigener Codeanalyse. Nutze frühere Reviewberichte danach für die
+gezielte Nachprüfung und Regression. Historische Verdachte sind Hypothesen;
+übernimm weder alte Zeilennummern noch vermeintlich behobene Fehler ungeprüft.
+Prüfe besonders die Übergänge UI → API → Service → TxManager → DAO → Oracle
+und Saga → Fachschritt → Journal → Kompensation sowie Simulator → Bericht →
+LLM-Prüfung → Belegauswertung → Zertifikat → GUI/Download.
+
+Für jedes Prüffeld: GEPRÜFT, TEILWEISE GEPRÜFT, NICHT GEPRÜFT oder NICHT ANWENDBAR
+mit Begründung und Fundstellen. Dateilesen allein belegt keine vollständige Prüfung.
+Suche zuerst nach falschen Geldbeträgen, Datenverlust, unzulässigen Zugriffen und
+fälschlich positiven Prüfergebnissen; danach Robustheit, Betrieb und Wartbarkeit.
+
+3. EVIDENZREGELN UND BEWERTUNG
+
+Ein bestätigter Befund braucht einen nachvollziehbaren erreichbaren Pfad:
+Vorbedingung → Eingabe/Ablauf → Code-/SQL-Verhalten → verletzte Regel → Auswirkung.
+Prüfe Aufrufer, Guards, Transaktionsgrenzen und Datenbank-Constraints, bevor du
+einen lokalen Codeverdacht als Systemfehler meldest. Nenne realistische Bedingungen;
+bewerte kein rein hypothetisches Worst-Case-Szenario als gesichertes Ereignis.
+
+Trenne je Aussage:
+  - DYNAMISCH BELEGT: frischer Test, SQL-Nachweis oder reproduzierbare Probe;
+  - STATISCH BELEGT: vollständiger nachvollziehbarer Codepfad ohne Ausführung;
+  - OFFENE HYPOTHESE: plausible Spur, deren entscheidender Nachweis fehlt.
+Statische Belege können einen Fehler bestätigen. Eine nicht ausgeführte Probe
+darf niemals als erfolgreich ausgeführt erscheinen. Offene Hypothesen gehören
+in eine eigene Liste und nicht als bestätigte Fehler in die Fundstatistik.
+
+Schweregrad und Belegsicherheit sind getrennte Angaben:
+  BLOCKER: erreichbarer Verlust transaktionaler Konsistenz, erhebliche falsche
+           Leistungs-/Zahlungsentscheidung oder erheblicher unzulässiger Datenzugriff;
+  KRITISCH: wesentlicher Workflowfehler, realistische Race-Condition oder ein
+            Prüf-/Zertifikatspfad, der erhebliche Fehler als bestanden ausweist;
+  MAJOR: konkreter Korrektheits-, Sicherheits- oder Betriebsfehler mit begrenzter Wirkung;
+  MINOR: geringfügige Abweichung mit nachweisbarer praktischer Auswirkung;
+  INFO: belegte Beobachtung, bekannte Grenze oder optionale Verbesserung.
+Begründe den Schweregrad anhand Wirkung, Reichweite und Auslösebedingungen.
+Stilpräferenzen und bloße Framework-Wünsche sind keine Fehler.
+
+4. FACHBERECHNUNG UND RECHTLICHE MODELLGRENZEN
+
+Erstelle die Matrix: Norm/Fassung/Bezugsmonat → fachliche Regel → Modellannahme →
+Codepfad → unabhängiger Sollwert → Testnachweis → Urteil/offene Grenze.
+Prüfe alle als umgesetzt bezeichneten Normwirkungen und ihre Kombinationen:
+  - Anspruchs- und Personenkreis, Zuordnung der Regelbedarfsstufen, Haushaltsbezug;
+    die RBS darf nicht ohne Begründung als Ersatz für Alter oder Rechtsstatus dienen.
+  - Satzstand zum Bezugsmonat, fehlender Satzstand, Jahreswechsel und rückwirkende
+    Berechnung; Datenbank-Sätze, Vorschau, Service, Saga und Snapshot vergleichen.
+  - Mehrbedarfe, insbesondere § 30 SGB XII: Voraussetzungen, Berechnungsbasis,
+    Schwangerschaftsbeginn und Entbindungsmonat/Folgemonat, Kinderzählung und
+    Altersgrenzen, Kombinationen, Obergrenzen, dezentrales Warmwasser.
+  - Unterkunft/Heizung nach den einschlägigen §§ 35/42a SGB XII: Komponenten,
+    Haushaltsverteilung, Angemessenheitsgrenze, Warmwasserabzug, Vorbehalt und
+    nicht modellierte Karenz-/Absenkungsregeln. Personenreihenfolge variieren.
+  - Einkommen nach § 82 SGB XII: Einkommensarten, Absetzpositionen, Reihenfolge,
+    Freibetragsbasis und Kappung, Null-/Negativfälle und Centgrenzen.
+  - Vermögen nach §§ 43/90 SGB XII und einschlägiger Durchführungsverordnung:
+    Zuordnung der Freibeträge, Haushaltsannahmen, tatsächlicher Verbrauch,
+    Dokumentation je Zahlung, Folgemonat und Rückbuchung beim Storno.
+    Prüfe die Verbrauchsfortschreibung selbst fachlich; sie ist keine Wahrheit,
+    nur weil sie im Projekt so beschrieben oder durch Tests bestätigt wird.
+  - Bewilligung und Bescheid nach § 44 SGB XII sowie SGB X/SGG: Zeitraum,
+    Monatsgrenzen, Antrag/Rückwirkung soweit modelliert, Begründung und passende
+    Rechtsbehelfsbelehrung. Prüfe Anwendbarkeit und Ausnahmen der Normen.
+
+Rechne risikoreiche Grenzfälle selbst centgenau und unabhängig von der
+Produktberechnung nach; lege Sollwerte vor der Ausführung fest und leite sie
+nicht aus beobachteten Ist-Ergebnissen ab. Gemeinsamer Produktionscode als Sollwertgenerator
+belegt interne Konsistenz, nicht fachliche Richtigkeit. Prüfe auch gemeinsame
+Annahmen vermeintlich unabhängiger Java-/Python-/Node-/LLM-Referenzen.
+Trenne gesetzliche Rundungsvorgaben von dokumentierten Modellentscheidungen.
+Prüfe Rundungszeitpunkte, BigDecimal-Skalen, Datenbankpräzision und Grenzprüfung
+nach Rundung. Variiere jede relevante Grenze knapp darunter, exakt und knapp darüber.
+
+5. GELDFLUSS, BESCHEID UND FACHLICHE ZUSTANDSMASCHINEN
+
+Verfolge dieselbe Konstellation über Vorschau, direkten Service, Web und Saga.
+Gleiche Eingaben und Bezugsmonate müssen fachlich vereinbare Ergebnisse liefern.
+Prüfe insbesondere:
+  - Idempotenz an BG, Monat, Vorgangsnummer und expliziten Bankdaten gebunden;
+    gleicher Replay, abweichender Replay, Doppelklick und verlorene HTTP-Antwort.
+  - Monats-Eindeutigkeit aktiver Zahlungen unter Konkurrenz und durch DDL;
+    Storno, neue Anordnung und Replay einer stornierten Zahlung.
+  - Budget-/Vermögensänderung atomar mit Zahlung und Journal; keine Doppelbuchung,
+    keine unzulässigen Negativbestände; Rückbuchung genau einmal.
+  - Vier-Augen-Ablauf ANGELEGT → BEREIT → UEBERGEBEN, Identität aus der Sitzung,
+    Selbstfreigabe, Admin-Ausnahmen und alle alternativen Schreibpfade.
+  - Freigabe/Storno/Kassenlauf parallel; Übergabemenge, Anzahl, Summe und Identitäten
+    gehören zur selben gesperrten Menge. Keine Eingriffe in andere Simulatorläufe.
+  - Historisierung gegen Fallanlage/-änderung, Bescheid, Freigabe, Zahlung und
+    Kassenübergabe; Aktivität unter geeigneter Sperre erneut geprüft.
+  - Bescheid und Zahlung über mehrere Monate: Vermögensverbrauch, Schwangerschaftsende,
+    bekannte und nachträglich geänderte Satzstände, Änderungsbedarf im Verfahren.
+  - Snapshot-Versionen, gespeicherter Monatsplan, vollständiger Parameterstand,
+    unveränderter Nachdruck und sichtbar gekennzeichneter Alt-/Fallbackpfad.
+    Kein stiller Austausch eines erteilten Bescheids durch heutige Neuberechnung.
+  - Journal: vollständige fachliche Ereignisse, richtige BG und Benutzeridentität,
+    Zeitquelle, Einsichtsnachweise und transaktionale Deduplizierung.
+
+6. TRANSAKTIONSKERN, SAGA, ORACLE UND RESSOURCEN
+
+Prüfe TxManager.execute und manuelle API einschließlich Exception, Error,
+Deadline, Commit-/Rollbackfehler, mehrfacher Freigabe und verlorener Verbindung.
+Insbesondere: Ein Fehler nach erfolgreichem Commit ist kein Rollbackbeweis.
+Bei mehrdeutigem Commit-Ausgang darf ein Retry keine Doppelwirkung auslösen.
+Prüfe RetryPolicy gegen Projektregeln, SQLException-Ketten, Versuchslimits,
+Backoff und Interrupt; fachliche Fehler dürfen nicht als Sperrkonflikt gelten.
+
+Prüfe TaskController/TaskHandle auf Queue-, Laufzeit- und Abbruchsemantik,
+Statistiken, Permit-/Thread-Leaks, Shutdown und Rennen zwischen Abbruch und Commit.
+Ein Interrupt garantiert nicht automatisch den sofortigen Abbruch jedes JDBC-Aufrufs.
+Belege die tatsächliche Wirkung mit Treiberdokumentation und geeigneter Probe.
+
+Prüfe SagaEngine und Journal an jeder Commit-/Crash-Grenze:
+IN_FLIGHT, Fachschritt+DONE, COMPLETED, fehlgeschlagene Kompensation, Wiederanlauf.
+Untersuche Eigentum an angelegten Objekten, persistierte Korrelation, mehrfache
+Kompensation, verlorene Commit-Bestätigung, alte Saga-Definitionen und paralleles
+Recovery einschließlich aktiver gegenüber verwaisten Sagas. Prüfe, dass Sperren
+oder belastbare persistente Claims konkurrierende Recovery-Arbeit während des
+gesamten kritischen Ablaufs ausschließen; berücksichtige gegebenenfalls Lease-Ablauf,
+Absturz und Wiederaufnahme. Prüfe Payload-Löschung,
+Fehlerzustände und nachträgliche Diagnosefähigkeit.
+
+Prüfe SimpleConnectionPool und UcpConnectionPool: Borrow-/Read-/Connect-Timeouts,
+Validierung, Rollback vor AutoCommit-Rücksetzung, genau einmalige Freigabe,
+defekte Verbindungen und Erschöpfung. Dimensioniere die maximale gleichzeitige
+Verbindungsbelegung einschließlich Fachtransaktion und separatem Saga-Journal.
+Prüfe HTTP-Executor, Taskpool und DB-Pool gemeinsam auf zyklisches Warten.
+
+Prüfe DDL, Migrationen, Constraints, Trigger, Indizes, NUMBER/CLOB/NULL-Mapping,
+optimistisches Locking, geprüfte Updatezahlen und einheitliche Sperrreihenfolge.
+Bewerte frische Installation und Upgrade eines vorhandenen Schemas getrennt.
+Verifiziere verwendete Oracle-Funktionen anhand der tatsächlich unterstützten
+Versionen; übernimm keine Versionsbehauptung aus älteren Review-Prompts.
+Prüfe Bootstrap, Recovery-Reihenfolge, Konfigurationskaskade/UTF-8, JMX und Shutdown.
+
+7. WEB, BERECHTIGUNGEN UND SOZIALDATEN
+
+Erstelle eine vollständige Endpunktmatrix für LmgServer und SweetServer:
+Methode/Pfad → Anmeldung → Rolle/Objektzugriff → Validierung → Schreibwirkung →
+Statuscode → Protokollierung. Beziehe Druck-, Diagnose-, Export-, Konfigurations-,
+LLM-, Zertifikats- und Downloadpfade ein.
+Prüfe fehlende oder umgehbare Rechte, direkt aufrufbare Alternativpfade, IDOR,
+Methodenprüfung, Herkunft der Sachbearbeiteridentität und Demo-/Produktivgrenzen.
+Ein protokollierter Zugriff ersetzt keine bedarfsgerechte Zugriffsberechtigung.
+
+Prüfe Sitzungen, Token, Logout, Idle-Timeout, Drosselung und deren Ressourcenlimits;
+Einmal-Drucktoken, Ablauf/Replay/Parallelabruf, URL-/Browser-/Logspuren;
+XSS in allen Ausgabekontexten einschließlich HTML-Titel, Druck und Fehlerdialogen;
+CSP, no-store, nosniff, CORS/Origin/Host und CSRF soweit tatsächlich relevant;
+SQL-/Pfad-Injection, Datei-/Exportpfade, Parsergrenzen und Überlastverhalten.
+Teste JSON mit Tiefe, leeren Containern, Exponenten, Unicode, doppelten Schlüsseln,
+ungültigen Typen und zu großen Bodies. Prüfe Retry mit bereits gelesenem Request-Body.
+
+Verfolge Sozialdaten und Geheimnisse durch Exceptions, Audit, JUL, JMX, Berichte,
+Screenshots, LLM-Requests/-Responses, Status-APIs und Exporte. Prüfe Redaktion,
+Log-Injection, Zugriff, Aufbewahrung sowie Verhalten bei Schreib-/Rotationsfehlern.
+Behauptete Revisionssicherheit und Manipulationsschutz brauchen eine belegte
+technische Grundlage. Ein lokaler Hash allein beweist weder Urheberschaft noch
+Schutz gegen gemeinsames Umschreiben aller Dateien.
+
+8. TESTSWEET: PRÜFE DAS PRÜFWERKZEUG AUF FALSCHEN ERFOLG
+
+Prüfe Hauptprojekt- und testsweet-Tests auf konkrete Assertions, echte Grenzfälle,
+unabhängige Sollwerte, Fehlerpfade, Assumptions/Skips und Datenhygiene.
+Unterscheide Methoden-/Klasseninventar, Zeilenabdeckung und fachliche Abdeckung.
+Viele erfolgreiche Tests sind keine vollständige Norm- oder Pfadabdeckung.
+
+Prüfe Auftragstopf, Worker, Phasenbarriere, Laufabbruch, Statusmaschine und Seeds.
+Prüfe bei Kombinationsgeneratoren: semantisch unterschiedliche Konstellationen,
+Signaturkollisionen, deterministische Wiederholung und geforderte Fallzahl.
+Viele verschiedene Signaturen beweisen noch keine fachlich vielfältigen Fälle.
+
+Verifikator/GlobaleVerifikation: richtige DB-Zeile und Laufmenge, exakte Beträge,
+Anzahlen, Zustände, Benutzer und Journalereignisse; NULL/fehlende/zusätzliche Zeilen,
+SQL-Fehler und Teilverifikation müssen sichtbar fehlschlagen. Negativfälle brauchen
+den erwarteten Fachfehler und einen nachgewiesenen unveränderten Fachzustand;
+erlaubte Audit-/Diagnoseänderungen separat ausweisen. Technische Fehler sind keine
+erfolgreichen Negativfälle. Prüfe Konsistenz auch nach fehlgeschlagenen Aufträgen.
+
+Webmodus: tatsächliche Oberfläche und Dialoginhalte, Sitzungs-/Rollenwechsel,
+eindeutige Zuordnung zu BG und Test-DB, Recovery nach Renderer-/Serverausfall.
+Ein Timeout nach einem Schreibklick beweist nicht, dass nichts gespeichert wurde.
+Keine ungesicherte Wiederholung möglicherweise bereits bestätigter Schreibschritte.
+Browsercleanup darf ausschließlich eigene registrierte Prozesse/Profile erfassen.
+
+Prüfe PDF/Markdown/Logs/GUI auf dieselben Zählbasen, Rechenwege, SQL-Ergebnisse,
+Status- und Fehlerursachen. Prüfe Last-/Stressaggregate und fehlende Einzelbelege.
+Ein fertig erzeugter Bericht bedeutet nicht, dass der Lauf bestanden hat.
+
+9. GLM-/LLM-KETTE, BUILDNACHWEIS UND ZERTIFIKAT
+
+Prüfe insbesondere die aktuellen Implementierungen von CertificateSuiteService,
+CertificateSuiteWorker, CertificateSuiteState, BuildEvidence, LlmReviewService,
+LlmAnswerValidator, LlmCalculationReference und die Werkzeuge unter
+doc/testzertifikat-werkzeug/, außerdem tools/BuildStamp.java und
+tools/evidence-sources.txt. Ermittle weitere beteiligte Dateien selbst.
+
+Prüfe die vollständige Kette:
+Quell-/Buildstand → JUnit → Simulator → Fallauswahl → übertragene Dokumentbytes →
+Request/Response → Antwortvalidierung → Referenzrechnung → Gesamturteil → Export.
+Berücksichtige mindestens:
+  - Frischer Build, tatsächlich geladene Klassen/JARs, Maven-Installation des
+    Hauptartefakts, getrennte Prüf-JVM und Ports, Konfiguration und Prozessziel.
+    Quellinventar und Start-/Abschlussbelege müssen vollständig sein; Teiltests
+    dürfen bekannte Fehler nicht löschen. Prüfe Prozessabsturz, Instanzsperren,
+    eigene Prozessketten und vorübergehende/dauerhafte Windows-Dateisperren.
+  - Alle sieben Pflichtkombinationen: Fachschicht POSITIV/NEGATIV/LAST/STRESS;
+    Web POSITIV/NEGATIV/LAST. Web-STRESS nur als begründet NICHT ANWENDBAR.
+  - Zuordnung der Pflichtläufe zum Zertifikat und dokumentierte Aktualitätsregel
+    prüfen, derzeit je Pflichtschicht der neueste begonnene Lauf; RUNNING, Abbruch, fehlende
+    Berichte, Skips und Fehler dürfen nicht durch ältere Erfolge verdeckt werden.
+    Ein bekannter Fehler darf durch technische Unvollständigkeit nicht verschwinden.
+  - Exakte Fall-IDs/-zahlen, Grenzfallpriorisierung, Batchgrenzen, keine stille
+    Kürzung oder Ersetzung ausgewählter Fälle; Repräsentativität nicht behaupten,
+    wenn lediglich eine zweckgerichtete Stichprobe vorliegt.
+  - Prüfauftrag, Gesetzestexte und vollständige Falltexte tatsächlich gesendet;
+    Manifest, Hashes, Request-/Response-Snapshots, Modell und Zeitpunkt gebunden.
+  - Prompt-Injection über Testdaten und Modellantwort; Daten sind keine Weisungen.
+    Struktur, Fall-/Prüfpunktabdeckung, Beträge und Begründungen validieren.
+    Java-/Node-Vertrag und unabhängige Referenz dürfen nicht auseinanderlaufen.
+  - Timeout, HTTP-Fehler, stockende Antwort, Größenlimit, Truncation, falsches Modell,
+    ungültiges JSON, doppelte/fehlende IDs, widersprüchliche PASS-/Finding-Angaben.
+    Retry-Verhalten gegen den aktuellen Vertrag: höchstens drei identische
+    Sendeversuche mit 30 Sekunden Pause bei formal ungültigen Antworten.
+    Fachliche FAILs und unverifizierte Hinweise dürfen nicht wegwiederholt werden.
+  - Teilbatch-Erfolg, beschädigte Belege, Quellenänderung während/nach Prüfung,
+    Neustart/restoreLatest, CLI gegenüber GUI, konkurrierende Starts und Exportsperre.
+  - Atomare Veröffentlichung, Staging, READY-Marker, stand.json, Dateiinventar,
+    Fingerprint, Downloadvalidierung und fehlerhafter DOCX-/PDF-Export.
+  - Einheitliche Urteile BESTANDEN/NICHT BESTANDEN/UNVOLLSTÄNDIG in GUI, API,
+    Dokument und CLI. Negativer Export darf sichtbar sein; Exporterfolg ist keine Freigabe.
+    Ausführungsphase, technisches Ergebnis, fachliches Urteil und Beleggültigkeit
+    getrennt prüfen; ein erfolgloser Lauf kann korrekt als fertig angezeigt werden.
+
+Trenne ausdrücklich: Transport/Dateiübergabe, formale Antwortgültigkeit,
+fachliches Stichprobenurteil und vollständigen Zertifikatsumfang.
+Ein LLM-PASS ist kein Beweis allgemeiner fachlicher oder rechtlicher Richtigkeit.
+
+10. DYNAMISCHE PRÜFUNGEN UND GEZIELTE GEGENPROBEN
+
+Führe zuerst die verfügbaren automatischen Basissuiten am erfassten Stand aus.
+Nutze die aktuellen README-Befehle und die Developer-DB lmg-oracle; verifiziere
+das DB-Ziel vor Schreibtests. Hauptprojekt zuerst mit Tests bauen/installieren,
+danach testsweet gegen genau dieses Artefakt prüfen. Ersetze keinen Pflichtlauf
+durch -DskipTests. Prüfe auch die Node-/Python-Eigentests des Zertifikatswerkzeugs.
+Erfasse je Lauf: Befehl, Arbeitsordner, Stand, Test-DB, Beginn/Ende, Exitcode,
+Tests/Fehler/Skips, Kategorie/Modus/Seed und Pfad zum frischen Ergebnis.
+DB-gated Skips sind keine erfolgreiche Datenbankprüfung. Tests mit abweichenden
+Konfigurationsbedingungen gegebenenfalls separat ausführen und sauber zuordnen.
+
+Führe die sieben Simulator-Kombinationen mit nachvollziehbarem Umfang durch,
+soweit die Umgebung verfügbar ist. Begründe Fallzahlen und Lastdimensionierung;
+ein kleiner Funktionstest ist kein belastbarer Lastnachweis. Prüfe vorhandene
+GLM-Belege unabhängig. Echte API-Aufrufe nur mit gültiger Konfiguration und im
+autorisierten Rahmen, ausschließlich mit synthetischen Fällen und ohne Ausgabe
+von Schlüsseln; andernfalls diese Schicht als NICHT DYNAMISCH GEPRÜFT ausweisen.
+
+Ergänze gezielte Gegenproben für die wichtigsten offenen Risiken, etwa:
+  - synchronisierte konkurrierende Anordnung/Freigabe/Storno/Kassenlauf;
+  - Crash-/Commit-Grenze und mehrfacher Recovery-/Kompensationslauf;
+  - Folge-/Jahreswechselmonat mit Vermögen, Schwangerschaft und Satzwechsel;
+  - ein fachlicher FAIL, ein späterer Abbruch und ein älterer PASS;
+  - fehlende/zusätzliche Fall-ID, veränderte Quelle, beschädigter Hash oder Report;
+  - Exportabbruch vor READY und anschließender Downloadversuch.
+Manipulationsproben ausschließlich an temporären Kopien durchführen.
+Prozessabbrüche nur an eigens gestarteten Prüfprozessen; DB-Stopp, Containerneustart
+und verbindungsübergreifende Fault-Injection nur in einer exklusiven isolierten
+Prüfumgebung. Die gemeinsam genutzte Developer-DB ist dafür ohne nachgewiesene
+Exklusivität ungeeignet.
+Concurrency möglichst mit Barrieren/Latches gezielt auslösen; ein einmaliger
+grüner Zufallslauf widerlegt keine Race-Condition. Bei fehlender Umgebung sichere
+statische Ergebnisse berichten und den konkreten ausstehenden Nachweis benennen.
+Keine flächige neue Testsuite schreiben und keinen Defekt für den Review reparieren.
+
+11. HISTORISCHE BEFUNDE UND ABSCHLUSSKRITERIEN
+
+Gleiche die einschlägigen bisherigen Berichte in doc/codereview/ mit dem aktuellen
+Stand ab. Je Vorbefund: NOCH VORHANDEN, BEHOBEN, TEILWEISE BEHOBEN, WIDERLEGT oder
+NICHT VERIFIZIERBAR; jeweils aktuelle Evidenz und verbleibendes Risiko.
+Prüfe auch Nebenwirkungen der Reparatur. Bestehende IDs referenzieren; denselben
+Fehler nicht erneut als mehrere neue Befunde über Komponenten verteilen.
+
+Der Review ist abgeschlossen, wenn alle Prüffelder einen begründeten Status
+haben, wesentliche Schnittstellen geprüft, kritische Fundkandidaten gegengeprüft,
+Vorbefunde abgeglichen und Prüfstand sowie Belege nachvollziehbar sind.
+Fehlende Prüfungen dürfen verbleiben, verhindern aber eine uneingeschränkte
+positive Bewertung ihres Bereichs. Bei Zeit-/Umgebungsgrenzen einen ausdrücklich
+unvollständigen Bericht liefern: Restumfang, Grund, Risiko und nächster Nachweis.
+Kein endloser Wiederholungslauf, keine behauptete Vollständigkeit ohne Abdeckung.
+
+12. ERGEBNISFORMAT
+
+Speichere einen neuen Bericht unter
+doc/codereview/grundsicherung-gesamt-review-<YYYY-MM-DD>-<eindeutige-ID>.md.
+Überschreibe keinen früheren Bericht. Größere neue Belegdateien in einen eigenen
+zugehörigen Unterordner; Zugangsdaten und reale Sozialdaten gehören nicht hinein.
+
+Berichtsaufbau:
+  1. Ergebnis in höchstens zehn Sätzen: die wichtigsten bestätigten Risiken,
+     geprüfter Stand, tatsächlich ausgeführte Prüfungen und wesentliche Grenzen.
+     Getrenntes Urteil zu Fachlichkeit, Geldfluss, Transaktionskern, Sicherheit
+     und Belastbarkeit der Tests/Zertifikate.
+  2. Bestätigte Befunde, nach Schwere und Risiko sortiert. Je Befund:
+       ID: eindeutige neue ID; historische ID zusätzlich referenzieren
+       Schweregrad und Belegsicherheit
+       Komponente, aktuelle Datei:Zeile, betroffene Aufrufer/SQL/Endpunkte
+       verletzte Regel oder amtliche Norm mit URL/Fassungsbezug
+       Vorbedingungen und minimaler Auslöseablauf
+       Sollverhalten gegenüber belegtem Istverhalten
+       konkrete Auswirkung und Reichweite
+       Evidenz: kurze Code-/SQL-Stelle oder frisches Laufartefakt
+       Gegenprüfung: warum vorhandene Guards/Tests den Fehler nicht verhindern
+       konkrete, möglichst kleine Reparaturempfehlung, ohne sie umzusetzen
+       ein sinnvoller Regressionstest mit entscheidenden Assertions
+  3. Offene Hypothesen, fehlende Nachweise und separat bewertete Modell-/Betriebsgrenzen.
+  4. Abdeckungsmatrix einschließlich Normen, Endpunkten, Komponenten und Testlücken;
+     Prüfstatus, Evidenzart und Belegpfad pro Zeile.
+  5. Nachprüfung historischer Befunde sowie begründet widerlegte Verdachtsmomente.
+  6. Priorisierte nächste Schritte nach Wirkung und Aufwand, mit Abhängigkeiten.
+  7. Anhang: Prüfstand/Hashes, reproduzierbare Befehle, frische Laufresultate,
+     Testzahlen/Skips und Quellen-/Fassungsnachweise. Keine historischen Zahlen
+     als aktuellen Erfolgsnachweis verwenden.
+
+Gib im Chat die wichtigsten bestätigten Befunde und den Berichtspfad aus.
+Wenn keine Fehler bestätigt wurden, sage genau das und nenne den geprüften
+Umfang sowie die verbleibenden Grenzen. Beginne jetzt mit Bestandsaufnahme und Prüfplan.

@@ -1,0 +1,33 @@
+{
+  "state": "UNVERIFIED",
+  "completedCases": 18,
+  "caseVerdict": "UNVERIFIED",
+  "hasFailures": false,
+  "artifactDirectory": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\llm-review-f08a1759-76ee-4191-bcbc-5da986195f25",
+  "findings": [
+    {
+      "reasoning": "Reiner Ablauf-/Sperrlogikfall ohne Rechenblock (calculations=[] zulässig). Die Abwehrlogik ist regelkonform: nach sepa_bic-Regel ist ein 7-Zeichen-BIC zwingend VALIDATION 'Ungültiger BIC'; nach sepa_iban-Regel führt eine falsche Prüfziffer zwingend zu VALIDATION 'Ungültige IBAN'. Die STATE_SNAPSHOT-Vergleiche (identische SHA-256-Prüfsummen 5b91b99e37daf82f) und V3 (COUNT=0) belegen unveränderten DB-Zustand ohne Vorgang. Jedoch sind die konkreten fehlerhaften IBAN-/BIC-Werte nicht geliefert, sodass die Prämisse der Prüfziffer-/Längenfehler nicht unabhängig verifizierbar ist; daher kein PASS.",
+      "description": "V1/S1: Die tatsächlich verwendete fehlerhafte IBAN (Zeichenkette) ist im Fall nicht dokumentiert; die Behauptung 'falsche Prüfziffer' ist damit nicht unabhängig nachrechenbar (Modulo-97-Prüfung kann ohne konkrete IBAN nicht verifiziert werden).",
+      "source": "LLM",
+      "caseId": "NEGATIV:run-20261015-111059-12980336994261936625:TF07"
+    },
+    {
+      "reasoning": "Reiner Ablauf-/Sperrlogikfall ohne Rechenblock (calculations=[] zulässig). Die Abwehrlogik ist regelkonform: nach sepa_bic-Regel ist ein 7-Zeichen-BIC zwingend VALIDATION 'Ungültiger BIC'; nach sepa_iban-Regel führt eine falsche Prüfziffer zwingend zu VALIDATION 'Ungültige IBAN'. Die STATE_SNAPSHOT-Vergleiche (identische SHA-256-Prüfsummen 5b91b99e37daf82f) und V3 (COUNT=0) belegen unveränderten DB-Zustand ohne Vorgang. Jedoch sind die konkreten fehlerhaften IBAN-/BIC-Werte nicht geliefert, sodass die Prämisse der Prüfziffer-/Längenfehler nicht unabhängig verifizierbar ist; daher kein PASS.",
+      "description": "V2/S2: Der konkrete 7-Zeichen-BIC-String fehlt; die Längenbehauptung (7 Zeichen) kann nur der Beschreibung entnommen, nicht am Rohwert geprüft werden.",
+      "source": "LLM",
+      "caseId": "NEGATIV:run-20261015-111059-12980336994261936625:TF07"
+    },
+    {
+      "reasoning": "workflowUnverified",
+      "description": "V1: Unverändert-Abgleich ist dokumentiert und konsistent (gleiche Prüfsumme), aber der konkrete IBAN-String fehlt; die falsche Prüfziffer ist nicht eigenständig nachrechenbar.",
+      "source": "REFERENCE_2026",
+      "caseId": "NEGATIV:run-20261015-111059-12980336994261936625:TF07"
+    },
+    {
+      "reasoning": "workflowUnverified",
+      "description": "S1: Abwehr VALIDATION 'Ungültige IBAN' ist regelkonform, sofern die Prüfziffer tatsächlich falsch ist; der Beleg (IBAN-String) fehlt im Protokoll.",
+      "source": "REFERENCE_2026",
+      "caseId": "NEGATIV:run-20261015-111059-12980336994261936625:TF07"
+    }
+  ]
+}

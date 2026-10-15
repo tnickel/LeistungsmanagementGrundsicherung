@@ -341,6 +341,43 @@ class SagaEngineTest {
                 "eine fachlich fertige Saga darf beim Wiederanlauf nicht kompensiert werden");
     }
 
+    @Test
+    void wiederanlaufBeendetVollstaendigPendingOhneFachwirkungTerminal() {
+        for (SagaState initial : List.of(SagaState.RUNNING, SagaState.FAILED, SagaState.COMPENSATING)) {
+            SchrittVerhalten verhalten = new SchrittVerhalten(2);
+            FakeJournal journal = new FakeJournal();
+            journal.prefuelle("vor-inflight", "T", "{}", initial,
+                    Map.of(0, UnfinishedSaga.STEP_PENDING, 1, UnfinishedSaga.STEP_PENDING));
+            SagaEngine engine = new SagaEngine(new TxManager(new FakePool()), journal);
+
+            var report = engine.recoverWithReport(definition("T", verhalten));
+            assertEquals(1, report.compensated(), initial.name());
+            assertEquals(0, report.fehlerhaft());
+            assertEquals(SagaState.COMPENSATED.name(), journal.zustand("vor-inflight"));
+            assertTrue(verhalten.verlauf.isEmpty(), "weder Action noch Kompensation nötig");
+            assertEquals(0, engine.recoverWithReport(definition("T", verhalten)).behandelt());
+            assertTrue(journal.beansprucht.isEmpty());
+        }
+    }
+
+    @Test
+    void wiederanlaufGibtBeschaedigtePendingListenNichtFrei() {
+        for (Map<Integer, String> states : List.of(Map.<Integer, String>of(),
+                Map.of(0, UnfinishedSaga.STEP_PENDING),
+                Map.of(0, UnfinishedSaga.STEP_PENDING, 1, "UNKNOWN"),
+                Map.of(-1, UnfinishedSaga.STEP_PENDING, 0, UnfinishedSaga.STEP_PENDING),
+                Map.of(0, UnfinishedSaga.STEP_PENDING, 1, UnfinishedSaga.STEP_PENDING, 2, UnfinishedSaga.STEP_PENDING))) {
+            FakeJournal journal = new FakeJournal();
+            journal.prefuelle("beschaedigt", "T", "{}", SagaState.RUNNING, states);
+            SchrittVerhalten verhalten = new SchrittVerhalten(2);
+            var report = new SagaEngine(new TxManager(new FakePool()), journal)
+                    .recoverWithReport(definition("T", verhalten));
+            assertEquals(1, report.failed(), String.valueOf(states));
+            assertTrue(verhalten.verlauf.isEmpty());
+            assertEquals(SagaState.FAILED.name(), journal.zustand("beschaedigt"));
+        }
+    }
+
     /**
      * (h) Wiederanlauf wirft nicht und zählt je Saga: eine scheiternde Saga (FAILED) hält
      * die Bearbeitung der übrigen nicht auf (Fund M3).

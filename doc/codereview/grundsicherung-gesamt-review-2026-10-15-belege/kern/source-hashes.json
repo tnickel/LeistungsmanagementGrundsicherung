@@ -1,0 +1,226 @@
+[
+  {
+    "path": "ddl/lmg_schema.sql",
+    "sha256": "b9c84f910fe3df8a3e04da9f3a4ee7b4564bac1477ff4c5b8d1cb508246d0aa7"
+  },
+  {
+    "path": "ddl/lmg_seed.sql",
+    "sha256": "4381d2168ab2f2978a4b507a1f1585992920b4eefb91f719397afae3da3c7171"
+  },
+  {
+    "path": "ddl/oracle_schema.sql",
+    "sha256": "f4ea9cc00c055cd95008fdae440e2752d1b01e12905babfc1c8e8ad1a82d53e6"
+  },
+  {
+    "path": "pom.xml",
+    "sha256": "a13b81684dcd8a83e3693781d0dd588b91c4d9284eec3aa9f2d0242423ec861b"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/config/LmgConfig.java",
+    "sha256": "f10efedd3b14bb47ae1225e5871480b9fa8c8e6d2fe8dfda3bf54c49c5647b1b"
+  },
+  {
+    "path": "src/main/java/de/allgemein/lmg/web/LmgServerMain.java",
+    "sha256": "648fedb3bbfc4526532b648ad97ed499f923fdad32048b7552ad425939d7ccd6"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/audit/TxAuditEvent.java",
+    "sha256": "5305b6866281db45c3a5fbb56b6732365f18438404ceecbab0f381f27063d9a5"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/audit/TxAuditListener.java",
+    "sha256": "a71ad0d6f09cc602d53c2767474fdb5a91bb5522283182c9812a8b58081d21f0"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/audit/TxAuditLog.java",
+    "sha256": "0368fdcba0ec22fd421629f4ca5c6303b4852a234822935aec17d388650198e1"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/ConnectionPool.java",
+    "sha256": "e626b4b774f18066554651d26ed465815574b54dc3d42de6457e0312457fe602"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/demo/AntragsDemoProzess.java",
+    "sha256": "d9eaa5d7146a9488bfc2fc816a7400e3855117688069c1d258a34a4582d9a48e"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/demo/DemoMain.java",
+    "sha256": "a2323d6e17582e2509e49c7505f63ddb96c9f2c926cdb62984b10d4ecace34b6"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/monitoring/GenericConnectionPoolAdapter.java",
+    "sha256": "6b71d0e833f4edfca3ae19a1b001e23990790a6e5068406c68f23cd6efe535fd"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/monitoring/GenericConnectionPoolMBean.java",
+    "sha256": "969e0e5f9b77b27e099e9412d47e88b424cc98d6e52fd5d51b0c37984193e76d"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/monitoring/TaskControllerAdapter.java",
+    "sha256": "9c17a9c2b6a2949d7c9f62b846ba5686dd466bf364884813cd83f0e696514975"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/monitoring/TaskControllerMBean.java",
+    "sha256": "2a2b9916842fb08fdd64f36977ae13830fb50e5ae24a8284a24de1a898dbc6d9"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/monitoring/TxMonitoring.java",
+    "sha256": "ccfe315461ae95e29ddaf88688080e38fef851737d87c488808fc17f839c2b38"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/monitoring/UcpConnectionPoolAdapter.java",
+    "sha256": "e7a4668b0ddf77f0628199dec20404a9f45de5a9450e589a206e9f7b5e79ed1b"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/monitoring/UcpConnectionPoolMBean.java",
+    "sha256": "de3ef761c7995c71f53b26b682686840f5aa905da440e6b9dc6ba05b10998d59"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/RetryPolicy.java",
+    "sha256": "4703eb844ede92d832e2462f98336c046da2e176b8e473cfe3833fe20a19168e"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/saga/SagaAction.java",
+    "sha256": "45761de8b5769d9407cc0f535724dfe5b1fd95369314fb9e43d97232e1e2c6d3"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/saga/SagaClaim.java",
+    "sha256": "2891d1a22d9eeb72aea86e239c08041fe8d7419bf178b400624169de45f9e757"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/saga/SagaDefinition.java",
+    "sha256": "18803e7c1e0f554e788323439c3f9626fad591c86fc27d9dd8716c68896b0dc7"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/saga/SagaEngine.java",
+    "sha256": "69117aff8fbef8de3a42f51c49f0cfc614151c27bc2069e258be19321641c1e8"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/saga/SagaJournal.java",
+    "sha256": "414018e5e272714c3d91642bf55bc2261450cd11150d279bda3bce83cdcbb260"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/saga/SagaState.java",
+    "sha256": "e34af6f0916c6dcba17fb387e9eb10088561288c7a02ad9b0f7a9852f7a36d48"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/saga/SagaStep.java",
+    "sha256": "c48febb94e39f0c952bd4e187fe2b394aecbba1e3fa9a19f88f748945c2763be"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/saga/TxSagaJournal.java",
+    "sha256": "7a017dc7d91db0c0f550728ee046c4a4fe597fa07831de530b43e66a2e327cbc"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/saga/UnfinishedSaga.java",
+    "sha256": "6d7d756f1f47c3616d5578f7c1cffed8ca655045fa81ca1f4604c0a6456276de"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/SimpleConnectionPool.java",
+    "sha256": "690860ef73f0bba60d68c1c4b4385ab2a006f992dcf861498015b10d6addd608"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/TaskController.java",
+    "sha256": "766fa7e92a9a9fa8e39d34748fb857f0f6cbdbda0700e1c59d7ce8ecdd6a63ec"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/TaskHandle.java",
+    "sha256": "686592d4d34522c1a473e52388503f40c6df4c439a2f272b866e300c637732ab"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/TaskInfo.java",
+    "sha256": "eaad57e62ea65e14f3b8afece7fd0420523097658d7712a08b40f60cbe7a8ba7"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/TaskStats.java",
+    "sha256": "db0f33045764d5984974111f824f737f4fa4e9f74a3ad59a4d54885e4936d840"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/TxContext.java",
+    "sha256": "8e225c51be5099818a20c71392298afc5b7d852474eb3eca6116aa5f1a0f7af0"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/TxException.java",
+    "sha256": "db6929fb0db3f89ed9340fa87d9804f69b55298c04dc23cd19d62f24fdd5b0cc"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/TxManager.java",
+    "sha256": "47cc7e3387feba03637c15451dc3b0455a946c15189225721f981dffb19faed4"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/TxOptions.java",
+    "sha256": "a8649235955510dc6790756cdab4b0421f6cd3705f8e7d881471f47c4136354b"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/TxStatus.java",
+    "sha256": "bc316898b075e53bbbc854e97e4f76eb8cc130725bf8b2ae91bfe1d8b797d1d2"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/TxWork.java",
+    "sha256": "9cb3fafde973042abd9e628f22dc82fb92170c89430e914f4452f019dc253c38"
+  },
+  {
+    "path": "src/main/java/de/allgemein/tx/UcpConnectionPool.java",
+    "sha256": "a0e4edf9e57bee9825254fdae3779bc9def72584cd5b1422c4a6c6e5b0f0b2d9"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/audit/TxAuditLogRedaktionTest.java",
+    "sha256": "326cb6f2d74789a8bea79526c552d729d17ebaa4fd9a7b5e81269b02a5f2d99a"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/audit/TxAuditLogTest.java",
+    "sha256": "ee678091e826cd096e9c0925d1d3fd6670c52f0a1ef0a77f5f627e3fbcb7b870"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/DeadlockRetryEchtTest.java",
+    "sha256": "4621623b5f13a339a8a882f9fb0e9e2a033a56712f08b059af041540d2f49147"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/FakePool.java",
+    "sha256": "d3d17a6285ebd3681b1927e0014a88530d963817f416b06e79ec4dfa9c305b89"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/monitoring/TxMonitoringTest.java",
+    "sha256": "7f37b1500a478f463425c7e8105bc708bee09b9df255df493874e5463f41e25b"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/RetryPolicyTest.java",
+    "sha256": "1fc1fe82446420621efe0fd4775a025f3b77acf4e321d3a779e72dcabdc6e14b"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/saga/SagaEngineTest.java",
+    "sha256": "a020c1183a3d50fbe1c525e0d0f85a5f36c3de65fc031198cf9caaecdecfee80"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/saga/SagaOwnershipClockDbTest.java",
+    "sha256": "28470bd8518abb1fcf29024e7d89f05ef4fe0d7287d00d0c5ecbd4e0fb34407b"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/saga/SagaParallelRecoverTest.java",
+    "sha256": "80bc60884f3e7a2ad49c721a43d717b78662e5833068c2b7a0bcb9873ee701f8"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/SimpleConnectionPoolTest.java",
+    "sha256": "cac550c0a191a55e37218c870f3409f80ac0cc6b3030fe8511e07e16fc4428e8"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/TaskControllerTest.java",
+    "sha256": "b429dd884af848163c95fd4adc266b11dcbe7ef91cd416ffc3bc7df01ce412cd"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/TaskControllerWatchdogBudgetTest.java",
+    "sha256": "c8845b9a0e6a77779f1349e1f5dbe2135574de71a22b62e2d61bce25989af812"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/TxContextDeadlineTest.java",
+    "sha256": "f5196ebbb17feb064c7019f246539666d52b9b536e6f9b53e108c256098c5927"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/TxManagerTest.java",
+    "sha256": "b6cd948c7daad1f0febbadfde0d02bb0e8f331b942f9d844dbc9e89f510559be"
+  },
+  {
+    "path": "src/test/java/de/allgemein/tx/UcpConnectionPoolTest.java",
+    "sha256": "71293ae9679be9227f9759c51c6a937fb4bab301bc72731b43b80d9759c40959"
+  }
+]

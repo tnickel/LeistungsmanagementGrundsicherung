@@ -102,9 +102,9 @@ test("Unabhängige Referenz: reiner Minderjährigenhaushalt erhält Grundbetrag 
   const req=reference.requirement("GOLD", "block: Minderjährige\nzahlungsmonat = 2026-10\nvermoegen = 10500.00\nbudget_start = -\n"+referenceInput(1,4)+referenceInput(2,6));
   const bg=req.calculations[0].household;assert.equal(bg.schonvermoegen,"10000.00");assert.equal(bg.bg_verwertbares_vermoegen,"500.00");assert.equal(bg.bg_zahlbetrag,"1328.00");
 });
-test("Unabhängige Referenz: KdU-Abzug mit drei Dezimalstellen und gemeinsamer Grenze",()=>{
+test("Unabhängige Referenz: Altparameter mit drei Dezimalstellen bleibt wirkungslos, gemeinsame Grenze gilt",()=>{
   const req=reference.requirement("GOLD", "block: KdU\nzahlungsmonat = 2026-10\nvermoegen = 0.00\nbudget_start = -\nkdu_warmwasser_abzug_anteil = 0.075\nkdu_bg_grenze = 600.00\n"+referenceInput(1,2)+referenceInput(2,2,true));
-  const block=req.calculations[0];assert.equal(block.persons[0].values.kdu_warmwasser_abzug,"7.50");assert.equal(block.persons[0].values.kdu,"492.50");assert.equal(block.persons[1].values.kdu_warmwasser_abzug,"0.00");assert.equal(block.persons[1].values.kdu,"107.50");assert.equal(block.household.bg_zahlbetrag,"1623.64");
+  const block=req.calculations[0];assert.equal(block.persons[0].values.kdu_warmwasser_abzug,"0.00");assert.equal(block.persons[0].values.kdu,"500.00");assert.equal(block.persons[1].values.kdu_warmwasser_abzug,"0.00");assert.equal(block.persons[1].values.kdu,"100.00");assert.equal(block.household.bg_zahlbetrag,"1623.64");
   assert.equal(reference.requirement("BAD","block: KdU\nvermoegen = 0.00\nbudget_start = -\nkdu_bg_grenze = 600.00\n"+referenceInput(1,1)).calculations.length,0);
 });
 test("Aktuelle vollständige JUnit-XML werden gelesen; spätere Fehler dominieren",t=>{

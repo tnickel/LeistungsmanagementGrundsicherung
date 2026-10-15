@@ -1,0 +1,26 @@
+2026-10-15 12:00:00 | Synthetische Revieweingabe -> OK Formatprobe, keine DB-Ausfuehrung
+block: SYNTHETISCH (kein Simulatorlauf)
+zahlungsmonat = 2026-10
+vermoegen = 0.00
+budget_start = 10000.00
+kdu_warmwasser_abzug_anteil = 0
+kdu_bg_grenze = 0.00
+p1_eingaben: rbs=1, merkzeichen_g=false, schwanger=false, entbindungsmonat=-, kinder_u7=1, kinder_u16=2, kinder_minderjaehrig=4, warmwasser=false, kdu_miete=0.00, kdu_betrieb=0.00, kdu_heizung=0.00, rente=0.00, erwerb=0.00, abz_steuern=0.00, abz_sv=0.00, abz_vers=0.00, abz_erwerb=0.00
+p1_regelbedarf=563.00
+p1_mehrbedarf_g=0.00
+p1_mehrbedarf_schwanger=0.00
+p1_mehrbedarf_alleinerziehend=202.68
+p1_mehrbedarf_warmwasser=0.00
+p1_kdu=0.00
+p1_gesamtbedarf=765.68
+p1_freibetrag_erwerb=0.00
+p1_absetzbetaetrag=0.00
+p1_anrechenbar=0.00
+p1_zahlbetrag=765.68
+p1_kdu_warmwasser_abzug=0.00
+schonvermoegen=10000.00
+bg_gesamtbedarf=765.68
+bg_anrechenbar=0.00
+bg_verwertbares_vermoegen=0.00
+bg_zahlbetrag=765.68
+budget_rest_hypothetisch=9234.32

@@ -1,0 +1,50 @@
+[
+  {
+    "path": "tools/BuildStamp.java",
+    "sha256": "f8cb78e601ba2fa698dfb0917edee14bba5127cfff03af110fe711940bb09669"
+  },
+  {
+    "path": "tools/evidence-sources.txt",
+    "sha256": "1e542f18bf7838c88f850b141cc8e20480a79943a7b8355d653a9c8d16475b27"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/BuildEvidence.java",
+    "sha256": "f009bf42b6eda82beb8e04fb91c6478b6d3843657b9f3423a8732c7d562e166e"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/CertificateSuiteState.java",
+    "sha256": "0eae7347895729e0f881831829208683b1cffe0f40909b73e49d74d2f91d5ce0"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/CertificateSuiteService.java",
+    "sha256": "67f072ff8f4d6535f1375db4317313b24d2a89d60084bf70ecd74b78807b704c"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/CertificateSuiteWorker.java",
+    "sha256": "62f2baf68c25efa20c380003c254f28f7ea12e0250f80ee6bed79f89feb0877a"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/certificate-evidence.js",
+    "sha256": "d1aea098e3e43bd7b103ad07609f6a89be0a23b87d9f9bfb80bf79faabf94358"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/llm-evidence.js",
+    "sha256": "16c34f2744ccbf6927d4de9b24af5e3e728189d792c7ca8aa031914f404feaef"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/publish-certificate.js",
+    "sha256": "f488432a5d81e4de537b2d058debbf46bcf1e54298d1e3437fad3af845911d5c"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/run-chronology.js",
+    "sha256": "58f6245ba7fd7733c8e1b2ee36693859a546ae99cbd23c38ab07ce1c6ce377d9"
+  },
+  {
+    "path": "doc/testzertifikat-werkzeug/generate.js",
+    "sha256": "c2678e8848a285115cc49ef89a002a2ce0a8c83f8b5ca5db396c8c4adaf4e440"
+  },
+  {
+    "path": "testsweet/src/main/java/de/allgemein/testsweet/SweetMain.java",
+    "sha256": "9a022a823c544dc98058579a53241e62c2e0f601d8fa33f07bb0b79a371482ea"
+  }
+]

@@ -33,7 +33,11 @@ public final class BedarfsgemeinschaftDao {
     }
 
     public Optional<Bedarfsgemeinschaft> finde(TxContext ctx, long id) throws SQLException {
-        try (PreparedStatement stmt = ctx.connection().prepareStatement(
+        return finde(ctx.connection(), id);
+    }
+
+    public Optional<Bedarfsgemeinschaft> finde(java.sql.Connection connection, long id) throws SQLException {
+        try (PreparedStatement stmt = connection.prepareStatement(
                 "SELECT " + COLUMNS + " FROM BEDARFSGEMEINSCHAFT WHERE ID = ?")) {
             stmt.setLong(1, id);
             return leseEinzeln(stmt.executeQuery());

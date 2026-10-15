@@ -14,14 +14,15 @@ class SzenarioGeneratorRegressionTest {
     @Test void positivGeneratorFuelltDasLimitMitEindeutigenTatsaechlichenKonstellationen() {
         Map<String, Object> context = Map.ofEntries(Map.entry("bgId", -1L), Map.entry("zahlungId", -2L),
                 Map.entry("letzteZahlungId", -3L), Map.entry("fallId", -4L), Map.entry("kollege", "sb-b"),
-                Map.entry("mitarbeiter", "sb-a"), Map.entry("vermoegenNachStorno", BigDecimal.ZERO), Map.entry("budgetNachStorno", BigDecimal.ZERO));
+                Map.entry("mitarbeiter", "sb-a"));
         for (long seed : List.of(1L, 17L, 37L, 42L, 65L, 85L, 97L)) {
             var cases = new SzenarioBibliothek(seed).erzeuge(500);
             assertEquals(500, cases.size(), "Signaturerschöpfung bei Seed " + seed);
             var signatures = new HashSet<String>();
             for (Auftrag order : cases) if (order.szenarioTyp.equals("KOMBINATION")) {
                 String signature = order.rechenbloecke.stream().map(block -> List.of(block.zahlungsmonat(), block.faelle(), block.vermoegen(), block.budget())).toList()
-                        + "|" + order.aktionen.stream().map(SzenarioAktion::name).toList()
+                        + "|" + order.aktionen.stream().map(a -> a.name() + "|" + a.zwischenpruefungen().stream()
+                            .map(e -> e.sql() + "|" + e.erwartet() + "|" + e.parameter().apply(context)).toList()).toList()
                         + "|" + order.erwartungen.stream().map(e -> e.sql() + "|" + e.erwartet() + "|" + e.parameter().apply(context)).toList();
                 assertTrue(signatures.add(signature), "Doppelte fachliche Eingaben und Abläufe bei Seed " + seed + ", Auftrag " + order.id);
             }

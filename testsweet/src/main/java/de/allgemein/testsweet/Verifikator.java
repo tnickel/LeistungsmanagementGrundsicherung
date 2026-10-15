@@ -68,7 +68,11 @@ final class Verifikator {
     }
 
     private Auftrag.Pruefung pruefe(Connection c, Auftrag auftrag, Erwartung erwartung) {
-        Map<String, Object> ctx = auftrag.kontext;
+        return pruefe(c, auftrag.kontext, erwartung);
+    }
+
+    /** Verwendet den aktuellen Worker-Kontext auch vor Abschluss des gesamten Auftrags. */
+    Auftrag.Pruefung pruefe(Connection c, Map<String, Object> ctx, Erwartung erwartung) {
         List<Object> parameter = List.of();
         try (PreparedStatement stmt = c.prepareStatement(erwartung.sql())) {
             parameter = erwartung.parameter().apply(ctx);

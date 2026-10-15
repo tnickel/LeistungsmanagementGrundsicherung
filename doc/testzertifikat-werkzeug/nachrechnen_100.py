@@ -33,7 +33,9 @@ def rechne_person(p, monat, abzug_anteil=D("0"), kdu_rest=None, neue_parameter=F
     z2 = R2(rb * D("0.17")) if schwanger_wirksam else D("0.00") # § 30 Abs. 2
     minderj = max(p["u16"], p["mind"], p["u7"])                 # minderjaehrige Kinder
     if minderj > 0:                                             # § 30 Abs. 3 (Basis RBS 1!)
-        anteil = D("0.36") if (p["u7"] >= 1 or 2 <= p["u16"] <= 3) else D("0.12") * minderj
+        anteil = D("0.12") * minderj
+        if p["u7"] >= 1 or 2 <= max(p["u7"], p["u16"]) <= 3:
+            anteil = max(anteil, D("0.36"))  # günstigere Alternative, WD 6-046/24, S. 8–11
         z3 = min(R2(RBS[1] * anteil), R2(RBS[1] * D("0.60")))
     else:
         z3 = D("0.00")
@@ -41,8 +43,8 @@ def rechne_person(p, monat, abzug_anteil=D("0"), kdu_rest=None, neue_parameter=F
     if summe15 > rb:                                            # § 30 Abs. 6 (Kappung)
         summe15 = rb
     zww = R2(rb * WW_PROZENT[p["rbs"]]) if p["ww"] else D("0.00")  # § 30 Abs. 7
-    abzug = R2(p["heizung"] * abzug_anteil) if not p["ww"] else D("0.00")
-    kdu = max(D("0.00"), p["kdu"] - abzug)
+    abzug = D("0.00")  # Altparameter ohne Rechenwirkung; § 35 Abs. 5 SGB XII
+    kdu = max(D("0.00"), p["kdu"])
     if kdu_rest is not None:
         kdu = min(kdu, max(D("0.00"), kdu_rest))
     gesamt = rb + summe15 + zww + kdu

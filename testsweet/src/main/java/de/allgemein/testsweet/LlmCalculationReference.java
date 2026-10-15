@@ -126,11 +126,15 @@ final class LlmCalculationReference {
             BigDecimal pregnancy = pregnant ? cents(rb.multiply(d(".17"))) : ZERO;
             int u7 = Integer.parseInt(required(in, "kinder_u7")), u16 = Integer.parseInt(required(in, "kinder_u16"));
             int minor = Math.max(Math.max(u7, u16), Integer.parseInt(required(in, "kinder_minderjaehrig")));
-            BigDecimal single = minor == 0 ? ZERO : cents(d("563").multiply(u7 > 0 || u16 >= 2 && u16 <= 3 ? d(".36") : d(".12").multiply(d(Integer.toString(minor))))).min(d("337.80"));
+            // Vergleich der beiden Alternativen; die 36-Prozent-Konstellation ist keine Obergrenze.
+            BigDecimal childRate = d(".12").multiply(d(Integer.toString(minor)));
+            if (u7 > 0 || Math.max(u7, u16) >= 2 && Math.max(u7, u16) <= 3) childRate = childRate.max(d(".36"));
+            BigDecimal single = minor == 0 ? ZERO : cents(d("563").multiply(childRate)).min(d("337.80"));
             boolean decentralized = yes(in, "warmwasser");
             BigDecimal ww = decentralized ? cents(rb.multiply(d(WW[rbs]))) : ZERO;
-            BigDecimal kduDeduction = decentralized ? ZERO : cents(d(required(in, "kdu_heizung")).multiply(deductionRate));
-            BigDecimal kdu = sum(in, "kdu_miete", "kdu_betrieb", "kdu_heizung").subtract(kduDeduction).max(ZERO);
+            // Altparameter wird validiert, aber zentrale Warmwasserkosten bleiben Heizbedarf.
+            BigDecimal kduDeduction = ZERO;
+            BigDecimal kdu = sum(in, "kdu_miete", "kdu_betrieb", "kdu_heizung").max(ZERO);
             if (remainingKdu != null) { kdu = kdu.min(remainingKdu.max(ZERO)); remainingKdu = remainingKdu.subtract(kdu); }
             BigDecimal need = rb.add(g.add(pregnancy).add(single).min(rb)).add(ww).add(kdu);
             BigDecimal employed = d(required(in, "erwerb")), allowance = cents(employed.multiply(d(".30"))).min(d("281.50"));

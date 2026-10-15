@@ -83,7 +83,9 @@ public final class BescheidGenerator {
                                        boolean neuberechnetOhneSnapshot) {
         List<Bewilligungsplan.Monat> monate = List.of();
         if (!neuberechnetOhneSnapshot && bescheid.berechnung() != null && !bescheid.berechnung().isBlank()) {
-            monate = BerechnungsSnapshot.lese(bescheid.berechnung()).monate();
+            var snapshot = BescheidPaymentBinding.readSnapshot(bescheid);
+            if (snapshot.dokumentHtml() != null) return snapshot.dokumentHtml();
+            monate = snapshot.monate();
         }
         Rechtsbehelf belehrung = rechtsbehelf == null ? Rechtsbehelf.standard() : rechtsbehelf;
         String snapshotWarnung = neuberechnetOhneSnapshot
@@ -407,7 +409,9 @@ public final class BescheidGenerator {
         return """
                 Gegen diesen Bescheid kann innerhalb eines Monats nach seiner Bekanntgabe Widerspruch eingelegt
                 werden. Der Widerspruch ist schriftlich, elektronisch oder zur Niederschrift bei %s einzulegen
-                (§ 84 Abs. 1 SGG, für die elektronische Form § 65a SGG). Die Frist ist auch gewahrt, wenn der
+                (§ 84 Abs. 1 SGG; elektronische Form nach § 36a Abs. 2 SGB I, schriftformersetzend nach
+                § 36a Abs. 2a SGB I und § 9a Abs. 5 OZG, soweit ein entsprechender Zugang eröffnet ist).
+                Die Frist ist auch gewahrt, wenn der
                 Widerspruch innerhalb der Frist bei einer anderen
                 inländischen Behörde, einem Versicherungsträger oder einer deutschen Konsularbehörde eingeht
                 (§ 84 Abs. 2 SGG).%s

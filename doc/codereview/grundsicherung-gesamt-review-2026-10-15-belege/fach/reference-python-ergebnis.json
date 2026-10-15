@@ -1,0 +1,1 @@
+{"referenz": "Python nachrechnen_100", "synthetisch": true, "proben": [{"datei": "synthetisch-ae4.txt", "arithmetischeBeanstandungen": [], "zahlbetrag": "765.68"}, {"datei": "synthetisch-zentral.txt", "arithmetischeBeanstandungen": [], "zahlbetrag": "1043.00"}]}

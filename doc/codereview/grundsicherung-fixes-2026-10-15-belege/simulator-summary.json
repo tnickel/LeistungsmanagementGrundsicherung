@@ -1,0 +1,152 @@
+{
+  "totalCases": 1312,
+  "runs": [
+    {
+      "name": "web-POSITIV",
+      "runId": "run-20261015-115119-15858397283411456066",
+      "state": "PASS",
+      "totalCases": 60,
+      "verifiedCases": 60,
+      "failedCases": 0,
+      "verificationErrors": 0,
+      "sourceSha256": "4f15cb106deea026143a82b24ef6ffdb3cd8ab6398fe03381a3fcde4ea6ebfc2",
+      "directory": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\run-20261015-115119-15858397283411456066",
+      "reports": [
+        {
+          "path": "testdokumentation.pdf",
+          "sha256": "d000a8313bbf3e70cd2083163c4bf3261943c4fab2ea8da2affda621b9fb0ab3"
+        },
+        {
+          "path": "testdokumentation.md",
+          "sha256": "cfeb510225f0fec1eec10e10ad47d334eabd95f5274cc264ea0c0d3e95172103"
+        }
+      ]
+    },
+    {
+      "name": "web-NEGATIV",
+      "runId": "run-20261015-115340-9154464362946164044",
+      "state": "PASS",
+      "totalCases": 60,
+      "verifiedCases": 60,
+      "failedCases": 0,
+      "verificationErrors": 0,
+      "sourceSha256": "4f15cb106deea026143a82b24ef6ffdb3cd8ab6398fe03381a3fcde4ea6ebfc2",
+      "directory": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\run-20261015-115340-9154464362946164044",
+      "reports": [
+        {
+          "sha256": "9b7e9d7180ea4ee01fe70cd5667e76b16e74a91ea63dafc35de2f4747489fc4b",
+          "path": "testdokumentation.pdf"
+        },
+        {
+          "sha256": "afd8a9c387d80f183ca3c5bf58e2b5d7728aa2527f1a9a4eb468bcb2d6db2a9d",
+          "path": "testdokumentation.md"
+        }
+      ]
+    },
+    {
+      "name": "web-LAST",
+      "runId": "run-20261015-115531-7191581400868810920",
+      "state": "PASS",
+      "totalCases": 30,
+      "verifiedCases": 30,
+      "failedCases": 0,
+      "verificationErrors": 0,
+      "sourceSha256": "4f15cb106deea026143a82b24ef6ffdb3cd8ab6398fe03381a3fcde4ea6ebfc2",
+      "directory": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\run-20261015-115531-7191581400868810920",
+      "reports": [
+        {
+          "sha256": "8fc86c7809d30c9888784dc6509d358c114868eb3fd15a2812546e4a83812532",
+          "path": "lastreport.pdf"
+        },
+        {
+          "sha256": "a126f0a424f5e8f262202bf6bc4b70643e11bcecfb29899d88a64afa9ee471a5",
+          "path": "lastreport.md"
+        }
+      ]
+    },
+    {
+      "name": "run-POSITIV",
+      "runId": "run-20261015-115631-1169453738460289625",
+      "state": "PASS",
+      "totalCases": 500,
+      "verifiedCases": 500,
+      "failedCases": 0,
+      "verificationErrors": 0,
+      "sourceSha256": "4f15cb106deea026143a82b24ef6ffdb3cd8ab6398fe03381a3fcde4ea6ebfc2",
+      "directory": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\run-20261015-115631-1169453738460289625",
+      "reports": [
+        {
+          "path": "testdokumentation.pdf",
+          "sha256": "1e013f2c3e5d6db74b0160e1c8e30794158c6466208c46e73475f93d2d8957bc"
+        },
+        {
+          "path": "testdokumentation.md",
+          "sha256": "0c427db75ae8e3ef443fad787147eb05fc04b703954f69e7d8c139af29dd2218"
+        }
+      ]
+    },
+    {
+      "name": "run-NEGATIV",
+      "runId": "run-20261015-115642-14459122975747498654",
+      "state": "PASS",
+      "totalCases": 500,
+      "verifiedCases": 500,
+      "failedCases": 0,
+      "verificationErrors": 0,
+      "sourceSha256": "4f15cb106deea026143a82b24ef6ffdb3cd8ab6398fe03381a3fcde4ea6ebfc2",
+      "directory": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\run-20261015-115642-14459122975747498654",
+      "reports": [
+        {
+          "sha256": "91b13b79366a501de5e0f8aef5307085a8317c398c5172c1dd592d32dd55a666",
+          "path": "testdokumentation.pdf"
+        },
+        {
+          "sha256": "9e91d3809525ea0f23e1e265267be2ac0cbcf6abd3726917b89651c8d84fc649",
+          "path": "testdokumentation.md"
+        }
+      ]
+    },
+    {
+      "name": "run-LAST",
+      "runId": "run-20261015-115652-15812560883041210624",
+      "state": "PASS",
+      "totalCases": 120,
+      "verifiedCases": 120,
+      "failedCases": 0,
+      "verificationErrors": 0,
+      "sourceSha256": "4f15cb106deea026143a82b24ef6ffdb3cd8ab6398fe03381a3fcde4ea6ebfc2",
+      "directory": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\run-20261015-115652-15812560883041210624",
+      "reports": [
+        {
+          "sha256": "9e641d5feff21fad27e0420994aea50f3c86efa390ddaae95919035af112c599",
+          "path": "lastreport.pdf"
+        },
+        {
+          "sha256": "68c00ef8423a82e093b7735f9bf0e79923a534efa128e3728bd44c11069cac95",
+          "path": "lastreport.md"
+        }
+      ]
+    },
+    {
+      "name": "run-STRESS",
+      "runId": "run-20261015-115656-7718886594387443467",
+      "state": "PASS",
+      "totalCases": 42,
+      "verifiedCases": 42,
+      "failedCases": 0,
+      "verificationErrors": 0,
+      "sourceSha256": "4f15cb106deea026143a82b24ef6ffdb3cd8ab6398fe03381a3fcde4ea6ebfc2",
+      "directory": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\run-20261015-115656-7718886594387443467",
+      "reports": [
+        {
+          "sha256": "1a4ea5761dc748f934c42b17385b0c540372655eef72e72e5d7836456303aa9f",
+          "path": "lastreport.pdf"
+        },
+        {
+          "sha256": "cd31186d502687a42ee23fdbb6c11f15bab8da372a123364c781fb49a9fb7589",
+          "path": "lastreport.md"
+        }
+      ]
+    }
+  ]
+}

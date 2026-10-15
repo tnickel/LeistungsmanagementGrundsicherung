@@ -1,6 +1,7 @@
 // Offline-Prüfung echter API-Belege. Ein Preview ohne started.json ist kein Lauf.
 const fs=require("fs"),path=require("path"),crypto=require("crypto");
 const {cents,batchRequirements,coverage}=require("./llm-reference");
+const {parseModelAnswer,nonblank}=require("./llm-answer-json");
 const hash=data=>crypto.createHash("sha256").update(data).digest("hex");
 const named=(name,text)=>`\n=== BEGIN DOCUMENT ${name} ===\n${text}\n=== END DOCUMENT ${name} ===\n`;
 const canonical=value=>JSON.stringify(Array.isArray(value)?value.map(v=>JSON.parse(canonical(v))):value && typeof value === "object"?Object.fromEntries(Object.keys(value).sort().map(key=>[key,JSON.parse(canonical(value[key]))])):value);
@@ -26,11 +27,10 @@ function correctionInstruction(fehler,requirements) {
   return text;
 }
 function answer(content,expected,requirements) {
-  const value=JSON.parse(content);
+  const value=parseModelAnswer(content);
   if (value.schemaVersion!==2 || !sameIds(value.caseIds,expected) || !Array.isArray(value.cases)
       || !sameIds(value.cases.map(c=>c.caseId),expected) || !Array.isArray(requirements)) throw Error("Unvollständige strukturierte Fallabdeckung (Schema 2 erforderlich)");
   const validVerdict=value=>["PASS","FAIL","UNVERIFIED"].includes(value);
-  const nonblank=value=>typeof value === "string" && !!value.trim();
   for (const c of value.cases) {
     if (!validVerdict(c.verdict) || !Array.isArray(c.findings) || !nonblank(c.reasoning) || c.findings.some(f=>!nonblank(f))
         || c.verdict !== "PASS" && c.findings.length===0) throw Error("Ungültige Fallbewertung");
@@ -71,9 +71,9 @@ function referenceChecks(cases,requirements) {
 }
 // Beobachtungen ungültiger Antworten sind Warnsignale, keine bestätigten Produktfehler.
 function provisionalFailures(content,expected,batch,attempt,requestFile,responseFile) {
-  let parsed;try { parsed=JSON.parse(content); } catch (_) { return []; }
+  let parsed;try { parsed=parseModelAnswer(content,{requireVersion:false,normalizeMoney:false}); } catch (_) { return []; }
   if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.cases)) return [];
-  const observations=[],nonblank=value=>typeof value === "string" && !!value.trim();
+  const observations=[];
   for (const c of parsed.cases) {
     if (!c || typeof c !== "object" || typeof c.caseId !== "string" || !expected.includes(c.caseId)) continue;
     const signals=[];
@@ -118,9 +118,9 @@ function newestSource(repo,category,buildMatches) {
   throw Error(`Keine vollständigen ${category}-Quelldaten`);
 }
 function verify(directory,repo,options={}) {
-  const rawManifest=readInside(directory,"manifest.json"),manifest=JSON.parse(rawManifest);
+  const rawManifest=readInside(directory,"manifest.json"),manifest=parseModelAnswer(rawManifest.toString("utf8"),{normalizeMoney:false});
   const terminal=fs.existsSync(path.join(directory,"result.json"));
-  const result=JSON.parse(readInside(directory,terminal?"result.json":"status.json"));
+  const result=parseModelAnswer(readInside(directory,terminal?"result.json":"status.json").toString("utf8"));
   const started=JSON.parse(readInside(directory,"started.json"));
   if (manifest.schemaVersion!==2 || result.schemaVersion!==2 || manifest.kind!=="LLM_REVIEW" || result.kind!=="LLM_REVIEW"
       || manifest.reviewId!==result.reviewId || manifest.reviewId!==started.reviewId || hash(rawManifest)!==result.manifestSha256
@@ -128,7 +128,7 @@ function verify(directory,repo,options={}) {
       || new Set(manifest.selectedCaseIds).size!==manifest.selectedCaseIds.length) throw Error("Manifest-/Startbindung ungültig (historische Schema-1-Belege sind keine aktuelle Freigabe)");
   const buildMatches=options.buildMatches || (evidence=>require("./certificate-evidence").buildValid(repo,evidence));
   if (!buildMatches(manifest.buildEvidence)) throw Error("Getesteter Software-/Buildstand ist veraltet oder nicht gebunden");
-  const contractRaw=readInside(directory,"llm-response-contract.json"),contract=JSON.parse(contractRaw);
+  const contractRaw=readInside(directory,"llm-response-contract.json"),contract=parseModelAnswer(contractRaw.toString("utf8"),{normalizeMoney:false});
   if (hash(contractRaw)!==manifest.responseContractSha256 || hash(readInside(repo,"doc/testzertifikat-werkzeug/llm-response-contract.json"))!==manifest.responseContractSha256) throw Error("Antwortvertrag wurde geändert");
   if (!Array.isArray(manifest.sources) || manifest.sources.length!==2 || !sameIds(manifest.sources.map(s=>s.category),["POSITIV","NEGATIV"])) throw Error("Positiv-/Negativquellen fehlen");
   for (const source of manifest.sources) if (hash(readInside(repo,source.path))!==source.sha256

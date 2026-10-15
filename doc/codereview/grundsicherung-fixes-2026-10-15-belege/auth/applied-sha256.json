@@ -1,0 +1,7 @@
+{
+  "src/main/java/de/allgemein/lmg/web/Benutzerverwaltung.java": "2d78d6bb230b0eb11210ba5876fbee71c506b294d0595850bb7db7a690f480bb",
+  "src/main/java/de/allgemein/lmg/web/LmgServer.java": "2f0c9529234ec12bac74a9705bea8dc7b3c02c8a9ad65828b350f1711ed234b9",
+  "src/main/resources/webapp/app.js": "a7541b85c06f2a48bcc9f6367cc1988aeeb59c07c4d80786adad19337e6b7bb7",
+  "src/test/java/de/allgemein/lmg/web/BenutzerverwaltungZeitTest.java": "4ffc706d6fe0b7a8ac894d8e85639c38e0dcec053b522b8042906c7a502bc289",
+  "src/test/java/de/allgemein/lmg/web/LmgServerHttpTest.java": "911726fa382d90685c8e85d3009fa8131b61b5dc3b7406b25b21548cb8b8cfde"
+}

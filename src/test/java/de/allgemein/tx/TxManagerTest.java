@@ -55,8 +55,8 @@ class TxManagerTest {
     }
 
     private static SQLException oraDeadlock() {
-        // SQLState 61000 = Oracle-Deadlock-Bereich; ORA-00060 im Klartext
-        return new SQLException("ORA-00060: deadlock detected while waiting for resource", "61000");
+        // Der Vendorcode ist maßgeblich; derselbe SQLState tritt bei Ressourcenfehlern auf.
+        return new SQLException("ORA-00060: deadlock detected while waiting for resource", "61000", 60);
     }
 
     @Test

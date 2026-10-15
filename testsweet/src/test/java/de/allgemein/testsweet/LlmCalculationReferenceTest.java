@@ -64,15 +64,35 @@ class LlmCalculationReferenceTest {
         assertEquals("10000.00",bg.get("schonvermoegen")); assertEquals("500.00",bg.get("bg_verwertbares_vermoegen"));
         assertEquals("328.00",bg.get("bg_zahlbetrag"));
     }
-    @Test void localHeatingDeductionAndSharedHouseholdLimitHaveHandComputedValues() {
+    @Test void legacyHeatingParameterDoesNotReduceCentralCostsAndSharedLimitStillApplies() {
         var b = block("block: KdU\nzahlungsmonat = 2026-10\nvermoegen = 0.00\nschonvermoegen = 20000.00\nbudget_start = -\nkdu_warmwasser_abzug_anteil = 0.075\nkdu_bg_grenze = 600.00\n"
                 + input(1,2,false,false,"-",0,0,0,false,"350","50","100","0","0","0")
                 + input(2,2,false,false,"-",0,0,0,true,"350","50","100","0","0","0"));
-        assertEquals("7.50",person(b,0).get("kdu_warmwasser_abzug"));
-        assertEquals("492.50",person(b,0).get("kdu"));
+        assertEquals("0.00",person(b,0).get("kdu_warmwasser_abzug"));
+        assertEquals("500.00",person(b,0).get("kdu"));
         assertEquals("0.00",person(b,1).get("kdu_warmwasser_abzug"));
-        assertEquals("107.50",person(b,1).get("kdu"));
+        assertEquals("100.00",person(b,1).get("kdu"));
         assertEquals("1623.64",((Map<?,?>)b.get("household")).get("bg_zahlbetrag"));
+    }
+    @Test void fourFiveSixChildrenWithYoungChildrenUseMoreFavourableAlternative() {
+        int[][] counts = {{1,2,4},{0,3,5},{1,3,6}};
+        String[] single = {"270.24","337.80","337.80"};
+        String[] payout = {"833.24","900.80","900.80"};
+        for (int i = 0; i < counts.length; i++) {
+            int[] c = counts[i];
+            var p = person(block("block: Gold\nzahlungsmonat = 2026-10\nvermoegen = 0.00\nschonvermoegen = 10000.00\nbudget_start = -\n"
+                    + input(1,1,false,false,"-",c[0],c[1],c[2],false,"0","0","0","0","0","0")),0);
+            assertEquals(single[i],p.get("mehrbedarf_alleinerziehend"));
+            assertEquals(payout[i],p.get("zahlbetrag"));
+        }
+    }
+    @Test void centralHotWaterHasNoAdditionalDeductionDespiteLegacyTwentyPercentParameter() {
+        var p = person(block("block: Zentral\nzahlungsmonat = 2026-10\nvermoegen = 0.00\nschonvermoegen = 10000.00\nbudget_start = -\nkdu_warmwasser_abzug_anteil = 0.20\nkdu_bg_grenze = 0.00\n"
+                + input(1,1,false,false,"-",0,0,0,false,"400","0","100","0","0","0")),0);
+        assertEquals("0.00",p.get("kdu_warmwasser_abzug"));
+        assertEquals("0.00",p.get("mehrbedarf_warmwasser"));
+        assertEquals("500.00",p.get("kdu"));
+        assertEquals("1063.00",p.get("zahlbetrag"));
     }
     private static Map<?,?> block(String text) { return (Map<?,?>)((List<?>)LlmCalculationReference.requirement("GOLD",text).get("calculations")).getFirst(); }
     private static Map<?,?> person(Map<?,?> block,int index) { return (Map<?,?>)((Map<?,?>)((List<?>)block.get("persons")).get(index)).get("values"); }

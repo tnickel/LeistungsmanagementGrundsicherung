@@ -1,0 +1,44 @@
+[
+  {
+    "name": "main-install-db",
+    "startedAt": "2026-10-15T11:22:54.1208697+02:00",
+    "finishedAt": "2026-10-15T11:23:29.9932719+02:00",
+    "exitCode": 0,
+    "log": "main-install-db.log"
+  },
+  {
+    "name": "main-config-without-db",
+    "startedAt": "2026-10-15T11:23:29.9976116+02:00",
+    "finishedAt": "2026-10-15T11:23:35.6071239+02:00",
+    "exitCode": 0,
+    "log": "main-config-without-db.log"
+  },
+  {
+    "name": "testsweet-db",
+    "startedAt": "2026-10-15T11:23:35.6086458+02:00",
+    "finishedAt": "2026-10-15T11:24:38.5185076+02:00",
+    "exitCode": 0,
+    "log": "testsweet-db.log"
+  },
+  {
+    "name": "node-evidence",
+    "startedAt": "2026-10-15T11:24:38.5197812+02:00",
+    "finishedAt": "2026-10-15T11:25:04.4248155+02:00",
+    "exitCode": 0,
+    "log": "node-evidence.log"
+  },
+  {
+    "name": "python-reference",
+    "startedAt": "2026-10-15T11:25:04.4259949+02:00",
+    "finishedAt": "2026-10-15T11:25:06.0279234+02:00",
+    "exitCode": 0,
+    "log": "python-reference.log"
+  },
+  {
+    "name": "testsweet-classpath",
+    "startedAt": "2026-10-15T11:25:06.0293891+02:00",
+    "finishedAt": "2026-10-15T11:25:08.0252812+02:00",
+    "exitCode": 0,
+    "log": "testsweet-classpath.log"
+  }
+]

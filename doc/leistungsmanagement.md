@@ -1,6 +1,6 @@
 # Leistungsmanagement Grundsicherung (SDN.Leistung LMG)
 
-*Stand: 2026-10-13, Version 0.5.8 einschließlich Review-Nachbesserungen*
+*Stand: 2026-10-15, Version 0.5.8 einschließlich Gesamt-Review-Nachbesserungen*
 
 Fachschicht auf der eigenen Transaktionssteuerung: Bearbeitung von Grundsicherungs-
 Leistungen im Alter und bei Erwerbsminderung nach **SGB XII** — von der Bedarfs-
@@ -26,10 +26,10 @@ Widget-Dashboard-Stil unter der Produktbezeichnung **SDN.Leistung**.
 | Regelbedarf | RBS 1 = 563,00 EUR, RBS 2 = 506,00 EUR, RBS 3 = 451,00 EUR, RBS 4 = 471,00 EUR, RBS 5 = 390,00 EUR, RBS 6 = 357,00 EUR (Stufen 1–6 für 2026 vollständig hinterlegt; absolute Beträge nach Anlage zu § 28 SGB XII). |
 | Mehrbedarf Merkzeichen G | 17 % des Regelbedarfs (§ 30 Abs. 1 SGB XII); bei RBS 1 exakt 95,71 EUR, bei RBS 2 exakt 86,02 EUR. |
 | Mehrbedarf Schwangerschaft | 17 % des Regelbedarfs nach der zwölften Schwangerschaftswoche, also ab der 13. SSW (§ 30 Abs. 2 SGB XII). Bei bekanntem Entbindungsmonat entfällt nur dieser Mehrbedarf ab dem Folgemonat automatisch; die gespeicherten Falldaten bleiben erhalten. |
-| Mehrbedarf Alleinerziehende | Implementiertes Modell: RBS 1 als Grundlage; 36 % bei mindestens einem Kind unter 7 oder zwei/drei Kindern unter 16, sonst 12 % je minderjährigem Kind (Feld `ANZ_KINDER_MINDERJ`); gedeckelt auf 60 % der RBS 1 = 337,80 EUR. Keine Kumulation. Spezielle Überschneidungskonstellationen bedürfen der nachfolgend erläuterten Fachklärung. |
+| Mehrbedarf Alleinerziehende | RBS 1 als Grundlage; Vergleich von 36 % bei mindestens einem Kind unter 7 oder zwei/drei Kindern unter 16 mit 12 % je minderjährigem Kind (Feld `ANZ_KINDER_MINDERJ`); die günstigere Alternative gilt, gedeckelt auf 60 % der RBS 1 = 337,80 EUR. Keine Kumulation. |
 | Mehrbedarf dezentrale Warmwassererzeugung | stufenabhängig (§ 30 Abs. 7 SGB XII): RBS 1/2 = 2,3 % (12,95/11,64 EUR), RBS 4 = 1,4 % (6,59 EUR), RBS 5 = 1,2 % (4,68 EUR), RBS 6 = 0,8 % (2,86 EUR); für RBS 3 sieht das Gesetz keinen Satz vor (0 EUR). |
 | Obergrenze der Mehrbedarfe | Die implementierten Mehrbedarfe nach Absätzen 1 bis 5 werden je Person auf den eigenen Regelbedarf begrenzt (§ 30 Abs. 6 SGB XII). Der Warmwasser-Mehrbedarf nach Absatz 7 kommt zusätzlich hinzu. |
-| KdU (Dreiteilung) | anerkannte Kaltmiete + kalte Betriebskosten + Heizkosten, je SozialFall erfasst, BG-weit summiert (§ 42a i.V.m. § 35 SGB XII). Angemessenheitsgrenze (§ 35 Abs. 7): überschreitet die KdU der gesamten Bedarfsgemeinschaft die konfigurierbare Grenze (`lmg.kdu.angemessenheitsgrenze`), wird nur bis zur Grenze anerkannt (Reihenfolge der Fälle) und im Bescheid mit * gekennzeichnet. Bei ZENTRALER Warmwassererzeugung (Flag aus) wird ein örtlich konfigurierbarer Warmwasseranteil von den Heizkosten abgezogen (`lmg.kdu.warmwasserabzug`, § 35 Abs. 5); bei dezentraler Erzeugung stattdessen der Mehrbedarf nach § 30 Abs. 7. |
+| KdU (Dreiteilung) | anerkannte Kaltmiete + kalte Betriebskosten + Heizkosten, je SozialFall erfasst, BG-weit summiert (§ 42a i.V.m. § 35 SGB XII). Angemessenheitsgrenze (§ 35 Abs. 7): überschreitet die KdU der gesamten Bedarfsgemeinschaft die konfigurierbare Grenze (`lmg.kdu.angemessenheitsgrenze`), wird nur bis zur Grenze anerkannt (Reihenfolge der Fälle) und im Bescheid mit * gekennzeichnet. Zentrale Warmwasserkosten bleiben nach § 35 Abs. 5 Bestandteil der Heizkosten. Der Altparameter `lmg.kdu.warmwasserabzug` bleibt lesbar, hat aber keine Rechenwirkung. Bei dezentraler Erzeugung gilt der Mehrbedarf nach § 30 Abs. 7. |
 | Absetzbeträge | vom Einkommen sind abzusetzen: Steuern, Pflichtbeiträge zur Sozialversicherung, gesetzlich vorgeschriebene/angemessene Versicherungsbeiträge, mit der Erzielung verbundene Ausgaben (§ 82 Abs. 2 SGB XII) — je SozialFall erfasst, vor dem Freibetrag abgezogen. |
 | Erwerbsfreibetrag | min(30 % Brutto-Erwerbseinkommen, 50 % der RBS 1 = 281,50 EUR) nach § 82 Abs. 3 SGB XII. |
 | Anrechenbares Einkommen | Renteneinkünfte (voll anrechenbar) + Erwerbseinkommen − Freibetrag − Absetzbeträge, mindestens 0. |
@@ -42,17 +42,17 @@ Alle Berechnungen stehen als reine Funktion in
 Stufen 4–6 des Warmwasser-Mehrbedarfs, Kinder-/Schwangeren-Mehrbedarfen,
 Obergrenze, Absetzbeträgen und Vermögensanrechnung).
 
-### Offene Auslegung und Modellgrenze beim Alleinerziehenden-Mehrbedarf
+### Auslegung und Modellgrenze beim Alleinerziehenden-Mehrbedarf
 
-Der Code verwendet bei mindestens einem Kind unter sieben Jahren den 36-Prozent-Zweig
-auch dann, wenn insgesamt vier oder mehr minderjährige Kinder erfasst sind. Die frühere
-Aussage dieses Dokuments, § 30 Abs. 3 verlange stets die höhere Variante, war durch die
-vorliegende Prüfung nicht belegt und widersprach der beschriebenen Implementierung.
-Der [amtliche Wortlaut](https://www.gesetze-im-internet.de/sgb_12/__30.html) nennt für
-Nummer 2 die Voraussetzung, dass Nummer 1 nicht vorliegt. Eine abschließende Prüfung
-einschlägiger Rechtsprechung und maßgeblicher Fachanweisungen für solche
-Überschneidungskonstellationen liegt hier nicht vor. Die Formel wurde deshalb nicht
-ohne belastbare Fachentscheidung geändert.
+Die Berechnung wählt seit der Korrektur vom 15.10.2026 die günstigere Alternative.
+Vier minderjährige Kinder ergeben 48 %, fünf oder mehr 60 % der RBS 1, auch wenn
+zugleich die Alterskonstellation für 36 % vorliegt. Der isolierte
+[amtliche Wortlaut](https://www.gesetze-im-internet.de/sgb_12/__30.html) lässt einen
+ausschließlichen Zweig nahelegen; die [Wissenschaftlichen Dienste, WD 6-046/24,
+S. 11 in Verbindung mit S. 8–10](https://www.bundestag.de/resource/blob/1019234/WD-6-046-24-pdf.pdf)
+übertragen jedoch ausdrücklich den Vergleich der günstigeren Alternative auf SGB XII.
+Das ist eine begründete Auslegung anhand einer amtlichen Ausarbeitung, keine
+behauptete bindende gerichtliche Entscheidung.
 
 Ein eigenes Alleinerziehendenmerkmal ist nicht modelliert; Kinderzahlen lösen den
 Zuschlag aus. Die Sachbearbeitung muss die tatsächlichen Anspruchsvoraussetzungen
@@ -70,10 +70,10 @@ Alle Normen im Wortlaut gegen gesetze-im-internet.de geprüft, soweit nicht ande
 |---|---|---|
 | § 28 + Anlage SGB XII | Regelbedarfsstufen 1–6 (2026: 563/506/451/471/390/357 EUR) | `Leistungsberechnung` |
 | § 30 Abs. 1, 2 SGB XII | Mehrbedarf Merkzeichen G und Schwangerschaft: je 17 % | umgesetzt |
-| § 30 Abs. 3 SGB XII | Alleinerziehende: Bezug **RBS 1**; 36 % (1 Kind < 7 oder 2–3 Kinder < 16) bzw. 12 % je minderjährigem Kind, max. 60 % | umgesetzt (neues Feld `ANZ_KINDER_MINDERJ`) |
+| § 30 Abs. 3 SGB XII | Alleinerziehende: Bezug **RBS 1**; günstigere Alternative aus 36 % (1 Kind < 7 oder 2–3 Kinder < 16) und 12 % je minderjährigem Kind, max. 60 % | umgesetzt (`ANZ_KINDER_MINDERJ`) |
 | § 30 Abs. 6 SGB XII | Deckel gilt nur für Abs. 1–5 | umgesetzt |
 | § 30 Abs. 7 SGB XII | dezentrale Warmwassererzeugung, stufenabhängig 2,3/2,3/–/1,4/1,2/0,8 %; liegt **außerhalb** des Deckels | umgesetzt |
-| § 35 Abs. 1, 3, 5, 7 SGB XII | KdU in tatsächlicher Höhe, soweit angemessen; zentrale Warmwasserversorgung ist Teil der Heizkosten; Gesamtangemessenheitsgrenze | umgesetzt (Grenze und Abzug konfigurierbar) |
+| § 35 Abs. 1, 3, 5, 7 SGB XII | KdU in tatsächlicher Höhe, soweit angemessen; zentrale Warmwasserversorgung ist Teil der Heizkosten; Gesamtangemessenheitsgrenze | umgesetzt (Grenze konfigurierbar, kein zentraler Warmwasserabzug); Karenzzeit/Absenkungsfrist bleiben offen |
 | § 35 Abs. 1 Satz 2–9, Abs. 3 Satz 2–5 SGB XII | **Karenzzeit** (1 Jahr, seit 2023), Absenkungsfrist (i. d. R. 6 Monate), 12-Monats-Schutz nach Tod eines Haushaltsmitglieds | **nicht modelliert** (Vereinfachung) |
 | § 82 Abs. 2 SGB XII | Absetzbeträge | umgesetzt |
 | § 82 Abs. 3 SGB XII | Erwerbsfreibetrag 30 % des **Bruttoeinkommens**, max. 50 % der RBS 1 (281,50 EUR) | umgesetzt (Basis Brutto) |

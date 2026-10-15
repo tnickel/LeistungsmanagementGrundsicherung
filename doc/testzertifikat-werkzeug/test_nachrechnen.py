@@ -70,16 +70,29 @@ class DeterministicRecalculationTest(unittest.TestCase):
         self.assertEqual(D("500.00"), result["verw"])
         self.assertEqual(D("1328.00"), result["zahl"])
 
-    def test_central_deduction_and_shared_limit(self):
+    def test_legacy_central_parameter_has_no_effect_and_shared_limit_still_applies(self):
         block = "block: KdU\nzahlungsmonat = 2026-10\nvermoegen = 0.00\nbudget_start = -\nkdu_warmwasser_abzug_anteil = 0.075\nkdu_bg_grenze = 600.00\n"
         result = rechne_block(block + self.input(1, 2) + self.input(2, 2, True))
-        self.assertEqual(D("7.50"), result["personen"][0]["kdu_warmwasser_abzug"])
-        self.assertEqual(D("492.50"), result["personen"][0]["kdu"])
+        self.assertEqual(D("0.00"), result["personen"][0]["kdu_warmwasser_abzug"])
+        self.assertEqual(D("500.00"), result["personen"][0]["kdu"])
         self.assertEqual(D("0.00"), result["personen"][1]["kdu_warmwasser_abzug"])
-        self.assertEqual(D("107.50"), result["personen"][1]["kdu"])
+        self.assertEqual(D("100.00"), result["personen"][1]["kdu"])
         self.assertEqual(D("1623.64"), result["zahl"])
         with self.assertRaises(ValueError):
             rechne_block(block.replace("kdu_bg_grenze = 600.00\n", "") + self.input(1, 2))
+
+    def test_four_five_six_children_compare_both_alternatives(self):
+        for u7, u16, minors, expected in [(1, 2, 4, "270.24"), (0, 3, 5, "337.80"), (1, 3, 6, "337.80")]:
+            with self.subTest(children=(u7, u16, minors)):
+                entry = self.input(1, 1).replace("kinder_u7=0, kinder_u16=0, kinder_minderjaehrig=0",
+                        f"kinder_u7={u7}, kinder_u16={u16}, kinder_minderjaehrig={minors}")
+                result = rechne_block("block: Gold\nzahlungsmonat = 2026-10\nvermoegen = 0.00\nbudget_start = -\n" + entry)
+                self.assertEqual(D(expected), result["personen"][0]["mehrbedarf_alleinerziehend"])
+
+    def test_central_twenty_percent_parameter_does_not_reduce_heating_need(self):
+        result = rechne_block("block: Zentral\nzahlungsmonat = 2026-10\nvermoegen = 0.00\nbudget_start = -\nkdu_warmwasser_abzug_anteil = 0.20\nkdu_bg_grenze = 0.00\n" + self.input(1, 1))
+        self.assertEqual(D("0.00"), result["personen"][0]["kdu_warmwasser_abzug"])
+        self.assertEqual(D("1063.00"), result["zahl"])
 
     @staticmethod
     def input(person, rbs, ww=False):

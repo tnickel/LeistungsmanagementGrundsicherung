@@ -287,13 +287,23 @@ public final class WebHelfer {
         suchfeld.clear();
         suchfeld.sendKeys(aktenzeichen);
 
-        // Suche filtert clientseitig; warte auf gefilterte Zeile in der Tabelle
-        WebElement zeile = wait.until(ExpectedConditions.presenceOfElementLocated(
-                By.xpath("//table[@id='tabelle-bgs']//tr[td[contains(text(), '" + aktenzeichen + "')]]")));
-
-        // Button "Öffnen" in dieser Zeile klicken
-        WebElement oeffnenBtn = zeile.findElement(By.xpath(".//button[contains(text(), 'Öffnen')]"));
-        klick(treiber, oeffnenBtn);
+        // Die Übersicht kann nach dem Rollenwechsel noch asynchron ersetzt werden.
+        // Deshalb den Knopf samt Zeilenbedingung bei jedem Versuch frisch suchen;
+        // keine inzwischen abgelöste Tabellenzeile als WebElement behalten.
+        By oeffnen = By.xpath("//table[@id='tabelle-bgs']//tr[td[contains(text(), '" + aktenzeichen
+                + "')]]//button[contains(text(), 'Öffnen')]");
+        wait.until(d -> {
+            try {
+                WebElement knopf = d.findElement(oeffnen);
+                if (!knopf.isDisplayed() || !knopf.isEnabled()) return false;
+                klick(d, knopf);
+                return true; // Nach erfolgreichem Klick nur noch die Detailansicht abwarten.
+            } catch (org.openqa.selenium.StaleElementReferenceException e) {
+                // Ausschließlich der lesende Öffnungsschritt wird neu aufgelöst.
+                // Anordnen, Freigeben und Storno werden hier nicht wiederholt.
+                return false;
+            }
+        });
 
         wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("view-vorgang")));
     }

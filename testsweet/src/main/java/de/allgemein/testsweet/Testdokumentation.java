@@ -212,7 +212,7 @@ final class Testdokumentation {
 
         pdf.fettZeile("Mehrbedarfe (§ 30 SGB XII):", SweetPdf.BLAU, 9.5f);
         pdf.text("• Merkzeichen G: 17 % des Regelbedarfs (Abs. 1)  •  Schwangerschaft ab 13. SSW: 17 % (Abs. 2)\n"
-                + "• Alleinerziehende: 36 % der Stufe 1 bei 1 Kind < 7 oder 2–3 Kindern < 16, sonst 12 % je minderjährigem Kind; Obergrenze 60 % der Stufe 1 = 337,80 EUR (Abs. 3)\n"
+                + "• Alleinerziehende: Vergleich von 36 % der Stufe 1 (bei Kind < 7 oder 2–3 Kindern < 16) mit 12 % je minderjährigem Kind: höherer Betrag, höchstens 60 % = 337,80 EUR (Abs. 3; kein abweichender Einzelfallbedarf)\n"
                 + "• Obergrenze: Summe Abs. 1–5 darf Regelbedarf nicht übersteigen (Abs. 6)\n"
                 + "• Dezentrales Warmwasser: 2,3 % (Stufe 1–2), 1,4 % (Stufe 4), 1,2 % (Stufe 5), 0,8 % (Stufe 6); gilt zusätzlich zur Obergrenze (Abs. 7)");
         pdf.leereZeile(2f);
@@ -490,8 +490,8 @@ final class Testdokumentation {
             schritt(pdf, "+ Kosten der Unterkunft: Miete " + euro(fall.kduMiete())
                     + " + Betriebskosten " + euro(fall.kduBetriebskosten())
                     + " + Heizung " + euro(fall.kduHeizung())
-                    + " - örtlicher zentraler Warmwasserabzug " + euro(f.kduWarmwasserAbzug())
-                    + " (Anteil " + block.kduParameter().warmwasserAbzugHeizungProzent().toPlainString()
+                    + " (zentrale Warmwasserkosten eingeschlossen; Alt-Abzugsparameter "
+                    + block.kduParameter().warmwasserAbzugHeizungProzent().toPlainString() + " ohne Rechenwirkung"
                     + "; BG-Grenze " + (block.kduParameter().angemessenheitsgrenze().signum() > 0
                         ? euro(block.kduParameter().angemessenheitsgrenze()) + " EUR" : "deaktiviert") + ")", f.kdu());
             if (f.kduUnangemessen()) pdf.text("KdU auf das noch verfügbare Gesamtlimit der BG gekappt.", SweetPdf.GRAU, 8.5f);
@@ -587,14 +587,13 @@ final class Testdokumentation {
     private static String alleinerziehendErklaerung(SozialFall fall,
             Leistungsberechnung.FallBerechnung f) {
         int kinderU16 = Math.max(fall.anzKinderUnter16(), fall.anzKinderUnter7());
-        if (fall.anzKinderUnter7() >= 1) {
-            return "36 % der Stufe 1 (Kind unter 7 im Haushalt), also 0,36 × 563,00";
+        int minor = Math.max(fall.anzKinderMinderjaehrig(), kinderU16);
+        boolean nr1 = fall.anzKinderUnter7() >= 1 || kinderU16 >= 2 && kinderU16 <= 3;
+        if (nr1 && minor <= 3) {
+            return "36 % der Stufe 1 sind mindestens so hoch wie " + minor + " × 12 % (Altersvoraussetzung erfüllt)";
         }
-        if (kinderU16 >= 2 && kinderU16 <= 3) {
-            return "36 % der Stufe 1 (2–3 Kinder unter 16), also 0,36 × 563,00";
-        }
-        return "12 % der Stufe 1 je minderjährigem Kind (" + fall.anzKinderMinderjaehrig()
-                + " × 0,12 × 563,00)";
+        return "12 % der Stufe 1 je minderjährigem Kind (" + minor
+                + " × 0,12 × 563,00), höchstens 60 %" + (nr1 ? "; günstiger als 36 %" : "");
     }
 
     private static String warmwasserSatz(int rbs) {

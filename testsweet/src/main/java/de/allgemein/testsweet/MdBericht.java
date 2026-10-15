@@ -142,12 +142,12 @@ final class MdBericht {
         md.append("mehrbedarf_schwanger = 0.17 * regelbedarf  (§ 30 Abs. 2, ab 13. SSW; "
                 + "entfaellt automatisch, wenn entbindungsmonat gesetzt und "
                 + "zahlungsmonat > entbindungsmonat)\n");
-        md.append("mehrbedarf_alleinerziehend = 0.36 * rbs1 bei kind_u7>=1 oder 2<=kinder_u16<=3, "
-                + "sonst 0.12 * rbs1 je minderjaehrigem kind; deckel 0.60 * rbs1 = 337.80  (§ 30 Abs. 3)\n");
+        md.append("mehrbedarf_alleinerziehend = guenstigere Alternative aus 0.36 * rbs1 (bei kind_u7>=1 oder 2<=kinder_u16<=3) "
+                + "und 0.12 * rbs1 je minderjaehrigem kind; deckel 0.60 * rbs1 = 337.80 (§ 30 Abs. 3; WD 6-046/24, S. 8–11). Abweichender Einzelfallbedarf nicht modelliert.\n");
         md.append("mehrbedarf_obergrenze = summe(abs1..5) <= regelbedarf  (§ 30 Abs. 6)\n");
         md.append("mehrbedarf_warmwasser_anteil = {1: 0.023, 2: 0.023, 3: 0.0, 4: 0.014, "
                 + "5: 0.012, 6: 0.008}  (§ 30 Abs. 7, zusaetzlich zu Abs. 6)\n");
-        md.append("kdu = kaltmiete + betriebskosten + heizung - zentraler warmwasserabzug; gekappt auf verbleibende BG-Grenze, sofern > 0. Parameter stehen je Block.\n");
+        md.append("kdu = kaltmiete + betriebskosten + heizung einschließlich zentraler Warmwasserkosten (§ 35 Abs. 5); gekappt auf verbleibende BG-Grenze, sofern > 0. Altparameter kdu_warmwasser_abzug_anteil bleibt dokumentiert, hat aber keine Rechenwirkung; kdu_warmwasser_abzug = 0.\n");
         md.append("erwerbsfreibetrag = min(0.30 * erwerb_brutto, 0.50 * rbs1 = 281.50)  (§ 82 Abs. 3)\n");
         md.append("anrechenbar = rente + erwerb - freibetrag - absetzbetaetrag >= 0  "
                 + "(absetzbetraege: steuern, sv, versicherungen, erwerbsaufwendungen; § 82 Abs. 2)\n");

@@ -1,0 +1,9 @@
+{
+  "runId": "run-20261015-112508-8066350426981593454",
+  "state": "FAIL",
+  "verifiedCases": 59,
+  "totalCases": 60,
+  "failedCases": 1,
+  "failure": "StaleElementReferenceException vor Öffnen-Klick in Auftrag26",
+  "log": "testsweet/logs/run-20261015-112508-8066350426981593454/auftrag-26-SWEET-W-0026.log"
+}
