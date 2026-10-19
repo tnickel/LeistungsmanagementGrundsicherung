@@ -1,6 +1,7 @@
 package de.allgemein.lmg.web;
 
 import de.allgemein.lmg.model.Zahlung;
+import de.allgemein.lmg.model.Bedarfsgemeinschaft;
 import de.allgemein.lmg.service.FachlicheException;
 import de.allgemein.lmg.service.LeistungsService;
 import de.allgemein.tx.ConnectionPool;
@@ -43,6 +44,7 @@ class ProduktHttpSicherheitTest {
     private static final Instant START = Instant.parse("2026-10-15T10:00:00Z");
     private final AtomicInteger stornoAufrufe = new AtomicInteger();
     private final AtomicInteger druckAufrufe = new AtomicInteger();
+    private final AtomicInteger eingabeAufrufe = new AtomicInteger();
     private final AtomicReference<Zahlung> zahlung = new AtomicReference<>();
     private Benutzerverwaltung benutzer;
     private TaskController tasks;
@@ -59,6 +61,15 @@ class ProduktHttpSicherheitTest {
         LeistungsService aufzeichnenderService = (LeistungsService) Proxy.newProxyInstance(
                 LeistungsService.class.getClassLoader(), new Class<?>[]{LeistungsService.class},
                 (proxy, methode, argumente) -> switch (methode.getName()) {
+                    case "legeSozialFallAn", "aktualisiereSozialFall" -> {
+                        eingabeAufrufe.incrementAndGet();
+                        yield argumente[methode.getName().equals("legeSozialFallAn") ? 1 : 0];
+                    }
+                    case "legeBedarfsgemeinschaftAn" -> {
+                        eingabeAufrufe.incrementAndGet();
+                        yield new Bedarfsgemeinschaft(1, (String)argumente[0], (String)argumente[1], true,
+                                (BigDecimal)argumente[2], null, 1);
+                    }
                     case "storniereZahlung" -> {
                         stornoAufrufe.incrementAndGet();
                         assertEquals(7L, argumente[0]);
@@ -85,6 +96,44 @@ class ProduktHttpSicherheitTest {
     void abbauen() {
         if (server != null) server.close();
         if (tasks != null) tasks.close();
+    }
+
+    @Test
+    void unbekannteGeldfelderUndSubcentwerteErreichenDenProduktserviceNicht() throws Exception {
+        String sitzung = anmelden("sb-test", "sb");
+        for (String field : List.of("kdumiete", "kduMiete", "kduBetriebskosten", "kduHeizung", "einkommenRente",
+                "einkommenErwerb", "abzSteuern", "abzSozialversicherung", "abzVersicherungen", "abzErwerbsaufwendungen")) {
+            for (String method : List.of("POST", "PUT")) {
+                String path = method.equals("POST") ? "/api/bedarfsgemeinschaften/1/sozialfaelle" : "/api/sozialfaelle/1";
+                var response = sende(method, path, "{\"regelbedarfsstufe\":1,\"version\":1,\"" + field + "\":12.345}", sitzung);
+                assertEquals(400, response.statusCode(), method + " " + field);
+                assertEquals("VALIDATION", ((Map<?,?>)Json.parse(response.body())).get("code"));
+            }
+        }
+        for (String field : List.of("startBudget", "vermoegen", "startBuget")) {
+            var response = sende("POST", "/api/bedarfsgemeinschaften",
+                    "{\"aktenzeichen\":\"SWEET-INPUT\",\"hauptpersonName\":\"Test\",\"" + field + "\":12.345}", sitzung);
+            assertEquals(400, response.statusCode(), field);
+        }
+        assertEquals(0, eingabeAufrufe.get());
+    }
+
+    @Test
+    void optionaleGeldwerteUndZusatznullstellenBleibenImProduktvertragErlaubt() throws Exception {
+        String sitzung = anmelden("sb-test", "sb");
+        var response = sende("PUT", "/api/sozialfaelle/1",
+                "{\"regelbedarfsstufe\":1,\"version\":1,\"kduMiete\":12.3400,\"einkommenRente\":null}", sitzung);
+        assertEquals(200, response.statusCode(), response.body());
+        Map<?,?> fall = (Map<?,?>)((Map<?,?>)Json.parse(response.body())).get("sozialfall");
+        assertEquals(new BigDecimal("12.34"), fall.get("kduMiete"));
+        assertEquals(new BigDecimal("0.00"), fall.get("kduHeizung"));
+        assertEquals(new BigDecimal("0.00"), fall.get("einkommenRente"));
+        var created = sende("POST", "/api/bedarfsgemeinschaften",
+                "{\"aktenzeichen\":\"SWEET-ZERO\",\"hauptpersonName\":\"Test\",\"startBudget\":null}", sitzung);
+        assertEquals(200, created.statusCode(), created.body());
+        assertEquals(new BigDecimal("0.00"), ((Map<?,?>)((Map<?,?>)Json.parse(created.body()))
+                .get("bedarfsgemeinschaft")).get("budgetRest"));
+        assertEquals(2, eingabeAufrufe.get());
     }
 
     @Test
@@ -164,6 +213,50 @@ class ProduktHttpSicherheitTest {
         assertEquals(401, sende("GET", pfad + "?token=" + druck, "", "ungueltig").statusCode());
         assertEquals(200, drucken(druck, 1).statusCode(), "ungültiger Header verbraucht das Querytoken nicht");
         assertEquals(2, druckAufrufe.get());
+    }
+
+    @Test
+    void produktOberflaecheUndDruckVerweigernEinbettung() throws Exception {
+        String sitzung = anmelden("sb-test", "sb");
+        for (String pfad : List.of("/", "/app.js", "/nicht-vorhanden", "/api/werbin",
+                "/api/bedarfsgemeinschaften/1/bescheid/druck")) {
+            HttpResponse<String> antwort = sende("GET", pfad, "", sitzung);
+            assertTrue(antwort.headers().firstValue("Content-Security-Policy").orElse("")
+                    .contains("frame-ancestors 'none'"), pfad);
+        }
+    }
+
+    @Test
+    void defektesKontensegmentVeroeffentlichtKeinPasswortInAusnahmen() {
+        String geheimnis = "SYNTHETISCHER_TESTSWEET_SCHLUESSEL";
+        for (String roh : List.of("konto:" + geheimnis, "konto:" + geheimnis + ":admin:extra",
+                "konto:x:" + geheimnis)) {
+            IllegalArgumentException fehler = assertThrows(IllegalArgumentException.class,
+                    () -> new Benutzerverwaltung(roh));
+            assertTrue(!fehler.toString().contains(geheimnis), fehler.toString());
+        }
+    }
+
+    @Test
+    void normalisierteDrucklinksBewahrenEinmalTokenMethodenUndZielbindung() throws Exception {
+        String sitzung=anmelden("sb-test","sb");
+        for(String ende:List.of("","/","//")) {
+            String pfad="/api/bedarfsgemeinschaften/1/bescheid/druck"+ende;
+            String druck=druckToken(sitzung,1);
+            assertEquals(401,sende("POST",pfad+"?token="+druck,"{}",null).statusCode(),"Querytoken gilt nur für GET-Druck");
+            assertEquals(405,sende("POST",pfad+"?token="+druck,"{}",sitzung).statusCode(),"Druck bleibt GET-only");
+            assertEquals(200,sende("GET",pfad+"?token="+druck,"",null).statusCode(),ende);
+            assertEquals(401,sende("GET",pfad+"?token="+druck,"",null).statusCode(),"Einmalverbrauch bleibt bestehen");
+            String falsch=druckToken(sitzung,1);
+            assertEquals(401,sende("GET","/api/bedarfsgemeinschaften/2/bescheid/druck"+ende+"?token="+falsch,"",null).statusCode());
+            assertEquals(401,sende("GET",pfad+"?token="+falsch,"",null).statusCode(),"Falsches Ziel verbraucht den Token");
+        }
+        String druck=druckToken(sitzung,1);
+        assertEquals(401,sende("GET","/api//bedarfsgemeinschaften/1/bescheid/druck?token="+druck,"",null).statusCode());
+        assertEquals(200,drucken(druck,1).statusCode(),"Innere Doppelslashes eröffnen keine Druckroute");
+        String abgemeldet=druckToken(sitzung,1);
+        assertEquals(200,sende("POST","/api/abmeldung","{}",sitzung).statusCode());
+        assertEquals(401,sende("GET","/api/bedarfsgemeinschaften/1/bescheid/druck//?token="+abgemeldet,"",null).statusCode());
     }
 
     @Test

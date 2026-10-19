@@ -45,7 +45,7 @@
 | **Atomarität (`EXEC CICS SYNCPOINT`)** | Autonome Commit/Rollback-Klammern über JDBC-Transaktionen | `TxManager.execute(TxOptions, ...)` |
 | **Sperren-Konflikte & Deadlocks** | Automatischer Retry mit exponentiellem Backoff & Jitter bei `ORA-00054`, `ORA-00060`, `ORA-08177` | `de.allgemein.tx.RetryPolicy` |
 | **Task Control & Concurrency** | Begrenzter Worker-Thread-Pool mit Request-Warteschlange & Überlastschutz | `de.allgemein.tx.TaskController` |
-| **Timeouts & Task-Abbruch** | Watchdog-Timer: Unterbricht den Task-Thread, Oracle führt Rollback aus | `TxOptions.timeout(Duration)` |
+| **Timeouts & Task-Abbruch** | Watchdog-Timer unterbricht den Task-Thread; noch offene Transaktionen werden zurückgerollt, bereits erfolgte Commits bleiben wirksam. Abbruch meldet einen unbekannten Ausgang, der vor Wiederholung zu prüfen ist | `TxOptions.timeout(Duration)`, `TaskOutcomeUnknownException` |
 | **Journalling & Long-Running Sagas** | Persistentes Datenbankjournal mit Vorwärts-/Rückwärts-Kompensation | `de.allgemein.tx.saga.SagaEngine` |
 | **Emergency Restart / Crash Recovery** | Automatisches Kompensieren offener Geschäftsvorgänge beim Serverstart (alle registrierten Saga-Typen) | `SagaEngine.recover(...)` |
 | **CICS Monitoring & Statistics** | Echtzeit-Telemetrie via JMX MBeans und strukturiertem Audit-Log | `TxMonitoring`, `TxAuditLog` |
@@ -134,15 +134,17 @@ Die Leistungsberechnung ist als seiteneffektfreie, deterministische Funktion in 
 |:---|:---|:---|
 | **Regelbedarfsstufen (RBS 1–6)** | § 27a SGB XII / Anlage zu § 28 | RBS 1: **563,00 €** · RBS 2: **506,00 €** · RBS 3: **451,00 €**<br>RBS 4: **471,00 €** · RBS 5: **390,00 €** · RBS 6: **357,00 €** |
 | **Mehrbedarf Gehbehinderung** | § 30 Abs. 1 SGB XII (Merkzeichen G) | **17 %** des maßgeblichen Regelbedarfs (RBS 1: 95,71 € / RBS 2: 86,02 €) |
-| **Mehrbedarf Schwangerschaft** | § 30 Abs. 2 SGB XII | **17 %** ab der 12. Schwangerschaftswoche (RBS 1: 95,71 €) |
-| **Mehrbedarf Alleinerziehende** | § 30 Abs. 3 SGB XII | Basis stets **RBS 1**: **36 %** (Kind u. 7 J. oder 2–3 Kinder u. 16 J.), sonst **12 % je minderjähriges Kind**, Deckel **60 % RBS 1** (337,80 €) |
+| **Mehrbedarf Schwangerschaft** | § 30 Abs. 2 SGB XII | **17 %** nach der zwölften Schwangerschaftswoche (**ab der 13. SSW**) bis zum Ende des Entbindungsmonats (RBS 1: 95,71 €) |
+| **Mehrbedarf Alleinerziehende** | § 30 Abs. 3 SGB XII | Basis stets **RBS 1**: **Günstigervergleich** zwischen **36 %** bei Kind u. 7 J. oder 2–3 Kindern u. 16 J. und **12 % je minderjährigem Kind**; Deckel **60 % RBS 1** (337,80 €). Auslegung gemäß WD 6-046/24, siehe Hinweis unter der Tabelle |
 | **Mehrbedarf Warmwasser** | § 30 Abs. 7 SGB XII | Stufenabhängig: **2,3 %** (RBS 1/2), **1,4 %** (RBS 4), **1,2 %** (RBS 5), **0,8 %** (RBS 6); RBS 3 ohne Satz |
-| **Obergrenze der Mehrbedarfe** | § 30 Abs. 6 SGB XII | Summe der Mehrbedarfe höchstens der Regelbedarf selbst |
-| **Kosten der Unterkunft (KdU)** | § 42a i.V.m. § 35 SGB XII | Kaltmiete + kalte Betriebskosten + Heizkosten; Angemessenheitsgrenze je Bedarfsgemeinschaft (§ 35 Abs. 7); Warmwasser-Abzug nur bei zentraler Erzeugung konfigurierbar; Karenzzeit/Absenkungsfrist nicht abgebildet |
+| **Obergrenze der Mehrbedarfe** | § 30 Abs. 6 SGB XII | Summe der Mehrbedarfe nach **Abs. 1–5** höchstens der maßgebliche Regelbedarf; **dezentrales Warmwasser nach Abs. 7 kommt außerhalb dieses Deckels hinzu** |
+| **Kosten der Unterkunft (KdU)** | § 42a i.V.m. § 35 SGB XII | Kaltmiete + kalte Betriebskosten + Heizkosten einschließlich zentraler Warmwasserkosten (§ 35 Abs. 5); Angemessenheitsgrenze je Bedarfsgemeinschaft (§ 35 Abs. 7); **kein zentraler Warmwasserabzug** (`lmg.kdu.warmwasserabzug` ist ein wirkungsloser Altparameter); Karenzzeit/Absenkungsfrist nicht abgebildet |
 | **Absetzbeträge vom Einkommen** | § 82 Abs. 2 SGB XII | Steuern, Sozialversicherung, Versicherungen, Erwerbsaufwendungen |
 | **Erwerbseinkommensfreibetrag** | § 82 Abs. 3 SGB XII | $\min(30\,\%\text{ Brutto}, 50\,\%\text{ RBS 1} = 281{,}50\text{ €})$ |
 | **Vermögensanrechnung** | § 43 Abs. 1, § 90 Abs. 2 Nr. 9 SGB XII i.V.m. § 1 BarbetragsVO | Schonvermögen **10.000 €** je volljähriger Person (RBS 1–3) + **500 €** je überwiegend unterhaltener Person (RBS 4–6); Verwertbares mindert den Zahlbetrag |
 | **Monatlicher Zahlbetrag** | § 43a SGB XII | $\text{Gesamtbedarf der BG} - \text{anrechenbares Einkommen} - \text{verwertbares Vermögen}$ |
+
+Der Günstigervergleich folgt der Auslegung der [Wissenschaftlichen Dienste, WD 6-046/24, Seiten 8–11](https://www.bundestag.de/resource/blob/1019234/WD-6-046-24-pdf.pdf), die den Vergleich ausdrücklich auf § 30 Abs. 3 SGB XII übertragen. Dem steht der engere Wortlaut von Nr. 2 gegenüber, der die Alternative an das Nichtvorliegen der Voraussetzungen von Nr. 1 knüpft. Die Ausarbeitung ist keine bindende Gerichtsentscheidung; der Vergleich bleibt die dokumentierte fachliche Auslegung des Produkts.
 
 ---
 
@@ -306,6 +308,11 @@ Die virtuellen Sachbearbeiter agieren wie ein echtes Amtsteam:
 
 ### 2. Das Szenarien-Portfolio (10 Fach-Archetypen)
 
+Die Kategorien LAST und STRESS sind begrenzte funktionale Parallelprüfungen.
+Durchsatz und Latenzperzentile beschreiben den jeweiligen Lauf; sie belegen keine
+Dauerlast, Sättigungsgrenze oder Produktionskapazität. Der Zertifikatsumfang
+enthält keinen solchen Kapazitätsnachweis.
+
 | Szenario-Typ | Fachlicher Gegenstand | Prüffokus in der Datenbank |
 |:---|:---|:---|
 | **`STANDARDRENTE`** | Regelaltersrente mit KdU & Rente | Vollständiger Lebenszyklus: Anlage &rarr; Bedarfsberechnung &rarr; Bescheid &rarr; Vier-Augen-Freigabe |
@@ -359,7 +366,7 @@ Die mitgelieferte Weboberfläche bietet eine moderne Arbeitsumgebung für Last- 
 * **Echtzeit-Mitarbeiterkarten:** Visualisiert jeden simulierten Sachbearbeiter live mit aktuellem Auftrag, Status-Puls und Reaktionszeiten.
 * **Diagramm-Showcase:** Interaktive Galerie aller vier Fachflussdiagramme direkt im Browser.
 * **Filter & Volltextsuche:** Schnelle Filterung nach Verifikationsstatus (*Alle*, *Nur Verifiziert*, *Auffälligkeiten*) sowie Sofortsuche über Aktenzeichen, Personen und Szenario-Typen.
-* **1-Klick-Presets:** Vorkonfigurierte Profile für Schnelltests (5 SB / 15 Fälle), Standardläufe (10 SB / 60 Fälle) und Lasttests (20 SB / 120 Fälle).
+* **1-Klick-Presets:** Vorkonfigurierte Profile für Schnelltests (5 SB / 15 Fälle), Standardläufe (10 SB / **100 Fälle je Positiv-/Negativkategorie**) und Lasttests (20 SB / 120 Fälle). Die GLM-Stichprobe umfasst standardmäßig **100 Positiv- und 100 Negativfälle**; eine fehlende Kategoriequote wird nicht einseitig aufgefüllt.
 * **Sofort-Download:** Direkte Links zur generierten PDF- und Markdown-Dokumentation.
 
 ### 6. Start & CI/CD Batch-Ausführung
@@ -368,8 +375,8 @@ Die mitgelieferte Weboberfläche bietet eine moderne Arbeitsumgebung für Last- 
 # 1. Interaktives Dashboard starten (Port 8095, Modus 1 & 2 direkt wählbar):
 testsweet\start.bat
 
-# 2. Headless-Batchlauf für CI/CD (Modus 1 Fachschicht, z. B. 10 Sachbearbeiter, 60 Aufträge):
-testsweet\start.bat run 10 60
+# 2. Headless-Batchlauf für CI/CD (Modus 1 Fachschicht, Standard: 10 Sachbearbeiter, 100 Aufträge):
+testsweet\start.bat run
 
 # 3. Weboberflächen-Batchlauf (Modus 2 Selenium, z. B. 2 Browserfenster, 4 Aufträge):
 testsweet\start.bat web 2 4

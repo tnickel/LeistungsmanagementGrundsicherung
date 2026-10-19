@@ -462,12 +462,7 @@ public final class LlmReviewService implements AutoCloseable {
         Source positive = newestSource("POSITIV"), negative = newestSource("NEGATIV");
         List<ReviewCase> positiveOrder = new ArrayList<>(positive.cases());
         positiveOrder.sort(Comparator.comparingInt(c -> Pattern.compile("(?m)^## TF ?(?:11|12|13|14|15|16|17|18|19)(?:[: ]).*?(?:ENTBINDUNG-FOLGEMONAT|VERMOEGEN-FOLGEMONAT|ALLEINERZIEHEND-[456]KINDER|MEHRBEDARF-ABS6|KDU-ZENTRAL|KDU-BG-GRENZE|MINDERJAEHRIG-OHNE-ERWACHSENE)").matcher(c.text()).find() ? 0 : 1));
-        List<ReviewCase> selected = new ArrayList<>();
-        for (int i = 0; selected.size() < maxCases && (i < positiveOrder.size() || i < negative.cases().size()); i++) {
-            if (i < positiveOrder.size()) selected.add(positiveOrder.get(i));
-            if (selected.size() < maxCases && i < negative.cases().size()) selected.add(negative.cases().get(i));
-        }
-        if (selected.size() != maxCases) throw new IllegalArgumentException("Nur " + selected.size() + " Fälle in erfolgreichen Positiv-/Negativberichten vorhanden; angefordert: " + maxCases + ". Keine stille Kürzung.");
+        List<ReviewCase> selected = balancedSample(positiveOrder, negative.cases(), maxCases);
         Path directory = startedDirectory == null ? root.resolve("testsweet/logs/llm-review-" + id) : startedDirectory;
         Files.createDirectories(directory);
         String sample = sampleDocument(selected, positive, negative);
@@ -500,10 +495,28 @@ public final class LlmReviewService implements AutoCloseable {
                 documentMeta("gesetzesgrundlagen-2026.md", law, relative(lawPath)), documentMeta("pruefmenge.md", sample, "")));
         manifest.put("selectedCaseIds", selected.stream().map(ReviewCase::id).toList());
         manifest.put("availableCases", Map.of("POSITIV", positive.cases().size(), "NEGATIV", negative.cases().size()));
-        manifest.put("selection", "Stratifizierte Stichprobe: feste Fach-Grenzfälle TF11–TF19 zuerst, sofern vorhanden; anschließend weitere Fälle in Berichtreihenfolge, abwechselnd POSITIV/NEGATIV. Vollständige Fälle, keine Vollprüfung.");
+        manifest.put("selectedCases", Map.of("POSITIV", (maxCases + 1) / 2, "NEGATIV", maxCases / 2));
+        manifest.put("selection", "Stratifizierte Stichprobe mit fester Quote: ceil(Fallzahl/2) POSITIV und floor(Fallzahl/2) NEGATIV. Keine einseitige Auffüllung. Feste Fach-Grenzfälle TF11–TF19 zuerst, sofern vorhanden; anschließend weitere Fälle in Berichtreihenfolge, abwechselnd POSITIV/NEGATIV. Vollständige Fälle, keine Vollprüfung.");
         manifest.put("batches", batchManifest);
         writeNew(directory.resolve("manifest.json"), Json.write(manifest));
         return new ReviewPackage(id, directory, prompt, law, List.copyOf(selected), List.copyOf(batches));
+    }
+
+    /** Bewahrt die Reihenfolge je Stratum und lehnt jede fehlende Kategoriequote ab. */
+    static <T> List<T> balancedSample(List<T> positive, List<T> negative, int requested) {
+        checkCount(requested);
+        int positiveQuota = (requested + 1) / 2, negativeQuota = requested / 2;
+        if (positive.size() < positiveQuota || negative.size() < negativeQuota) {
+            throw new IllegalArgumentException("Die Prüfmenge benötigt " + positiveQuota + " Positivfälle und "
+                    + negativeQuota + " Negativfälle; vorhanden sind " + positive.size() + " POSITIV und "
+                    + negative.size() + " NEGATIV. Fehlende Kategoriequote wird nicht einseitig aufgefüllt.");
+        }
+        List<T> selected = new ArrayList<>(requested);
+        for (int i = 0; i < positiveQuota; i++) {
+            selected.add(positive.get(i));
+            if (i < negativeQuota) selected.add(negative.get(i));
+        }
+        return List.copyOf(selected);
     }
 
     private Source newestSource(String category) throws IOException {

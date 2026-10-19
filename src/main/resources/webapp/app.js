@@ -30,7 +30,17 @@ function esc(wert) {
 async function api(pfad, optionen) {
   const kopf = optionen?.headers ? { ...optionen.headers } : {};
   if (token) kopf["Authorization"] = "Bearer " + token;
-  const antwort = await fetch(pfad, { ...optionen, headers: kopf });
+  let antwort;
+  try {
+    antwort = await fetch(pfad, { ...optionen, headers: kopf });
+  } catch (ursache) {
+    if (!istFachlicheSchreibanfrage(pfad, optionen)) throw ursache;
+    const fehler = new Error("Die Antwort ist ausgeblieben; der Verarbeitungsstatus ist ungeklärt. "
+      + "Status prüfen und nicht mit einer neuen Vorgangsnummer anordnen.");
+    fehler.code = "AUSGANG_UNBEKANNT";
+    await aktualisiereNachUnbekanntemAusgang(pfad);
+    throw fehler;
+  }
   let koerper = {};
   try { koerper = await antwort.json(); } catch (e) { /* leerer Körper zulassen */ }
   if (antwort.status === 401) {
@@ -48,9 +58,38 @@ async function api(pfad, optionen) {
     const fehler = new Error(koerper.message || antwort.statusText);
     fehler.code = koerper.code;
     fehler.httpStatus = antwort.status;
+    if (fehler.code === "AUSGANG_UNBEKANNT" && istFachlicheSchreibanfrage(pfad, optionen)) {
+      await aktualisiereNachUnbekanntemAusgang(pfad);
+    }
     throw fehler;
   }
   return koerper;
+}
+
+function istFachlicheSchreibanfrage(pfad, optionen) {
+  return ["POST", "PUT"].includes(optionen?.method)
+    && !["/api/anmeldung", "/api/abmeldung", "/api/drucktoken"].includes(pfad);
+}
+
+/** Nur lesende Abfragen nach einer unklaren Schreibantwort; keine automatische Wiederholung. */
+async function aktualisiereNachUnbekanntemAusgang(pfad) {
+  if (pfad === "/api/kassenlauf") await ladeSystemstatus();
+  else if (pfad === "/api/saga/antrag" || pfad === "/api/bedarfsgemeinschaften") await ladeUebersicht();
+  else if (detail?.bedarfsgemeinschaft) await oeffneVorgang(detail.bedarfsgemeinschaft.id);
+}
+
+function auszahlungsAuftragsschluessel(bgId, monat) {
+  return `lmgAuszahlungsauftrag:${angemeldet?.kennung || ""}:${bgId}:${monat}`;
+}
+
+/** Die Nummer bleibt auch nach Verbindungsabbruch und Masken-Reload dieselbe. */
+function auszahlungsVorgangsnummer(schluessel) {
+  let nummer = sessionStorage.getItem(schluessel);
+  if (!nummer) {
+    nummer = crypto.randomUUID();
+    sessionStorage.setItem(schluessel, nummer);
+  }
+  return nummer;
 }
 
 function istAdmin() {
@@ -242,8 +281,9 @@ $("btn-saga-starten").addEventListener("click", async () => {
     $("karte-saga-antrag").classList.add("hidden");
     await ladeUebersicht();
   } catch (fehler) {
-    zeigeDialog("Antrags-Saga fehlgeschlagen",
-      `Fehler: ${fehler.message}. Falls Schritte bereits ausgeführt wurden, wurden sie durch die Saga-Engine automatisch rückwärts kompensiert.`, true);
+    zeigeDialog(fehler.code === "AUSGANG_UNBEKANNT" ? "Antragsstatus ungeklärt" : "Antrags-Saga fehlgeschlagen",
+      fehler.code === "AUSGANG_UNBEKANNT" ? fehler.message
+        : `Fehler: ${fehler.message}. Den Vorgangs- und Wiederanlaufstatus vor einer erneuten Bearbeitung prüfen.`, true);
   } finally {
     knopf.disabled = false;
     knopf.textContent = "⚡ Antrags-Saga starten";
@@ -291,11 +331,15 @@ $("btn-fall-speichern").addEventListener("click", async () => {
 async function ladeUebersicht() {
   zeigeView("uebersicht");
   try {
+    const monat = $("zahlungsmonat").value;
+    $("uebersicht-monat").value = monat;
     const [bgAntwort, zahlAntwort] = await Promise.all([
-      api("/api/bedarfsgemeinschaften"),
+      api("/api/bedarfsgemeinschaften" + (monat ? "?monat=" + encodeURIComponent(monat) : "")),
       api("/api/zahlungen?limit=50"),
     ]);
+    if (monat !== $("zahlungsmonat").value) return;
     eintraege = bgAntwort.eintraege;
+    $("vorschau-monat").textContent = monat || "aktueller Monat";
     rendereWidgets(zahlAntwort.zahlungen);
     rendereBgTabelle();
   } catch (fehler) {
@@ -335,7 +379,7 @@ function rendereBgTabelle() {
       <td>${esc(eintrag.hauptpersonName)}</td>
       <td>${eintrag.statusAktiv ? statusChip("aktiv", "aktiv") : statusChip("historisch", "historisiert")}</td>
       <td class="zahl">${betrag(eintrag.budgetRest)}</td>
-      <td class="zahl">${eintrag.zahlbetragVorschau === null ? "nicht berechenbar" : betrag(eintrag.zahlbetragVorschau)}</td>
+      <td class="zahl">${eintrag.zahlbetragVorschau === null ? "nicht berechenbar" : betrag(eintrag.zahlbetragVorschau)}<br><small>${esc(eintrag.berechnungsmonat || "Monat nicht ausgewiesen")}</small></td>
       <td>${eintrag.wiedervorlageAm ? new Date(eintrag.wiedervorlageAm).toLocaleDateString("de-DE") : "–"}</td>
       <td><button class="linkartig">Öffnen</button></td>`;
     zeile.addEventListener("click", () => oeffneVorgang(eintrag.id));
@@ -350,7 +394,11 @@ function rendereBgTabelle() {
 
 async function oeffneVorgang(bgId) {
   try {
-    detail = await api("/api/bedarfsgemeinschaften/" + bgId);
+    const monat = $("zahlungsmonat").value;
+    const geladen = await api("/api/bedarfsgemeinschaften/" + bgId
+      + (monat ? "?monat=" + encodeURIComponent(monat) : ""));
+    if (monat !== $("zahlungsmonat").value) return;
+    detail = geladen;
     zeigeView("vorgang");
     rendereVorgang();
   } catch (fehler) {
@@ -391,6 +439,7 @@ function rendereVorgang() {
 function rendereBescheid(bescheid) {
   const box = $("bescheid-status-text");
   const druckBtn = $("btn-bescheid-drucken");
+  $("btn-bescheid-aendern").classList.toggle("hidden", !bescheid?.id || bescheid.status !== "ERTEILT");
   if (bescheid && bescheid.id) {
     const monatsplan = bescheid.monatsbetraege || [];
     const betraege = bescheid.snapshotStatus === "INVALID"
@@ -441,7 +490,7 @@ function rendereBerechnung() {
     }
     return;
   }
-  hinweis.textContent = "";
+  hinweis.textContent = detail.berechnungsmonat ? "Berechnung für " + detail.berechnungsmonat + "." : "";
   for (const fall of detail.faelle) {
     const zeile = document.createElement("tr");
     const mbTitel = esc(`Merkzeichen G: ${betrag(fall.mehrbedarfG)} | Schwangerschaft: ${betrag(fall.mehrbedarfSchwangere)} | Alleinerziehend: ${betrag(fall.mehrbedarfAlleinerziehend)} | Dezentrales Warmwasser: ${betrag(fall.mehrbedarfWarmwasser)}`);
@@ -627,19 +676,22 @@ $("btn-auszahlung").addEventListener("click", async () => {
   // Button sofort deaktivieren: verhindert Doppelbuchungen durch Doppelklick
   knopf.disabled = true;
   knopf.textContent = "Anordnung läuft …";
+  const auftragsschluessel = auszahlungsAuftragsschluessel(bg.id, monat);
+  const vorgangsNr = auszahlungsVorgangsnummer(auftragsschluessel);
   try {
     const ergebnis = await api("/api/auszahlung", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         bgId: bg.id,
-        vorgangsNr: crypto.randomUUID(),
+        vorgangsNr,
         zahlungsmonat: monat,
         empfaengerIban: $("auszahlung-iban").value.trim() || null,
         empfaengerBic: $("auszahlung-bic").value.trim() || null,
         empfaengerName: $("auszahlung-empfaenger").value.trim() || null,
       }),
     });
+    sessionStorage.removeItem(auftragsschluessel);
     if (ergebnis.bereitsGebucht) {
       zeigeDialog("Bereits gebucht",
         "Diese Vorgangsnummer war bereits vorhanden — es wurde nichts erneut gebucht (Idempotenz). "
@@ -653,6 +705,9 @@ $("btn-auszahlung").addEventListener("click", async () => {
     }
     await oeffneVorgang(bg.id);
   } catch (fehler) {
+    if (fehler.code && fehler.code !== "AUSGANG_UNBEKANNT" && fehler.httpStatus < 500) {
+      sessionStorage.removeItem(auftragsschluessel);
+    }
     zeigeDialog("Auszahlung nicht möglich", fehler.message, true);
   } finally {
     knopf.disabled = false;
@@ -662,30 +717,48 @@ $("btn-auszahlung").addEventListener("click", async () => {
 
 // ---------------------------------------------------------------- Bewilligungsbescheid
 
-$("btn-bescheid-erteilen").addEventListener("click", async () => {
+$("btn-bescheid-erteilen").addEventListener("click", () => erteileBescheid(false));
+$("btn-bescheid-aendern").addEventListener("click", () => erteileBescheid(true));
+
+async function erteileBescheid(istAenderung) {
   const von = $("bescheid-von").value;
   const bis = $("bescheid-bis").value;
   if (!von || !bis) {
     zeigeDialog("Angabe fehlt", "Bitte Bewilligungszeitraum (von und bis) angeben.", true);
     return;
   }
-  const knopf = $("btn-bescheid-erteilen");
+  const bgId = detail.bedarfsgemeinschaft.id;
+  const knopf = $(istAenderung ? "btn-bescheid-aendern" : "btn-bescheid-erteilen");
   knopf.disabled = true;
   knopf.textContent = "Wird erteilt …";
   try {
-    const res = await api(`/api/bedarfsgemeinschaften/${detail.bedarfsgemeinschaft.id}/bescheid`, {
-      method: "POST",
+    const res = await api(`/api/bedarfsgemeinschaften/${bgId}/bescheid`, {
+      method: istAenderung ? "PUT" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ bewilligungVon: von, bewilligungBis: bis })
     });
     zeigeDialog("Bescheid erteilt", res.hinweis || "Bewilligungsbescheid erfolgreich erteilt.");
-    await oeffneVorgang(detail.bedarfsgemeinschaft.id);
+    await oeffneVorgang(bgId);
   } catch (fehler) {
     zeigeDialog("Bescheiderteilung fehlgeschlagen", fehler.message, true);
   } finally {
     knopf.disabled = false;
-    knopf.textContent = "Bescheid erteilen";
+    knopf.textContent = istAenderung ? "Änderungsbescheid erteilen" : "Bescheid erteilen";
   }
+}
+
+$("zahlungsmonat").addEventListener("change", async () => {
+  $("uebersicht-monat").value = $("zahlungsmonat").value;
+  if (detail?.bedarfsgemeinschaft) await oeffneVorgang(detail.bedarfsgemeinschaft.id);
+});
+
+$("uebersicht-monat").addEventListener("change", async () => {
+  if (!$("uebersicht-monat").value) {
+    zeigeDialog("Angabe fehlt", "Bitte den Bezugsmonat der Vorschau wählen.", true);
+    return;
+  }
+  $("zahlungsmonat").value = $("uebersicht-monat").value;
+  await ladeUebersicht();
 });
 
 $("btn-bescheid-drucken").addEventListener("click", async () => {
@@ -915,6 +988,7 @@ $("btn-wiederanlauf").addEventListener("click", async () => {
 // ---------------------------------------------------------------- Start
 
 $("zahlungsmonat").value = new Date().toISOString().slice(0, 7);
+$("uebersicht-monat").value = $("zahlungsmonat").value;
 aktualisiereSidebar();
 
 (async function start() {

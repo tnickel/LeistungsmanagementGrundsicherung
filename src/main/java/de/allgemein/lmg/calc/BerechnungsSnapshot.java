@@ -92,6 +92,24 @@ public final class BerechnungsSnapshot {
             SozialFall fall = faelle.stream()
                     .filter(f -> f.id() == fb.fallId()).findFirst().orElse(null);
             Map<String, Object> e = new LinkedHashMap<>();
+            if (fall == null) throw new IllegalArgumentException("Eingabefall zum Berechnungsergebnis fehlt");
+            Map<String, Object> eingaben = new LinkedHashMap<>();
+            eingaben.put("merkzeichenG", fall.merkzeichenG());
+            eingaben.put("schwanger", fall.schwanger());
+            eingaben.put("anzKinderUnter7", fall.anzKinderUnter7());
+            eingaben.put("anzKinderUnter16", fall.anzKinderUnter16());
+            eingaben.put("anzKinderMinderjaehrig", fall.anzKinderMinderjaehrig());
+            eingaben.put("warmwasser", fall.warmwasser());
+            eingaben.put("kduMiete", betragText(fall.kduMiete()));
+            eingaben.put("kduBetriebskosten", betragText(fall.kduBetriebskosten()));
+            eingaben.put("kduHeizung", betragText(fall.kduHeizung()));
+            eingaben.put("abzSteuern", betragText(fall.abzSteuern()));
+            eingaben.put("abzSozialversicherung", betragText(fall.abzSozialversicherung()));
+            eingaben.put("abzVersicherungen", betragText(fall.abzVersicherungen()));
+            eingaben.put("abzErwerbsaufwendungen", betragText(fall.abzErwerbsaufwendungen()));
+            eingaben.put("entbindungsmonat", fall.entbindungsmonat());
+            eingaben.put("version", fall.version());
+            e.put("eingaben", eingaben);
             e.put("fallId", fb.fallId());
             e.put("regelbedarfsstufe", fall != null ? fall.regelbedarfsstufe() : 0);
             e.put("einkommenRente", betragText(fall != null ? fall.einkommenRente() : BigDecimal.ZERO));
@@ -198,13 +216,34 @@ public final class BerechnungsSnapshot {
                     betrag(e.get("absetzbetaetrag")),
                     betrag(e.get("anrechenbaresEinkommen")),
                     betrag(e.get("zahlbetrag"))));
-            // Minimaler SozialFall: nur die Felder, die der Bescheid-Druck aus der
-            // Fallliste entnimmt (Stufe für die Zeilen, Rente/Erwerb für die Begründung)
-            faelle.add(new SozialFall(fallId, bgId, zahlAlsInt(e.get("regelbedarfsstufe"), "regelbedarfsstufe"),
-                    false, false, 0, 0, 0, false,
-                    nullBetrag, nullBetrag, nullBetrag,
-                    betrag(e.get("einkommenRente")), betrag(e.get("einkommenErwerb")),
-                    nullBetrag, nullBetrag, nullBetrag, nullBetrag, null, 1L));
+            if (e.get("eingaben") instanceof Map<?, ?> input) {
+                Object entbindung = input.get("entbindungsmonat");
+                if (entbindung != null && !(entbindung instanceof String)) {
+                    throw new IllegalArgumentException("Ungültiger Entbindungsmonat im Snapshot");
+                }
+                if (entbindung instanceof String monat) java.time.YearMonth.parse(monat);
+                faelle.add(new SozialFall(fallId, bgId,
+                        zahlAlsInt(e.get("regelbedarfsstufe"), "regelbedarfsstufe"),
+                        bool(input, "merkzeichenG"), bool(input, "schwanger"),
+                        zahlAlsInt(input.get("anzKinderUnter7"), "anzKinderUnter7"),
+                        zahlAlsInt(input.get("anzKinderUnter16"), "anzKinderUnter16"),
+                        zahlAlsInt(input.get("anzKinderMinderjaehrig"), "anzKinderMinderjaehrig"),
+                        bool(input, "warmwasser"), betrag(input.get("kduMiete")),
+                        betrag(input.get("kduBetriebskosten")), betrag(input.get("kduHeizung")),
+                        betrag(e.get("einkommenRente")), betrag(e.get("einkommenErwerb")),
+                        betrag(input.get("abzSteuern")), betrag(input.get("abzSozialversicherung")),
+                        betrag(input.get("abzVersicherungen")), betrag(input.get("abzErwerbsaufwendungen")),
+                        (String) entbindung, zahlAlsLong(input.get("version"), "version")));
+            } else if (!e.containsKey("eingaben")) {
+                // Alt-Snapshots dokumentierten nur Stufe und Einkommen; fehlende Merkmale
+                // sind nicht rekonstruierbar. Gespeichertes HTML und Ergebnis bleiben gültig.
+                faelle.add(new SozialFall(fallId, bgId, zahlAlsInt(e.get("regelbedarfsstufe"), "regelbedarfsstufe"),
+                        false, false, 0, 0, 0, false, nullBetrag, nullBetrag, nullBetrag,
+                        betrag(e.get("einkommenRente")), betrag(e.get("einkommenErwerb")),
+                        nullBetrag, nullBetrag, nullBetrag, nullBetrag, null, 1L));
+            } else {
+                throw new IllegalArgumentException("Snapshot-Eingaben sind kein Objekt");
+            }
         }
         Leistungsberechnung.Berechnungsergebnis ergebnis = new Leistungsberechnung.Berechnungsergebnis(
                 bgId, List.copyOf(fallBerechnungen),
@@ -217,6 +256,11 @@ public final class BerechnungsSnapshot {
 
     private static String betragText(BigDecimal betrag) {
         return betrag.toPlainString();
+    }
+
+    private static boolean bool(Map<?, ?> map, String key) {
+        if (map.get(key) instanceof Boolean value) return value;
+        throw new IllegalArgumentException("Snapshot-Eingabe '" + key + "' ist kein Wahrheitswert");
     }
 
     private static BigDecimal betrag(Object wert) {

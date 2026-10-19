@@ -19,7 +19,7 @@ import java.util.logging.Logger;
 /**
  * Task-Steuerung im Stil eines Transaktionsmonitors: Jede Arbeit wird als Task
  * eingereicht, die Anzahl paralleler Tasks ist begrenzt, ein Wachhund bricht Tasks
- * nach Ablauf des Zeitlimits ab (das Interrupt die laufende Transaktion rollt),
+ * nach Ablauf des Zeitlimits per Interrupt ab,
  * und die Statistik erfasst Durchlauf und Fehler. Deckt die CICS-Kernthemen
  * Task-Control und Monitoring für unseren Zweck ab.
  *
@@ -35,19 +35,15 @@ import java.util.logging.Logger;
  * Wiederholungen mit Backoff erlaubt, sollte das Task-Zeitlimit entsprechend
  * großzügig wählen (Faustregel: timeout &ge; maxAttempts × Einzellaufzeit).</p>
  *
- * <p><b>Bekanntes Restfenster (ehrlich dokumentiert):</b> Der Abbruch geschieht
- * durch {@code future.cancel(true)}, also per Interrupt. Trifft der Interrupt den
- * Worker genau im Commit-Fenster — der JDBC-Commit ist bereits an den
- * Datenbankserver abgeschickt, der Interrupt macht sich erst danach bemerkbar —,
- * kann das Commit auf der Datenbank durchgehen, während der Aufrufer einen Abbruch
- * sieht. Ein Client, der daraufhin die Anfrage wiederholt, könnte dieselbe
- * Buchung doppelt auslösen. Dieses Fenster ist das klassische TP-Monitor-Problem
- * („in-doubt transaction“) und lässt sich clientseitig nicht schließen; vollständig
- * lösbar wäre es nur mit Transaktions-IDs und Recovery-Abfrage beim
- * Datenbankserver — bewusst außerhalb des Scopes dieser Steuerung. Praktische
- * Milderung: Der Wachhund greift erst nach Ablauf des Zeitlimits, und
- * {@link TaskHandle#result()} meldet Abbrüche als nicht wiederholbare
- * {@link TxException}, sodass der TxManager sie nicht automatisch erneut versucht.</p>
+ * <p><b>Abbruch und Commit-Ausgang:</b> {@code future.cancel(true)} unterbricht
+ * den Worker, bestätigt aber keinen Rollback. Eine innere Fachtransaktion kann
+ * bereits vor dem Abbruch committet sein; außerdem bleibt ein laufender JDBC-Commit
+ * bei verlorener Quittung mehrdeutig. {@link TxContext#checkDeadline()} verhindert
+ * einen noch nicht gestarteten Commit bei gesetztem Interrupt. Schon committete
+ * innere Transaktionen kann der äußere Rollback nicht zurücknehmen.
+ * {@link TaskHandle#result()} meldet diese Abbrüche deshalb als nicht wiederholbare
+ * {@link TaskOutcomeUnknownException}. Der Aufrufer muss den fachlichen Status
+ * anhand der bestehenden Vorgangsnummer prüfen, bevor er erneut anordnet.</p>
  */
 public final class TaskController implements AutoCloseable {
 
@@ -157,7 +153,7 @@ public final class TaskController implements AutoCloseable {
      *       fertig stellen);</li>
      *   <li>bis zu {@value #DRAIN_TIMEOUT_SEKUNDEN} Sekunden warten;</li>
      *   <li>erst dann {@code shutdownNow()} — verbleibende Tasks werden
-     *       unterbrochen (die laufende Transaktion rollt zurück) und nochmals
+     *       unterbrochen (ein Rollback ist dadurch nicht bestätigt) und nochmals
      *       kurz gewartet;</li>
      *   <li>zuletzt den Wachhund hart stoppen.</li>
      * </ol>

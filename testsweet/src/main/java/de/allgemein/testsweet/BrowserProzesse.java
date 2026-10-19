@@ -62,42 +62,75 @@ final class BrowserProzesse {
         }
     }
 
-    static void raeumeVerwaisteFensterAuf() {
+
+    static int raeumeVerwaisteFensterAuf() {
+        return raeumeVerwaisteFensterAuf(false);
+    }
+
+    static int raeumeAlleVerwaistenProzesseAuf() {
+        return raeumeVerwaisteFensterAuf(true);
+    }
+
+    static int raeumeVerwaisteFensterAuf(boolean allDrivers) {
         Path basis = basis();
-        if (!Files.isDirectory(basis)) return;
-        // Windows stellt ProcessHandle.Info.arguments nicht zuverlässig bereit.
-        // Das Projektskript liest deshalb die CommandLine über CIM; dessen
-        // Auswahl bleibt ebenfalls auf die exakt registrierten Profile begrenzt.
+        if (!allDrivers && !Files.isDirectory(basis)) return 0;
         Path skript = basis.getParent().getParent().resolve("raeume-fenster.ps1");
+        int beendet = 0;
         if (System.getProperty("os.name").startsWith("Windows") && Files.isRegularFile(skript)) {
             try {
-                Process prozess = new ProcessBuilder("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
-                        "-File", skript.toString()).redirectErrorStream(true)
-                        .redirectOutput(ProcessBuilder.Redirect.DISCARD).start();
+                java.util.List<String> cmd = new java.util.ArrayList<>(java.util.List.of(
+                        "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
+                        "-File", skript.toString()));
+                if (allDrivers) {
+                    cmd.add("-AllDrivers");
+                }
+                Process prozess = new ProcessBuilder(cmd)
+                        .redirectErrorStream(true)
+                        .start();
+                String output = "";
+                try (var reader = prozess.inputReader(java.nio.charset.StandardCharsets.UTF_8)) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        output = line.trim();
+                    }
+                }
                 if (!prozess.waitFor(20, TimeUnit.SECONDS)) prozess.destroyForcibly();
-                if (prozess.isAlive() || prozess.exitValue() == 0) return;
+                if (!output.isEmpty()) {
+                    try { beendet = Integer.parseInt(output); } catch (NumberFormatException ignored) {}
+                }
+                if (prozess.exitValue() == 0) return beendet;
             } catch (IOException e) {
                 System.err.println("Profil-Aufräumskript nicht verfügbar: " + e.getMessage());
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                return;
+                return beendet;
             }
         }
-        try (var ordner = Files.list(basis)) {
-            List<Path> profile = ordner.filter(Files::isDirectory)
-                    .filter(p -> Files.isRegularFile(p.resolve(".testsweet-profile"))).toList();
-            ProcessHandle.allProcesses().forEach(p -> {
-                var info = p.info();
-                String command = info.command().orElse(null);
-                List<String> args = List.of(info.arguments().orElse(new String[0]));
-                if (profile.stream().anyMatch(profil -> gehoertZuProfil(command, args, profil))) {
-                    // Chrome-Unterprozesse dieses exakt identifizierten Profilprozesses.
-                    p.descendants().forEach(ProcessHandle::destroy);
-                    p.destroy();
+        if (Files.isDirectory(basis)) {
+            try (var ordner = Files.list(basis)) {
+                List<Path> profile = ordner.filter(Files::isDirectory)
+                        .filter(p -> Files.isRegularFile(p.resolve(".testsweet-profile"))).toList();
+                for (ProcessHandle p : ProcessHandle.allProcesses().toList()) {
+                    var info = p.info();
+                    String command = info.command().orElse(null);
+                    List<String> args = List.of(info.arguments().orElse(new String[0]));
+                    if (profile.stream().anyMatch(profil -> gehoertZuProfil(command, args, profil))) {
+                        // Chrome-Unterprozesse dieses exakt identifizierten Profilprozesses.
+                        p.descendants().forEach(ProcessHandle::destroyForcibly);
+                        p.destroyForcibly();
+                        beendet++;
+                    } else if (command != null && Path.of(command).getFileName().toString().equalsIgnoreCase("chromedriver.exe")) {
+                        if (allDrivers || p.parent().isEmpty() || !p.parent().get().isAlive()) {
+                            p.descendants().forEach(ProcessHandle::destroyForcibly);
+                            p.destroyForcibly();
+                            beendet++;
+                        }
+                    }
                 }
-            });
-        } catch (IOException | SecurityException e) {
-            System.err.println("Eigene Browserprofile konnten nicht aufgeräumt werden: " + e.getMessage());
+            } catch (IOException | SecurityException e) {
+                System.err.println("Eigene Browserprofile konnten nicht aufgeräumt werden: " + e.getMessage());
+            }
         }
+        return beendet;
     }
 }

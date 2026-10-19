@@ -48,7 +48,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Orchestriert einen Simulator-Lauf (Modus 1: Transaktionstest über die Fachschicht):
- * optional Altdaten aufräumen → Auftragstopf erzeugen → N Mitarbeiter-Threads parallel
+ * optional eigene frühere Läufe aufräumen → Auftragstopf erzeugen → N Mitarbeiter-Threads parallel
  * arbeiten den Pool ab → wenn alle fertig sind, verifiziert der {@link Verifikator}
  * die Erwartungshaltung jedes Auftrags direkt gegen die Datenbank. Alles wird über
  * den {@link SweetLog} protokolliert; die Auswertung der Logfiles erfolgt bewusst
@@ -124,6 +124,9 @@ public final class Simulator {
      *  laufStart/laufEnde bleiben als Wanduhrzeit für die Protokolle erhalten. */
     private volatile long laufStartNano;
     private volatile long laufEndeNano;
+    private volatile RunDataScope laufDaten = RunDataScope.create();
+    /** Ausschließlich in dieser Instanz erzeugte Kennungen; fremde Logs sind keine Besitzbelege. */
+    private final List<RunDataScope> eigeneFruehereLaeufe = new ArrayList<>();
     private final AtomicInteger naechsterAuftrag = new AtomicInteger();
     private volatile String letzteFehlermeldung;
     /** true, wenn der Lauf an einem DB-Verbindungsproblem scheiterte (für den Klartext-Dialog). */
@@ -288,13 +291,19 @@ public final class Simulator {
     }
 
     public long laufdauerSekunden() {
+        return laufdauerMillis() / 1000;
+    }
+
+    public long laufdauerMillis() {
         long von = laufStartNano;
         if (von == 0) {
             return 0;
         }
         long bis = laufEndeNano != 0 ? laufEndeNano : System.nanoTime();
-        return Duration.ofNanos(Math.max(0, bis - von)).toSeconds();
+        return Duration.ofNanos(Math.max(0, bis - von)).toMillis();
     }
+
+    public String laufDatenPraefix() { return laufDaten.prefix(); }
 
     SozialLeistungsService service() {
         return service;
@@ -427,7 +436,8 @@ public final class Simulator {
         abgebrochen = true;
         ExecutorService executor = laufExecutor;
         if (executor != null) executor.shutdownNow();
-        else webMitarbeiter.forEach(WebMitarbeiter::schliesse);
+        webMitarbeiter.forEach(WebMitarbeiter::schliesse);
+        WebMitarbeiter.raeumeVerwaisteFensterAuf();
     }
 
     // ------------------------------------------------------------------
@@ -571,11 +581,10 @@ public final class Simulator {
         webMitarbeiter.forEach(WebMitarbeiter::schliesse);
         WebMitarbeiter.raeumeVerwaisteFensterAuf();
         pruefeDatenbank();
-        pruefeKeineAltenAktenzeichen(konfig);
         if (konfig.aufraeumen()) {
             phase = Phase.AUFRAEUMEN;
-            log.ereignis("SIMULATOR", "", "Altdaten aufgeräumt: "
-                    + raeumeAltdatenAuf() + " SWEET-Vorgänge entfernt");
+            log.ereignis("SIMULATOR", "", "Eigene frühere Läufe aufgeräumt: "
+                    + raeumeAltdatenAuf() + " Vorgänge entfernt; fremde Laufdaten bleiben erhalten");
         }
 
         WebMitarbeiter.bereiteTreiberVor();
@@ -619,7 +628,8 @@ public final class Simulator {
                 beendeExecutor(executor, 0, () -> webMitarbeiter.forEach(WebMitarbeiter::schliesse));
             }
             laufExecutor = null;
-            if (abgebrochen) webMitarbeiter.forEach(WebMitarbeiter::schliesse);
+            webMitarbeiter.forEach(WebMitarbeiter::schliesse);
+            WebMitarbeiter.raeumeVerwaisteFensterAuf();
         }
 
         // Verifikation wie in Modus 1: Erwartungshaltung per SQL gegen die Datenbank
@@ -736,13 +746,12 @@ public final class Simulator {
 
         // Datenbank erreichbar?
         pruefeDatenbank();
-        pruefeKeineAltenAktenzeichen(konfig);
-
-        // Phase 1: optional Altdaten aufräumen
+        // Phase 1: nur zuvor von dieser Simulatorinstanz erzeugte Läufe aufräumen
         if (konfig.aufraeumen()) {
             phase = Phase.AUFRAEUMEN;
             int entfernt = raeumeAltdatenAuf();
-            log.ereignis("SIMULATOR", "", "Altdaten aufgeräumt: " + entfernt + " SWEET-Vorgänge entfernt");
+            log.ereignis("SIMULATOR", "", "Eigene frühere Läufe aufgeräumt: " + entfernt
+                    + " Vorgänge entfernt; fremde Laufdaten bleiben erhalten");
         }
 
         // Phase 2: Auftragstopf + Mitarbeiter
@@ -807,11 +816,9 @@ public final class Simulator {
         beendeLauf();
     }
 
-    /** Auftragstopf je Modus und Kategorie; das Aktenzeichen-Präfix unterscheidet
-     *  die Kategorien (POSITIV: SWEET- / SWEET-W-, NEGATIV: SWEET-N- / SWEET-NW-,
-     *  LAST: SWEET-L- / SWEET-LW-) und wird im Bericht ausgewiesen. */
+    /** Zufälliger Namensraum je Lauf; Modus/Kategorie folgen hinter der Laufkennung. */
     private List<Auftrag> erzeugeTopf(LaufKonfiguration konfig, long seed, boolean web) {
-        String praefix = SzenarioBibliothek.PREFIX + switch (konfig.kategorie()) {
+        String praefix = laufDaten.prefix() + switch (konfig.kategorie()) {
             case POSITIV -> web ? "W-" : "";
             case NEGATIV -> web ? "NW-" : "N-";
             case LAST -> web ? "LW-" : "L-";
@@ -863,6 +870,8 @@ public final class Simulator {
     }
 
     private void setzeLaufZurueck() {
+        if (!auftraege.isEmpty()) eigeneFruehereLaeufe.add(laufDaten);
+        laufDaten = RunDataScope.create();
         abgebrochen = false;
         dbNichtErreichbar = false;
         letzteFehlermeldung = null;
@@ -978,6 +987,13 @@ public final class Simulator {
         status.put("state", state);
         status.put("mode", modusLetzter);
         status.put("category", kategorieLetzter.name());
+        status.put("dataNamespace", laufDaten.prefix());
+        status.put("durationMs", laufdauerMillis());
+        if (kategorieLetzter == Kategorie.LAST || kategorieLetzter == Kategorie.STRESS) {
+            status.put("performanceEvidence", "FUNCTIONAL_PARALLEL_RUN");
+            status.put("performanceScope", RunMetrics.SCOPE);
+            status.put("capacityEvidence", false);
+        }
         if (laufStartInstant == null) throw new IllegalStateException("Eindeutiger Laufstart fehlt");
         status.put("startedAt", laufStartInstant.toString());
         status.put("completedAt", laufEndeInstant == null ? null : laufEndeInstant.toString());
@@ -1026,57 +1042,21 @@ public final class Simulator {
         log.ereignis("SIMULATOR", "", "Datenbankverbindung ok (" + dbUrl + ")");
     }
 
-    /**
-     * Duplikat-Schutz vor dem Laufstart: Liegen noch SWEET-Vorgänge eines früheren
-     * Laufs in der Datenbank und ist Aufräumen nicht aktiviert, würde der neue Lauf
-     * dieselben Aktenzeichen wieder anlegen und mitten im Betrieb an der Eindeutig-
-     * keitsregel scheitern — der Lauf wird deshalb vorab mit klarer Meldung
-     * abgebrochen (das finally der Aufrufer schließt das Log).
-     */
-    private void pruefeKeineAltenAktenzeichen(LaufKonfiguration konfig) throws Exception {
-        if (konfig.aufraeumen()) {
-            return; // es wird ohnehin automatisch geräumt
-        }
-        try (Connection c = DriverManager.getConnection(dbUrl, dbUser, dbPass);
-             Statement st = c.createStatement();
-             ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM BEDARFSGEMEINSCHAFT "
-                     + "WHERE AKTENZEICHEN LIKE '" + SzenarioBibliothek.PREFIX + "%'")) {
-            rs.next();
-            int alte = rs.getInt(1);
-            if (alte > 0) {
-                throw new IllegalStateException("In der Datenbank liegen noch " + alte
-                        + " Vorgänge früherer Läufe (Aktenzeichen " + SzenarioBibliothek.PREFIX
-                        + "…). Ein neuer Lauf würde dieselben Aktenzeichen erneut anlegen und "
-                        + "an der Eindeutigkeitsregel scheitern. Bitte das Aufräumen aktivieren "
-                        + "(Option „Altdaten aufräumen“) oder die Datenbank säubern und den "
-                        + "Lauf neu starten.");
-            }
-        }
-    }
-
-    /** Löscht Vorgänge früherer Läufe (SWEET-%); Rückgabe: Anzahl gelöschter Vorgänge. */
+    /** Bereinigt nur frühere Laufkennungen, die diese Simulatorinstanz selbst erzeugt hat. */
     private int raeumeAltdatenAuf() throws Exception {
+        if (eigeneFruehereLaeufe.isEmpty()) return 0;
         try (Connection c = DriverManager.getConnection(dbUrl, dbUser, dbPass)) {
             c.setAutoCommit(false);
-            int entfernt = 0;
-            try (Statement st = c.createStatement()) {
-                String praefix = " WHERE BG_ID IN (SELECT ID FROM BEDARFSGEMEINSCHAFT "
-                        + "WHERE AKTENZEICHEN LIKE '" + SzenarioBibliothek.PREFIX + "%')";
-                st.executeUpdate("DELETE FROM JOURNAL" + praefix);
-                st.executeUpdate("DELETE FROM BESCHEID" + praefix);
-                st.executeUpdate("DELETE FROM ZAHLUNG" + praefix);
-                st.executeUpdate("DELETE FROM SOZIAL_FALL" + praefix);
-                entfernt = st.executeUpdate("DELETE FROM BEDARFSGEMEINSCHAFT WHERE AKTENZEICHEN "
-                        + "LIKE '" + SzenarioBibliothek.PREFIX + "%'");
-                // vorgangsübergreifende Kassenlauf-Journale früherer Läufe
-                st.executeUpdate("DELETE FROM JOURNAL WHERE BG_ID IS NULL "
-                        + "AND AKTION_TEXT LIKE 'Kassenlauf%' AND SACHBEARBEITER_ID LIKE 'sb-sim-%'");
+            try {
+                int entfernt = 0;
+                for (RunDataScope scope : eigeneFruehereLaeufe) entfernt += scope.delete(c);
                 c.commit();
+                eigeneFruehereLaeufe.clear();
+                return entfernt;
             } catch (Exception e) {
                 c.rollback();
                 throw e;
             }
-            return entfernt;
         }
     }
 
@@ -1194,7 +1174,7 @@ public final class Simulator {
     private void globalerKonsistenzcheck() {
         long erwartete = auftraege.stream().mapToLong(a -> a.erwarteteVorgaenge).sum();
         uebernehmeGlobalePruefungen(GlobaleVerifikation.pruefe(
-                () -> DriverManager.getConnection(dbUrl, dbUser, dbPass), erwartete, auftraege));
+                () -> DriverManager.getConnection(dbUrl, dbUser, dbPass), erwartete, auftraege, laufDaten));
     }
 
     void uebernehmeGlobalePruefungen(List<Auftrag.Pruefung> pruefungen) {
@@ -1236,7 +1216,10 @@ public final class Simulator {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         StringBuilder sb = new StringBuilder("testsweet — Laufzusammenfassung\n");
         sb.append("Zeitraum        : ").append(laufStart).append(" bis ").append(laufEnde).append('\n');
-        sb.append("Dauer           : ").append(laufdauerSekunden()).append(" s\n");
+        sb.append("Dauer           : ").append(laufdauerMillis()).append(" ms\n");
+        sb.append("Datennamensraum : ").append(laufDaten.prefix()).append('\n');
+        if (kategorieLetzter == Kategorie.LAST || kategorieLetzter == Kategorie.STRESS)
+            sb.append("Prüfaussage     : ").append(RunMetrics.SCOPE).append('\n');
         sb.append("Datenbank       : ").append(dbUrl).append('\n');
         sb.append("Modus           : ").append("WEB".equals(modusLetzter)
                 ? "Weboberfläche (Selenium)" : "Fachschicht").append('\n');
@@ -1257,9 +1240,17 @@ public final class Simulator {
     }
 
     private void schliesseRessourcen() {
+        if (webMitarbeiter != null && !webMitarbeiter.isEmpty()) {
+            webMitarbeiter.forEach(WebMitarbeiter::schliesse);
+        }
+        WebMitarbeiter.raeumeVerwaisteFensterAuf();
         if (pool != null) {
             pool.close();
             pool = null;
+        }
+        if (webPool != null) {
+            webPool.close();
+            webPool = null;
         }
     }
 

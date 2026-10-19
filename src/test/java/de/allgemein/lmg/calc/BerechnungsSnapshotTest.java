@@ -24,7 +24,7 @@ class BerechnungsSnapshotTest {
     void roundTripErhaeltErgebnisUndEingabenExakt() {
         // Fall: RBS 1, schwanger, 1 Kind unter 7, Erwerb 250 €, Absetzbeträge 15 €,
         // KdU 500/70/80 (über der Grenze 600), Vermögen 10.500 €
-        SozialFall fall = new SozialFall(8L, 7L, 1, false, true, 1, 0, 1, false,
+        SozialFall fall = new SozialFall(8L, 7L, 1, false, true, 1, 1, 1, false,
                 eur("500.00"), eur("70.00"), eur("80.00"), eur("0.00"), eur("250.00"),
                 eur("10.00"), eur("5.00"), eur("0.00"), eur("0.00"), 3L);
         var ergebnis = Leistungsberechnung.berechne(7L, List.of(fall),
@@ -36,11 +36,7 @@ class BerechnungsSnapshotTest {
 
         assertEquals(ergebnis, gelesen.ergebnis(), "Berechnungsergebnis muss exakt (inkl. Skala) überleben");
         assertEquals(eur("10500.00"), gelesen.vermoegen());
-        // Rekonstruierte Fallliste: nur Stufe + Einkommen, alles andere neutral
-        SozialFall erwartet = new SozialFall(8L, 7L, 1, false, false, 0, 0, 0, false,
-                eur("0.00"), eur("0.00"), eur("0.00"), eur("0.00"), eur("250.00"),
-                eur("0.00"), eur("0.00"), eur("0.00"), eur("0.00"), 1L);
-        assertEquals(erwartet, gelesen.faelle().get(0));
+        assertEquals(fall, gelesen.faelle().get(0), "Alle Eingabemerkmale und Rohbeträge bleiben erhalten");
     }
 
     @Test

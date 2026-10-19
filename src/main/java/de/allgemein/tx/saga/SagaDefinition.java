@@ -4,7 +4,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-/** Feste Abfolge von Schritten eines Geschäftsvorgangs (z. B. Antrag → Bescheid → Auszahlung). */
+/**
+ * Feste Abfolge von Schritten eines Geschäftsvorgangs. Schrittnamen sind stabile
+ * Recovery-Schlüssel und müssen innerhalb des Typs eindeutig bleiben. Ändert sich
+ * die Bedeutung einer Wirkung/Kompensation inkompatibel, braucht sie einen neuen
+ * Namen beziehungsweise einen neuen Saga-Typ; alte Kompensationen bleiben für
+ * offene Journale verfügbar.
+ */
 public final class SagaDefinition {
 
     private final String type;
@@ -37,6 +43,9 @@ public final class SagaDefinition {
         }
 
         public Builder step(String name, SagaAction action, SagaAction compensation) {
+            if (steps.stream().anyMatch(step -> step.name().equals(name))) {
+                throw new IllegalArgumentException("Schrittnamen müssen innerhalb einer Saga eindeutig sein");
+            }
             steps.add(new SagaStep(name, action, compensation));
             return this;
         }

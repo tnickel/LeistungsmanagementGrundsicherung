@@ -24,6 +24,11 @@ public interface TxSagaJournal {
     /** Legt Kopf (RUNNING) und alle Schritte (PENDING) der Saga an — atomar in einer Transaktion. */
     void start(String sagaId, String type, String payload, int stepCount) throws SQLException;
 
+    /** Speichert stabile Schrittnamen bereits vor dem ersten Write-Ahead. */
+    default void start(String sagaId, String type, String payload, List<String> stepNames) throws SQLException {
+        start(sagaId, type, payload, stepNames.size());
+    }
+
     /**
      * Write-Ahead: markiert den Schritt als begonnen (PENDING → IN_FLIGHT), bevor die
      * Fachtransaktion startet. Wirft, wenn der Schritt nicht mehr PENDING ist (Guard).
@@ -64,7 +69,10 @@ public interface TxSagaJournal {
         return false;
     }
 
-    /** Alle unvollendeten Sagas (RUNNING/FAILED/COMPENSATING) — ohne Sperre, nur Information. */
+    /**
+     * Übersicht unvollendeter Köpfe (RUNNING/FAILED/COMPENSATING), ohne Sperre.
+     * Nutzdaten und Schritte liefert erst der exklusive Claim.
+     */
     List<UnfinishedSaga> unfinished() throws SQLException;
 
     /**

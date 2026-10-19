@@ -34,7 +34,7 @@ class CertificateSuiteServiceTest {
     }
     @Test void allSevenModesAreFixedAndWebRunsBeforeGlmInputSources() {
         assertEquals(7,CertificateSuiteWorker.JOBS.size());assertEquals(List.of("WEB","WEB","WEB","FACH","FACH","FACH","FACH"),CertificateSuiteWorker.JOBS.stream().map(CertificateSuiteWorker.Job::mode).toList());
-        assertEquals(1312,CertificateSuiteWorker.JOBS.stream().mapToInt(j->j.category()==Simulator.Kategorie.STRESS?j.orders()*2:j.orders()).sum());
+        assertEquals(1392,CertificateSuiteWorker.JOBS.stream().mapToInt(j->j.category()==Simulator.Kategorie.STRESS?j.orders()*2:j.orders()).sum());
         assertEquals(Simulator.Kategorie.STRESS,CertificateSuiteWorker.JOBS.getLast().category());
     }
     @Test void simulatorTechnicalAbortIsNotInventedSoftwareFinding() {

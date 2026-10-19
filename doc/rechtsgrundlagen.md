@@ -91,6 +91,26 @@ Alter/bei Erwerbsminderung) verweist für die Einzelheiten auf § 35 SGB XII
 
 ### 1.5 Vermögenseinsatz und Schonvermögen (§ 90 SGB XII, § 43 SGB XII, DVO)
 
+**Grenze des Projektmodells:** Die unten beschriebene automatische
+Verbrauchsfortschreibung ist keine aus § 90 abgeleitete Rechtsfolge. Eine
+Auszahlungsbuchung belegt keinen tatsächlichen Verbrauch des Vermögens.
+Vorhandenes verwertbares Vermögen bleibt grundsätzlich zu berücksichtigen,
+solange es tatsächlich vorhanden ist; siehe
+[BSG, 25.04.2018, B 4 AS 29/17 R, Rn. 19–20](https://www.bsg.bund.de/SharedDocs/Downloads/DE/Entscheidungen/2018/2018_04_25_B_04_AS_29_17_R.pdf?__blob=publicationFile&v=2),
+mit Verweis auf BSG, **20.09.2012**, B 8 SO 20/11 R, Rn. 14–15.
+Das vorhandene Demomodell ersetzt weder Nachweise des tatsächlichen Verbrauchs
+noch deren Prüfung für Folgemonate. Verifizierte Freibeträge und deterministische
+Tests bestätigen diese Modellannahme nicht als rechtlich zulässigen Echtbetrieb.
+
+Gegenprüfung am 15.10.2026: Der Primärtext von
+[BSG, 20.09.2012, B 8 SO 20/11 R, Rn. 14–15](https://www.sozialgerichtsbarkeit.de/node/88668/pdf)
+bestätigt die Grenze ausdrücklich. Eine bloß rechnerische Bedarfsdeckung darf
+den Vermögensbestand ohne tatsächlichen Verbrauchsnachweis nicht automatisch
+vermindern. Ein dauerhaft unveränderter Bestand oberhalb des Schonvermögens
+belegt daher für sich keinen Implementierungsfehler; eine belegte Änderung muss
+fachlich erfasst werden. Der gegenteilige Reparaturvorschlag R7W2-02 wird nicht
+als gesetzliche Vorgabe übernommen.
+
 | Norm | Amtlicher Inhalt (Kurzfassung, verifiziert) | Umsetzung |
 |---|---|---|
 | § 90 Abs. 2 Nr. 9 SGB XII | Schonung **kleinerer Barbeträge oder sonstiger Geldwerte** unter Berücksichtigung einer besonderen Notlage; die Beträge bestimmt die Rechtsverordnung (unten) | i.V.m. DVO § 1 umgesetzt |

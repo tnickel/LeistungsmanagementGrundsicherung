@@ -14,5 +14,14 @@ public record VorgangslisteEintrag(
         boolean statusAktiv,
         BigDecimal budgetRest,
         LocalDate wiedervorlageAm,
-        BigDecimal zahlbetragVorschau) {
+        BigDecimal zahlbetragVorschau,
+        String berechnungsmonat) {
+
+    /** Kompatibler Konstruktor für ältere Aufrufer ohne dokumentierten Monatsbezug. */
+    public VorgangslisteEintrag(long id, String aktenzeichen, String hauptpersonName,
+            boolean statusAktiv, BigDecimal budgetRest, LocalDate wiedervorlageAm,
+            BigDecimal zahlbetragVorschau) {
+        this(id, aktenzeichen, hauptpersonName, statusAktiv, budgetRest, wiedervorlageAm,
+                zahlbetragVorschau, null);
+    }
 }

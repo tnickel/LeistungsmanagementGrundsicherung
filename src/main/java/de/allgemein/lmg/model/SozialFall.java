@@ -66,7 +66,7 @@ public record SozialFall(
             BigDecimal abzVersicherungen,
             BigDecimal abzErwerbsaufwendungen,
             long version) {
-        this(id, bgId, regelbedarfsstufe, merkzeichenG, schwanger, anzKinderUnter7, anzKinderUnter16,
+        this(id, bgId, regelbedarfsstufe, merkzeichenG, schwanger, anzKinderUnter7, Math.max(anzKinderUnter16, anzKinderUnter7),
                 Math.max(anzKinderUnter7, anzKinderUnter16), warmwasser,
                 kduMiete, kduBetriebskosten, kduHeizung, einkommenRente, einkommenErwerb,
                 abzSteuern, abzSozialversicherung, abzVersicherungen, abzErwerbsaufwendungen,

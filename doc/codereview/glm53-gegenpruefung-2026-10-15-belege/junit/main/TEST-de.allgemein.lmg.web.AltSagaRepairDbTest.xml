@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="de.allgemein.lmg.web.AltSagaRepairDbTest" time="4.034" tests="8" errors="0" skipped="0" failures="0">
+  <properties>
+    <property name="java.specification.version" value="25"/>
+    <property name="sun.cpu.isalist" value="amd64"/>
+    <property name="sun.jnu.encoding" value="Cp1252"/>
+    <property name="java.class.path" value="D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\target\test-classes;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\target\classes;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\oracle\database\jdbc\ojdbc11\23.5.0.24.07\ojdbc11-23.5.0.24.07.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\oracle\database\jdbc\ucp\23.5.0.24.07\ucp-23.5.0.24.07.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\jupiter\junit-jupiter\5.10.2\junit-jupiter-5.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\jupiter\junit-jupiter-api\5.10.2\junit-jupiter-api-5.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\opentest4j\opentest4j\1.3.0\opentest4j-1.3.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\platform\junit-platform-commons\1.10.2\junit-platform-commons-1.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\apiguardian\apiguardian-api\1.1.2\apiguardian-api-1.1.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\jupiter\junit-jupiter-params\5.10.2\junit-jupiter-params-5.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\jupiter\junit-jupiter-engine\5.10.2\junit-jupiter-engine-5.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\platform\junit-platform-engine\1.10.2\junit-platform-engine-1.10.2.jar;"/>
+    <property name="jdk.httpserver.maxConnections" value="256"/>
+    <property name="java.vm.vendor" value="Eclipse Adoptium"/>
+    <property name="sun.arch.data.model" value="64"/>
+    <property name="user.variant" value=""/>
+    <property name="java.vendor.url" value="https://adoptium.net/"/>
+    <property name="user.timezone" value="Europe/Berlin"/>
+    <property name="os.name" value="Windows 11"/>
+    <property name="java.vm.specification.version" value="25"/>
+    <property name="sun.java.launcher" value="SUN_STANDARD"/>
+    <property name="user.country" value="DE"/>
+    <property name="sun.boot.library.path" value="C:\Program Files\Eclipse Adoptium\jdk-25.0.4.101-hotspot\bin"/>
+    <property name="sun.java.command" value="C:\Users\tnickel\AppData\Local\Temp\surefire17327709950944008566\surefirebooter-20261015180937612_3.jar C:\Users\tnickel\AppData\Local\Temp\surefire17327709950944008566 2026-10-15T18-09-37_541-jvmRun1 surefire-20261015180937612_1tmp surefire_0-20261015180937612_2tmp"/>
+    <property name="jdk.debug" value="release"/>
+    <property name="surefire.test.class.path" value="D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\target\test-classes;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\target\classes;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\oracle\database\jdbc\ojdbc11\23.5.0.24.07\ojdbc11-23.5.0.24.07.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\oracle\database\jdbc\ucp\23.5.0.24.07\ucp-23.5.0.24.07.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\jupiter\junit-jupiter\5.10.2\junit-jupiter-5.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\jupiter\junit-jupiter-api\5.10.2\junit-jupiter-api-5.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\opentest4j\opentest4j\1.3.0\opentest4j-1.3.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\platform\junit-platform-commons\1.10.2\junit-platform-commons-1.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\apiguardian\apiguardian-api\1.1.2\apiguardian-api-1.1.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\jupiter\junit-jupiter-params\5.10.2\junit-jupiter-params-5.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\jupiter\junit-jupiter-engine\5.10.2\junit-jupiter-engine-5.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\platform\junit-platform-engine\1.10.2\junit-platform-engine-1.10.2.jar;"/>
+    <property name="sun.cpu.endian" value="little"/>
+    <property name="user.home" value="C:\Users\tnickel"/>
+    <property name="user.language" value="de"/>
+    <property name="java.specification.vendor" value="Oracle Corporation"/>
+    <property name="java.version.date" value="2026-08-18"/>
+    <property name="java.home" value="C:\Program Files\Eclipse Adoptium\jdk-25.0.4.101-hotspot"/>
+    <property name="file.separator" value="\"/>
+    <property name="basedir" value="D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung"/>
+    <property name="style.color" value="never"/>
+    <property name="java.vm.compressedOopsMode" value="Zero based"/>
+    <property name="line.separator" value="&#10;"/>
+    <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
+    <property name="java.specification.name" value="Java Platform API Specification"/>
+    <property name="surefire.real.class.path" value="C:\Users\tnickel\AppData\Local\Temp\surefire17327709950944008566\surefirebooter-20261015180937612_3.jar"/>
+    <property name="sun.net.httpserver.maxReqTime" value="30"/>
+    <property name="user.script" value=""/>
+    <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
+    <property name="java.runtime.version" value="25.0.4.1+1-LTS"/>
+    <property name="user.name" value="tnickel"/>
+    <property name="stdout.encoding" value="Cp1252"/>
+    <property name="path.separator" value=";"/>
+    <property name="os.version" value="10.0"/>
+    <property name="java.runtime.name" value="OpenJDK Runtime Environment"/>
+    <property name="sun.net.httpserver.idleInterval" value="30"/>
+    <property name="file.encoding" value="UTF-8"/>
+    <property name="java.vm.name" value="OpenJDK 64-Bit Server VM"/>
+    <property name="java.vendor.version" value="Temurin-25.0.4.1+1"/>
+    <property name="localRepository" value="D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository"/>
+    <property name="java.vendor.url.bug" value="https://github.com/adoptium/adoptium-support/issues"/>
+    <property name="java.io.tmpdir" value="C:\Users\tnickel\AppData\Local\Temp\"/>
+    <property name="java.version" value="25.0.4.1"/>
+    <property name="sun.net.httpserver.maxRspTime" value="120"/>
+    <property name="user.dir" value="D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung"/>
+    <property name="os.arch" value="amd64"/>
+    <property name="java.vm.specification.name" value="Java Virtual Machine Specification"/>
+    <property name="sun.os.patch.level" value=""/>
+    <property name="native.encoding" value="Cp1252"/>
+    <property name="java.library.path" value="C:\Program Files\Eclipse Adoptium\jdk-25.0.4.101-hotspot\bin;C:\WINDOWS\Sun\Java\bin;C:\WINDOWS\system32;C:\WINDOWS;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\powershell;C:\Users\tnickel\.codex\tmp\arg0\codex-arg0dKbKqz;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\libheif\libheif\bin;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\jxrlib\jxrlib\bin;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\poppler\Library\bin;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\bin\override;C:\Program Files\Eclipse Adoptium\jdk-25.0.4.101-hotspot\bin;C:\Program Files\Common Files\Oracle\Java\javapath;C:\Program Files (x86)\Razer Chroma SDK\bin;C:\Program Files\Razer Chroma SDK\bin;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\;C:\Program Files\Git\cmd;C:\Program Files\nodejs\;C:\Program Files\NVIDIA Corporation\NVIDIA App\NvDLISR;C:\Program Files (x86)\NVIDIA Corporation\PhysX\Common;C:\Program Files\IDM Computer Solutions\UltraEdit;C:\Program Files\dotnet\;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\powershell;C:\WINDOWS\system32\config\systemprofile\AppData\Local\Microsoft\WindowsApps;C:\Program Files (x86)\Razer\ChromaBroadcast\bin;C:\Program Files\Razer\ChromaBroadcast\bin;C:\Users\tnickel\AppData\Local\Programs\Python\Launcher\;C:\Users\tnickel\AppData\Local\Microsoft\WindowsApps;C:\Users\tnickel\AppData\Roaming\npm;C:\Users\tnickel\AppData\Local\Programs\Ollama;C:\Program Files\Pandoc\;C:\Program Files\GitHub CLI\;D:\VSCode\bin;D:\whitehacktools\Metasploit\metasploit-framework\bin\;C:\Program Files\Docker\Docker\resources\bin;C:\Program Files (x86)\Plantronics\Spokes3G\;C:\Users\tnickel\AppData\Local\Programs\GnuCOBOL 3.2\bin;C:\Users\tnickel\AppData\Local\Programs\GnuCOBOL 3.2\mingw64\bin;C:\Users\tnickel\AppData\Local\Programs\MiKTeX\miktex\bin\x64\;C:\Users\tnickel\AppData\Local\Programs\MiKTeX2\miktex\bin\x64\;C:\Users\tnickel\.cache\lm-studio\bin;C:\Program Files (x86)\WiX Toolset v3.14\bin;D:\DevelopmentTools\apache-maven-3.9.6\bin;C:\Users\tnickel\AppData\Local\Google\Cloud SDK\google-cloud-sdk\bin;C:\Users\tnickel\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1-full_build\bin;C:\Users\tnickel\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\Scripts;C:\Users\tnickel\.grok\bin;C:\Users\tnickel\AppData\Local\Programs\Antigravity IDE\bin;D:\DevelopmentTools\winlibs\mingw64\bin;D:\DevelopmentTools\Godot;C:\Users\tnickel\.bun\bin;D:\cursor\resources\app\bin;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\bin\fallback;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\git\cmd;C:\Users\tnickel\AppData\Local\OpenAI\Codex\bin\77fbd4d52e601e0a;C:\Users\tnickel\AppData\Local\OpenAI\Codex\bin\9614f1d9b40d9c4f;."/>
+    <property name="java.vm.info" value="mixed mode, sharing"/>
+    <property name="stderr.encoding" value="Cp1252"/>
+    <property name="java.vendor" value="Eclipse Adoptium"/>
+    <property name="java.vm.version" value="25.0.4.1+1-LTS"/>
+    <property name="stdin.encoding" value="Cp1252"/>
+    <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
+    <property name="maven.repo.local" value="D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository"/>
+    <property name="java.class.version" value="69.0"/>
+  </properties>
+  <testcase name="verloreneCommitQuittungWirdNieAlsErfolgreicheAufloesungAusgegeben" classname="de.allgemein.lmg.web.AltSagaRepairDbTest" time="0.295"/>
+  <testcase name="vorWriteAheadCommitteteDemowirkungHinterNamenlosemPendingBleibtZurKlaerungErhalten" classname="de.allgemein.lmg.web.AltSagaRepairDbTest" time="0.26">
+    <system-err><![CDATA[Okt. 15, 2026 6:09:57 PM de.allgemein.tx.saga.SagaEngine wiederanlauf
+SCHWERWIEGEND: Saga 3544b364-a9e3-4966-9f73-409d1002a86d: PENDING ohne stabilen Namen; historische Fachwirkung muss manuell geprüft werden
+]]></system-err>
+  </testcase>
+  <testcase name="inFlightUndDoneOhneBekannteNamenBleibenMitUnveraendertemJournalAbgewiesen" classname="de.allgemein.lmg.web.AltSagaRepairDbTest" time="0.51">
+    <system-err><![CDATA[Okt. 15, 2026 6:09:57 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:09:57.849498900Z [main] TX.COMMIT id=a987ebd3-938a-4686-b5af-53362f1f0f22 attempt=1 duration=3ms
+]]></system-err>
+  </testcase>
+  <testcase name="lebenderClaimVerhindertOfflineAufloesungOhneDatenaenderung" classname="de.allgemein.lmg.web.AltSagaRepairDbTest" time="0.272"/>
+  <testcase name="veraenderterSnapshotOderBelegHashLaesstDasJournalUnveraendert" classname="de.allgemein.lmg.web.AltSagaRepairDbTest" time="0.413"/>
+  <testcase name="altesTeiljournalBlockiertStartBisGesicherterWirkungspruefungUndKontrolliertemAbschluss" classname="de.allgemein.lmg.web.AltSagaRepairDbTest" time="0.295">
+    <system-err><![CDATA[Okt. 15, 2026 6:09:58 PM de.allgemein.tx.saga.SagaEngine wiederanlauf
+SCHWERWIEGEND: Saga 2899a1d1-664e-40c8-886d-4904958b6c95: PENDING ohne stabilen Namen; historische Fachwirkung muss manuell geprüft werden
+]]></system-err>
+  </testcase>
+  <testcase name="gemischtesAltjournalMitCommittierterZweiterWirkungBleibtVorJederTeilkompensationFailed" classname="de.allgemein.lmg.web.AltSagaRepairDbTest" time="1.715">
+    <system-err><![CDATA[Okt. 15, 2026 6:09:59 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:09:59.189748700Z [main] TX.COMMIT id=1f8badf2-dcf7-4265-931d-a1d4758ec577 attempt=1 duration=3ms
+Okt. 15, 2026 6:09:59 PM de.allgemein.tx.saga.SagaEngine wiederanlauf
+SCHWERWIEGEND: Saga 1ef009fc-9466-4b03-9aeb-c18164ba4b2c: PENDING ohne stabilen Namen; historische Fachwirkung muss manuell geprüft werden
+Okt. 15, 2026 6:09:59 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:09:59.609673500Z [main] TX.COMMIT id=d948ed8a-cfc7-499f-98c1-6e0411ce8209 attempt=1 duration=5ms
+Okt. 15, 2026 6:09:59 PM de.allgemein.tx.saga.SagaEngine wiederanlauf
+SCHWERWIEGEND: Saga 1d318850-b9e3-4731-bd74-8b0f72250c56: PENDING ohne stabilen Namen; historische Fachwirkung muss manuell geprüft werden
+Okt. 15, 2026 6:10:00 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:00.021548600Z [main] TX.COMMIT id=c6e9b0b8-db3c-4be9-a0a6-02519845130a attempt=1 duration=3ms
+Okt. 15, 2026 6:10:00 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:00.029815900Z [main] TX.COMMIT id=27a38404-cd5e-447d-917f-419161219d13 attempt=1 duration=6ms
+Okt. 15, 2026 6:10:00 PM de.allgemein.tx.saga.SagaEngine wiederanlauf
+SCHWERWIEGEND: Saga 868f78d7-de4f-46ee-8290-8c9a0d34295b: PENDING ohne stabilen Namen; historische Fachwirkung muss manuell geprüft werden
+Okt. 15, 2026 6:10:00 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:00.471918700Z [main] TX.COMMIT id=b3403306-959b-4f70-a9d7-54b4db4de7fc attempt=1 duration=3ms
+Okt. 15, 2026 6:10:00 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:00.477676500Z [main] TX.COMMIT id=d3781cb5-afb4-4e6e-a688-342ac0dc54ef attempt=1 duration=5ms
+Okt. 15, 2026 6:10:00 PM de.allgemein.tx.saga.SagaEngine wiederanlauf
+SCHWERWIEGEND: Saga 7f6216d0-a148-4478-b3f4-2b52886cdaff: PENDING ohne stabilen Namen; historische Fachwirkung muss manuell geprüft werden
+]]></system-err>
+  </testcase>
+  <testcase name="snapshotUndAufloesungsverzeichnisWerdenNieUeberschrieben" classname="de.allgemein.lmg.web.AltSagaRepairDbTest" time="0.272"/>
+</testsuite>

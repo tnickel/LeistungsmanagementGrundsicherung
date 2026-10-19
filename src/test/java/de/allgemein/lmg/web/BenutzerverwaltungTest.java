@@ -53,4 +53,19 @@ class BenutzerverwaltungTest {
         var benutzer = verwaltung.zuToken(verwaltung.anmelden("admin-01", "geheim")).orElseThrow();
         assertTrue(benutzer.istAdmin());
     }
+
+    @Test
+    void ungueltigeKontendefinitionGibtWederPasswortNochKontensegmentPreis() {
+        String geheimnis = "SYNTHETISCHES_PASSWORT_047";
+        for (String fehlerhaft : java.util.List.of("konto:" + geheimnis,
+                "konto:" + geheimnis + ":admin:zusatz", "konto:x:" + geheimnis,
+                "konto:" + geheimnis + ":")) {
+            var fehler = assertThrows(IllegalArgumentException.class,
+                    () -> new Benutzerverwaltung("gueltig:x:admin;" + fehlerhaft));
+            assertFalse(fehler.getMessage().contains(geheimnis), fehler.getMessage());
+            assertFalse(fehler.toString().contains(fehlerhaft), fehler.toString());
+            assertTrue(fehler.getMessage().contains("2"), "Eintragsposition bleibt diagnostizierbar");
+            assertEquals(null, fehler.getCause());
+        }
+    }
 }

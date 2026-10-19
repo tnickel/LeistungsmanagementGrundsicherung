@@ -1,0 +1,179 @@
+{
+  "schemaVersion": 1,
+  "checks": [
+    {
+      "name": "main-clean-install-db",
+      "startedAt": "2026-10-15T17:36:00.1138858+02:00",
+      "finishedAt": "2026-10-15T17:36:59.9151579+02:00",
+      "exitCode": 0
+    },
+    {
+      "name": "main-config-without-db",
+      "startedAt": "2026-10-15T17:36:59.9402011+02:00",
+      "finishedAt": "2026-10-15T17:37:09.2028331+02:00",
+      "exitCode": 0
+    },
+    {
+      "name": "testsweet-clean-test-db",
+      "startedAt": "2026-10-15T17:37:09.2137273+02:00",
+      "finishedAt": "2026-10-15T17:38:58.8549577+02:00",
+      "exitCode": 0
+    },
+    {
+      "name": "testsweet-classpath",
+      "startedAt": "2026-10-15T17:38:58.8658013+02:00",
+      "finishedAt": "2026-10-15T17:39:18.8345233+02:00",
+      "exitCode": 0
+    },
+    {
+      "name": "real-runtime-snapshot",
+      "startedAt": "2026-10-15T17:39:18.8920428+02:00",
+      "finishedAt": "2026-10-15T17:39:25.0815008+02:00",
+      "exitCode": 0
+    },
+    {
+      "name": "real-runtime-probe",
+      "startedAt": "2026-10-15T17:39:25.1119542+02:00",
+      "finishedAt": "2026-10-15T17:39:29.4798977+02:00",
+      "exitCode": 0
+    },
+    {
+      "name": "junit-reader",
+      "startedAt": "2026-10-15T17:39:29.4812965+02:00",
+      "finishedAt": "2026-10-15T17:39:30.6026505+02:00",
+      "exitCode": 0
+    },
+    {
+      "name": "fach-positiv-default-100",
+      "startedAt": "2026-10-15T17:39:30.6042394+02:00",
+      "finishedAt": "2026-10-15T17:39:39.3017031+02:00",
+      "exitCode": 0
+    },
+    {
+      "name": "fach-negativ-100",
+      "startedAt": "2026-10-15T17:39:39.3031509+02:00",
+      "finishedAt": "2026-10-15T17:39:45.5438531+02:00",
+      "exitCode": 0
+    },
+    {
+      "name": "offline-package-100-100",
+      "startedAt": "2026-10-15T17:39:45.5453555+02:00",
+      "finishedAt": "2026-10-15T17:39:49.2673189+02:00",
+      "exitCode": 0
+    }
+  ],
+  "junit": [
+    {
+      "marker": "main-db-test-evidence.json",
+      "counts": {
+        "tests": 353,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 1
+      },
+      "sha256": "123128ee565000aa7e7f8706b2bf1f7402f13196797ab67fe22d7d21742067ca",
+      "runId": "755801d9-1587-439c-a93d-d7b45f4690af"
+    },
+    {
+      "marker": "main-config-test-evidence.json",
+      "counts": {
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "sha256": "81f2256bc506b26df9b392af8a655813f1ceb3f7b71a9d4b62f1727b24ff0573",
+      "runId": "0f8b48bc-34a4-43ef-8fc2-32767db463a7"
+    },
+    {
+      "marker": "testsweet-test-evidence.json",
+      "counts": {
+        "tests": 301,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "sha256": "bf01517785be9283e256efcdfd757aba0e19e2eedc8f50afb30c1c7924937f01",
+      "runId": "1a23f928-c8c6-4004-b36e-a0e3cdcaf5a9"
+    }
+  ],
+  "simulators": [
+    {
+      "runId": "run-20261015-173932-16599912499298593638",
+      "category": "POSITIV",
+      "cases": 100,
+      "runStateSha256": "ebdd476a460583ad5ed441dd8c6d56b7247a528871b3be829a249f429aee65a0"
+    },
+    {
+      "runId": "run-20261015-173939-5126860651318059817",
+      "category": "NEGATIV",
+      "cases": 100,
+      "runStateSha256": "3013aaa9791946e1ea56ed69e4977782e2b217741f715a2b60997e762ddfa8a4"
+    }
+  ],
+  "sourceSha256": "0a51074d40ecac9837d5452601474f91c3b5080bd9d46787022a6f4275876d72",
+  "verifiedSourceFiles": 262,
+  "sourceDrift": 0,
+  "junitReader": [
+    {
+      "module": "main",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "module": "testsweet",
+      "state": "PASS",
+      "reasons": []
+    }
+  ],
+  "node": {
+    "tests": 139,
+    "pass": 139,
+    "fail": 0,
+    "skipped": 0
+  },
+  "pythonReference": {
+    "tests": 11,
+    "passed": 11
+  },
+  "runtimeProbe": {
+    "kind": "READ_ONLY_RUNTIME_PROBE",
+    "status": "PASS",
+    "sourceSha256": "0a51074d40ecac9837d5452601474f91c3b5080bd9d46787022a6f4275876d72",
+    "artifacts": [
+      {
+        "sourceMatch": true,
+        "name": "product",
+        "classesSha256": "a710520a75776383d260f9da21c025cbb73e0702b6cb754822df646e35c0e055",
+        "sha256": "82bf5b5cd0f1dc20032bb720729cacec53facc7323f38b1f7b51bca061728f7d",
+        "kind": "jar",
+        "path": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\certificate-suite-4ea9c1c7-477b-464e-bb28-c1bef99cd6f4\\runtime\\entry-001.jar"
+      },
+      {
+        "sourceMatch": true,
+        "name": "testsweet",
+        "classesSha256": "0424071a7261fa13698630e98e012f731c2905df411616aa8928a3f4d2604bd5",
+        "sha256": "0424071a7261fa13698630e98e012f731c2905df411616aa8928a3f4d2604bd5",
+        "kind": "classes",
+        "path": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\certificate-suite-4ea9c1c7-477b-464e-bb28-c1bef99cd6f4\\runtime\\entry-000"
+      }
+    ],
+    "originalJUnitGuardsVerified": true,
+    "simulatorExecuted": false,
+    "externalLlmInvoked": false
+  },
+  "runtimeEntries": 75,
+  "runtimeManifestSha256": "a58537dbe48caf4b395af76fde138b1016735f2a1e412fcb832edd9ebac3dfd7",
+  "localReviewPackage": {
+    "positive": 100,
+    "negative": 100,
+    "uniqueCaseIds": 200,
+    "manifest": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\llm-review-8f749b38-b21e-470a-8676-f447688836ba\\manifest.json",
+    "liveApiRequest": false,
+    "glmVerdict": "NOT_RUN"
+  },
+  "externalGlmInvoked": false,
+  "fullCertificateRunExecuted": false,
+  "isolatedSchemaRemoved": true,
+  "temporaryCredentialFileRemoved": true
+}

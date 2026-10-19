@@ -1,0 +1,24 @@
+=== GR-01 Gegenprobe 2026-10-15T16:00:31+02:00 — echter Server 8098, echte Oracle-DB ===
+Anmeldungen: sb-01=OK sb-02=OK admin-01=OK
+BG angelegt: id=67505 az=ZC1-GR01-160329 vorgangsNr=
+Fall angelegt: {"message":"Beträge müssen Zahlen sein","code":"VALIDATION"}
+Auszahlung: {"message":"JSON-Formatfehler an Position 27: Zahl erwartet","code":"VALIDATION"}
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+KeyError: 'zahlung'
+Zahlungs-ID=  Freigabe(sb-02)=HTTP 400
+--- Storno als SACHBEARBEITER sb-01 (Soll: 403) ---
+  ID [] -> HTTP 403
+  ID [+] -> HTTP 403
+  ID [%2B] -> HTTP 403
+  ID [000] -> HTTP 403
+--- Storno als ADMIN admin-01 (Soll: 200) ---
+  kanonisch -> HTTP 400
+PROBE_BGID=67505
+--- Storno als SACHBEARBEITER sb-01 (Soll 403) ---
+  ID [64016] -> HTTP 403
+  ID [+64016] -> HTTP 403
+  ID [%2B64016] -> HTTP 403
+  ID [00064016] -> HTTP 403
+--- Storno als ADMIN (Soll 200) ---
+  kanonisch -> HTTP 200

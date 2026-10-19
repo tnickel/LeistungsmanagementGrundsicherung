@@ -2,6 +2,25 @@ const test=require("node:test"),assert=require("node:assert/strict"),fs=require(
 const {collect,latestRuns,junit,parseSuite,buildValid,hash,sources,digest,classHash,MATRIX}=require("./certificate-evidence");
 const llm=require("./llm-evidence"),reference=require("./llm-reference"),{publish,current}=require("./publish-certificate");
 const contract=JSON.parse(fs.readFileSync(path.join(__dirname,"llm-response-contract.json"),"utf8"));
+test("Maßgebliche Fachdokumente entwerten alte Buildbelege; erzeugte Reviews bleiben ausgenommen",t=>{
+  const repo=fixture(t),documents=["README.md","testsweet/README.md","doc/projektbeschreibung.md","doc/architektur.md",
+    "doc/leistungsmanagement.md","doc/rechtsgrundlagen.md","doc/regressionstests.md"];
+  write(repo,"tools/evidence-sources.txt",fs.readFileSync(path.resolve(__dirname,"../../tools/evidence-sources.txt"),"utf8"));
+  for(const document of documents)write(repo,document,"Fachstand A\n");
+  const before=build(repo);
+  assert.equal(buildValid(repo,before),true);
+  for(const document of documents) {
+    assert(before.sourceInventory.some(entry=>entry.path===document),document);
+    const file=path.join(repo,document),stat=fs.statSync(file);
+    fs.writeFileSync(file,"Fachstand B\n");fs.utimesSync(file,stat.atime,stat.mtime);
+    assert.equal(buildValid(repo,before),false,document);
+    fs.writeFileSync(file,"Fachstand A\n");fs.utimesSync(file,stat.atime,stat.mtime);
+    assert.equal(buildValid(repo,before),true,document);
+  }
+  write(repo,"doc/codereview/eigener-nachweis.md","Generierter Review\n");
+  write(repo,"testsweet/logs/run-owned/run-state.json","{}");
+  assert.equal(buildValid(repo,before),true);
+});
 function write(repo,file,value) {const dest=path.join(repo,file);fs.mkdirSync(path.dirname(dest),{recursive:true});fs.writeFileSync(dest,typeof value === "string" || Buffer.isBuffer(value)?value:JSON.stringify(value));return dest;}
 function fixture(t,nested="") {
   const owned=fs.mkdtempSync(path.join(os.tmpdir(),"lmg-certificate-regression-")),repo=nested?path.join(owned,nested):owned;

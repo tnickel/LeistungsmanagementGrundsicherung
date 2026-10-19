@@ -37,13 +37,14 @@ final class LastBericht {
 
     record Aggregate(int gesamt, int verifiziert, int verifikationNio, int fehlgeschlagen,
                      BigDecimal summe, long dauerMinMs, long dauerAvgMs, long dauerMaxMs,
+                     int abgeschlossen, long dauerP50Ms, long dauerP95Ms, long dauerP99Ms,
                      Map<String, TypZeile> jeTyp, Map<String, MaZeile> jeMitarbeiter) { }
 
     record TypZeile(int anzahl, int verifiziert, int nio, int fehlgeschlagen, long avgMs) { }
 
     record MaZeile(int erledigt, long avgMs) { }
 
-    private static Aggregate aggregate(Simulator simulator) {
+    static Aggregate aggregate(Simulator simulator) {
         List<Auftrag> auftraege = simulator.auftraege();
         int verifiziert = 0;
         int nio = 0;
@@ -86,9 +87,13 @@ final class LastBericht {
         Map<String, MaZeile> maZeilen = new LinkedHashMap<>();
         jeMa.forEach((kuerzel, liste) -> maZeilen.put(kuerzel, new MaZeile((int)liste.stream().filter(a -> a.status != Auftrag.Status.OFFEN && a.status != Auftrag.Status.IN_BEARBEITUNG).count(),
                 (long) liste.stream().filter(a -> a.status != Auftrag.Status.OFFEN && a.status != Auftrag.Status.IN_BEARBEITUNG).mapToLong(Auftrag::dauerMs).average().orElse(0))));
+        long[] durations = auftraege.stream().filter(a -> a.endeNano != 0 && a.startNano != 0)
+                .mapToLong(Auftrag::dauerMs).toArray();
         return new Aggregate(auftraege.size(), verifiziert, nio, fehl,
                 summe.setScale(2),
                 gezahlt > 0 ? minMs : 0, gezahlt > 0 ? sumMs / gezahlt : 0, maxMs,
+                durations.length, RunMetrics.percentile(durations, 50),
+                RunMetrics.percentile(durations, 95), RunMetrics.percentile(durations, 99),
                 typZeilen, maZeilen);
     }
 
@@ -102,6 +107,7 @@ final class LastBericht {
         String zeitstempel = simulator.laufStart().format(TAG);
         inhalt.fettZeile("Automatischer Last-/Stresslauf erfolgreich: " + simulator.laufErfolgreich(),
                 simulator.laufErfolgreich() ? SweetPdf.GRUEN : SweetPdf.ROT, 10f);
+        inhalt.text(RunMetrics.SCOPE, SweetPdf.GRAU, 9f);
         for (Auftrag.Pruefung pruefung : simulator.globalePruefungen()) {
             inhalt.text(pruefung.beschreibung() + ": erwartet " + pruefung.erwartet() + ", ist "
                     + pruefung.ist() + (pruefung.hinweis() == null ? "" : " — " + pruefung.hinweis()),
@@ -123,7 +129,7 @@ final class LastBericht {
                 : "Lasttest gegen Transaktionssteuerung und Datenbank",
                 SweetPdf.BLAU, 17f);
         if (stress) {
-            inhalt.text("Zweck dieses Stresstests ist der Belastungsnachweis der "
+            inhalt.text("Zweck dieses Stresstests ist die Funktionsprüfung der "
                     + "Transaktionssteuerung unter realistischer Massenarbeit: Nicht ein "
                     + "Einzelvorgang wird probiert, sondern dieselben " + (agg.gesamt() / 2) + " User werden von "
                     + simulator.konfiguration().mitarbeiter() + " parallelen Sachbearbeiter-Strängen zuerst angelegt und — in einer "
@@ -244,7 +250,8 @@ final class LastBericht {
         inhalt.ueberschrift("1. Lauf");
         inhalt.paar("Zeitraum", simulator.laufStart().format(TAG) + " bis "
                 + (simulator.laufEnde() == null ? "—" : simulator.laufEnde().format(TAG))
-                + " (" + simulator.laufdauerSekunden() + " s)");
+                + " (" + simulator.laufdauerMillis() + " ms)");
+        inhalt.paar("Datennamensraum", simulator.laufDatenPraefix());
         inhalt.paar("Datenbank", simulator.dbUrl + " (Benutzer: " + simulator.dbUser + ")");
         if (simulator.konfiguration() != null) {
             inhalt.paar("Konfiguration", simulator.konfiguration().mitarbeiter()
@@ -254,9 +261,11 @@ final class LastBericht {
         }
         inhalt.paar("Modus", "WEB".equalsIgnoreCase(simulator.letzterModus())
                 ? "Weboberfläche (Selenium)" : "Fachschicht (Transaktionstest)");
-        double durchsatz = simulator.laufdauerSekunden() > 0
-                ? agg.gesamt() * 60.0 / simulator.laufdauerSekunden() : 0;
-        inhalt.paar("Durchsatz", String.format("%.1f Aufträge je Minute", durchsatz));
+        double durchsatz = RunMetrics.perMinute(agg.abgeschlossen(), simulator.laufdauerMillis());
+        inhalt.paar("Durchsatz des Gesamtlaufs", String.format("%.1f abgeschlossene Aufträge je Minute", durchsatz));
+        inhalt.text("Messfenster: Laufstart bis Ende der SQL-Verifikation, einschließlich Vorbereitung; "
+                + "keine isolierte Servicekapazität. Auftragsdauer: Worker-Bearbeitung ohne Wartezeit im Topf.",
+                SweetPdf.GRAU, 8.5f);
 
         inhalt.ueberschrift("2. Kennzahlen");
         inhalt.kasten("Aufträge gesamt: " + agg.gesamt()
@@ -270,6 +279,9 @@ final class LastBericht {
         inhalt.paar("Summe verifizierter Auszahlungen", agg.summe().toPlainString() + " EUR");
         inhalt.paar("Dauer je Auftrag (min / Ø / max)",
                 agg.dauerMinMs() + " ms / " + agg.dauerAvgMs() + " ms / " + agg.dauerMaxMs() + " ms");
+        inhalt.paar("Dauer je abgeschlossenem Auftrag (p50 / p95 / p99)",
+                agg.dauerP50Ms() + " ms / " + agg.dauerP95Ms() + " ms / " + agg.dauerP99Ms()
+                        + " ms (nearest-rank, n=" + agg.abgeschlossen() + ")");
 
         inhalt.ueberschrift("3. Verteilung je Szenario-Typ");
         agg.jeTyp().forEach((typ, zeile) -> inhalt.text(String.format(
@@ -307,12 +319,18 @@ final class LastBericht {
         md.append("# lauf\n\n");
         kv(md, "automatik_bestanden", String.valueOf(simulator.laufErfolgreich()));
         kv(md, "pruefumfang", "Automatischer Last-/Stresslauf; KI-Stichprobe und Gesamtzertifikat werden separat bewertet");
+        kv(md, "performance_evidence", "FUNCTIONAL_PARALLEL_RUN");
+        kv(md, "capacity_evidence", "false");
+        kv(md, "performance_scope", RunMetrics.SCOPE);
+        kv(md, "measurement_window", "Laufstart bis Ende SQL-Verifikation einschließlich Vorbereitung; keine isolierte Servicekapazität");
         simulator.globalePruefungen().forEach(p -> kv(md, "globale_pruefung", p.toString()));
         kv(md, "kategorie", String.valueOf(simulator.letzteKategorie()));
         kv(md, "modus", "WEB".equalsIgnoreCase(simulator.letzterModus()) ? "WEB" : "FACHSCHICHT");
         kv(md, "lauf_start", String.valueOf(simulator.laufStart()));
         kv(md, "lauf_ende", String.valueOf(simulator.laufEnde()));
         kv(md, "dauer_s", String.valueOf(simulator.laufdauerSekunden()));
+        kv(md, "dauer_ms", String.valueOf(simulator.laufdauerMillis()));
+        kv(md, "data_namespace", simulator.laufDatenPraefix());
         if (simulator.konfiguration() != null) {
             kv(md, "mitarbeiter", String.valueOf(simulator.konfiguration().mitarbeiter()));
             kv(md, "auftraege", String.valueOf(simulator.konfiguration().auftraege()));
@@ -330,8 +348,12 @@ final class LastBericht {
         kv(md, "dauer_ms_min", String.valueOf(agg.dauerMinMs()));
         kv(md, "dauer_ms_avg", String.valueOf(agg.dauerAvgMs()));
         kv(md, "dauer_ms_max", String.valueOf(agg.dauerMaxMs()));
-        double durchsatz = simulator.laufdauerSekunden() > 0
-                ? agg.gesamt() * 60.0 / simulator.laufdauerSekunden() : 0;
+        kv(md, "abgeschlossen", String.valueOf(agg.abgeschlossen()));
+        kv(md, "dauer_ms_p50", String.valueOf(agg.dauerP50Ms()));
+        kv(md, "dauer_ms_p95", String.valueOf(agg.dauerP95Ms()));
+        kv(md, "dauer_ms_p99", String.valueOf(agg.dauerP99Ms()));
+        kv(md, "percentile_method", "nearest-rank; abgeschlossene Aufträge, Worker-Bearbeitung ohne Topfwartezeit");
+        double durchsatz = RunMetrics.perMinute(agg.abgeschlossen(), simulator.laufdauerMillis());
         kv(md, "durchsatz_auftraege_pro_min", String.format(java.util.Locale.ROOT, "%.1f", durchsatz));
 
         md.append("\n# je_szenario_typ\n\n");

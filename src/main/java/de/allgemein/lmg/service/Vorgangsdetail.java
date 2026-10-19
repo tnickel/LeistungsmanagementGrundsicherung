@@ -19,7 +19,15 @@ public record Vorgangsdetail(
         Leistungsberechnung.Berechnungsergebnis berechnung,
         List<Zahlung> zahlungen,
         List<Journaleintrag> journal,
-        de.allgemein.lmg.model.Bescheid bescheid) {
+        de.allgemein.lmg.model.Bescheid bescheid,
+        String berechnungsmonat) {
+
+    public Vorgangsdetail(de.allgemein.lmg.model.Bedarfsgemeinschaft bedarfsgemeinschaft,
+            List<SozialFall> faelle, Leistungsberechnung.Berechnungsergebnis berechnung,
+            List<Zahlung> zahlungen, List<Journaleintrag> journal,
+            de.allgemein.lmg.model.Bescheid bescheid) {
+        this(bedarfsgemeinschaft, faelle, berechnung, zahlungen, journal, bescheid, null);
+    }
 
     public Vorgangsdetail(
             de.allgemein.lmg.model.Bedarfsgemeinschaft bedarfsgemeinschaft,

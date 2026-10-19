@@ -15,6 +15,24 @@ class BuildEvidenceTest {
         Files.writeString(source,"class A { int a=2; }");Files.setLastModifiedTime(source,time);
         assertNotEquals(BuildEvidence.inventoryHash(before),BuildEvidence.inventoryHash(BuildEvidence.sourceInventory(root)));
     }
+    @Test void authoritativeProjectDocumentsInvalidateEvidenceButGeneratedReviewsDoNot() throws Exception {
+        write("tools/evidence-sources.txt",Files.readString(BuildEvidence.currentRoot().resolve("tools/evidence-sources.txt")));
+        var documents=List.of("README.md","testsweet/README.md","doc/projektbeschreibung.md","doc/architektur.md",
+                "doc/leistungsmanagement.md","doc/rechtsgrundlagen.md","doc/regressionstests.md");
+        for(String document:documents)write(document,"Fachstand A\n");
+        var inventory=BuildEvidence.sourceInventory(root);
+        for(String document:documents)assertTrue(inventory.stream().anyMatch(row->document.equals(row.get("path"))),document);
+        String baseline=BuildEvidence.inventoryHash(inventory);
+        for(String document:documents) {
+            Path file=root.resolve(document);var time=Files.getLastModifiedTime(file);
+            Files.writeString(file,"Fachstand B\n");Files.setLastModifiedTime(file,time);
+            assertNotEquals(baseline,BuildEvidence.inventoryHash(BuildEvidence.sourceInventory(root)),document);
+            Files.writeString(file,"Fachstand A\n");Files.setLastModifiedTime(file,time);
+        }
+        write("doc/codereview/eigener-nachweis.md","Generierter Review\n");
+        write("testsweet/logs/run-owned/run-state.json","{}");
+        assertEquals(baseline,BuildEvidence.inventoryHash(BuildEvidence.sourceInventory(root)));
+    }
     @Test void ignoredLogsCannotChangeSourceEvidenceAndMissingCompilerStampFailsClosed() throws Exception {
         write("tools/evidence-sources.txt","dir:src/main\ntool:doc/testzertifikat-werkzeug\n");write("src/main/java/A.java","class A {}");
         write("doc/testzertifikat-werkzeug/generate.js","return 1");String before=BuildEvidence.inventoryHash(BuildEvidence.sourceInventory(root));

@@ -86,7 +86,8 @@ final class LlmConfig {
         }
         if (key.length() > 8192 || key.chars().anyMatch(Character::isISOControl)) throw new IllegalArgumentException("Ungültiger API-Schlüssel");
         return new Settings(baseUrl, model, key, integer(p,"timeoutSeconds",180,5,900),
-                integer(p,"maxTokens",16000,1024,131072), integer(p,"batchSize",3,1,10), integer(p,"cases",100,2,1000));
+                integer(p,"maxTokens",16000,1024,131072), integer(p,"batchSize",3,1,10),
+                integer(p,"cases",SimulatorDefaults.LLM_CASES,2,1000));
     }
 
     private static int integer(Properties p, String name, int fallback, int min, int max) {

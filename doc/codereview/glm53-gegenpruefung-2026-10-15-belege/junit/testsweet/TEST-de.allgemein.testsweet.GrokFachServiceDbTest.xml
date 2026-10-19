@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="de.allgemein.testsweet.GrokFachServiceDbTest" time="5.05" tests="13" errors="0" skipped="0" failures="0">
+  <properties>
+    <property name="java.specification.version" value="25"/>
+    <property name="sun.cpu.isalist" value="amd64"/>
+    <property name="sun.jnu.encoding" value="Cp1252"/>
+    <property name="java.class.path" value="D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\testsweet\target\test-classes;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\testsweet\target\classes;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\de\allgemein\transaktionssteuerung\0.5.8\transaktionssteuerung-0.5.8.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\oracle\database\jdbc\ojdbc11\23.5.0.24.07\ojdbc11-23.5.0.24.07.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\oracle\database\jdbc\ucp\23.5.0.24.07\ucp-23.5.0.24.07.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-java\4.27.0\selenium-java-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-api\4.27.0\selenium-api-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\jspecify\jspecify\1.0.0\jspecify-1.0.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-chrome-driver\4.27.0\selenium-chrome-driver-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\google\auto\service\auto-service-annotations\1.1.1\auto-service-annotations-1.1.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-chromium-driver\4.27.0\selenium-chromium-driver-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-json\4.27.0\selenium-json-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-manager\4.27.0\selenium-manager-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-devtools-v129\4.27.0\selenium-devtools-v129-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-devtools-v130\4.27.0\selenium-devtools-v130-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-devtools-v131\4.27.0\selenium-devtools-v131-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-devtools-v85\4.27.0\selenium-devtools-v85-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-edge-driver\4.27.0\selenium-edge-driver-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-firefox-driver\4.27.0\selenium-firefox-driver-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-http\4.27.0\selenium-http-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\dev\failsafe\failsafe\3.3.2\failsafe-3.3.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-ie-driver\4.27.0\selenium-ie-driver-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-remote-driver\4.27.0\selenium-remote-driver-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\google\guava\guava\33.3.1-jre\guava-33.3.1-jre.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\google\guava\failureaccess\1.0.2\failureaccess-1.0.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\google\guava\listenablefuture\9999.0-empty-to-avoid-conflict-with-guava\listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\google\code\findbugs\jsr305\3.0.2\jsr305-3.0.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\checkerframework\checker-qual\3.43.0\checker-qual-3.43.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\google\j2objc\j2objc-annotations\3.0.0\j2objc-annotations-3.0.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\opentelemetry\semconv\opentelemetry-semconv\1.25.0-alpha\opentelemetry-semconv-1.25.0-alpha.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\opentelemetry\opentelemetry-api\1.44.1\opentelemetry-api-1.44.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\opentelemetry\opentelemetry-context\1.44.1\opentelemetry-context-1.44.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\opentelemetry\opentelemetry-exporter-logging\1.44.1\opentelemetry-exporter-logging-1.44.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\opentelemetry\opentelemetry-sdk-common\1.44.1\opentelemetry-sdk-common-1.44.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\opentelemetry\opentelemetry-sdk-extension-autoconfigure-spi\1.44.1\opentelemetry-sdk-extension-autoconfigure-spi-1.44.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\opentelemetry\opentelemetry-sdk-extension-autoconfigure\1.44.1\opentelemetry-sdk-extension-autoconfigure-1.44.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\opentelemetry\opentelemetry-api-incubator\1.44.1-alpha\opentelemetry-api-incubator-1.44.1-alpha.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\opentelemetry\opentelemetry-sdk-trace\1.44.1\opentelemetry-sdk-trace-1.44.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\opentelemetry\opentelemetry-sdk\1.44.1\opentelemetry-sdk-1.44.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\opentelemetry\opentelemetry-sdk-metrics\1.44.1\opentelemetry-sdk-metrics-1.44.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\opentelemetry\opentelemetry-sdk-logs\1.44.1\opentelemetry-sdk-logs-1.44.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\net\bytebuddy\byte-buddy\1.15.10\byte-buddy-1.15.10.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-os\4.27.0\selenium-os-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\apache\commons\commons-exec\1.4.0\commons-exec-1.4.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-safari-driver\4.27.0\selenium-safari-driver-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-support\4.27.0\selenium-support-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\github\bonigarcia\webdrivermanager\5.9.0\webdrivermanager-5.9.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\slf4j\slf4j-api\2.0.13\slf4j-api-2.0.13.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\google\code\gson\gson\2.11.0\gson-2.11.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\google\errorprone\error_prone_annotations\2.27.0\error_prone_annotations-2.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\github\docker-java\docker-java\3.3.6\docker-java-3.3.6.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\github\docker-java\docker-java-core\3.3.6\docker-java-core-3.3.6.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\github\docker-java\docker-java-api\3.3.6\docker-java-api-3.3.6.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\slf4j\jcl-over-slf4j\1.7.30\jcl-over-slf4j-1.7.30.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\github\docker-java\docker-java-transport-httpclient5\3.3.6\docker-java-transport-httpclient5-3.3.6.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\github\docker-java\docker-java-transport\3.3.6\docker-java-transport-3.3.6.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\net\java\dev\jna\jna\5.13.0\jna-5.13.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\brotli\dec\0.1.2\dec-0.1.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\apache\commons\commons-lang3\3.14.0\commons-lang3-3.14.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\apache\commons\commons-compress\1.26.2\commons-compress-1.26.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\commons-codec\commons-codec\1.17.0\commons-codec-1.17.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\commons-io\commons-io\2.16.1\commons-io-2.16.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\apache\httpcomponents\client5\httpclient5\5.2.1\httpclient5-5.2.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\apache\httpcomponents\core5\httpcore5\5.2\httpcore5-5.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\apache\httpcomponents\core5\httpcore5-h2\5.2\httpcore5-h2-5.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\fasterxml\jackson\core\jackson-databind\2.17.1\jackson-databind-2.17.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\fasterxml\jackson\core\jackson-annotations\2.17.1\jackson-annotations-2.17.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\fasterxml\jackson\core\jackson-core\2.17.1\jackson-core-2.17.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\jupiter\junit-jupiter\5.10.2\junit-jupiter-5.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\jupiter\junit-jupiter-api\5.10.2\junit-jupiter-api-5.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\opentest4j\opentest4j\1.3.0\opentest4j-1.3.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\platform\junit-platform-commons\1.10.2\junit-platform-commons-1.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\apiguardian\apiguardian-api\1.1.2\apiguardian-api-1.1.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\jupiter\junit-jupiter-params\5.10.2\junit-jupiter-params-5.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\jupiter\junit-jupiter-engine\5.10.2\junit-jupiter-engine-5.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\platform\junit-platform-engine\1.10.2\junit-platform-engine-1.10.2.jar;"/>
+    <property name="jdk.httpserver.maxConnections" value="256"/>
+    <property name="java.vm.vendor" value="Eclipse Adoptium"/>
+    <property name="sun.arch.data.model" value="64"/>
+    <property name="user.variant" value=""/>
+    <property name="java.vendor.url" value="https://adoptium.net/"/>
+    <property name="user.timezone" value="Europe/Berlin"/>
+    <property name="os.name" value="Windows 11"/>
+    <property name="java.vm.specification.version" value="25"/>
+    <property name="sun.java.launcher" value="SUN_STANDARD"/>
+    <property name="user.country" value="DE"/>
+    <property name="sun.boot.library.path" value="C:\Program Files\Eclipse Adoptium\jdk-25.0.4.101-hotspot\bin"/>
+    <property name="sun.java.command" value="C:\Users\tnickel\AppData\Local\Temp\surefire175185570612640401\surefirebooter-20261015181051124_3.jar C:\Users\tnickel\AppData\Local\Temp\surefire175185570612640401 2026-10-15T18-10-51_037-jvmRun1 surefire-20261015181051124_1tmp surefire_0-20261015181051124_2tmp"/>
+    <property name="jdk.debug" value="release"/>
+    <property name="surefire.test.class.path" value="D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\testsweet\target\test-classes;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\testsweet\target\classes;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\de\allgemein\transaktionssteuerung\0.5.8\transaktionssteuerung-0.5.8.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\oracle\database\jdbc\ojdbc11\23.5.0.24.07\ojdbc11-23.5.0.24.07.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\oracle\database\jdbc\ucp\23.5.0.24.07\ucp-23.5.0.24.07.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-java\4.27.0\selenium-java-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-api\4.27.0\selenium-api-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\jspecify\jspecify\1.0.0\jspecify-1.0.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-chrome-driver\4.27.0\selenium-chrome-driver-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\google\auto\service\auto-service-annotations\1.1.1\auto-service-annotations-1.1.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-chromium-driver\4.27.0\selenium-chromium-driver-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-json\4.27.0\selenium-json-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-manager\4.27.0\selenium-manager-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-devtools-v129\4.27.0\selenium-devtools-v129-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-devtools-v130\4.27.0\selenium-devtools-v130-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-devtools-v131\4.27.0\selenium-devtools-v131-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-devtools-v85\4.27.0\selenium-devtools-v85-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-edge-driver\4.27.0\selenium-edge-driver-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-firefox-driver\4.27.0\selenium-firefox-driver-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-http\4.27.0\selenium-http-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\dev\failsafe\failsafe\3.3.2\failsafe-3.3.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-ie-driver\4.27.0\selenium-ie-driver-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-remote-driver\4.27.0\selenium-remote-driver-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\google\guava\guava\33.3.1-jre\guava-33.3.1-jre.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\google\guava\failureaccess\1.0.2\failureaccess-1.0.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\google\guava\listenablefuture\9999.0-empty-to-avoid-conflict-with-guava\listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\google\code\findbugs\jsr305\3.0.2\jsr305-3.0.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\checkerframework\checker-qual\3.43.0\checker-qual-3.43.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\google\j2objc\j2objc-annotations\3.0.0\j2objc-annotations-3.0.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\opentelemetry\semconv\opentelemetry-semconv\1.25.0-alpha\opentelemetry-semconv-1.25.0-alpha.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\opentelemetry\opentelemetry-api\1.44.1\opentelemetry-api-1.44.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\opentelemetry\opentelemetry-context\1.44.1\opentelemetry-context-1.44.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\opentelemetry\opentelemetry-exporter-logging\1.44.1\opentelemetry-exporter-logging-1.44.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\opentelemetry\opentelemetry-sdk-common\1.44.1\opentelemetry-sdk-common-1.44.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\opentelemetry\opentelemetry-sdk-extension-autoconfigure-spi\1.44.1\opentelemetry-sdk-extension-autoconfigure-spi-1.44.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\opentelemetry\opentelemetry-sdk-extension-autoconfigure\1.44.1\opentelemetry-sdk-extension-autoconfigure-1.44.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\opentelemetry\opentelemetry-api-incubator\1.44.1-alpha\opentelemetry-api-incubator-1.44.1-alpha.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\opentelemetry\opentelemetry-sdk-trace\1.44.1\opentelemetry-sdk-trace-1.44.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\opentelemetry\opentelemetry-sdk\1.44.1\opentelemetry-sdk-1.44.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\opentelemetry\opentelemetry-sdk-metrics\1.44.1\opentelemetry-sdk-metrics-1.44.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\opentelemetry\opentelemetry-sdk-logs\1.44.1\opentelemetry-sdk-logs-1.44.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\net\bytebuddy\byte-buddy\1.15.10\byte-buddy-1.15.10.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-os\4.27.0\selenium-os-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\apache\commons\commons-exec\1.4.0\commons-exec-1.4.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-safari-driver\4.27.0\selenium-safari-driver-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\seleniumhq\selenium\selenium-support\4.27.0\selenium-support-4.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\io\github\bonigarcia\webdrivermanager\5.9.0\webdrivermanager-5.9.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\slf4j\slf4j-api\2.0.13\slf4j-api-2.0.13.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\google\code\gson\gson\2.11.0\gson-2.11.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\google\errorprone\error_prone_annotations\2.27.0\error_prone_annotations-2.27.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\github\docker-java\docker-java\3.3.6\docker-java-3.3.6.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\github\docker-java\docker-java-core\3.3.6\docker-java-core-3.3.6.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\github\docker-java\docker-java-api\3.3.6\docker-java-api-3.3.6.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\slf4j\jcl-over-slf4j\1.7.30\jcl-over-slf4j-1.7.30.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\github\docker-java\docker-java-transport-httpclient5\3.3.6\docker-java-transport-httpclient5-3.3.6.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\github\docker-java\docker-java-transport\3.3.6\docker-java-transport-3.3.6.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\net\java\dev\jna\jna\5.13.0\jna-5.13.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\brotli\dec\0.1.2\dec-0.1.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\apache\commons\commons-lang3\3.14.0\commons-lang3-3.14.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\apache\commons\commons-compress\1.26.2\commons-compress-1.26.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\commons-codec\commons-codec\1.17.0\commons-codec-1.17.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\commons-io\commons-io\2.16.1\commons-io-2.16.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\apache\httpcomponents\client5\httpclient5\5.2.1\httpclient5-5.2.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\apache\httpcomponents\core5\httpcore5\5.2\httpcore5-5.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\apache\httpcomponents\core5\httpcore5-h2\5.2\httpcore5-h2-5.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\fasterxml\jackson\core\jackson-databind\2.17.1\jackson-databind-2.17.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\fasterxml\jackson\core\jackson-annotations\2.17.1\jackson-annotations-2.17.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\fasterxml\jackson\core\jackson-core\2.17.1\jackson-core-2.17.1.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\jupiter\junit-jupiter\5.10.2\junit-jupiter-5.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\jupiter\junit-jupiter-api\5.10.2\junit-jupiter-api-5.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\opentest4j\opentest4j\1.3.0\opentest4j-1.3.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\platform\junit-platform-commons\1.10.2\junit-platform-commons-1.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\apiguardian\apiguardian-api\1.1.2\apiguardian-api-1.1.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\jupiter\junit-jupiter-params\5.10.2\junit-jupiter-params-5.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\jupiter\junit-jupiter-engine\5.10.2\junit-jupiter-engine-5.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\platform\junit-platform-engine\1.10.2\junit-platform-engine-1.10.2.jar;"/>
+    <property name="sun.cpu.endian" value="little"/>
+    <property name="user.home" value="C:\Users\tnickel"/>
+    <property name="user.language" value="de"/>
+    <property name="java.specification.vendor" value="Oracle Corporation"/>
+    <property name="java.version.date" value="2026-08-18"/>
+    <property name="java.home" value="C:\Program Files\Eclipse Adoptium\jdk-25.0.4.101-hotspot"/>
+    <property name="file.separator" value="\"/>
+    <property name="basedir" value="D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\testsweet"/>
+    <property name="style.color" value="never"/>
+    <property name="java.vm.compressedOopsMode" value="Zero based"/>
+    <property name="line.separator" value="&#10;"/>
+    <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
+    <property name="java.specification.name" value="Java Platform API Specification"/>
+    <property name="surefire.real.class.path" value="C:\Users\tnickel\AppData\Local\Temp\surefire175185570612640401\surefirebooter-20261015181051124_3.jar"/>
+    <property name="sun.net.httpserver.maxReqTime" value="30"/>
+    <property name="user.script" value=""/>
+    <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
+    <property name="java.runtime.version" value="25.0.4.1+1-LTS"/>
+    <property name="user.name" value="tnickel"/>
+    <property name="stdout.encoding" value="Cp1252"/>
+    <property name="path.separator" value=";"/>
+    <property name="os.version" value="10.0"/>
+    <property name="java.runtime.name" value="OpenJDK Runtime Environment"/>
+    <property name="sun.net.httpserver.idleInterval" value="30"/>
+    <property name="file.encoding" value="UTF-8"/>
+    <property name="java.vm.name" value="OpenJDK 64-Bit Server VM"/>
+    <property name="java.vendor.version" value="Temurin-25.0.4.1+1"/>
+    <property name="localRepository" value="D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository"/>
+    <property name="java.vendor.url.bug" value="https://github.com/adoptium/adoptium-support/issues"/>
+    <property name="java.io.tmpdir" value="C:\Users\tnickel\AppData\Local\Temp\"/>
+    <property name="java.version" value="25.0.4.1"/>
+    <property name="sun.net.httpserver.maxRspTime" value="120"/>
+    <property name="user.dir" value="D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\testsweet"/>
+    <property name="os.arch" value="amd64"/>
+    <property name="java.vm.specification.name" value="Java Virtual Machine Specification"/>
+    <property name="sun.os.patch.level" value=""/>
+    <property name="native.encoding" value="Cp1252"/>
+    <property name="java.library.path" value="C:\Program Files\Eclipse Adoptium\jdk-25.0.4.101-hotspot\bin;C:\WINDOWS\Sun\Java\bin;C:\WINDOWS\system32;C:\WINDOWS;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\powershell;C:\Users\tnickel\.codex\tmp\arg0\codex-arg0dKbKqz;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\libheif\libheif\bin;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\jxrlib\jxrlib\bin;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\poppler\Library\bin;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\bin\override;C:\Program Files\Eclipse Adoptium\jdk-25.0.4.101-hotspot\bin;C:\Program Files\Common Files\Oracle\Java\javapath;C:\Program Files (x86)\Razer Chroma SDK\bin;C:\Program Files\Razer Chroma SDK\bin;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\;C:\Program Files\Git\cmd;C:\Program Files\nodejs\;C:\Program Files\NVIDIA Corporation\NVIDIA App\NvDLISR;C:\Program Files (x86)\NVIDIA Corporation\PhysX\Common;C:\Program Files\IDM Computer Solutions\UltraEdit;C:\Program Files\dotnet\;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\powershell;C:\WINDOWS\system32\config\systemprofile\AppData\Local\Microsoft\WindowsApps;C:\Program Files (x86)\Razer\ChromaBroadcast\bin;C:\Program Files\Razer\ChromaBroadcast\bin;C:\Users\tnickel\AppData\Local\Programs\Python\Launcher\;C:\Users\tnickel\AppData\Local\Microsoft\WindowsApps;C:\Users\tnickel\AppData\Roaming\npm;C:\Users\tnickel\AppData\Local\Programs\Ollama;C:\Program Files\Pandoc\;C:\Program Files\GitHub CLI\;D:\VSCode\bin;D:\whitehacktools\Metasploit\metasploit-framework\bin\;C:\Program Files\Docker\Docker\resources\bin;C:\Program Files (x86)\Plantronics\Spokes3G\;C:\Users\tnickel\AppData\Local\Programs\GnuCOBOL 3.2\bin;C:\Users\tnickel\AppData\Local\Programs\GnuCOBOL 3.2\mingw64\bin;C:\Users\tnickel\AppData\Local\Programs\MiKTeX\miktex\bin\x64\;C:\Users\tnickel\AppData\Local\Programs\MiKTeX2\miktex\bin\x64\;C:\Users\tnickel\.cache\lm-studio\bin;C:\Program Files (x86)\WiX Toolset v3.14\bin;D:\DevelopmentTools\apache-maven-3.9.6\bin;C:\Users\tnickel\AppData\Local\Google\Cloud SDK\google-cloud-sdk\bin;C:\Users\tnickel\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1-full_build\bin;C:\Users\tnickel\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\Scripts;C:\Users\tnickel\.grok\bin;C:\Users\tnickel\AppData\Local\Programs\Antigravity IDE\bin;D:\DevelopmentTools\winlibs\mingw64\bin;D:\DevelopmentTools\Godot;C:\Users\tnickel\.bun\bin;D:\cursor\resources\app\bin;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\bin\fallback;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\git\cmd;C:\Users\tnickel\AppData\Local\OpenAI\Codex\bin\77fbd4d52e601e0a;C:\Users\tnickel\AppData\Local\OpenAI\Codex\bin\9614f1d9b40d9c4f;."/>
+    <property name="java.vm.info" value="mixed mode, sharing"/>
+    <property name="stderr.encoding" value="Cp1252"/>
+    <property name="java.vendor" value="Eclipse Adoptium"/>
+    <property name="java.vm.version" value="25.0.4.1+1-LTS"/>
+    <property name="stdin.encoding" value="Cp1252"/>
+    <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
+    <property name="maven.repo.local" value="D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository"/>
+    <property name="java.class.version" value="69.0"/>
+  </properties>
+  <testcase name="bezugsmonatStimmtInServiceVorschauBescheidUndPersistierterZahlungUeberein" classname="de.allgemein.testsweet.GrokFachServiceDbTest" time="0.46">
+    <system-err><![CDATA[Okt. 15, 2026 6:11:12 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:12.760286200Z [main] TX.COMMIT id=88fe25c3-5687-4b4f-9df0-9634aff2f44a attempt=1 duration=43ms
+Okt. 15, 2026 6:11:12 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:12.772254400Z [main] TX.COMMIT id=b42f512c-2098-4424-9068-a118712d05bd attempt=1 duration=10ms
+Okt. 15, 2026 6:11:12 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:12.784422500Z [main] TX.COMMIT id=d4b33161-d392-4ae3-9b67-9cda6eda7519 attempt=1 duration=10ms
+Okt. 15, 2026 6:11:12 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:12.805941100Z [main] TX.COMMIT id=8ccbfae4-e011-4947-8e62-3ac6247c6543 attempt=1 duration=21ms
+Okt. 15, 2026 6:11:12 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:12.879252100Z [main] TX.COMMIT id=026be77d-1fa3-4501-b52d-2988f5df4c7a attempt=1 duration=8ms
+Okt. 15, 2026 6:11:12 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:12.888392Z [main] TX.COMMIT id=3fb098b0-591c-4c65-87f0-550b925a30ec attempt=1 duration=7ms
+Okt. 15, 2026 6:11:12 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:12.996286300Z [main] TX.COMMIT id=d8a3c147-88dc-4a70-93c4-0c12a8586696 attempt=1 duration=19ms
+]]></system-err>
+  </testcase>
+  <testcase name="offenerPraefixVermoegenseinsatzBlockiertAenderungBisZurTatsaechlichenAnordnung(String)[1]" classname="de.allgemein.testsweet.GrokFachServiceDbTest" time="0.423">
+    <system-err><![CDATA[Okt. 15, 2026 6:11:13 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:13.218488600Z [main] TX.COMMIT id=6f455fd7-16e3-4c67-ba4d-b96075e4a826 attempt=1 duration=41ms
+Okt. 15, 2026 6:11:13 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:13.230460900Z [main] TX.COMMIT id=21581615-2da0-4af2-917d-3a124040a03f attempt=1 duration=10ms
+Okt. 15, 2026 6:11:13 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:13.238442400Z [main] TX.COMMIT id=f7d696bc-c7ac-4640-bf7c-82262ff9aeba attempt=1 duration=6ms
+Okt. 15, 2026 6:11:13 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:13.246237100Z [main] TX.COMMIT id=3677a5af-d5c1-444f-9fe9-3aa548b44ad9 attempt=1 duration=6ms
+Okt. 15, 2026 6:11:13 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:13.268280300Z [main] TX.COMMIT id=c42609f5-19c9-407b-b88e-fa8b725c55d7 attempt=1 duration=21ms
+Okt. 15, 2026 6:11:13 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:13.324221800Z [main] TX.ROLLBACK id=997c8b9d-ef51-4717-b575-9e608d41f1af attempt=1 duration=7ms error="FachlicheException"
+Okt. 15, 2026 6:11:13 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:13.434246700Z [main] TX.COMMIT id=beb6bfb0-4575-4aff-a620-4ad588f8fac4 attempt=1 duration=18ms
+Okt. 15, 2026 6:11:13 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:13.534515400Z [main] TX.COMMIT id=32b7691a-07b4-4108-963a-d32baabcc5a6 attempt=1 duration=25ms
+Okt. 15, 2026 6:11:13 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:13.552323700Z [main] TX.COMMIT id=d68ec565-3b92-49fe-a237-841ba41b986e attempt=1 duration=16ms
+]]></system-err>
+  </testcase>
+  <testcase name="offenerPraefixVermoegenseinsatzBlockiertAenderungBisZurTatsaechlichenAnordnung(String)[2]" classname="de.allgemein.testsweet.GrokFachServiceDbTest" time="0.419">
+    <system-err><![CDATA[Okt. 15, 2026 6:11:13 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:13.642551600Z [main] TX.COMMIT id=95fd8a10-cf6d-49a0-9797-476ff1542677 attempt=1 duration=41ms
+Okt. 15, 2026 6:11:13 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:13.654097800Z [main] TX.COMMIT id=49262254-3013-4d3e-82e0-929acb0e7ec3 attempt=1 duration=10ms
+Okt. 15, 2026 6:11:13 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:13.663733Z [main] TX.COMMIT id=1ab4e7e2-204e-40b5-bb88-ac966acc5c9d attempt=1 duration=8ms
+Okt. 15, 2026 6:11:13 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:13.672067100Z [main] TX.COMMIT id=cd20f174-4351-4222-bb43-4cf470f96deb attempt=1 duration=7ms
+Okt. 15, 2026 6:11:13 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:13.694643700Z [main] TX.COMMIT id=85cc3f39-bdbb-4c7e-90c1-985d6db870fe attempt=1 duration=21ms
+Okt. 15, 2026 6:11:13 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:13.745961300Z [main] TX.ROLLBACK id=68c279c6-2e2c-4972-bddc-11ee2c96dfe4 attempt=1 duration=7ms error="FachlicheException"
+Okt. 15, 2026 6:11:13 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:13.854469500Z [main] TX.COMMIT id=dd7ed444-94d7-46b7-b4c0-e3e28edb4a16 attempt=1 duration=17ms
+Okt. 15, 2026 6:11:13 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:13.952479700Z [main] TX.COMMIT id=d221db6a-9176-4a5e-97b7-bb12a17ea6c1 attempt=1 duration=21ms
+Okt. 15, 2026 6:11:13 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:13.970144Z [main] TX.COMMIT id=ca5d7adc-a25f-41a4-8ed4-2fa341d7a23b attempt=1 duration=16ms
+]]></system-err>
+  </testcase>
+  <testcase name="nullanordnungUndVorschauVerbrauchenKeinVermoegenOhneTatsaechlicheBestandsaenderung" classname="de.allgemein.testsweet.GrokFachServiceDbTest" time="0.56">
+    <system-err><![CDATA[Okt. 15, 2026 6:11:14 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:14.068491200Z [main] TX.COMMIT id=0e06638d-0f54-4d1f-a04c-0cb5b979715b attempt=1 duration=47ms
+Okt. 15, 2026 6:11:14 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:14.080512100Z [main] TX.COMMIT id=23d257d0-f168-48fc-b751-f7153619d49d attempt=1 duration=10ms
+Okt. 15, 2026 6:11:14 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:14.088729800Z [main] TX.COMMIT id=99d76d55-d167-45e0-af35-19033f3afe8e attempt=1 duration=7ms
+Okt. 15, 2026 6:11:14 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:14.098121200Z [main] TX.COMMIT id=6f1c5887-daed-4cc6-95ce-b7065a4d2495 attempt=1 duration=8ms
+Okt. 15, 2026 6:11:14 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:14.149278900Z [main] TX.COMMIT id=270794c5-a93d-4d83-913c-7ad73805b56d attempt=1 duration=6ms
+Okt. 15, 2026 6:11:14 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:14.202363400Z [main] TX.ROLLBACK id=6cbc98bf-bc5e-48e5-87c7-d378e64dc01a attempt=1 duration=8ms error="FachlicheException"
+Okt. 15, 2026 6:11:14 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:14.254722100Z [main] TX.COMMIT id=be9654ab-3b82-4e1f-b3ae-ab30381d5c33 attempt=1 duration=6ms
+Okt. 15, 2026 6:11:14 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:14.308179800Z [main] TX.ROLLBACK id=973ce1c1-d743-45d6-a552-2a58b7d2373d attempt=1 duration=8ms error="FachlicheException"
+Okt. 15, 2026 6:11:14 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:14.436221200Z [main] TX.COMMIT id=8c2d50bb-949e-477c-8c6c-fb2e68b8bfca attempt=1 duration=6ms
+Okt. 15, 2026 6:11:14 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:14.444580900Z [main] TX.COMMIT id=a419371f-1619-4cf5-be7c-005d61e0960d attempt=1 duration=7ms
+Okt. 15, 2026 6:11:14 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:14.460111700Z [main] TX.COMMIT id=ebb10157-146e-4d8d-ad98-3e681504393f attempt=1 duration=15ms
+]]></system-err>
+  </testcase>
+  <testcase name="replayOhneBankoverrideBehaeltOriginalauftragAuchNachStammdatenwechsel(boolean)[1]" classname="de.allgemein.testsweet.GrokFachServiceDbTest" time="0.37">
+    <system-err><![CDATA[Okt. 15, 2026 6:11:14 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:14.624539300Z [main] TX.COMMIT id=2aa73ecd-1290-4e55-88cc-434d52679ecc attempt=1 duration=42ms
+Okt. 15, 2026 6:11:14 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:14.636544Z [main] TX.COMMIT id=e50771ff-dd7d-4ec9-9bfe-69952d3b5b95 attempt=1 duration=10ms
+Okt. 15, 2026 6:11:14 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:14.654525200Z [main] TX.COMMIT id=95aa8cfa-1b49-4871-9c02-e5f9510c0edf attempt=1 duration=16ms
+Okt. 15, 2026 6:11:14 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:14.662958200Z [main] TX.COMMIT id=e5c915da-f25f-4384-bf6d-650191defb7c attempt=1 duration=7ms
+Okt. 15, 2026 6:11:14 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:14.672380200Z [main] TX.COMMIT id=903f8b2b-3475-48fc-a61f-f5765c4daf95 attempt=1 duration=8ms
+Okt. 15, 2026 6:11:14 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:14.684260400Z [main] TX.COMMIT id=18c403c0-d4f8-4d86-8320-21cb1a3f41a7 attempt=1 duration=10ms
+Okt. 15, 2026 6:11:14 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:14.692345Z [main] TX.COMMIT id=52f94f9b-d943-42f3-aa72-fcc5fe7fea1b attempt=1 duration=6ms
+Okt. 15, 2026 6:11:14 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:14.741395700Z [main] TX.ROLLBACK id=8b9d949a-7e6a-4794-9308-ef9d24162a31 attempt=1 duration=2ms error="FachlicheException"
+]]></system-err>
+  </testcase>
+  <testcase name="replayOhneBankoverrideBehaeltOriginalauftragAuchNachStammdatenwechsel(boolean)[2]" classname="de.allgemein.testsweet.GrokFachServiceDbTest" time="0.364">
+    <system-err><![CDATA[Okt. 15, 2026 6:11:14 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:14.996298Z [main] TX.COMMIT id=f228092e-67ed-4894-a87b-9928842391dd attempt=1 duration=43ms
+Okt. 15, 2026 6:11:15 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:15.006261Z [main] TX.COMMIT id=b9ff23a6-7b26-4eb7-a2e2-f9712932d20f attempt=1 duration=8ms
+Okt. 15, 2026 6:11:15 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:15.022459400Z [main] TX.COMMIT id=d3fb1d37-66dc-4f4a-aed2-a303fb84a81b attempt=1 duration=15ms
+Okt. 15, 2026 6:11:15 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:15.029427200Z [main] TX.COMMIT id=2a72db63-51f3-44ab-ae71-77315c38c2b0 attempt=1 duration=6ms
+Okt. 15, 2026 6:11:15 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:15.038449400Z [main] TX.COMMIT id=21b7637b-0ac6-4c41-bf2c-5f50c9c17eda attempt=1 duration=7ms
+Okt. 15, 2026 6:11:15 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:15.048205400Z [main] TX.COMMIT id=a7c547b4-6b38-4c5c-be34-20e83042985e attempt=1 duration=9ms
+Okt. 15, 2026 6:11:15 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:15.056085100Z [main] TX.COMMIT id=195bdd57-b22e-4c73-a809-672d2cf85660 attempt=1 duration=6ms
+Okt. 15, 2026 6:11:15 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:15.105108800Z [main] TX.ROLLBACK id=60ae2182-99d2-44eb-8500-22b961620b89 attempt=1 duration=2ms error="FachlicheException"
+]]></system-err>
+  </testcase>
+  <testcase name="listeUndMaskeNennenDenselbenBezugsmonatOhneDenExplizitenBuchungsmonatZuVeraendern" classname="de.allgemein.testsweet.GrokFachServiceDbTest" time="0.38">
+    <system-err><![CDATA[Okt. 15, 2026 6:11:15 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:15.358323900Z [main] TX.COMMIT id=54334ed1-7e4a-4983-9f04-46e2ba38495d attempt=1 duration=40ms
+Okt. 15, 2026 6:11:15 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:15.368196300Z [main] TX.COMMIT id=a869a5b1-ea8f-46cf-9ee9-e838522a2a6f attempt=1 duration=8ms
+Okt. 15, 2026 6:11:15 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:15.378198900Z [main] TX.COMMIT id=b491fe1c-95f1-4332-a360-9ff32a42cbb2 attempt=1 duration=9ms
+Okt. 15, 2026 6:11:15 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:15.438491300Z [main] TX.COMMIT id=e0d5eba8-a581-44a0-a89d-67df49caf405 attempt=1 duration=16ms
+Okt. 15, 2026 6:11:15 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:15.453720900Z [main] TX.COMMIT id=6b4e9ef3-8b77-43aa-bfa7-9bbe8ac40d93 attempt=1 duration=13ms
+Okt. 15, 2026 6:11:15 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:15.461568800Z [main] TX.COMMIT id=3cedde73-bf3b-42f7-963b-a51c4fe331d4 attempt=1 duration=6ms
+Okt. 15, 2026 6:11:15 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:15.612476400Z [main] TX.COMMIT id=a6942637-9f36-48e5-89a5-42e388ea5a04 attempt=1 duration=14ms
+]]></system-err>
+  </testcase>
+  <testcase name="legacyPraefixOhneEingabenBleibtUnveraendertUndWirdNichtAlsVollstaendigErfunden(int)[1]" classname="de.allgemein.testsweet.GrokFachServiceDbTest" time="0.333">
+    <system-err><![CDATA[Okt. 15, 2026 6:11:15 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:15.742381900Z [main] TX.COMMIT id=1bea3292-f096-4698-92d6-1108586f644f attempt=1 duration=42ms
+Okt. 15, 2026 6:11:15 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:15.752358200Z [main] TX.COMMIT id=09a89258-f2e4-4195-a5b5-c413fa115af1 attempt=1 duration=8ms
+Okt. 15, 2026 6:11:15 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:15.774485Z [main] TX.COMMIT id=089cecc6-8468-4336-b5d0-32dc0c6ff6fb attempt=1 duration=20ms
+Okt. 15, 2026 6:11:15 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:15.876578600Z [main] TX.ROLLBACK id=206085cf-6e4c-4d01-8367-b97991ac5f4d attempt=1 duration=7ms error="FachlicheException"
+Okt. 15, 2026 6:11:15 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:15.982578300Z [main] TX.COMMIT id=fb6a770c-158a-40c9-9d08-3837c49fa8ab attempt=1 duration=18ms
+]]></system-err>
+  </testcase>
+  <testcase name="legacyPraefixOhneEingabenBleibtUnveraendertUndWirdNichtAlsVollstaendigErfunden(int)[2]" classname="de.allgemein.testsweet.GrokFachServiceDbTest" time="0.323">
+    <system-err><![CDATA[Okt. 15, 2026 6:11:16 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:16.076456300Z [main] TX.COMMIT id=cffd9c63-c58a-4e43-8601-d94787f1c516 attempt=1 duration=43ms
+Okt. 15, 2026 6:11:16 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:16.086392800Z [main] TX.COMMIT id=a8110bd7-4680-42cc-a2b7-6d68acb2bc83 attempt=1 duration=8ms
+Okt. 15, 2026 6:11:16 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:16.108203600Z [main] TX.COMMIT id=d74c8f9a-9baf-453b-be74-eb3a0bcc4dcd attempt=1 duration=21ms
+Okt. 15, 2026 6:11:16 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:16.210628800Z [main] TX.ROLLBACK id=7012c480-9c15-40d3-9849-545614812883 attempt=1 duration=6ms error="FachlicheException"
+Okt. 15, 2026 6:11:16 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:16.312473400Z [main] TX.COMMIT id=19aec0e2-b740-4893-b8eb-7e8fd3a6c495 attempt=1 duration=17ms
+]]></system-err>
+  </testcase>
+  <testcase name="aenderungsbescheidBewahrtAltplanUndHistorischesDokumentAuchNachWeiterenStammdatenwechseln" classname="de.allgemein.testsweet.GrokFachServiceDbTest" time="0.474">
+    <system-err><![CDATA[Okt. 15, 2026 6:11:16 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:16.394215100Z [main] TX.COMMIT id=e33bc46c-d95a-49d7-badd-60a9d996c1f8 attempt=1 duration=37ms
+Okt. 15, 2026 6:11:16 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:16.402453500Z [main] TX.COMMIT id=0ae70674-c031-4ed0-892b-2116c523d9e6 attempt=1 duration=7ms
+Okt. 15, 2026 6:11:16 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:16.424196300Z [main] TX.COMMIT id=73592829-9ebc-4086-adfa-d71b1517681d attempt=1 duration=21ms
+Okt. 15, 2026 6:11:16 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:16.429343900Z [main] TX.COMMIT id=9a6aa06d-c51b-4c64-b85f-404bf4b9ecc5 attempt=1 duration=4ms
+Okt. 15, 2026 6:11:16 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:16.446384200Z [main] TX.COMMIT id=af152715-dc08-4831-9652-dfaaedb22f67 attempt=1 duration=16ms
+Okt. 15, 2026 6:11:16 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:16.454198800Z [main] TX.COMMIT id=0918636b-5e69-4628-9e5a-a068fd785221 attempt=1 duration=7ms
+Okt. 15, 2026 6:11:16 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:16.508310900Z [main] TX.ROLLBACK id=ccd84b32-2ddb-46ff-839a-b1600280e50c attempt=1 duration=9ms error="FachlicheException"
+Okt. 15, 2026 6:11:16 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:16.570210400Z [main] TX.COMMIT id=80884754-0ffa-4b52-9334-b2552a0c6f69 attempt=1 duration=19ms
+Okt. 15, 2026 6:11:16 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:16.692253Z [main] TX.COMMIT id=97d8ab82-1a62-4451-92a5-144bf0ecc0de attempt=1 duration=15ms
+Okt. 15, 2026 6:11:16 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:16.731520300Z [main] TX.COMMIT id=6b24e01e-9d6d-4949-a238-24b8be6a4a0f attempt=1 duration=4ms
+Okt. 15, 2026 6:11:16 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:16.737698400Z [main] TX.COMMIT id=ecea14b9-452e-47ae-b856-04728a5e3c36 attempt=1 duration=5ms
+Okt. 15, 2026 6:11:16 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:16.744454900Z [main] TX.COMMIT id=e21765ef-4e55-4f32-9bf0-f84f07184115 attempt=1 duration=5ms
+Okt. 15, 2026 6:11:16 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:16.749075800Z [main] TX.COMMIT id=3a3706fa-39cc-427a-9b3b-faed7fc23bbb attempt=1 duration=3ms
+]]></system-err>
+  </testcase>
+  <testcase name="bestehendeAnordnungImAenderungsabschnittVerhindertStilleNeufestsetzung" classname="de.allgemein.testsweet.GrokFachServiceDbTest" time="0.298">
+    <system-err><![CDATA[Okt. 15, 2026 6:11:16 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:16.868414600Z [main] TX.COMMIT id=b29faa87-5993-4e9b-b98a-e97352830982 attempt=1 duration=37ms
+Okt. 15, 2026 6:11:16 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:16.876250Z [main] TX.COMMIT id=bcfe5341-2ccd-4b02-a86c-a0b1fd7faca1 attempt=1 duration=7ms
+Okt. 15, 2026 6:11:16 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:16.898518900Z [main] TX.COMMIT id=f37d7fde-2412-4c2b-9e1c-58dc0cb108fc attempt=1 duration=21ms
+Okt. 15, 2026 6:11:16 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:16.914199100Z [main] TX.COMMIT id=3ebff7ab-0ae6-4426-a7e5-9657e006445d attempt=1 duration=15ms
+Okt. 15, 2026 6:11:16 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:16.964129500Z [main] TX.ROLLBACK id=72374ae9-d878-4148-b254-dac2434cea5a attempt=1 duration=6ms error="FachlicheException"
+]]></system-err>
+  </testcase>
+  <testcase name="widerspruechlicheKinderUndMehrfachzuordnungWerdenVorPersistenzUndBuchungAbgewiesen" classname="de.allgemein.testsweet.GrokFachServiceDbTest" time="0.34">
+    <system-err><![CDATA[Okt. 15, 2026 6:11:17 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:17.170178300Z [main] TX.COMMIT id=1e6f3221-df67-4284-b904-af7b8ac6dde8 attempt=1 duration=41ms
+Okt. 15, 2026 6:11:17 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:17.180207300Z [main] TX.COMMIT id=e1b21872-40a2-4c47-bc27-3b12aecc8809 attempt=1 duration=9ms
+Okt. 15, 2026 6:11:17 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:17.190078200Z [main] TX.COMMIT id=c5a80d09-5236-43a2-ab79-4b37275b4ddd attempt=1 duration=8ms
+Okt. 15, 2026 6:11:17 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:17.200440200Z [main] TX.COMMIT id=b53497f4-555d-4a1d-9ff4-7bf210bcb483 attempt=1 duration=8ms
+Okt. 15, 2026 6:11:17 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:17.332184400Z [main] TX.ROLLBACK id=e1c12b9b-e5fa-4259-aae8-cdfa34702259 attempt=1 duration=5ms error="FachlicheException"
+Okt. 15, 2026 6:11:17 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:17.387665800Z [main] TX.COMMIT id=87921e40-cb7a-4d13-ab69-d9b755cab68d attempt=1 duration=14ms
+]]></system-err>
+  </testcase>
+  <testcase name="fehlerNachBegonnenerAufhebungRolltBescheidJournalUndFinanzdatenGemeinsamZurueck" classname="de.allgemein.testsweet.GrokFachServiceDbTest" time="0.296">
+    <system-err><![CDATA[Okt. 15, 2026 6:11:17 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:17.510173100Z [main] TX.COMMIT id=93132770-2815-495a-8a49-50038c5d4e42 attempt=1 duration=40ms
+Okt. 15, 2026 6:11:17 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:17.520484500Z [main] TX.COMMIT id=ebfec992-295d-4bf0-b86a-995f946bf784 attempt=1 duration=9ms
+Okt. 15, 2026 6:11:17 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:17.540403900Z [main] TX.COMMIT id=a67ee92c-e14f-4a5c-b0e1-dcd6af74fff9 attempt=1 duration=18ms
+Okt. 15, 2026 6:11:17 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:11:17.636298300Z [main] TX.ROLLBACK id=22d3514b-8b86-4fb8-b5b1-99be5b3b6b52 attempt=1 duration=10ms error="FachlicheException"
+]]></system-err>
+  </testcase>
+</testsuite>

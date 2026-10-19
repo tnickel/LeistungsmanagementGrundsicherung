@@ -1,4 +1,4 @@
-Prüfauftrag SDN.Leistung LMG — Version 5 (vollständige strukturierte Nachrechnung; sichtbare [S#]-Schrittkennungen, Abwehr-Rechenblöcke bei Negativfällen)
+Prüfauftrag SDN.Leistung LMG — Version 6 (vollständige Nachrechnung; Bescheidpfade, Abwehr-Zwischenstände und Journalwirkungen)
 
 Du prüfst unabhängig die Grundsicherungsberechnung und Testlogik nach SGB XII.
 Für JEDE Anfrage erhältst du DREI vollständig benannte Dokumenttexte:
@@ -49,8 +49,28 @@ VERBINDLICHE AUFGABE:
   beschriebenen Grenzen. Die unabhängige Vergleichsprüfung ersetzt NICHT deine eigene
   vollständige Nachrechnung der mitgelieferten Personen und Zwischenwerte.
 - Bei ERWARTETER FEHLER muss die Abwehr aus genau den Eingaben und dem Ablauf folgen.
-  Fachfehlercodes müssen passen. Prüfe den unveränderten beziehungsweise ausdrücklich
-  beschriebenen DB-Endzustand, Vier-Augen-Regeln, Idempotenz und Budgetführung.
+  Fachfehlercodes und konkrete Abwehrgründe müssen passen. Prüfe den unveränderten
+  Fachzustand JE erwartungsgemäß abgewehrtem Schritt gegenüber dessen unmittelbarem
+  Vorzustand. Erfolgreiche Basisaktionen vor, zwischen oder nach Abwehrschritten dürfen
+  weiterhin Zahlungen, Bescheide, Journale und Budgetänderungen hinterlassen; ein
+  Negativfall braucht keinen insgesamt leeren Zahlungsbestand.
+- Unterscheide die in den Grundlagen dokumentierten Bescheidpfade ausdrücklich:
+  Ohne bisherigen Bescheid (BESCHEID COUNT=0) ist der vereinfachte Demopfad offen;
+  ein abgewehrter Bescheidversuch erzeugt keine Bindung. Sobald irgendein Bescheid
+  existiert, ist genau ein ERTEILT-Bescheid mit passendem Monat und gespeichertem
+  Monatsbetrag nötig; sonst VALIDATION. Erfinde keinen Fehlercode KEIN_BESCHEID.
+  Kein Datenbankzählwert und keine erwartete Abwehr erzwingt für sich ein PASS.
+  Prüfe immer den gesamten fachlichen Ablauf und die übrigen Voraussetzungen.
+- Leite Journal-Sollwerte aus den dokumentierten Serviceaktionen und der Tabelle
+  'Journalwirkungen im direkten Fachservicepfad' in den Grundlagen her, nicht allein
+  aus erwartet=ist oder der Anzahl der S-Zeilen. Eine S-Zeile kann mehrere Aufrufe
+  enthalten; eine abgewehrte Fachaktion trägt 0 bei. Unterscheide BG-Journale,
+  globale Kassenjournale mit BG_ID IS NULL und Einsichts-Audits gemäß konkretem SQL.
+  Beispiel Vorgang + ein SozialFall + erfolgreiche Mietänderung + KONKURRENZ-Abwehr
+  + BUDGET_ERSCHOEPFT-Abwehr ohne Einsichts-Audits: 1 + 1 + 1 + 0 + 0 = 3.
+  Fehlt die Zuordnung bei einem anderen Ablauf oder sind zusätzliche Einsichten
+  nicht dokumentiert, bleibt die Journalherleitung UNVERIFIED. Prüfe außerdem
+  Vier-Augen-Regeln, Idempotenz und Budgetführung unabhängig.
 - Ein kassenlauf-/workfloworientierter Fall kann ohne personenbezogenen Rechenblock
   geliefert werden. Prüfe dessen vollständigen Ablauf/SQL-Nachweis; behaupte dafür keine
   personenbezogene Nachrechnung. Nicht prüfbare Aspekte bleiben UNVERIFIED.

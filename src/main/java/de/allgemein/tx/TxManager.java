@@ -28,8 +28,9 @@ public final class TxManager {
     }
 
     /**
-     * Führt die Arbeit in einer eigenen Transaktion aus: Commit bei Erfolg, Rollback
-     * bei jedem Fehler; wiederholbare Datenbankkonflikte werden erneut versucht.
+     * Führt die Arbeit in einer eigenen Transaktion aus: Commit bei Erfolg,
+     * Rollback bei Fehlern vor dem Commit. Wiederholbare Datenbankkonflikte werden erneut versucht.
+     * Eine fehlende Commit-Quittung bleibt ausdrücklich unbekannt und wird nie wiederholt.
      */
     public <T> T execute(TxOptions options, TxWork<T> work) {
         TxException lastFailure = null;
@@ -38,17 +39,25 @@ public final class TxManager {
         long startNanos = System.nanoTime();
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             Connection raw = null;
+            TxContext ctx = null;
             try {
                 raw = pool.getConnection();
                 raw.setTransactionIsolation(options.isolation());
-                TxContext ctx = new TxContext(raw, options.timeout());
-                T result = work.run(ctx);
+                ctx = new TxContext(raw, options.timeout());
                 ctx.checkDeadline();
-                raw.commit();
-                ctx.markCommitted();
+                T result = work.run(ctx);
+                commit(ctx);
                 long durationMillis = (System.nanoTime() - startNanos) / 1_000_000;
                 de.allgemein.tx.audit.TxAuditLog.recordTxCommit(txId, attempt, durationMillis, null);
                 return result;
+            } catch (TxCommitOutcomeUnknownException e) {
+                // Best effort räumt eine eventuell noch offene Transaktion auf.
+                // Es klärt NICHT den Ausgang des bereits versuchten Commits.
+                rollbackQuietly(raw);
+                de.allgemein.tx.audit.TxAuditLog.recordTxOutcomeUnknown(txId, attempt,
+                        (System.nanoTime() - startNanos) / 1_000_000,
+                        de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(e));
+                throw e;
             } catch (TxException e) {
                 rollbackQuietly(raw);
                 lastFailure = e;
@@ -74,9 +83,14 @@ public final class TxManager {
                 // OOM/StackOverflow o. ä.: Transaktion zurückrollen und den Error durchreichen.
                 // Wichtig: die Pools dürfen beim release() nie implizit committen
                 // (sie rollen vor setAutoCommit(true) selbst zurück).
+                if (ctx != null && ctx.status() == TxStatus.COMMITTED) throw e;
                 rollbackQuietly(raw);
                 long durationMillis = (System.nanoTime() - startNanos) / 1_000_000;
-                de.allgemein.tx.audit.TxAuditLog.recordTxRollback(txId, attempt, durationMillis, e.toString());
+                if (e instanceof TxCommitOutcomeUnknownError
+                        || ctx != null && ctx.status() == TxStatus.COMMIT_OUTCOME_UNKNOWN) {
+                    de.allgemein.tx.audit.TxAuditLog.recordTxOutcomeUnknown(txId, attempt, durationMillis,
+                            de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(e));
+                } else de.allgemein.tx.audit.TxAuditLog.recordTxRollback(txId, attempt, durationMillis, e.toString());
                 throw e;
             } finally {
                 if (raw != null) {
@@ -115,13 +129,27 @@ public final class TxManager {
         }
     }
 
+    /** Fehlende JDBC-Commitbestätigung beendet den Kontext mit unbekanntem Ausgang. */
     public void commit(TxContext ctx) throws SQLException {
         ctx.checkDeadline();
-        ctx.connection().commit();
+        Connection raw = ctx.connection();
+        try {
+            raw.commit();
+        } catch (SQLException | RuntimeException e) {
+            ctx.markCommitOutcomeUnknown();
+            throw new TxCommitOutcomeUnknownException(e);
+        } catch (Error e) {
+            ctx.markCommitOutcomeUnknown();
+            throw new TxCommitOutcomeUnknownError(e);
+        }
         ctx.markCommitted();
     }
 
     public void rollback(TxContext ctx) {
+        if (ctx.status() == TxStatus.COMMIT_OUTCOME_UNKNOWN) {
+            rollbackQuietly(ctx.detachConnection());
+            return; // vorheriger Commit bleibt trotz Aufräumversuch ungeklärt
+        }
         if (ctx.status() != TxStatus.ACTIVE) {
             return; // bereits committet oder abgebrochen — nichts zu tun
         }
@@ -152,8 +180,9 @@ public final class TxManager {
         }
         try {
             raw.rollback();
-        } catch (SQLException e) {
-            LOG.log(Level.FINE, () -> "Rollback fehlgeschlagen: " + e.getMessage());
+        } catch (SQLException | RuntimeException e) {
+            LOG.log(Level.FINE, () -> "Rollback fehlgeschlagen: "
+                    + de.allgemein.tx.audit.TxAuditLog.fehlerBeschreibung(e));
         }
     }
 }

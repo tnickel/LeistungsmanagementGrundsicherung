@@ -22,6 +22,7 @@ import de.allgemein.tx.TxOptions;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.math.RoundingMode;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
@@ -46,6 +47,11 @@ import java.util.Optional;
  * SGB XII (Details in {@link Leistungsberechnung}). Die örtlichen KdU-Parameter
  * (Angemessenheitsgrenze; kein zentraler Warmwasserabzug) und die
  * Rechtsbehelfsbelehrung des Bescheids sind konfigurierbar (LmgConfig).</p>
+ *
+ * <p>Die Fachservice-API ist eine interne Vertrauensgrenze: Kennungen dienen dem
+ * Journal, sie sind kein Authentifizierungsnachweis. HTTP- und andere externe
+ * Eintrittspunkte müssen Sitzungen und Rollen vor dem Serviceaufruf prüfen.
+ * Insbesondere ist ein Storno über solche Eintrittspunkte nur Administratoren erlaubt.</p>
  */
 public final class SozialLeistungsService implements LeistungsService {
 
@@ -58,6 +64,7 @@ public final class SozialLeistungsService implements LeistungsService {
     private final de.allgemein.lmg.dao.SatzstandDao satzstandDao = new de.allgemein.lmg.dao.SatzstandDao();
     private final Leistungsberechnung.KduParameter kduParameter;
     private final BescheidGenerator.Rechtsbehelf rechtsbehelf;
+    private final Clock previewClock;
 
     public SozialLeistungsService(TxManager txManager) {
         this(txManager, Leistungsberechnung.KduParameter.AUS, null);
@@ -66,10 +73,18 @@ public final class SozialLeistungsService implements LeistungsService {
     public SozialLeistungsService(TxManager txManager,
             Leistungsberechnung.KduParameter kduParameter,
             BescheidGenerator.Rechtsbehelf rechtsbehelf) {
+        this(txManager, kduParameter, rechtsbehelf, Clock.systemDefaultZone());
+    }
+
+    /** Stellbare Zeitquelle ausschließlich für den Standardmonat von Vorschauen. */
+    public SozialLeistungsService(TxManager txManager,
+            Leistungsberechnung.KduParameter kduParameter,
+            BescheidGenerator.Rechtsbehelf rechtsbehelf, Clock previewClock) {
         this.txManager = Objects.requireNonNull(txManager, "txManager");
         this.kduParameter = Objects.requireNonNull(
                 kduParameter == null ? Leistungsberechnung.KduParameter.AUS : kduParameter, "kduParameter");
         this.rechtsbehelf = rechtsbehelf;
+        this.previewClock = Objects.requireNonNull(previewClock, "previewClock");
     }
 
     // ------------------------------------------------------------------
@@ -89,12 +104,20 @@ public final class SozialLeistungsService implements LeistungsService {
 
     @Override
     public List<VorgangslisteEintrag> listeBedarfsgemeinschaften() {
+        // Einmal vor dem Lesen wählen: Ein Monatswechsel darf die Zeilen nicht mischen.
+        return listeBedarfsgemeinschaften(YearMonth.now(previewClock).toString());
+    }
+
+    @Override
+    public List<VorgangslisteEintrag> listeBedarfsgemeinschaften(String bezugsmonat) {
+        pruefeMonat(bezugsmonat, "Bezugsmonat");
         return txManager.execute(TxOptions.DEFAULT, ctx -> {
             List<VorgangslisteEintrag> eintraege = new ArrayList<>();
             for (Bedarfsgemeinschaft bg : bgDao.listeAlle(ctx)) {
                 eintraege.add(new VorgangslisteEintrag(
                         bg.id(), bg.aktenzeichen(), bg.hauptpersonName(), bg.statusAktiv(),
-                        bg.budgetRest(), bg.wiedervorlageAm(), zahlbetragVorschau(ctx, bg)));
+                        bg.budgetRest(), bg.wiedervorlageAm(), zahlbetragVorschau(ctx, bg, bezugsmonat),
+                        bezugsmonat));
             }
             return eintraege;
         });
@@ -116,6 +139,12 @@ public final class SozialLeistungsService implements LeistungsService {
      */
     @Override
     public Vorgangsdetail ladeDetail(long bgId, String sachbearbeiterId) {
+        return ladeDetail(bgId, sachbearbeiterId, YearMonth.now(previewClock).toString());
+    }
+
+    @Override
+    public Vorgangsdetail ladeDetail(long bgId, String sachbearbeiterId, String bezugsmonat) {
+        pruefeMonat(bezugsmonat, "Bezugsmonat");
         return txManager.execute(TxOptions.DEFAULT, ctx -> {
             Bedarfsgemeinschaft bg = bgDao.finde(ctx, bgId)
                     .orElseThrow(() -> new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
@@ -123,10 +152,10 @@ public final class SozialLeistungsService implements LeistungsService {
             List<SozialFall> faelle = fallDao.listeFuerBg(ctx, bgId);
             de.allgemein.lmg.model.Bescheid bescheid = bescheidDao.letzteFuerBg(ctx, bgId, 1)
                     .stream().findFirst().orElse(null);
-            Vorgangsdetail detail = new Vorgangsdetail(bg, faelle, berechnungDefensiv(ctx, bg, faelle),
+            Vorgangsdetail detail = new Vorgangsdetail(bg, faelle, berechnungDefensiv(ctx, bg, faelle, bezugsmonat),
                     zahlungDao.letzteFuerBg(ctx, bgId, 10),
                     journalDao.letzteFuerBg(ctx, bgId, 20),
-                    bescheid);
+                    bescheid, bezugsmonat);
             protokolliereEinsicht(ctx, bgId, "Vorgangsdaten (Detail)", sachbearbeiterId);
             return detail;
         });
@@ -165,6 +194,8 @@ public final class SozialLeistungsService implements LeistungsService {
                 throw new FachlicheException(FachlicheException.VALIDATION,
                         "Der Vorgang ist historisiert; Falländerungen sind nicht mehr möglich");
             }
+            pruefeErziehungsverantwortung(fallDao.listeFuerBg(ctx, vorhandener.bgId()),
+                    normalisiert, vorhandener.id());
             int geaenderteZeilen = fallDao.aktualisiere(ctx, normalisiert, erwarteteVersion);
             if (geaenderteZeilen == 0) {
                 throw new FachlicheException(FachlicheException.KONKURRENZ,
@@ -424,6 +455,7 @@ public final class SozialLeistungsService implements LeistungsService {
                 throw new FachlicheException(FachlicheException.VALIDATION,
                         "Der Vorgang ist historisiert; SozialFälle können nicht mehr angelegt werden");
             }
+            pruefeErziehungsverantwortung(fallDao.listeFuerBg(ctx, bgId), normalisiert, -1);
             long id = fallDao.naechsteId(ctx);
             fallDao.einfuegen(ctx, id, normalisiertMitId(bgId, id, normalisiert));
             journalDao.einfuegen(ctx, bgId, "SozialFall " + id + " angelegt", sachbearbeiterId);
@@ -642,6 +674,101 @@ public final class SozialLeistungsService implements LeistungsService {
         return letzterBescheid(bgId, null);
     }
 
+    /**
+     * Explizite Neufestsetzung: frühere Monate bleiben eingefroren; nur der gewählte
+     * Restzeitraum wird neu berechnet. Bestehende Zahlungsanordnungen müssen davor
+     * geklärt werden. Aufhebung und neue Erteilung committen ausschließlich gemeinsam.
+     */
+    @Override
+    public Bescheid aendereBescheid(long bgId, String bewilligungVon, String bewilligungBis,
+            String sachbearbeiterId) {
+        pruefeMonat(bewilligungVon, "Änderung ab");
+        pruefeMonat(bewilligungBis, "Bewilligung bis");
+        pruefeText(sachbearbeiterId, "Sachbearbeiter-Kürzel", 50);
+        if (bewilligungVon.compareTo(bewilligungBis) > 0) {
+            throw new FachlicheException(FachlicheException.VALIDATION, "Änderungszeitraum ist ungültig");
+        }
+        return txManager.execute(TxOptions.DEFAULT, ctx -> {
+            Bedarfsgemeinschaft bg = bgDao.lockForUpdate(ctx, bgId)
+                    .orElseThrow(() -> new FachlicheException(FachlicheException.NICHT_GEFUNDEN,
+                            "Bedarfsgemeinschaft ist nicht vorhanden"));
+            if (!bg.statusAktiv()) throw new FachlicheException(FachlicheException.VALIDATION,
+                    "Historisierte Vorgänge können nicht neu bewilligt werden");
+            var alte = bescheidDao.erteilteFuerMonat(ctx.connection(), bgId, bewilligungVon);
+            if (alte.size() != 1 || !alte.getFirst().bewilligungBis().equals(bewilligungBis)) {
+                throw new FachlicheException(FachlicheException.VALIDATION,
+                        "Änderung muss genau einen erteilten Bescheid bis zu dessen bisherigem Ende ersetzen");
+            }
+            Bescheid alt = alte.getFirst();
+            var altSnapshot = alt.berechnung() == null ? null : BescheidPaymentBinding.readSnapshot(alt);
+            if (altSnapshot == null || altSnapshot.monate().isEmpty()) {
+                throw new FachlicheException(FachlicheException.VALIDATION,
+                        "Altbescheid ohne vollständigen Monatsplan muss gesondert fachlich geklärt werden");
+            }
+            if (bewilligungVon.compareTo(alt.bewilligungVon()) > 0
+                    && !vollstaendigeHistorischeEingaben(alt.berechnung(), bewilligungVon)) {
+                throw new FachlicheException(FachlicheException.VALIDATION,
+                        "Die beizubehaltenden Altmonate enthalten keine vollständigen Eingabemerkmale; "
+                                + "eine automatische Übernahme würde historische Angaben erfinden");
+            }
+            for (var monat : altSnapshot.monate()) {
+                if (monat.monat().compareTo(bewilligungVon) >= 0) break;
+                if (monat.ergebnis().zahlbetrag().signum() > 0
+                        && monat.ergebnis().verwertbaresVermoegen().signum() > 0
+                        && !zahlungDao.existiertAktiveFuerMonat(ctx, bgId, monat.monat())) {
+                    throw new FachlicheException(FachlicheException.VALIDATION,
+                            "Der geplante Vermögenseinsatz im beizubehaltenden Monat " + monat.monat()
+                                    + " wurde noch nicht angeordnet; diesen Altmonat vor der Neufestsetzung klären");
+                }
+            }
+            try (var statement = ctx.connection().prepareStatement(
+                    "SELECT COUNT(*) FROM ZAHLUNG WHERE BG_ID=? AND ZAHLUNGSMONAT>=? "
+                            + "AND ZAHLUNGSMONAT<=? AND ZAHLUNGSSTATUS<>'STORNIERT'")) {
+                statement.setLong(1, bgId);
+                statement.setString(2, bewilligungVon);
+                statement.setString(3, bewilligungBis);
+                try (var rows = statement.executeQuery()) {
+                    if (rows.next() && rows.getInt(1) > 0) {
+                        throw new FachlicheException(FachlicheException.VALIDATION,
+                                "Im Änderungszeitraum bestehen Zahlungsanordnungen; diese zuerst fachlich klären");
+                    }
+                }
+            }
+            List<SozialFall> faelle = fallDao.listeFuerBg(ctx, bgId);
+            var rest = Bewilligungsplan.erstelle(bgId, faelle, kduParameter, bg.vermoegen(),
+                    bewilligungVon, bewilligungBis, monat -> satzstandDao.findeFuerMonat(ctx, monat));
+            List<Bewilligungsplan.Monat> monate = new ArrayList<>();
+            for (var monat : altSnapshot.monate()) {
+                if (monat.monat().compareTo(bewilligungVon) < 0) monate.add(monat);
+            }
+            monate.addAll(rest.monate());
+            var plan = new Bewilligungsplan.Plan(monate);
+            if (!bescheidDao.hebeAuf(ctx, alt.id())) throw new FachlicheException(FachlicheException.KONKURRENZ,
+                    "Der bisherige Bescheid wurde zwischenzeitlich verändert");
+            BescheidPaymentBinding.rejectOverlap(ctx.connection(), bgId, alt.bewilligungVon(), bewilligungBis);
+            long id = bescheidDao.naechsteId(ctx);
+            LocalDate datum = LocalDate.now();
+            String nummer = "AEND-" + bg.aktenzeichen() + "-" + datum.getYear() + "-" + id;
+            String snapshot = BescheidDokument.snapshot(plan, bg, id, nummer, datum,
+                    alt.bewilligungVon(), bewilligungBis, sachbearbeiterId, rechtsbehelf);
+            var gelesen = BerechnungsSnapshot.lese(snapshot);
+            String html = gelesen.dokumentHtml().replace("Bewilligungsbescheid", "Änderungsbescheid")
+                    .replace("<strong>Verfügungssatz:</strong><br>",
+                            "<strong>Verfügungssatz:</strong><br>Der Bescheid "
+                                    + escapeHtml(alt.bescheidNr())
+                                    + " wird wegen der geänderten Berechnungsgrundlagen ab "
+                                    + bewilligungVon + " geändert (§ 48 SGB X). Die früheren Monate "
+                                    + "bleiben mit ihren bisherigen Monatsbeträgen bestehen. "
+                                    + "Maßgeblich ist der folgende vollständige Monatsplan.<br>");
+            snapshot = BerechnungsSnapshot.schreibe(plan, html);
+            Bescheid neu = bescheidDao.einfuegen(ctx, id, bgId, nummer, datum, alt.bewilligungVon(),
+                    bewilligungBis, plan.ersterMonat().ergebnis().zahlbetrag(), sachbearbeiterId, snapshot);
+            journalDao.einfuegen(ctx, bgId, "Änderungsbescheid " + nummer + " ersetzt "
+                    + alt.bescheidNr() + " ab " + bewilligungVon, sachbearbeiterId);
+            return neu;
+        });
+    }
+
     /** Bescheid-Abruf mit Zugriffsprotokoll (CR-035/Option D, 60-s-Zusammenfassung). */
     @Override
     public Optional<Bescheid> letzterBescheid(long bgId, String sachbearbeiterId) {
@@ -758,8 +885,13 @@ public final class SozialLeistungsService implements LeistungsService {
     /** Berechnung, die fachliche Fehlkonfiguration in "keine Vorschau" auflöst (Maske zeigt Hinweis). */
     private Leistungsberechnung.Berechnungsergebnis berechnungDefensiv(
             TxContext ctx, Bedarfsgemeinschaft bg, List<SozialFall> faelle) throws java.sql.SQLException {
+        return berechnungDefensiv(ctx, bg, faelle, YearMonth.now(previewClock).toString());
+    }
+
+    private Leistungsberechnung.Berechnungsergebnis berechnungDefensiv(
+            TxContext ctx, Bedarfsgemeinschaft bg, List<SozialFall> faelle, String monat)
+            throws java.sql.SQLException {
         try {
-            String monat = YearMonth.now().toString();
             return Leistungsberechnung.berechne(bg.id(), Bewilligungsplan.faelleFuerMonat(faelle, monat),
                     kduParameter, bg.vermoegen(), satzstandDao.findeFuerMonat(ctx, monat));
         } catch (FachlicheException e) {
@@ -767,12 +899,12 @@ public final class SozialLeistungsService implements LeistungsService {
         }
     }
 
-    private BigDecimal zahlbetragVorschau(TxContext ctx, Bedarfsgemeinschaft bg) throws Exception {
+    private BigDecimal zahlbetragVorschau(TxContext ctx, Bedarfsgemeinschaft bg, String bezugsmonat) throws Exception {
         List<SozialFall> faelle = fallDao.listeFuerBg(ctx, bg.id());
         if (faelle.isEmpty()) {
             return null;
         }
-        Leistungsberechnung.Berechnungsergebnis berechnung = berechnungDefensiv(ctx, bg, faelle);
+        Leistungsberechnung.Berechnungsergebnis berechnung = berechnungDefensiv(ctx, bg, faelle, bezugsmonat);
         return berechnung == null ? null : berechnung.zahlbetrag();
     }
 
@@ -830,12 +962,10 @@ public final class SozialLeistungsService implements LeistungsService {
                         "Entbindungsmonat muss im Format YYYY-MM angegeben oder leer sein");
             }
         }
-        // Jede Altersgruppe enthält die engere: unter 7 ⊆ unter 16 ⊆ minderjährig
-        int kinderU16 = Math.max(fall.anzKinderUnter16(), fall.anzKinderUnter7());
-        int minderjaehrig = Math.max(fall.anzKinderMinderjaehrig(), kinderU16);
+        Leistungsberechnung.pruefeKinderzaehler(fall);
         return new SozialFall(fall.id(), fall.bgId(), fall.regelbedarfsstufe(),
                 fall.merkzeichenG(), fall.schwanger(),
-                fall.anzKinderUnter7(), kinderU16, minderjaehrig, fall.warmwasser(),
+                fall.anzKinderUnter7(), fall.anzKinderUnter16(), fall.anzKinderMinderjaehrig(), fall.warmwasser(),
                 normiereBetrag(fall.kduMiete(), "Kaltmiete"),
                 normiereBetrag(fall.kduBetriebskosten(), "Kalte Betriebskosten"),
                 normiereBetrag(fall.kduHeizung(), "Heizkosten"),
@@ -850,10 +980,8 @@ public final class SozialLeistungsService implements LeistungsService {
     }
 
     /**
-     * Beträge: auf 2 Nachkommastellen normiert (NUMBER(10,2)), maximal 8 Vorkomma-
-     * Stellen. Wichtig: Erst runden, dann die Grenze prüfen — sonst schlüpft z. B.
-     * 99.999.999,999 durch die Prüfung und wird auf 100.000.000,00 aufgerundet
-     * (ORA-01438 statt Fachfehler).
+     * Beträge: centgenau auf 2 Nachkommastellen normiert (NUMBER(10,2)), maximal
+     * 8 Vorkommastellen. Subcentbeträge werden abgewiesen, niemals still gerundet.
      */
     public static BigDecimal normiereBetrag(BigDecimal betrag, String feldname) {
         if (betrag == null) {
@@ -863,7 +991,12 @@ public final class SozialLeistungsService implements LeistungsService {
             throw new FachlicheException(FachlicheException.VALIDATION,
                     feldname + " darf nicht negativ sein");
         }
-        BigDecimal normalisiert = betrag.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal normalisiert;
+        try { normalisiert = betrag.setScale(2, RoundingMode.UNNECESSARY); }
+        catch (ArithmeticException e) {
+            throw new FachlicheException(FachlicheException.VALIDATION,
+                    feldname + " muss centgenau sein (höchstens zwei wirksame Nachkommastellen)");
+        }
         if (normalisiert.precision() - normalisiert.scale() > 8) {
             throw new FachlicheException(FachlicheException.VALIDATION,
                     feldname + " ist zu groß (maximal 99.999.999,99 EUR)");
@@ -898,5 +1031,37 @@ public final class SozialLeistungsService implements LeistungsService {
 
     private static String betragText(BigDecimal betrag) {
         return String.format(Locale.GERMAN, "%,.2f", betrag);
+    }
+
+    private static void pruefeErziehungsverantwortung(List<SozialFall> faelle, SozialFall entwurf,
+            long ausgenommenerFall) {
+        if (entwurf.anzKinderMinderjaehrig() > 0 && faelle.stream().anyMatch(
+                f -> f.id() != ausgenommenerFall && f.anzKinderMinderjaehrig() > 0)) {
+            throw new FachlicheException(FachlicheException.VALIDATION,
+                    "Unklare Kinderzuordnung: Mehrere erziehungsverantwortliche Personen sind im "
+                            + "vereinfachten Haushaltsmodell nicht gemeinsam abrechenbar");
+        }
+    }
+
+    private static String escapeHtml(String value) {
+        return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                .replace("\"", "&quot;").replace("'", "&#39;");
+    }
+
+    private static boolean vollstaendigeHistorischeEingaben(String json, String aenderungAb) {
+        Object root = de.allgemein.lmg.web.Json.parse(json);
+        if (!(root instanceof java.util.Map<?, ?> map)
+                || !(map.get("monate") instanceof List<?> monate)) return false;
+        for (Object entry : monate) {
+            if (!(entry instanceof java.util.Map<?, ?> monat)
+                    || !(monat.get("monat") instanceof String bezug)
+                    || !(monat.get("faelle") instanceof List<?> faelle)) return false;
+            if (bezug.compareTo(aenderungAb) >= 0) continue;
+            for (Object fall : faelle) {
+                if (!(fall instanceof java.util.Map<?, ?> daten)
+                        || !(daten.get("eingaben") instanceof java.util.Map<?, ?>)) return false;
+            }
+        }
+        return true;
     }
 }

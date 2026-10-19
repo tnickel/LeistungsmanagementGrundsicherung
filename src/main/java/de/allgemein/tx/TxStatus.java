@@ -4,6 +4,7 @@ package de.allgemein.tx;
 public enum TxStatus {
     ACTIVE,
     COMMITTED,
+    COMMIT_OUTCOME_UNKNOWN,
     ROLLED_BACK,
     ABORTED
 }

@@ -29,7 +29,7 @@ public class TxException extends RuntimeException {
     }
 
     public static TxException timeout(String message) {
-        return new TxException(message, null, false, -1);
+        return new TxTimeoutException(message);
     }
 
     public static TxException nonRetryable(String message, Throwable cause) {

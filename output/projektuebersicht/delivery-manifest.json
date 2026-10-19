@@ -1,0 +1,23 @@
+{
+  "doc/Projektübersicht.docx": {
+    "sha256": "09c7f0ca76df2ca911397e385b1595fac09089766fc1966e2c7fe9865a8af48a",
+    "bytes": 345380
+  },
+  "doc/Projektübersicht.pdf": {
+    "sha256": "ece516140cb35d80fbad134c7177f2c71d359bd1fc7e32b3d4695b3912bebe96",
+    "bytes": 910927
+  },
+  "qa": {
+    "pages": 15,
+    "visuals": 3,
+    "review_documents": 10,
+    "source_references": 28,
+    "all_pages_visually_checked": true,
+    "final_unchanged_pages_pixel_verified": "2-14",
+    "changed_pages_visually_checked": [
+      1,
+      15
+    ],
+    "pdf_bookmarks": 15
+  }
+}

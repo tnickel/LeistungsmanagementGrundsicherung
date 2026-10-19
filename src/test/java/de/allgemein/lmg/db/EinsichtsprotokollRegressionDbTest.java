@@ -11,7 +11,7 @@ import de.allgemein.tx.ConnectionPool;
 import de.allgemein.tx.RetryPolicy;
 import de.allgemein.tx.SimpleConnectionPool;
 import de.allgemein.tx.TaskController;
-import de.allgemein.tx.TxException;
+import de.allgemein.tx.TxCommitOutcomeUnknownException;
 import de.allgemein.tx.TxManager;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -29,6 +29,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Collections;
@@ -99,19 +100,40 @@ class EinsichtsprotokollRegressionDbTest {
     void commitFehlerDarfErfolgreichenFolgezugriffNichtVerdecken() throws Exception {
         var faulty = new CommitFehlerPool(pool, false);
         var mitFehler = new SozialLeistungsService(new TxManager(faulty));
-        assertThrows(TxException.class, () -> mitFehler.ladeDetail(bgId, "sb-rollback"));
+        assertThrows(TxCommitOutcomeUnknownException.class, () -> mitFehler.ladeDetail(bgId, "sb-rollback"));
+        assertEquals(1, faulty.commitVersuche.get(), "Commitfehler darf keinen automatischen Neuversuch auslösen");
         assertEquals(0, einsichten("sb-rollback"));
         assertNotNull(mitFehler.ladeDetail(bgId, "sb-rollback"));
         assertEquals(1, einsichten("sb-rollback"), "Erfolgreicher Zugriff nach echtem Rollback ist protokolliert");
     }
 
     @Test
-    void retryNachCommitKonfliktPersistiertEinsichtGenauEinmal() throws Exception {
+    void commitKonfliktBleibtUnbekanntUndStatuspruefungVerhindertDoppelteEinsicht() throws Exception {
         var faulty = new CommitFehlerPool(pool, true);
-        var mitRetry = new SozialLeistungsService(new TxManager(faulty, new RetryPolicy(1)));
-        assertNotNull(mitRetry.ladeDetail(bgId, "sb-retry"));
+        var mitFehler = new SozialLeistungsService(new TxManager(faulty, new RetryPolicy(1)));
+        var error = assertThrows(TxCommitOutcomeUnknownException.class,
+                () -> mitFehler.ladeDetail(bgId, "sb-quittung"));
+        assertFalse(error.isRetryable());
+        assertEquals(1, faulty.commitVersuche.get(), "auch ORA-08177 im Commit wird nicht automatisch wiederholt");
+        // Unabhängige SQL-Nachlese bestätigt, dass die gezielt verlorene Quittung
+        // einer wirklich committeten Einsicht folgt. Erst danach erneut lesen.
+        assertEquals(1, einsichten("sb-quittung"));
+        assertNotNull(mitFehler.ladeDetail(bgId, "sb-quittung"));
         assertEquals(2, faulty.commitVersuche.get());
-        assertEquals(1, einsichten("sb-retry"));
+        assertEquals(1, einsichten("sb-quittung"), "erneutes Lesen nach Statusprüfung erzeugt keinen zweiten Eintrag");
+    }
+
+    @Test
+    void retryVorCommitRolltEchteErsteEinsichtZurueckUndPersistiertNurDenFolgeversuch() throws Exception {
+        var faulty = new JournalKonfliktPool(pool, bgId, "sb-retry-vor-commit");
+        var mitRetry = new SozialLeistungsService(new TxManager(faulty, new RetryPolicy(1)));
+        assertNotNull(mitRetry.ladeDetail(bgId, "sb-retry-vor-commit"));
+        assertEquals(2, faulty.journalInserts.get(), "beide Versuche führen den echten Journal-INSERT aus");
+        assertEquals(1, faulty.vorKonfliktSichtbar.get(), "erster INSERT muss vor dem injizierten Konflikt wirklich vorhanden sein");
+        assertEquals(1, faulty.rollbacks.get(), "erster Versuch wird vor dem Retry tatsächlich zurückgerollt");
+        assertEquals(0, faulty.nachRollbackSichtbar.get(), "unabhängige SQL-Nachlese nach Rollback sieht keinen ersten Eintrag");
+        assertEquals(1, faulty.commits.get(), "nur der erfolgreiche Folgeversuch committet");
+        assertEquals(1, einsichten("sb-retry-vor-commit"));
     }
 
     @Test
@@ -240,17 +262,17 @@ class EinsichtsprotokollRegressionDbTest {
         } finally { pool.release(c); }
     }
 
-    /** Fehler erst bei Commit nach echtem Journal-INSERT; Rollback delegiert an Oracle. */
+    /** Fehler am JDBC-Commit: wahlweise vor oder nach echtem Oracle-Commit, nie automatisch wiederholen. */
     private static final class CommitFehlerPool implements ConnectionPool {
         private final ConnectionPool delegate;
-        private final boolean retry;
+        private final boolean commitVorFehler;
         private final AtomicBoolean ersterCommit = new AtomicBoolean(true);
         private final AtomicInteger commitVersuche = new AtomicInteger();
         private final Map<Connection, Connection> originals = Collections.synchronizedMap(new IdentityHashMap<>());
 
-        CommitFehlerPool(ConnectionPool delegate, boolean retry) {
+        CommitFehlerPool(ConnectionPool delegate, boolean commitVorFehler) {
             this.delegate = delegate;
-            this.retry = retry;
+            this.commitVorFehler = commitVorFehler;
         }
 
         @Override
@@ -261,7 +283,8 @@ class EinsichtsprotokollRegressionDbTest {
                         if (method.getName().equals("commit")) {
                             commitVersuche.incrementAndGet();
                             if (ersterCommit.getAndSet(false)) {
-                                throw new SQLException("Injizierter Commitfehler", null, retry ? 8177 : 0);
+                                if (commitVorFehler) real.commit();
+                                throw new SQLException("Injizierter Commitfehler", null, commitVorFehler ? 8177 : 0);
                             }
                         }
                         try { return method.invoke(real, args); }
@@ -278,5 +301,66 @@ class EinsichtsprotokollRegressionDbTest {
 
         @Override
         public void close() { }
+    }
+
+    /** Konflikt erst NACH echtem Journal-INSERT, aber VOR JDBC-Commit; Oracle-Rollback wird separat nachgelesen. */
+    private static final class JournalKonfliktPool implements ConnectionPool {
+        private final ConnectionPool delegate;
+        private final long ownBgId;
+        private final String ownBearbeiter;
+        private final AtomicBoolean firstInsert = new AtomicBoolean(true);
+        private final AtomicInteger journalInserts = new AtomicInteger(), rollbacks = new AtomicInteger(), commits = new AtomicInteger();
+        private final AtomicInteger vorKonfliktSichtbar = new AtomicInteger(-1), nachRollbackSichtbar = new AtomicInteger(-1);
+        private final Map<Connection, Connection> originals = Collections.synchronizedMap(new IdentityHashMap<>());
+
+        JournalKonfliktPool(ConnectionPool delegate, long ownBgId, String ownBearbeiter) {
+            this.delegate = delegate; this.ownBgId = ownBgId; this.ownBearbeiter = ownBearbeiter;
+        }
+
+        @Override
+        public Connection getConnection() throws SQLException {
+            Connection real = delegate.getConnection();
+            Connection proxy = (Connection) Proxy.newProxyInstance(Connection.class.getClassLoader(), new Class<?>[]{Connection.class},
+                    (p, method, args) -> {
+                        try {
+                            Object result = method.invoke(real, args);
+                            if (method.getName().equals("commit")) commits.incrementAndGet();
+                            if (method.getName().equals("rollback")) {
+                                rollbacks.incrementAndGet();
+                                try (var independent = eigeneVerbindung()) { nachRollbackSichtbar.set(count(independent)); }
+                            }
+                            if (method.getName().equals("prepareStatement") && args[0] instanceof String sql
+                                    && sql.startsWith("INSERT INTO JOURNAL ")) {
+                                PreparedStatement statement = (PreparedStatement) result;
+                                return Proxy.newProxyInstance(PreparedStatement.class.getClassLoader(), new Class<?>[]{PreparedStatement.class},
+                                        (sp, operation, values) -> {
+                                            try {
+                                                Object changed = operation.invoke(statement, values);
+                                                if (operation.getName().equals("executeUpdate")) {
+                                                    assertEquals(1, changed, "echter Oracle-INSERT muss erfolgreich sein");
+                                                    journalInserts.incrementAndGet();
+                                                    if (firstInsert.compareAndSet(true, false)) {
+                                                        vorKonfliktSichtbar.set(count(real));
+                                                        throw new SQLException("Injizierter Konflikt nach Journal-INSERT vor Commit", "61000", 60);
+                                                    }
+                                                }
+                                                return changed;
+                                            } catch (InvocationTargetException e) { throw e.getCause(); }
+                                        });
+                            }
+                            return result;
+                        } catch (InvocationTargetException e) { throw e.getCause(); }
+                    });
+            originals.put(proxy, real); return proxy;
+        }
+
+        private int count(Connection c) throws SQLException {
+            try (var st = c.prepareStatement("SELECT COUNT(*) FROM JOURNAL WHERE BG_ID = ? AND SACHBEARBEITER_ID = ? AND AKTION_TEXT LIKE 'Einsicht:%'")) {
+                st.setLong(1, ownBgId); st.setString(2, ownBearbeiter);
+                try (var rows = st.executeQuery()) { assertTrue(rows.next()); return rows.getInt(1); }
+            }
+        }
+        @Override public void release(Connection connection) { delegate.release(originals.remove(connection)); }
+        @Override public void close() { }
     }
 }

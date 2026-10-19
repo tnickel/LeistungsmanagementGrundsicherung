@@ -1,193 +1,137 @@
 package de.allgemein.tx;
 
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
-
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.Statement;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.math.BigDecimal;
+import java.sql.*;
+import java.time.Duration;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import static org.junit.jupiter.api.Assertions.*;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-/**
- * Verifikation des Deadlock-Retries (Roadmap Etappe 1) gegen eine echte Oracle-Datenbank.
- * <p>
- * Zwei parallele Threads fordern Zeilensperren (SELECT ... FOR UPDATE) in umgekehrter
- * Reihenfolge an:
- * <ul>
- *   <li>Thread 1 sperrt Zeile A, wartet kurz und will Zeile B sperren.</li>
- *   <li>Thread 2 sperrt Zeile B, wartet kurz und will Zeile A sperren.</li>
- * </ul>
- * Oracle erkennt die Kreuzsperre zuverlässig und bricht eine Transaktion mit ORA-00060
- * (deadlock detected) ab. Die {@link RetryPolicy} fängt ORA-00060 ab, führt ein Rollback
- * aus und startet automatisch einen zweiten Versuch, der nach Abschluss des Konkurrenten
- * erfolgreich committet.
- */
-@EnabledIfEnvironmentVariable(named = "TX_URL", matches = ".+")
+/** Echte Oracle-Kreuzsperren; jede Ausführung besitzt eigene Sequenz-IDs und UUID-Aktenzeichen. */
+@EnabledIfEnvironmentVariable(named="TX_URL",matches=".+")
 class DeadlockRetryEchtTest {
-
-    private static ConnectionPool pool;
-    private static TxManager txManager;
-
-    private static final long ROW_A = 9998L;
-    private static final long ROW_B = 9999L;
-
-    @BeforeAll
-    static void aufbauen() throws Exception {
-        Class.forName("oracle.jdbc.OracleDriver");
-        String url = System.getenv("TX_URL");
-        String user = System.getenv("TX_USER");
-        String pass = System.getenv("TX_PASS");
-
-        pool = new SimpleConnectionPool(url, user, pass, 4);
-        txManager = new TxManager(pool);
-
-        aufraeumen();
-        legeTestzeileAn(ROW_A, "BG-DEADLOCK-A", "100.00");
-        legeTestzeileAn(ROW_B, "BG-DEADLOCK-B", "200.00");
-    }
-
-    @AfterAll
-    static void aufraeumen() throws Exception {
-        try (Connection c = DriverManager.getConnection(
-                System.getenv("TX_URL"), System.getenv("TX_USER"), System.getenv("TX_PASS"))) {
-            c.setAutoCommit(false);
-            try (Statement st = c.createStatement()) {
-                st.executeUpdate("DELETE FROM BEDARFSGEMEINSCHAFT WHERE ID IN (" + ROW_A + ", " + ROW_B + ")");
-            }
-            c.commit();
-        }
-        if (pool != null) {
-            pool.close();
-        }
-    }
-
-    private static void legeTestzeileAn(long id, String aktenzeichen, String budget) throws Exception {
-        try (Connection c = DriverManager.getConnection(
-                System.getenv("TX_URL"), System.getenv("TX_USER"), System.getenv("TX_PASS"))) {
-            c.setAutoCommit(false);
-            try (PreparedStatement ps = c.prepareStatement(
-                    "INSERT INTO BEDARFSGEMEINSCHAFT (ID, AKTENZEICHEN, HAUPTPERSON_NAME, STATUS_AKTIV, BUDGET_REST) "
-                            + "VALUES (?, ?, 'Deadlock Test', 1, ?)")) {
-                ps.setLong(1, id);
-                ps.setString(2, aktenzeichen);
-                ps.setBigDecimal(3, new java.math.BigDecimal(budget));
-                ps.executeUpdate();
-            }
-            c.commit();
-        }
+    @Test
+    void echterDeadlockWirdErkanntUndImZweitenVersuchCommittet() throws Exception {
+        try(Fixture own=new Fixture()) { runDeadlock(own);own.assertBudgets(); }
     }
 
     @Test
-    void echterDeadlockWirdErkanntUndImZweitenVersuchCommittet() throws Exception {
-        CountDownLatch aGesperrt = new CountDownLatch(1);
-        CountDownLatch bGesperrt = new CountDownLatch(1);
-
-        AtomicInteger versuche1 = new AtomicInteger(0);
-        AtomicInteger versuche2 = new AtomicInteger(0);
-
-        ExecutorService executor = Executors.newFixedThreadPool(2);
-        try {
-            Future<Boolean> task1 = executor.submit(() -> {
-                txManager.execute(TxOptions.DEFAULT, ctx -> {
-                    int versuch = versuche1.incrementAndGet();
-                    Connection conn = ctx.connection();
-                    long sid = ermittleSid(conn);
-                    System.out.println("[T1] Versuch " + versuch + " auf Session " + sid);
-                    if (versuch == 1) {
-                        sperreZeile(conn, ROW_A);
-                        System.out.println("[T1] ROW_A gesperrt, signalisiere T2");
-                        aGesperrt.countDown();
-                        boolean ok = bGesperrt.await(15, TimeUnit.SECONDS);
-                        System.out.println("[T1] bGesperrt empfangen (ok=" + ok + "), versuche ROW_B zu sperren...");
-                        sperreZeile(conn, ROW_B);
-                        System.out.println("[T1] ROW_B gesperrt!");
-                    } else {
-                        System.out.println("[T1] Wiederholversuch sperrt ROW_A und ROW_B");
-                        sperreZeile(conn, ROW_A);
-                        sperreZeile(conn, ROW_B);
-                    }
-                    aendereBudget(conn, ROW_A, "111.00");
-                    return null;
-                });
-                return true;
-            });
-
-            Future<Boolean> task2 = executor.submit(() -> {
-                txManager.execute(TxOptions.DEFAULT, ctx -> {
-                    int versuch = versuche2.incrementAndGet();
-                    Connection conn = ctx.connection();
-                    long sid = ermittleSid(conn);
-                    System.out.println("[T2] Versuch " + versuch + " auf Session " + sid);
-                    if (versuch == 1) {
-                        boolean ok = aGesperrt.await(15, TimeUnit.SECONDS);
-                        System.out.println("[T2] aGesperrt empfangen (ok=" + ok + "), sperre ROW_B...");
-                        sperreZeile(conn, ROW_B);
-                        System.out.println("[T2] ROW_B gesperrt, signalisiere T1");
-                        bGesperrt.countDown();
-                        System.out.println("[T2] versuche ROW_A zu sperren (Kreuzsperre!)...");
-                        sperreZeile(conn, ROW_A);
-                        System.out.println("[T2] ROW_A gesperrt!");
-                    } else {
-                        System.out.println("[T2] Wiederholversuch sperrt ROW_B und ROW_A");
-                        sperreZeile(conn, ROW_B);
-                        sperreZeile(conn, ROW_A);
-                    }
-                    aendereBudget(conn, ROW_B, "222.00");
-                    return null;
-                });
-                return true;
-            });
-
-            // Beide Tasks müssen dank automatischem Retry erfolgreich beenden
-            assertTrue(task1.get(60, TimeUnit.SECONDS), "Task 1 erfolgreich");
-            assertTrue(task2.get(60, TimeUnit.SECONDS), "Task 2 erfolgreich");
-
-            // Genau einer der beiden Threads wurde von Oracle als Deadlock-Opfer gewählt und
-            // hat 2 Versuche benötigt; der andere hat 1 Versuch benötigt. Gesamtversuche = 3.
-            assertEquals(3, versuche1.get() + versuche2.get(),
-                    "Ein Thread muss ORA-00060 erlitten haben und im 2. Versuch committet haben");
-
-        } finally {
-            executor.shutdownNow();
+    void zweiParalleleDeadlockFixturesBleibenAuchBeimAufraeumenGetrennt() throws Exception {
+        try(Fixture first=new Fixture();Fixture second=new Fixture()) {
+            assertEquals(4,Set.of(first.rowA,first.rowB,second.rowA,second.rowB).size());
+            var parallel=Executors.newFixedThreadPool(2);
+            try {
+                var a=parallel.submit(()->{runDeadlock(first);return null;});
+                var b=parallel.submit(()->{runDeadlock(second);return null;});
+                a.get(70,TimeUnit.SECONDS);b.get(70,TimeUnit.SECONDS);
+            } finally { stop(parallel); }
+            first.assertBudgets();second.assertBudgets();
+            first.close();
+            assertEquals(0,first.countOwnRows());
+            second.assertBudgets();
         }
     }
 
-    private static void sperreZeile(Connection conn, long id) throws Exception {
-        try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT ID, BUDGET_REST FROM BEDARFSGEMEINSCHAFT WHERE ID = ? FOR UPDATE")) {
-            ps.setLong(1, id);
-            try (var rs = ps.executeQuery()) {
-                assertTrue(rs.next(), "Zeile " + id + " muss existieren");
+    private static void runDeadlock(Fixture own) throws Exception {
+        CountDownLatch aLocked=new CountDownLatch(1),bLocked=new CountDownLatch(1);
+        AtomicInteger attemptsA=new AtomicInteger(),attemptsB=new AtomicInteger();
+        var workers=Executors.newFixedThreadPool(2);
+        try {
+            var a=workers.submit(()->own.tx.execute(TxOptions.DEFAULT,ctx->{
+                int attempt=attemptsA.incrementAndGet();
+                lock(ctx.connection(),own.rowA);
+                if(attempt==1) {
+                    aLocked.countDown();assertTrue(bLocked.await(15,TimeUnit.SECONDS),"zweite eigene Sperre fehlt");
+                }
+                lock(ctx.connection(),own.rowB);
+                updateBudget(ctx.connection(),own.rowA,"111.00");return null;
+            }));
+            var b=workers.submit(()->own.tx.execute(TxOptions.DEFAULT,ctx->{
+                int attempt=attemptsB.incrementAndGet();
+                if(attempt==1) assertTrue(aLocked.await(15,TimeUnit.SECONDS),"erste eigene Sperre fehlt");
+                lock(ctx.connection(),own.rowB);
+                if(attempt==1) bLocked.countDown();
+                lock(ctx.connection(),own.rowA);
+                updateBudget(ctx.connection(),own.rowB,"222.00");return null;
+            }));
+            a.get(60,TimeUnit.SECONDS);b.get(60,TimeUnit.SECONDS);
+            assertEquals(3,attemptsA.get()+attemptsB.get(),"genau ein Oracle-Deadlock und ein erfolgreicher Retry");
+        } finally { stop(workers); }
+    }
+
+    private static void stop(ExecutorService executor) throws InterruptedException {
+        executor.shutdownNow();
+        assertTrue(executor.awaitTermination(15,TimeUnit.SECONDS),"eigene Deadlock-Worker müssen vor Cleanup beendet sein");
+    }
+    private static void lock(Connection c,long id) throws SQLException {
+        try(var st=c.prepareStatement("SELECT ID FROM BEDARFSGEMEINSCHAFT WHERE ID = ? FOR UPDATE")) {
+            st.setLong(1,id);try(var rows=st.executeQuery()) {assertTrue(rows.next(),"eigene Zeile "+id+" fehlt");}
+        }
+    }
+    private static void updateBudget(Connection c,long id,String budget) throws SQLException {
+        try(var st=c.prepareStatement("UPDATE BEDARFSGEMEINSCHAFT SET BUDGET_REST = ? WHERE ID = ?")) {
+            st.setBigDecimal(1,new BigDecimal(budget));st.setLong(2,id);assertEquals(1,st.executeUpdate());
+        }
+    }
+    private static Connection connect() throws SQLException {
+        var properties=new Properties();
+        properties.setProperty("user",System.getenv("TX_USER"));properties.setProperty("password",System.getenv("TX_PASS"));
+        properties.setProperty("oracle.net.CONNECT_TIMEOUT","5000");properties.setProperty("oracle.jdbc.ReadTimeout","10000");
+        return DriverManager.getConnection(System.getenv("TX_URL"),properties);
+    }
+    private static final class Fixture implements AutoCloseable {
+        final String prefix="BG-DL-"+UUID.randomUUID();
+        final long rowA,rowB;
+        final SimpleConnectionPool pool;
+        final TxManager tx;
+        boolean closed;
+        Fixture() throws Exception {
+            Class.forName("oracle.jdbc.OracleDriver");
+            try(var c=connect()) {
+                c.setAutoCommit(false);
+                rowA=insert(c,prefix+"-A","100.00");rowB=insert(c,prefix+"-B","200.00");
+                c.commit();
+            }
+            pool=new SimpleConnectionPool(System.getenv("TX_URL"),System.getenv("TX_USER"),System.getenv("TX_PASS"),
+                    4,Duration.ofSeconds(5),5000,10000);
+            tx=new TxManager(pool);
+        }
+        private static long insert(Connection c,String az,String budget) throws SQLException {
+            long id;
+            try(var st=c.prepareStatement("SELECT SEQ_BG.NEXTVAL FROM DUAL");var rows=st.executeQuery()) {
+                assertTrue(rows.next());id=rows.getLong(1);
+            }
+            try(var st=c.prepareStatement("INSERT INTO BEDARFSGEMEINSCHAFT (ID,AKTENZEICHEN,HAUPTPERSON_NAME,STATUS_AKTIV,BUDGET_REST) VALUES (?,?,'Deadlock Test',1,?)")) {
+                st.setLong(1,id);st.setString(2,az);st.setBigDecimal(3,new BigDecimal(budget));assertEquals(1,st.executeUpdate());
+            }
+            return id;
+        }
+        void assertBudgets() throws SQLException {
+            for(var entry:Map.of(rowA,"111.00",rowB,"222.00").entrySet()) {
+                try(var c=connect();var st=c.prepareStatement("SELECT BUDGET_REST FROM BEDARFSGEMEINSCHAFT WHERE ID = ? AND AKTENZEICHEN = ?")) {
+                    st.setLong(1,entry.getKey());st.setString(2,prefix+(entry.getKey()==rowA?"-A":"-B"));
+                    try(var rows=st.executeQuery()) {assertTrue(rows.next());assertEquals(0,new BigDecimal(entry.getValue()).compareTo(rows.getBigDecimal(1)));}
+                }
             }
         }
-    }
-
-    private static void aendereBudget(Connection conn, long id, String neuerWert) throws Exception {
-        try (PreparedStatement ps = conn.prepareStatement(
-                "UPDATE BEDARFSGEMEINSCHAFT SET BUDGET_REST = ? WHERE ID = ?")) {
-            ps.setBigDecimal(1, new java.math.BigDecimal(neuerWert));
-            ps.setLong(2, id);
-            ps.executeUpdate();
+        int countOwnRows() throws SQLException {
+            try(var c=connect();var st=c.prepareStatement("SELECT COUNT(*) FROM BEDARFSGEMEINSCHAFT WHERE (ID = ? AND AKTENZEICHEN = ?) OR (ID = ? AND AKTENZEICHEN = ?)")) {
+                bind(st);try(var rows=st.executeQuery()) {assertTrue(rows.next());return rows.getInt(1);}
+            }
         }
-    }
-
-    private static long ermittleSid(Connection conn) throws Exception {
-        try (Statement st = conn.createStatement();
-             var rs = st.executeQuery("SELECT SYS_CONTEXT('USERENV', 'SID') FROM DUAL")) {
-            rs.next();
-            return rs.getLong(1);
+        private void bind(PreparedStatement st) throws SQLException {
+            st.setLong(1,rowA);st.setString(2,prefix+"-A");st.setLong(3,rowB);st.setString(4,prefix+"-B");
+        }
+        public void close() throws SQLException {
+            if(closed)return;
+            pool.close();
+            try(var c=connect();var st=c.prepareStatement("DELETE FROM BEDARFSGEMEINSCHAFT WHERE (ID = ? AND AKTENZEICHEN = ?) OR (ID = ? AND AKTENZEICHEN = ?)")) {
+                c.setAutoCommit(false);st.setQueryTimeout(10);bind(st);st.executeUpdate();c.commit();
+            }
+            closed=true;
         }
     }
 }

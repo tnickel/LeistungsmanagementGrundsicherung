@@ -46,6 +46,75 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SagaEngineTest {
 
     @Test
+    void recoveryVerwendetDenPersistiertenNamenNachEingefuegtemSchritt() {
+        FakeJournal journal = new FakeJournal();
+        journal.prefuelle("alt", "T", "{}", SagaState.RUNNING,
+                Map.of(0, UnfinishedSaga.STEP_DONE, 1, UnfinishedSaga.STEP_PENDING));
+        List<String> compensated = new ArrayList<>();
+        SagaDefinition changed = SagaDefinition.of("T")
+                .step("neu", (c,p,id) -> {}, (c,p,id) -> compensated.add("falsch-neu"))
+                .step("Schritt 1", (c,p,id) -> {}, (c,p,id) -> compensated.add("nicht-gelaufen"))
+                .step("Schritt 0", (c,p,id) -> {}, (c,p,id) -> compensated.add("richtig-alt"))
+                .build();
+        assertEquals(1, new SagaEngine(new TxManager(new FakePool()), journal)
+                .recoverWithReport(changed).compensated());
+        assertEquals(List.of("richtig-alt"), compensated);
+        assertEquals(UnfinishedSaga.STEP_COMPENSATED, journal.schrittZustaende("alt").get(0));
+    }
+
+    @Test
+    void unbekannterOderFehlenderNameWirdNieDurchDenAktuellenIndexErsetzt() {
+        for (String storedName : new String[]{null, "entfernter-schritt"}) {
+            FakeJournal journal = new FakeJournal();
+            journal.prefuelle("alt", "T", "{}", SagaState.FAILED,
+                    Map.of(0, UnfinishedSaga.STEP_IN_FLIGHT));
+            journal.namen.get("alt").put(0, storedName);
+            AtomicInteger compensated = new AtomicInteger();
+            SagaDefinition definition = SagaDefinition.of("T")
+                    .step("Schritt 0", (c,p,id) -> {}, (c,p,id) -> compensated.incrementAndGet()).build();
+            assertEquals(1, new SagaEngine(new TxManager(new FakePool()), journal)
+                    .recoverWithReport(definition).failed());
+            assertEquals(0, compensated.get());
+            assertEquals(UnfinishedSaga.STEP_IN_FLIGHT, journal.schrittZustaende("alt").get(0));
+        }
+    }
+
+    @Test
+    void vollstaendigCommitteteAlteDefinitionWirdTrotzNeuemSchrittNurAbgeschlossen() {
+        FakeJournal journal = new FakeJournal();
+        journal.prefuelle("alt", "T", "{}", SagaState.RUNNING, Map.of(0, UnfinishedSaga.STEP_DONE));
+        SchrittVerhalten behavior = new SchrittVerhalten(2);
+        assertEquals(1, new SagaEngine(new TxManager(new FakePool()), journal)
+                .recoverWithReport(definition("T", behavior)).completed());
+        assertTrue(behavior.verlauf.isEmpty());
+    }
+
+    @Test
+    void verloreneWriteAheadQuittungBleibtMitPayloadFuerRecoveryOffen() {
+        FakeJournal journal = new FakeJournal();
+        journal.inFlightWirftNachCommitBei = 1;
+        SchrittVerhalten behavior = new SchrittVerhalten(2);
+        SagaEngine engine = new SagaEngine(new TxManager(new FakePool()), journal);
+        var definition = definition("T", behavior);
+        assertThrows(TxException.class, () -> engine.run(definition, "synthetischer-payload"));
+        String id = journal.einzigeSagaId();
+        assertEquals(SagaState.FAILED.name(), journal.zustand(id));
+        assertEquals("synthetischer-payload", journal.payloads.get(id));
+        assertEquals(UnfinishedSaga.STEP_IN_FLIGHT, journal.schrittZustaende(id).get(1));
+        assertEquals(List.of("action:0"), behavior.verlauf, "zweite Fachaktion hat nicht begonnen");
+        assertEquals(1, engine.recoverWithReport(definition).compensated());
+        assertEquals(List.of("action:0", "comp:1", "comp:0"), behavior.verlauf);
+    }
+
+    @Test
+    void doppelteOderLeereSchrittnamenWerdenVorDemJournalVerworfen() {
+        assertThrows(IllegalArgumentException.class, () -> SagaDefinition.of("T")
+                .step("gleich", (c,p,id) -> {}, (c,p,id) -> {})
+                .step("gleich", (c,p,id) -> {}, (c,p,id) -> {}));
+        assertThrows(IllegalArgumentException.class, () -> new SagaStep(" ", (c,p,id) -> {}, (c,p,id) -> {}));
+    }
+
+    @Test
     void interruptImRetryBackoffVerhindertDieKompensationNichtUndBleibtErhalten() {
         FakeJournal journal = new FakeJournal();
         var pool = new de.allgemein.tx.FakePool(3);
@@ -361,6 +430,45 @@ class SagaEngineTest {
     }
 
     @Test
+    void namenlosePendingListeBleibtAuchBeiGleicherSchrittzahlZurManuellenPruefungFailed() {
+        SchrittVerhalten behavior=new SchrittVerhalten(2);
+        FakeJournal journal=new FakeJournal();
+        journal.prefuelle("historisch","T","potenziell committete Wirkung",SagaState.FAILED,
+                Map.of(0,UnfinishedSaga.STEP_PENDING,1,UnfinishedSaga.STEP_PENDING));
+        journal.namen.get("historisch").clear();
+        var report=new SagaEngine(new TxManager(new FakePool()),journal).recoverWithReport(definition("T",behavior));
+        assertEquals(1,report.failed());assertEquals(0,report.compensated());assertTrue(behavior.verlauf.isEmpty());
+        assertEquals("potenziell committete Wirkung",journal.payloads.get("historisch"));
+        assertEquals(SagaState.FAILED.name(),journal.zustand("historisch"));
+    }
+
+    @Test
+    void namenlosesPendingNebenDoneOderCompensatedStopptJedeAutomatischeKompensation() {
+        for (String predecessor : List.of(UnfinishedSaga.STEP_DONE, UnfinishedSaga.STEP_COMPENSATED)) {
+            for (String missingName : java.util.Arrays.asList(null, "  ")) {
+                for (SagaState initial : List.of(SagaState.RUNNING, SagaState.FAILED)) {
+                    SchrittVerhalten behavior = new SchrittVerhalten(2);
+                    FakeJournal journal = new FakeJournal();
+                    journal.prefuelle("historisch", "T", "zweite Wirkung bereits committet", initial,
+                            Map.of(0, predecessor, 1, UnfinishedSaga.STEP_PENDING));
+                    if (missingName == null) journal.namen.get("historisch").remove(1);
+                    else journal.namen.get("historisch").put(1, missingName);
+                    var report = new SagaEngine(new TxManager(new FakePool()), journal)
+                            .recoverWithReport(definition("T", behavior));
+                    assertEquals(1, report.failed());
+                    assertEquals(0, report.compensated());
+                    assertEquals(0, report.completed());
+                    assertTrue(behavior.verlauf.isEmpty(), "vor der Wirkungsprüfung keine Teilkompensation");
+                    assertEquals("zweite Wirkung bereits committet", journal.payloads.get("historisch"));
+                    assertEquals(predecessor, journal.schrittZustaende("historisch").get(0));
+                    assertEquals(UnfinishedSaga.STEP_PENDING, journal.schrittZustaende("historisch").get(1));
+                    assertEquals(SagaState.FAILED.name(), journal.zustand("historisch"));
+                }
+            }
+        }
+    }
+
+    @Test
     void wiederanlaufGibtBeschaedigtePendingListenNichtFrei() {
         for (Map<Integer, String> states : List.of(Map.<Integer, String>of(),
                 Map.of(0, UnfinishedSaga.STEP_PENDING),
@@ -396,6 +504,7 @@ class SagaEngineTest {
         // saga-b: nach Absturz RUNNING, nur 1 Schritt DONE — Kompensation gelingt
         Map<Integer, String> b = new LinkedHashMap<>();
         b.put(0, UnfinishedSaga.STEP_DONE);
+        b.put(1, UnfinishedSaga.STEP_PENDING);
         journal.prefuelle("saga-b", "T", "{}", SagaState.RUNNING, b);
         SagaEngine engine = new SagaEngine(new TxManager(new FakePool()), journal);
 
@@ -452,6 +561,7 @@ class SagaEngineTest {
         final Map<String, String> typen = new HashMap<>();
         final Map<String, String> payloads = new HashMap<>();
         final Map<String, Map<Integer, String>> schritte = new LinkedHashMap<>();
+        final Map<String, Map<Integer, String>> namen = new LinkedHashMap<>();
         final List<String> protokoll = new ArrayList<>();
         final Set<String> beansprucht = new HashSet<>();
         boolean completedMarkierungWirft;
@@ -460,6 +570,7 @@ class SagaEngineTest {
         boolean isStepCompensatedWirft;
         /** Simuliert einen mehrdeutigen Commit: Schritt gilt als DONE, der Aufrufer sieht aber einen Fehler. */
         int stepDoneWirftNachCommitBei = -1;
+        int inFlightWirftNachCommitBei = -1;
 
         String zustand(String sagaId) {
             return koepfe.get(sagaId);
@@ -481,6 +592,17 @@ class SagaEngineTest {
             typen.put(sagaId, typ);
             payloads.put(sagaId, payload);
             schritte.put(sagaId, new LinkedHashMap<>(zustaende));
+            Map<Integer, String> names = new LinkedHashMap<>();
+            zustaende.keySet().forEach(i -> names.put(i, "Schritt " + i));
+            namen.put(sagaId, names);
+        }
+
+        @Override
+        public void start(String sagaId, String type, String payload, List<String> stepNames) throws SQLException {
+            start(sagaId, type, payload, stepNames.size());
+            Map<Integer, String> names = new LinkedHashMap<>();
+            for (int i = 0; i < stepNames.size(); i++) names.put(i, stepNames.get(i));
+            namen.put(sagaId, names);
         }
 
         @Override
@@ -504,6 +626,7 @@ class SagaEngineTest {
             }
             map.put(index, UnfinishedSaga.STEP_IN_FLIGHT);
             protokoll.add("inflight:" + index);
+            if (index == inFlightWirftNachCommitBei) throw new SQLException("Commit-Quittung verloren");
         }
 
         @Override
@@ -584,6 +707,7 @@ class SagaEngineTest {
                     UnfinishedSaga saga = new UnfinishedSaga(
                             kopf.getKey(), typen.get(kopf.getKey()), payloads.get(kopf.getKey()), state);
                     schritte.get(kopf.getKey()).forEach(saga::putStepState);
+                    if (namen.containsKey(kopf.getKey())) namen.get(kopf.getKey()).forEach(saga::putStepName);
                     ergebnis.add(saga);
                 }
             }
@@ -609,6 +733,7 @@ class SagaEngineTest {
             beansprucht.add(sagaId);
             UnfinishedSaga saga = new UnfinishedSaga(sagaId, type, payloads.get(sagaId), state);
             schritte.get(sagaId).forEach(saga::putStepState);
+            if (namen.containsKey(sagaId)) namen.get(sagaId).forEach(saga::putStepName);
             return new SagaClaim() {
                 private boolean ended;
                 @Override

@@ -45,7 +45,7 @@ public final class TaskHandle<T> {
     }
 
     /**
-     * Bricht den Task ab; die unterbrochene Transaktion rollt die Datenbank zurück.
+     * Fordert den Abbruch per Interrupt an; bestätigt keinen Rollback des Workers.
      * Lief der Task noch nicht (Warteschlange), läuft sein Aufräum-Code nie — deshalb
      * wird hier zusätzlich {@code onAbandoned} ausgeführt, damit die Steuerung den
      * Task trotzdem aus ihrer Statistik und running-Map nimmt.
@@ -64,14 +64,17 @@ public final class TaskHandle<T> {
             return future.get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw TxException.nonRetryable("Warten auf Task '" + name + "' unterbrochen", e);
+            throw unknownOutcome(e);
         } catch (CancellationException e) {
             // Abbruch durch Wachhund (Timeout) oder cancel(): als klar benannte,
             // nicht wiederholbare Ausnahme melden statt roher CancellationException
             // (deren Message ist null und würde beim Aufrufer als „Technischer
             // Fehler: null“ durchschlagen).
-            throw TxException.nonRetryable("Task abgebrochen (Timeout oder Abbruch): " + name, e);
+            throw unknownOutcome(e);
         } catch (ExecutionException e) {
+            if (e.getCause() instanceof TxTimeoutException || e.getCause() instanceof TxCommitOutcomeUnknownException
+                    || e.getCause() instanceof TxCommitOutcomeUnknownError)
+                throw unknownOutcome(e.getCause());
             if (e.getCause() instanceof RuntimeException laufzeitfehler) {
                 throw laufzeitfehler;
             }
@@ -85,17 +88,28 @@ public final class TaskHandle<T> {
             return future.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw TxException.nonRetryable("Warten auf Task '" + name + "' unterbrochen", e);
+            throw unknownOutcome(e);
         } catch (CancellationException e) {
-            throw TxException.nonRetryable("Task abgebrochen (Timeout oder Abbruch): " + name, e);
+            throw unknownOutcome(e);
         } catch (ExecutionException e) {
+            if (e.getCause() instanceof TxTimeoutException || e.getCause() instanceof TxCommitOutcomeUnknownException
+                    || e.getCause() instanceof TxCommitOutcomeUnknownError)
+                throw unknownOutcome(e.getCause());
             if (e.getCause() instanceof RuntimeException laufzeitfehler) {
                 throw laufzeitfehler;
             }
             throw TxException.nonRetryable("Task '" + name + "' fehlgeschlagen: " + e.getMessage(), e);
         } catch (TimeoutException e) {
             cancel();
-            throw TxException.nonRetryable("Task '" + name + "' zu langsam, wurde abgebrochen: " + e.getMessage(), e);
+            throw unknownOutcome(e);
         }
+    }
+
+    private TaskOutcomeUnknownException unknownOutcome(Throwable cause) {
+        String reason = cause instanceof TxCommitOutcomeUnknownException || cause instanceof TxCommitOutcomeUnknownError
+                ? "Commitbestätigung für Task '" + name + "' fehlt"
+                : "Warten auf Task '" + name + "' abgebrochen";
+        return new TaskOutcomeUnknownException(reason
+                + "; Ausgang unbekannt; Verarbeitungsstatus prüfen, nicht erneut anordnen", cause);
     }
 }

@@ -111,6 +111,15 @@ public final class BescheidDao {
         }
     }
 
+    /** Unter BG-Sperre: ein Änderungsbescheid ersetzt genau einen bestehenden Verwaltungsakt. */
+    public boolean hebeAuf(TxContext ctx, long bescheidId) throws SQLException {
+        try (PreparedStatement statement = ctx.connection().prepareStatement(
+                "UPDATE BESCHEID SET STATUS='AUFGEHOBEN' WHERE ID=? AND STATUS='ERTEILT'")) {
+            statement.setLong(1, bescheidId);
+            return statement.executeUpdate() == 1;
+        }
+    }
+
     /** Deckt ein erteilter (nicht aufgehobener) Bescheid den Zahlungsmonat (YYYY-MM) ab? */
     public boolean existiertErteiltFuerMonat(TxContext ctx, long bgId, String monat) throws SQLException {
         try (PreparedStatement stmt = ctx.connection().prepareStatement(

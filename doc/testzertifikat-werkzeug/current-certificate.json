@@ -1,31 +1,31 @@
 {
   "schemaVersion": 2,
   "state": "READY",
-  "certificateId": "7ef42a76-49a2-40cb-a93d-41dd2292d6ff",
+  "certificateId": "b805c5b6-20b0-4215-83a5-26900a2f31e4",
   "verdict": "BESTANDEN",
-  "evidenceFingerprint": "a4da38c36f9571ac56e229a014ca44b3faccc9dd0b7f1b97f3218021febb260a",
-  "publishedAt": "2026-10-13T23:57:59.283Z",
-  "staging": "testsweet/logs/certificate-5095f671-c271-42bc-a4e4-949d6065ceff",
+  "evidenceFingerprint": "5ee667ff6075790fd1b2b99f3db332207393b53524760181e42fd7325dae57ca",
+  "publishedAt": "2026-10-15T20:40:32.016Z",
+  "staging": "testsweet/logs/certificate-369b2271-f7e1-4d9f-92b2-0a3c59433b70",
   "files": [
     {
       "path": "doc/testzertifikat-werkzeug/testzertifikat.docx",
-      "sha256": "9e34e7da8131208ef55d89eb670cb84d8f97a1e44e5d872734f7d18c9b822b2f"
+      "sha256": "9641f0901318fcf46328487a5c760500f8c460cfaf377808d6062f9c0e35d859"
     },
     {
       "path": "doc/testzertifikat-werkzeug/testzertifikat.pdf",
-      "sha256": "364f621d1559de3982ccfc0adff59b1f4d1a40a29f649ea324bfa200f2e2897a"
+      "sha256": "020ccd8887c0edadb376f53037650a43813fb95726c374858a46a62c9c2c083d"
     },
     {
       "path": "doc/SDN-Leistung-LMG-Testzertifikat.docx",
-      "sha256": "9e34e7da8131208ef55d89eb670cb84d8f97a1e44e5d872734f7d18c9b822b2f"
+      "sha256": "9641f0901318fcf46328487a5c760500f8c460cfaf377808d6062f9c0e35d859"
     },
     {
       "path": "doc/SDN-Leistung-LMG-Testzertifikat.pdf",
-      "sha256": "364f621d1559de3982ccfc0adff59b1f4d1a40a29f649ea324bfa200f2e2897a"
+      "sha256": "020ccd8887c0edadb376f53037650a43813fb95726c374858a46a62c9c2c083d"
     },
     {
       "path": "doc/testzertifikat-werkzeug/stand.json",
-      "sha256": "6f8cf6b16adbb4c9db864c81ef6732f72d3b8f31d6f4188edfdbd65065c94c99"
+      "sha256": "dda922b50b69d0d6ac670ca4751b591dcc0c352299b84340975eca74fefde32b"
     }
   ]
 }

@@ -151,6 +151,12 @@ public final class TxAuditLog {
                 "TX", "ROLLBACK", txId, attempt, durationMillis, null, error));
     }
 
+    /** Fehlende Commit-Quittung ist weder ein bestätigter Commit noch ein Rollbackbeleg. */
+    public static void recordTxOutcomeUnknown(String txId, int attempt, long durationMillis, String error) {
+        record(new TxAuditEvent(ID_GENERATOR.getAndIncrement(), Instant.now(), Thread.currentThread().getName(),
+                "TX", "OUTCOME_UNKNOWN", txId, attempt, durationMillis, null, error));
+    }
+
     public static void recordTxRetry(String txId, int attempt, String reason) {
         record(new TxAuditEvent(ID_GENERATOR.getAndIncrement(), Instant.now(), Thread.currentThread().getName(),
                 "TX", "RETRY", txId, attempt, -1, reason, null));

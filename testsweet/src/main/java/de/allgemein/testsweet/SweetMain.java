@@ -20,10 +20,24 @@ public final class SweetMain {
 
     public static void main(String[] args) throws Exception {
         BuildEvidence.initialize();
+        registriereShutdownHook();
         try { run(args); }
         catch (IllegalArgumentException error) {
             System.err.println("Ungültige Konfiguration: " + error.getMessage());
             System.exit(2);
+        }
+    }
+
+    private static void registriereShutdownHook() {
+        try {
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                try {
+                    BrowserProzesse.raeumeVerwaisteFensterAuf();
+                } catch (Throwable ignored) {
+                }
+            }, "testsweet-browser-cleanup-hook"));
+        } catch (IllegalStateException ignored) {
+            // JVM fährt bereits herunter
         }
     }
 
@@ -33,11 +47,10 @@ public final class SweetMain {
             CertificateSuiteWorker.run(java.nio.file.Path.of(args[1]));return;
         }
         if (args.length > 0 && "run".equalsIgnoreCase(args[0])) {
-            int ma = args.length > 1 ? Integer.parseInt(args[1]) : 10;
-            int auf = args.length > 2 ? Integer.parseInt(args[2]) : 60;
-            int seed = args.length > 3 ? Integer.parseInt(args[3]) : 42;
-            int denkzeit = args.length > 4 ? Integer.parseInt(args[4]) : 20;
-            Simulator.Kategorie kategorie = liesKategorie(args);
+            Simulator.LaufKonfiguration config = laufKonfiguration(args, false);
+            int ma = config.mitarbeiter(), auf = config.auftraege();
+            long seed = config.seed();
+            Simulator.Kategorie kategorie = config.kategorie();
             try {
                 Simulator.pruefeKonfiguration(kategorie, ma, auf);
             } catch (IllegalStateException e) {
@@ -47,18 +60,17 @@ public final class SweetMain {
             Simulator simulator = new Simulator();
             System.out.println("testsweet — Starte Batch-Lauf (" + ma + " Mitarbeiter, " + auf
                     + " Aufträge, Seed " + seed + ", Kategorie " + kategorie + ") auf " + simulator.dbUrl);
-            simulator.laufSynchron(new Simulator.LaufKonfiguration(ma, auf, seed, denkzeit, true, kategorie));
+            simulator.laufSynchron(config);
             System.out.println("Lauf beendet. PDF: " + simulator.letztesPdf());
             System.out.println("Markdown: " + simulator.letztesMd());
             if (!simulator.laufErfolgreich()) System.exit(1);
             return;
         }
         if (args.length > 0 && ("web".equalsIgnoreCase(args[0]) || "run-web".equalsIgnoreCase(args[0]))) {
-            int ma = args.length > 1 ? Integer.parseInt(args[1]) : 2;
-            int auf = args.length > 2 ? Integer.parseInt(args[2]) : 4;
-            int seed = args.length > 3 ? Integer.parseInt(args[3]) : 42;
-            int denkzeit = args.length > 4 ? Integer.parseInt(args[4]) : 200;
-            Simulator.Kategorie kategorie = liesKategorie(args);
+            Simulator.LaufKonfiguration config = laufKonfiguration(args, true);
+            int ma = config.mitarbeiter(), auf = config.auftraege();
+            long seed = config.seed();
+            Simulator.Kategorie kategorie = config.kategorie();
             if (kategorie == Simulator.Kategorie.STRESS) {
                 System.err.println("Der Stresstest (User anlegen + nachbearbeiten) ist nur im "
                         + "Fachschicht-Modus möglich — bitte Kommando 'run' verwenden");
@@ -74,7 +86,7 @@ public final class SweetMain {
             System.out.println("testsweet — Starte Weboberflächen-Lauf (Selenium) mit " + ma
                     + " Browserfenstern, " + auf + " Aufträgen (Seed " + seed + ", Kategorie "
                     + kategorie + ") auf " + simulator.dbUrl);
-            simulator.laufWebSynchron(new Simulator.LaufKonfiguration(ma, auf, seed, denkzeit, true, kategorie));
+            simulator.laufWebSynchron(config);
             System.out.println("Web-Lauf beendet. PDF: " + simulator.letztesPdf());
             System.out.println("Markdown: " + simulator.letztesMd());
             if (!simulator.laufErfolgreich()) System.exit(1);
@@ -107,6 +119,16 @@ public final class SweetMain {
         // Hauptschlange halten; Server-Threads sind Daemon-los, aber der
         // Executor hält die JVM ohnehin am Leben.
         Thread.currentThread().join();
+    }
+
+    /** Parser des tatsächlichen CLI-Pfads; reine Konfiguration ohne Start eines Laufs. */
+    static Simulator.LaufKonfiguration laufKonfiguration(String[] args, boolean web) {
+        return new Simulator.LaufKonfiguration(
+                args.length > 1 ? Integer.parseInt(args[1]) : web ? 2 : 10,
+                args.length > 2 ? Integer.parseInt(args[2]) : SimulatorDefaults.ORDERS_PER_CATEGORY,
+                args.length > 3 ? Long.parseLong(args[3]) : 42,
+                args.length > 4 ? Long.parseLong(args[4]) : web ? 200 : 20,
+                true, liesKategorie(args));
     }
 
     /** Optionaler 6. CLI-Parameter: Testfallkategorie (POSITIV/NEGATIV/LAST/STRESS;

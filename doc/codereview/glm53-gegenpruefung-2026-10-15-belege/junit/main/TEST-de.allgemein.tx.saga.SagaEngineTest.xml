@@ -1,0 +1,372 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="de.allgemein.tx.saga.SagaEngineTest" time="0.22" tests="23" errors="0" skipped="0" failures="0">
+  <properties>
+    <property name="java.specification.version" value="25"/>
+    <property name="sun.cpu.isalist" value="amd64"/>
+    <property name="sun.jnu.encoding" value="Cp1252"/>
+    <property name="java.class.path" value="D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\target\test-classes;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\target\classes;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\oracle\database\jdbc\ojdbc11\23.5.0.24.07\ojdbc11-23.5.0.24.07.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\oracle\database\jdbc\ucp\23.5.0.24.07\ucp-23.5.0.24.07.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\jupiter\junit-jupiter\5.10.2\junit-jupiter-5.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\jupiter\junit-jupiter-api\5.10.2\junit-jupiter-api-5.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\opentest4j\opentest4j\1.3.0\opentest4j-1.3.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\platform\junit-platform-commons\1.10.2\junit-platform-commons-1.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\apiguardian\apiguardian-api\1.1.2\apiguardian-api-1.1.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\jupiter\junit-jupiter-params\5.10.2\junit-jupiter-params-5.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\jupiter\junit-jupiter-engine\5.10.2\junit-jupiter-engine-5.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\platform\junit-platform-engine\1.10.2\junit-platform-engine-1.10.2.jar;"/>
+    <property name="jdk.httpserver.maxConnections" value="256"/>
+    <property name="java.vm.vendor" value="Eclipse Adoptium"/>
+    <property name="sun.arch.data.model" value="64"/>
+    <property name="user.variant" value=""/>
+    <property name="java.vendor.url" value="https://adoptium.net/"/>
+    <property name="user.timezone" value="Europe/Berlin"/>
+    <property name="os.name" value="Windows 11"/>
+    <property name="java.vm.specification.version" value="25"/>
+    <property name="sun.java.launcher" value="SUN_STANDARD"/>
+    <property name="user.country" value="DE"/>
+    <property name="sun.boot.library.path" value="C:\Program Files\Eclipse Adoptium\jdk-25.0.4.101-hotspot\bin"/>
+    <property name="sun.java.command" value="C:\Users\tnickel\AppData\Local\Temp\surefire17327709950944008566\surefirebooter-20261015180937612_3.jar C:\Users\tnickel\AppData\Local\Temp\surefire17327709950944008566 2026-10-15T18-09-37_541-jvmRun1 surefire-20261015180937612_1tmp surefire_0-20261015180937612_2tmp"/>
+    <property name="jdk.debug" value="release"/>
+    <property name="surefire.test.class.path" value="D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\target\test-classes;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\target\classes;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\oracle\database\jdbc\ojdbc11\23.5.0.24.07\ojdbc11-23.5.0.24.07.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\com\oracle\database\jdbc\ucp\23.5.0.24.07\ucp-23.5.0.24.07.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\jupiter\junit-jupiter\5.10.2\junit-jupiter-5.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\jupiter\junit-jupiter-api\5.10.2\junit-jupiter-api-5.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\opentest4j\opentest4j\1.3.0\opentest4j-1.3.0.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\platform\junit-platform-commons\1.10.2\junit-platform-commons-1.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\apiguardian\apiguardian-api\1.1.2\apiguardian-api-1.1.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\jupiter\junit-jupiter-params\5.10.2\junit-jupiter-params-5.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\jupiter\junit-jupiter-engine\5.10.2\junit-jupiter-engine-5.10.2.jar;D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository\org\junit\platform\junit-platform-engine\1.10.2\junit-platform-engine-1.10.2.jar;"/>
+    <property name="sun.cpu.endian" value="little"/>
+    <property name="user.home" value="C:\Users\tnickel"/>
+    <property name="user.language" value="de"/>
+    <property name="java.specification.vendor" value="Oracle Corporation"/>
+    <property name="java.version.date" value="2026-08-18"/>
+    <property name="java.home" value="C:\Program Files\Eclipse Adoptium\jdk-25.0.4.101-hotspot"/>
+    <property name="file.separator" value="\"/>
+    <property name="basedir" value="D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung"/>
+    <property name="style.color" value="never"/>
+    <property name="java.vm.compressedOopsMode" value="Zero based"/>
+    <property name="line.separator" value="&#10;"/>
+    <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
+    <property name="java.specification.name" value="Java Platform API Specification"/>
+    <property name="surefire.real.class.path" value="C:\Users\tnickel\AppData\Local\Temp\surefire17327709950944008566\surefirebooter-20261015180937612_3.jar"/>
+    <property name="sun.net.httpserver.maxReqTime" value="30"/>
+    <property name="user.script" value=""/>
+    <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
+    <property name="java.runtime.version" value="25.0.4.1+1-LTS"/>
+    <property name="user.name" value="tnickel"/>
+    <property name="stdout.encoding" value="Cp1252"/>
+    <property name="path.separator" value=";"/>
+    <property name="os.version" value="10.0"/>
+    <property name="java.runtime.name" value="OpenJDK Runtime Environment"/>
+    <property name="sun.net.httpserver.idleInterval" value="30"/>
+    <property name="file.encoding" value="UTF-8"/>
+    <property name="java.vm.name" value="OpenJDK 64-Bit Server VM"/>
+    <property name="java.vendor.version" value="Temurin-25.0.4.1+1"/>
+    <property name="localRepository" value="D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository"/>
+    <property name="java.vendor.url.bug" value="https://github.com/adoptium/adoptium-support/issues"/>
+    <property name="java.io.tmpdir" value="C:\Users\tnickel\AppData\Local\Temp\"/>
+    <property name="java.version" value="25.0.4.1"/>
+    <property name="sun.net.httpserver.maxRspTime" value="120"/>
+    <property name="user.dir" value="D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung"/>
+    <property name="os.arch" value="amd64"/>
+    <property name="java.vm.specification.name" value="Java Virtual Machine Specification"/>
+    <property name="sun.os.patch.level" value=""/>
+    <property name="native.encoding" value="Cp1252"/>
+    <property name="java.library.path" value="C:\Program Files\Eclipse Adoptium\jdk-25.0.4.101-hotspot\bin;C:\WINDOWS\Sun\Java\bin;C:\WINDOWS\system32;C:\WINDOWS;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\powershell;C:\Users\tnickel\.codex\tmp\arg0\codex-arg0dKbKqz;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\libheif\libheif\bin;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\jxrlib\jxrlib\bin;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\poppler\Library\bin;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\bin\override;C:\Program Files\Eclipse Adoptium\jdk-25.0.4.101-hotspot\bin;C:\Program Files\Common Files\Oracle\Java\javapath;C:\Program Files (x86)\Razer Chroma SDK\bin;C:\Program Files\Razer Chroma SDK\bin;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\;C:\Program Files\Git\cmd;C:\Program Files\nodejs\;C:\Program Files\NVIDIA Corporation\NVIDIA App\NvDLISR;C:\Program Files (x86)\NVIDIA Corporation\PhysX\Common;C:\Program Files\IDM Computer Solutions\UltraEdit;C:\Program Files\dotnet\;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\powershell;C:\WINDOWS\system32\config\systemprofile\AppData\Local\Microsoft\WindowsApps;C:\Program Files (x86)\Razer\ChromaBroadcast\bin;C:\Program Files\Razer\ChromaBroadcast\bin;C:\Users\tnickel\AppData\Local\Programs\Python\Launcher\;C:\Users\tnickel\AppData\Local\Microsoft\WindowsApps;C:\Users\tnickel\AppData\Roaming\npm;C:\Users\tnickel\AppData\Local\Programs\Ollama;C:\Program Files\Pandoc\;C:\Program Files\GitHub CLI\;D:\VSCode\bin;D:\whitehacktools\Metasploit\metasploit-framework\bin\;C:\Program Files\Docker\Docker\resources\bin;C:\Program Files (x86)\Plantronics\Spokes3G\;C:\Users\tnickel\AppData\Local\Programs\GnuCOBOL 3.2\bin;C:\Users\tnickel\AppData\Local\Programs\GnuCOBOL 3.2\mingw64\bin;C:\Users\tnickel\AppData\Local\Programs\MiKTeX\miktex\bin\x64\;C:\Users\tnickel\AppData\Local\Programs\MiKTeX2\miktex\bin\x64\;C:\Users\tnickel\.cache\lm-studio\bin;C:\Program Files (x86)\WiX Toolset v3.14\bin;D:\DevelopmentTools\apache-maven-3.9.6\bin;C:\Users\tnickel\AppData\Local\Google\Cloud SDK\google-cloud-sdk\bin;C:\Users\tnickel\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1-full_build\bin;C:\Users\tnickel\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0\LocalCache\local-packages\Python312\Scripts;C:\Users\tnickel\.grok\bin;C:\Users\tnickel\AppData\Local\Programs\Antigravity IDE\bin;D:\DevelopmentTools\winlibs\mingw64\bin;D:\DevelopmentTools\Godot;C:\Users\tnickel\.bun\bin;D:\cursor\resources\app\bin;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\bin\fallback;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin;C:\Users\tnickel\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\git\cmd;C:\Users\tnickel\AppData\Local\OpenAI\Codex\bin\77fbd4d52e601e0a;C:\Users\tnickel\AppData\Local\OpenAI\Codex\bin\9614f1d9b40d9c4f;."/>
+    <property name="java.vm.info" value="mixed mode, sharing"/>
+    <property name="stderr.encoding" value="Cp1252"/>
+    <property name="java.vendor" value="Eclipse Adoptium"/>
+    <property name="java.vm.version" value="25.0.4.1+1-LTS"/>
+    <property name="stdin.encoding" value="Cp1252"/>
+    <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
+    <property name="maven.repo.local" value="D:\AntiGravitySoftware\GitWorkspace\LeistungsmanagementGrundsicherung\tmp\review-glm53-fixes-20261015\maven-repository"/>
+    <property name="java.class.version" value="69.0"/>
+  </properties>
+  <testcase name="completedMarkierungsfehlerLoestKeineFehlKompensationAus" classname="de.allgemein.tx.saga.SagaEngineTest" time="0.003">
+    <system-err><![CDATA[Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.215897700Z [main] SAGA.START id=67c9cb17-004a-4f35-a7a9-44801a605cdb details="type=T payloadLaenge=2"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.216897800Z [main] TX.COMMIT id=452faea8-1bc4-4fbe-8596-6e444aa2d412 attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.216897800Z [main] SAGA.STEP_DONE id=67c9cb17-004a-4f35-a7a9-44801a605cdb details="step=Schritt 0"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.216897800Z [main] TX.COMMIT id=eb4a6063-c61c-416b-b467-e4b2163146c5 attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.216897800Z [main] SAGA.STEP_DONE id=67c9cb17-004a-4f35-a7a9-44801a605cdb attempt=1 details="step=Schritt 1"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.216897800Z [main] TX.COMMIT id=6dad490b-4de1-4adc-8ccf-dbe8ef82b582 attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.216897800Z [main] SAGA.STEP_DONE id=67c9cb17-004a-4f35-a7a9-44801a605cdb attempt=2 details="step=Schritt 2"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.saga.SagaEngine runClaimed
+SCHWERWIEGEND: Saga 67c9cb17-004a-4f35-a7a9-44801a605cdb fachlich abgeschlossen, aber die COMPLETED-Markierung schlug fehl: SQLException ORA-00000 — der Wiederanlauf klärt den Abschluss.
+]]></system-err>
+  </testcase>
+  <testcase name="wiederanlaufKompensiertInFlightKonservativUndIstIdempotent" classname="de.allgemein.tx.saga.SagaEngineTest" time="0.002">
+    <system-err><![CDATA[Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.217898Z [main] TX.COMMIT id=ce68a4b3-77b5-4122-acba-558651445443 attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.217898Z [main] TX.COMMIT id=e7a7b483-689f-464d-9373-5250998d12b7 attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.217898Z [main] TX.COMMIT id=df954dec-966e-4251-8e26-a51c218e5d54 attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.217898Z [main] TX.COMMIT id=6dde3437-cba3-4ae0-9d7d-fa961f9153e1 attempt=1 duration=0ms
+]]></system-err>
+  </testcase>
+  <testcase name="wiederanlaufGibtBeschaedigtePendingListenNichtFrei" classname="de.allgemein.tx.saga.SagaEngineTest" time="0.0"/>
+  <testcase name="unbekannterOderFehlenderNameWirdNieDurchDenAktuellenIndexErsetzt" classname="de.allgemein.tx.saga.SagaEngineTest" time="0.0">
+    <system-err><![CDATA[Okt. 15, 2026 6:10:24 PM de.allgemein.tx.saga.SagaEngine wiederanlauf
+SCHWERWIEGEND: Saga alt: stabiler Schrittname für Index 0 fehlt oder ist unbekannt; keine Kompensation über aktuellen Index
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.saga.SagaEngine wiederanlauf
+SCHWERWIEGEND: Saga alt: stabiler Schrittname für Index 0 fehlt oder ist unbekannt; keine Kompensation über aktuellen Index
+]]></system-err>
+  </testcase>
+  <testcase name="fehlgeschlageneFailedMarkierungVerhindertKompensationMitNeuemClaimNicht" classname="de.allgemein.tx.saga.SagaEngineTest" time="0.0">
+    <system-err><![CDATA[Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.219897700Z [main] SAGA.START id=62f80396-cb4f-43c1-b3db-f6752ffa4a1e details="type=T payloadLaenge=2"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.219897700Z [main] TX.COMMIT id=64a8789c-7777-4548-92ec-ec5c66d9832c attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.219897700Z [main] SAGA.STEP_DONE id=62f80396-cb4f-43c1-b3db-f6752ffa4a1e details="step=Schritt 0"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.219897700Z [main] TX.ROLLBACK id=1177b4fd-d2a6-473e-92f4-c6814f2cec61 attempt=1 duration=0ms error="IllegalStateException"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.saga.SagaEngine runClaimed
+SCHWERWIEGEND: FAILED-Markierung für Saga 62f80396-cb4f-43c1-b3db-f6752ffa4a1e fehlgeschlagen; Kompensation benötigt einen neuen exklusiven Claim: SQLException ORA-00000
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.219897700Z [main] SAGA.COMPENSATING id=62f80396-cb4f-43c1-b3db-f6752ffa4a1e details="TxException"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.219897700Z [main] TX.COMMIT id=fa9baae9-d7d1-4839-a801-a233be872c25 attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.219897700Z [main] SAGA.FAILED id=62f80396-cb4f-43c1-b3db-f6752ffa4a1e error="TxException"
+]]></system-err>
+  </testcase>
+  <testcase name="interruptImRetryBackoffVerhindertDieKompensationNichtUndBleibtErhalten" classname="de.allgemein.tx.saga.SagaEngineTest" time="0.001">
+    <system-err><![CDATA[Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.220898100Z [main] SAGA.START id=3cc43a85-eb0e-474c-9702-ec1b0fff1fea details="type=INTERRUPT payloadLaenge=2"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.220898100Z [main] TX.COMMIT id=67b0f127-d6cd-401f-9409-befb4db2fecb attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.220898100Z [main] SAGA.STEP_DONE id=3cc43a85-eb0e-474c-9702-ec1b0fff1fea details="step=committet"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.TxManager execute
+WARNUNG: Transaktionsversuch 1/3 fehlgeschlagen, Wiederholung folgt: TxException ORA-00060
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.220898100Z [main] TX.RETRY id=0e91ca8c-57b3-42d1-9a7e-e3d4f107c998 attempt=1 details="TxException ORA-00060"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.220898100Z [main] TX.ROLLBACK id=0e91ca8c-57b3-42d1-9a7e-e3d4f107c998 attempt=1 duration=0ms error="TxException"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.220898100Z [main] SAGA.COMPENSATING id=3cc43a85-eb0e-474c-9702-ec1b0fff1fea details="TxException"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.220898100Z [main] TX.COMMIT id=fc235367-4ab8-450d-9d34-8eac3f902062 attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.220898100Z [main] SAGA.FAILED id=3cc43a85-eb0e-474c-9702-ec1b0fff1fea error="TxException"
+]]></system-err>
+  </testcase>
+  <testcase name="mehrdeutigerCommitKompensiertAuchDenFraglichenSchritt" classname="de.allgemein.tx.saga.SagaEngineTest" time="0.0">
+    <system-err><![CDATA[Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.220898100Z [main] SAGA.START id=55518e1c-7618-4bbb-b90c-3f558a9410d6 details="type=T payloadLaenge=2"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.220898100Z [main] TX.COMMIT id=f2528957-4d3e-4697-8128-313883d4a04c attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.220898100Z [main] SAGA.STEP_DONE id=55518e1c-7618-4bbb-b90c-3f558a9410d6 details="step=Schritt 0"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.220898100Z [main] TX.ROLLBACK id=6cf4ae17-5bf1-40fe-82c5-44db24284452 attempt=1 duration=0ms error="TxException ORA-00000"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.220898100Z [main] SAGA.COMPENSATING id=55518e1c-7618-4bbb-b90c-3f558a9410d6 details="TxException ORA-00000"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.220898100Z [main] TX.COMMIT id=a911bb7d-7b6d-4458-a4dc-809e91a52852 attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.220898100Z [main] TX.COMMIT id=2e842759-d470-4bae-9851-2b2c9b102d67 attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.220898100Z [main] SAGA.FAILED id=55518e1c-7618-4bbb-b90c-3f558a9410d6 error="TxException ORA-00000"
+]]></system-err>
+  </testcase>
+  <testcase name="fachfehlerKompensiertRueckwaertsGenauEinmalUndEndetCompensated" classname="de.allgemein.tx.saga.SagaEngineTest" time="0.0">
+    <system-err><![CDATA[Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.221897800Z [main] SAGA.START id=2dd3c005-093e-4630-8930-a46fbfdecffa details="type=T payloadLaenge=2"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.221897800Z [main] TX.COMMIT id=3e5eafa3-ca8c-4050-8b62-bf5ed393e329 attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.221897800Z [main] SAGA.STEP_DONE id=2dd3c005-093e-4630-8930-a46fbfdecffa details="step=Schritt 0"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.221897800Z [main] TX.COMMIT id=218d9a88-6496-4b7a-999e-e5e4e7d218de attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.221897800Z [main] SAGA.STEP_DONE id=2dd3c005-093e-4630-8930-a46fbfdecffa attempt=1 details="step=Schritt 1"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.221897800Z [main] TX.ROLLBACK id=78a77755-8654-4068-8c79-1e6405e13053 attempt=1 duration=0ms error="IllegalStateException"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.221897800Z [main] SAGA.COMPENSATING id=2dd3c005-093e-4630-8930-a46fbfdecffa details="TxException"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.221897800Z [main] TX.COMMIT id=6bc411e2-25fa-4631-acce-4f09205888be attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.221897800Z [main] TX.COMMIT id=e4803bdc-aa1f-4288-b733-6efbf3cb3cfc attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.221897800Z [main] SAGA.FAILED id=2dd3c005-093e-4630-8930-a46fbfdecffa error="TxException"
+]]></system-err>
+  </testcase>
+  <testcase name="namenlosePendingListeBleibtAuchBeiGleicherSchrittzahlZurManuellenPruefungFailed" classname="de.allgemein.tx.saga.SagaEngineTest" time="0.0">
+    <system-err><![CDATA[Okt. 15, 2026 6:10:24 PM de.allgemein.tx.saga.SagaEngine wiederanlauf
+SCHWERWIEGEND: Saga historisch: PENDING ohne stabilen Namen; historische Fachwirkung muss manuell geprüft werden
+]]></system-err>
+  </testcase>
+  <testcase name="erfolgreicheSagaMarkiertJedenSchrittInFlightUndDone" classname="de.allgemein.tx.saga.SagaEngineTest" time="0.001">
+    <system-err><![CDATA[Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.221897800Z [main] SAGA.START id=c358e1a9-ee8e-4d97-90c1-8490ef031daa details="type=T payloadLaenge=2"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.221897800Z [main] TX.COMMIT id=3b0948ce-99b8-47be-ad6f-bce87ed0645a attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.221897800Z [main] SAGA.STEP_DONE id=c358e1a9-ee8e-4d97-90c1-8490ef031daa details="step=Schritt 0"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.221897800Z [main] TX.COMMIT id=1c7cc939-f346-40fb-92d8-ff21a34ee1a3 attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.221897800Z [main] SAGA.STEP_DONE id=c358e1a9-ee8e-4d97-90c1-8490ef031daa attempt=1 details="step=Schritt 1"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.221897800Z [main] TX.COMMIT id=d6fad8fc-c1df-4bcb-8c27-28aa14554b1c attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.221897800Z [main] SAGA.STEP_DONE id=c358e1a9-ee8e-4d97-90c1-8490ef031daa attempt=2 details="step=Schritt 2"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.221897800Z [main] SAGA.COMPLETED id=c358e1a9-ee8e-4d97-90c1-8490ef031daa details="type=T"
+]]></system-err>
+  </testcase>
+  <testcase name="recoveryDarfFailedSagaUebernehmenOhneDoppelteKompensation" classname="de.allgemein.tx.saga.SagaEngineTest" time="0.001">
+    <system-err><![CDATA[Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.222897800Z [main] SAGA.START id=c642e1bd-aac3-44e8-8507-0e05ebfbe998 details="type=T payloadLaenge=2"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.222897800Z [main] TX.COMMIT id=3078d5cd-08fb-4729-807c-0f6badc37903 attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.222897800Z [main] SAGA.STEP_DONE id=c642e1bd-aac3-44e8-8507-0e05ebfbe998 details="step=Schritt 0"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.222897800Z [main] TX.ROLLBACK id=d9b986f0-f44e-4ec8-a9cb-5150f261eb3a attempt=1 duration=0ms error="IllegalStateException"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.222897800Z [main] TX.COMMIT id=eb8c6fb9-845f-4324-8715-ebfdb61279da attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.222897800Z [main] TX.COMMIT id=904dce52-32ce-4d92-94ef-b82c22c1d19a attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.saga.SagaEngine runClaimed
+WARNUNG: Saga c642e1bd-aac3-44e8-8507-0e05ebfbe998: Kompensation an Wiederanlauf übergeben
+]]></system-err>
+  </testcase>
+  <testcase name="vollstaendigCommitteteAlteDefinitionWirdTrotzNeuemSchrittNurAbgeschlossen" classname="de.allgemein.tx.saga.SagaEngineTest" time="0.0"/>
+  <testcase name="namenlosesPendingNebenDoneOderCompensatedStopptJedeAutomatischeKompensation" classname="de.allgemein.tx.saga.SagaEngineTest" time="0.0">
+    <system-err><![CDATA[Okt. 15, 2026 6:10:24 PM de.allgemein.tx.saga.SagaEngine wiederanlauf
+SCHWERWIEGEND: Saga historisch: PENDING ohne stabilen Namen; historische Fachwirkung muss manuell geprüft werden
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.saga.SagaEngine wiederanlauf
+SCHWERWIEGEND: Saga historisch: PENDING ohne stabilen Namen; historische Fachwirkung muss manuell geprüft werden
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.saga.SagaEngine wiederanlauf
+SCHWERWIEGEND: Saga historisch: PENDING ohne stabilen Namen; historische Fachwirkung muss manuell geprüft werden
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.saga.SagaEngine wiederanlauf
+SCHWERWIEGEND: Saga historisch: PENDING ohne stabilen Namen; historische Fachwirkung muss manuell geprüft werden
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.saga.SagaEngine wiederanlauf
+SCHWERWIEGEND: Saga historisch: PENDING ohne stabilen Namen; historische Fachwirkung muss manuell geprüft werden
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.saga.SagaEngine wiederanlauf
+SCHWERWIEGEND: Saga historisch: PENDING ohne stabilen Namen; historische Fachwirkung muss manuell geprüft werden
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.saga.SagaEngine wiederanlauf
+SCHWERWIEGEND: Saga historisch: PENDING ohne stabilen Namen; historische Fachwirkung muss manuell geprüft werden
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.saga.SagaEngine wiederanlauf
+SCHWERWIEGEND: Saga historisch: PENDING ohne stabilen Namen; historische Fachwirkung muss manuell geprüft werden
+]]></system-err>
+  </testcase>
+  <testcase name="recoveryVerwendetDenPersistiertenNamenNachEingefuegtemSchritt" classname="de.allgemein.tx.saga.SagaEngineTest" time="0.0">
+    <system-err><![CDATA[Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.224898700Z [main] TX.COMMIT id=acc57753-ef8c-43ac-83c4-c854854ab270 attempt=1 duration=0ms
+]]></system-err>
+  </testcase>
+  <testcase name="journalLesefehlerBrichtKompensationAbStattZuUeberspringen" classname="de.allgemein.tx.saga.SagaEngineTest" time="0.001">
+    <system-err><![CDATA[Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.225898Z [main] SAGA.START id=c7952b7b-9446-404d-a827-21c95572951f details="type=T payloadLaenge=2"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.225898Z [main] TX.COMMIT id=b25a1d87-9c54-4779-875d-d04536ffd747 attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.225898Z [main] SAGA.STEP_DONE id=c7952b7b-9446-404d-a827-21c95572951f details="step=Schritt 0"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.225898Z [main] TX.COMMIT id=23f0eee8-a818-4303-a760-9d42ae7d81c2 attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.225898Z [main] SAGA.STEP_DONE id=c7952b7b-9446-404d-a827-21c95572951f attempt=1 details="step=Schritt 1"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.225898Z [main] TX.ROLLBACK id=bb67514d-140a-45ba-83db-10c43a4a0223 attempt=1 duration=0ms error="IllegalStateException"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.225898Z [main] SAGA.COMPENSATING id=c7952b7b-9446-404d-a827-21c95572951f details="TxException"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.saga.SagaEngine compensate
+SCHWERWIEGEND: Journal nicht lesbar bei Kompensation von Schritt 1 (Saga c7952b7b-9446-404d-a827-21c95572951f): SQLException ORA-00000 — Kompensation wird abgebrochen.
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.225898Z [main] SAGA.FAILED id=c7952b7b-9446-404d-a827-21c95572951f error="TxException"
+]]></system-err>
+  </testcase>
+  <testcase name="zweiterServerUeberspringtLebendeSagaAuchOhneSchutzfrist" classname="de.allgemein.tx.saga.SagaEngineTest" time="0.002">
+    <system-err><![CDATA[Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.227898Z [pool-27-thread-1] SAGA.START id=771a8656-04f4-4084-9fa0-8aa8a00c81c1 details="type=LIVE payloadLaenge=2"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.227898Z [pool-27-thread-1] TX.COMMIT id=562a0500-3afe-473d-be99-09c03bd2d085 attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.227898Z [pool-27-thread-1] SAGA.STEP_DONE id=771a8656-04f4-4084-9fa0-8aa8a00c81c1 details="step=eins"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.227898Z [pool-27-thread-1] TX.COMMIT id=9ba86df2-d91f-487e-9746-53916324a0d8 attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.227898Z [pool-27-thread-1] SAGA.STEP_DONE id=771a8656-04f4-4084-9fa0-8aa8a00c81c1 attempt=1 details="step=zwei"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.227898Z [pool-27-thread-1] SAGA.COMPLETED id=771a8656-04f4-4084-9fa0-8aa8a00c81c1 details="type=LIVE"
+]]></system-err>
+  </testcase>
+  <testcase name="doppelteOderLeereSchrittnamenWerdenVorDemJournalVerworfen" classname="de.allgemein.tx.saga.SagaEngineTest" time="0.001"/>
+  <testcase name="kompensationsfehlerEndetFailedAberLaesstAeltereSchritteKompensiert" classname="de.allgemein.tx.saga.SagaEngineTest" time="0.001">
+    <system-err><![CDATA[Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.228400500Z [main] SAGA.START id=7d8ce1a9-8a5e-4305-a959-71e6afce4cd7 details="type=T payloadLaenge=2"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.229403500Z [main] TX.COMMIT id=87a34193-5161-4401-af78-cbb2ce00e3f1 attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.229403500Z [main] SAGA.STEP_DONE id=7d8ce1a9-8a5e-4305-a959-71e6afce4cd7 details="step=Schritt 0"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.229403500Z [main] TX.COMMIT id=b9b9e59e-4f1f-4ca5-893f-5690d83b204f attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.229403500Z [main] SAGA.STEP_DONE id=7d8ce1a9-8a5e-4305-a959-71e6afce4cd7 attempt=1 details="step=Schritt 1"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.229403500Z [main] TX.COMMIT id=7a9d1fa1-e732-491f-8328-6bb68619eed1 attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.229403500Z [main] SAGA.STEP_DONE id=7d8ce1a9-8a5e-4305-a959-71e6afce4cd7 attempt=2 details="step=Schritt 2"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.229403500Z [main] TX.ROLLBACK id=42a1a4c4-c1d2-4fd1-8b6a-7427cbc024c4 attempt=1 duration=0ms error="IllegalStateException"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.229403500Z [main] SAGA.COMPENSATING id=7d8ce1a9-8a5e-4305-a959-71e6afce4cd7 details="TxException"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.229403500Z [main] TX.COMMIT id=e7167cdb-47a2-4b76-81c3-fa7d5c12eea3 attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.229403500Z [main] TX.ROLLBACK id=9d3ffd47-0cbe-416f-90f3-fafc7e8f963e attempt=1 duration=0ms error="IllegalStateException"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.saga.SagaEngine compensate
+SCHWERWIEGEND: Kompensation von Schritt 'Schritt 1' (Saga 7d8ce1a9-8a5e-4305-a959-71e6afce4cd7) fehlgeschlagen: TxException — ältere Schritte werden trotzdem kompensiert.
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.229403500Z [main] TX.COMMIT id=289afcb1-e532-4e08-9177-b56b2cfb7955 attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.229403500Z [main] SAGA.FAILED id=7d8ce1a9-8a5e-4305-a959-71e6afce4cd7 error="TxException"
+]]></system-err>
+  </testcase>
+  <testcase name="verloreneWriteAheadQuittungBleibtMitPayloadFuerRecoveryOffen" classname="de.allgemein.tx.saga.SagaEngineTest" time="0.001">
+    <system-err><![CDATA[Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.229403500Z [main] SAGA.START id=5d08e44d-41b2-4783-a8f1-1b3c3bf4cd6c details="type=T payloadLaenge=21"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.229403500Z [main] TX.COMMIT id=45a4cb38-45c2-425b-931c-3635c516361c attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.229403500Z [main] SAGA.STEP_DONE id=5d08e44d-41b2-4783-a8f1-1b3c3bf4cd6c details="step=Schritt 0"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.230403700Z [main] TX.COMMIT id=7ffebdbd-2b4c-4c55-a6f9-cc932473a33d attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.230403700Z [main] TX.COMMIT id=4d14797e-b376-4c87-9f7d-d2e1c412154a attempt=1 duration=0ms
+]]></system-err>
+  </testcase>
+  <testcase name="wiederanlaufZaehltFehlerJeSagaUndBlockiertDieAnderenNicht" classname="de.allgemein.tx.saga.SagaEngineTest" time="0.0">
+    <system-err><![CDATA[Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.230403700Z [main] TX.ROLLBACK id=82e316b8-820a-4208-b658-622cd64f8864 attempt=1 duration=0ms error="IllegalStateException"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.saga.SagaEngine wiederanlauf
+SCHWERWIEGEND: Kompensation von Schritt 'Schritt 1' (Saga saga-a) im Wiederanlauf fehlgeschlagen: TxException — ältere Schritte werden trotzdem kompensiert.
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.230403700Z [main] TX.COMMIT id=3c5a8d31-fb9e-4a6e-b7df-3ffda94b7f2c attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.230403700Z [main] TX.COMMIT id=00067f1b-f80d-4c59-ad21-cb9c126073a8 attempt=1 duration=0ms
+]]></system-err>
+  </testcase>
+  <testcase name="futureBleibtAbgebrochenAuchWennSagaDanachErfolgreichKompensiert" classname="de.allgemein.tx.saga.SagaEngineTest" time="0.203">
+    <system-err><![CDATA[Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.231403500Z [tx-task-1] SAGA.START id=1f84cf5b-33d2-48bf-a0e6-63a8b682354b details="type=WATCHDOG payloadLaenge=2"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.231403500Z [tx-task-1] TX.COMMIT id=568539f4-de27-4cdb-9df2-2d355ac504e1 attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.231403500Z [tx-task-1] SAGA.STEP_DONE id=1f84cf5b-33d2-48bf-a0e6-63a8b682354b details="step=eins"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.TxManager execute
+WARNUNG: Transaktionsversuch 1/3 fehlgeschlagen, Wiederholung folgt: TxException ORA-00060
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.232403500Z [tx-task-1] TX.RETRY id=badac7c9-3740-4087-85e6-53af3e57a4f6 attempt=1 details="TxException ORA-00060"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.432239100Z [tx-task-1] TX.ROLLBACK id=badac7c9-3740-4087-85e6-53af3e57a4f6 attempt=1 duration=200ms error="TxException"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.432239100Z [tx-task-1] SAGA.COMPENSATING id=1f84cf5b-33d2-48bf-a0e6-63a8b682354b details="TxException"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.432239100Z [tx-task-1] TX.COMMIT id=255ffc48-6e4c-4a50-94b9-2f4514a87ebd attempt=1 duration=0ms
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.432239100Z [tx-task-1] SAGA.FAILED id=1f84cf5b-33d2-48bf-a0e6-63a8b682354b error="TxException"
+Okt. 15, 2026 6:10:24 PM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-15T16:10:24.432239100Z [tx-task-1] TX.ROLLBACK id=3d048267-219a-4eb0-a93f-9dc68ce8b02e attempt=1 duration=200ms error="TxException"
+]]></system-err>
+  </testcase>
+  <testcase name="wiederanlaufBeendetVollstaendigPendingOhneFachwirkungTerminal" classname="de.allgemein.tx.saga.SagaEngineTest" time="0.0"/>
+  <testcase name="wiederanlaufZiehtCompletedFuerFachlichFertigeSagaNach" classname="de.allgemein.tx.saga.SagaEngineTest" time="0.0"/>
+</testsuite>

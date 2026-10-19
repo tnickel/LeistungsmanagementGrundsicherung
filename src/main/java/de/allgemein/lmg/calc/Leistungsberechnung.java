@@ -135,6 +135,14 @@ public final class Leistungsberechnung {
             throw new FachlicheException(FachlicheException.VALIDATION,
                     "Die Bedarfsgemeinschaft " + bgId + " hat keinen SozialFall");
         }
+        long beanspruchendePersonen = faelle.stream()
+                .filter(f -> f.anzKinderMinderjaehrig() > 0).count();
+        if (beanspruchendePersonen > 1) {
+            throw new FachlicheException(FachlicheException.VALIDATION,
+                    "Mehrere Personen beanspruchen Alleinerziehendenmehrbedarf. Das vereinfachte "
+                            + "Haushaltsmodell kann die Kinder nicht eindeutig zuordnen; "
+                            + "getrennte Erziehungsverantwortung muss fachlich geklärt werden");
+        }
         BigDecimal gesamtbedarf = BigDecimal.ZERO;
         BigDecimal anrechenbarGesamt = BigDecimal.ZERO;
         List<FallBerechnung> einzeln = new ArrayList<>();
@@ -173,6 +181,7 @@ public final class Leistungsberechnung {
     /** @param kduRest noch anerkennbare KdU der Bedarfsgemeinschaft; {@code null} = keine Grenze */
     private static FallBerechnung berechneFall(
             SozialFall fall, KduParameter kduParameter, BigDecimal kduRest, Satzstand satzstand) {
+        pruefeKinderzaehler(fall);
         BigDecimal regelbedarf = satzstand.regelbedarf(fall.regelbedarfsstufe());
 
         BigDecimal mehrbedarfG = fall.merkzeichenG()
@@ -229,8 +238,8 @@ public final class Leistungsberechnung {
      * nicht eigenständig modelliert; Kinderzahlen bilden die erfasste Standardkonstellation ab.
      */
     private static BigDecimal mehrbedarfAlleinerziehend(SozialFall fall, Satzstand satzstand) {
-        int kinderU16 = Math.max(fall.anzKinderUnter16(), fall.anzKinderUnter7());
-        int minderjaehrig = Math.max(fall.anzKinderMinderjaehrig(), kinderU16);
+        int kinderU16 = fall.anzKinderUnter16();
+        int minderjaehrig = fall.anzKinderMinderjaehrig();
         if (minderjaehrig == 0) {
             return BigDecimal.ZERO.setScale(SCALE);
         }
@@ -242,6 +251,16 @@ public final class Leistungsberechnung {
         BigDecimal deckel = rbs1.multiply(MEHRBEDARF_ALLEINERZIEHEND_DECKEL_RBS1)
                 .setScale(SCALE, RoundingMode.HALF_UP);
         return betrag.min(deckel);
+    }
+
+    /** Widersprüchliche Eingaben werden nicht still zu einem höheren Anspruch erweitert. */
+    public static void pruefeKinderzaehler(SozialFall fall) {
+        if (fall.anzKinderUnter7() < 0 || fall.anzKinderUnter16() < fall.anzKinderUnter7()
+                || fall.anzKinderMinderjaehrig() < fall.anzKinderUnter16()
+                || fall.anzKinderMinderjaehrig() > 99) {
+            throw new FachlicheException(FachlicheException.VALIDATION,
+                    "Kinderzahlen müssen 0 ≤ unter 7 ≤ unter 16 ≤ minderjährig ≤ 99 erfüllen");
+        }
     }
 
     /**

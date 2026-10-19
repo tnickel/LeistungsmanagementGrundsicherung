@@ -145,10 +145,17 @@ der konstante Snapshotbetrag, bei snapshotlosen Altbescheiden der gespeicherte
 Bewilligungsbetrag. Defekte Snapshots führen zu einem sichtbaren Fachfehler und
 API-Warnstatus `INVALID`, ohne Null-Ergänzung oder Rekonstruktion aus aktuellen Daten.
 
-Ein vollständiger Änderungsbescheid-/Aufhebungsworkflow fehlt weiterhin. Änderungen
-von Einkommen, Fällen, Vermögen oder Sätzen sowie vorgezogene Zahlungen oder
-Vermögensrückgaben nach Storno können deshalb eine konservative Auszahlungssperre
-auslösen. Dann ist eine manuelle fachliche Klärung nötig. Ohne jeden Bescheid bleibt
+Eine ausdrücklich veranlasste Neufestsetzung ist über `aendereBescheid` und
+`PUT /api/bedarfsgemeinschaften/{id}/bescheid` möglich. Der Wirkmonat liegt im
+bestehenden Bescheid, das Ende bleibt unverändert. Der alte Snapshot bleibt erhalten;
+Aufhebung seines Status und neue Erteilung bilden eine Transaktion unter BG-Sperre.
+Der neue Monatsplan übernimmt frühere Monate unverändert und berechnet nur den
+Restzeitraum neu. Anordnungen im Änderungsabschnitt, fehlende historische Eingaben
+im übernommenen Präfix oder dort noch ungeklärter Vermögenseinsatz verhindern die
+automatische Änderung. Anhörung, Vertrauensschutz, Bekanntgabe und Erstattung
+werden dadurch nicht automatisiert. Abweichungen ohne passende Neufestsetzung,
+vorgezogene Zahlungen oder Vermögensrückgaben nach Storno können weiterhin eine
+konservative Auszahlungssperre auslösen und benötigen fachliche Klärung. Ohne jeden Bescheid bleibt
 der dokumentierte Demo-Buchungsweg zulässig. Eine bloße Prüfung
 `Zahlung <= BESCHEID.ZAHLBETRAG` wäre falsch: ein Monatsplan kann beispielsweise
 363 EUR im ersten und 863 EUR im Folgemonat bewilligen.
@@ -191,8 +198,8 @@ lädt neu (`FachlicheException` mit Code `KONKURRENZ`). Kein Lost Update.
 
 | Endpunkt | Wirkung |
 |---|---|
-| `GET /api/bedarfsgemeinschaften` | Fallübersicht mit Zahlbetrag-Vorschau je Vorgang |
-| `GET /api/bedarfsgemeinschaften/{id}` | Vorgangsdetail: SozialFälle samt Berechnung, Zahlungen, Journal |
+| `GET /api/bedarfsgemeinschaften?monat=JJJJ-MM` | Fallübersicht mit Zahlbetrag-Vorschau und `berechnungsmonat` je Vorgang; ohne Parameter gilt der einmalig für die gesamte Liste ermittelte aktuelle Monat |
+| `GET /api/bedarfsgemeinschaften/{id}?monat=JJJJ-MM` | Vorgangsdetail mit Vorschau für den gewählten Monat, Zahlungen und Journal; ohne Monat gilt der aktuelle Monat |
 | `PUT /api/bedarfsgemeinschaften/{id}` | Kopfdaten speichern (Status, Wiedervorlage; VERSION-Prüfung) |
 | `PUT /api/sozialfaelle/{id}` | SozialFall speichern (VERSION-Prüfung) |
 | `POST /api/auszahlung` | Auszahlung anordnen (Idempotenz über `vorgangsNr`) |
@@ -206,6 +213,7 @@ lädt neu (`FachlicheException` mit Code `KONKURRENZ`). Kein Lost Update.
 | `POST /api/zahlungen/{id}/storno` | ANGELEGT-/BEREIT-Zahlung stornieren, Restbudget und dokumentierten Vermögenseinsatz zurückbuchen *(nur Admin)* |
 | `GET /api/bedarfsgemeinschaften/{id}/bescheid` | Letzten Bewilligungsbescheid der Bedarfsgemeinschaft abrufen |
 | `POST /api/bedarfsgemeinschaften/{id}/bescheid` | Bewilligungsbescheid (§ 44 SGB XII) erteilen (Bescheiddatum = heute) |
+| `PUT /api/bedarfsgemeinschaften/{id}/bescheid` | Bestehenden Monatsplan ausdrücklich ab `bewilligungVon` bis zum bisherigen `bewilligungBis` neu festsetzen; frühere Monatswerte bleiben erhalten |
 | `GET /api/bedarfsgemeinschaften/{id}/bescheid/druck` | Amtliche HTML-Druckansicht mit `@media print` generieren |
 | `POST /api/saga/antrag` | Vollständige End-to-End-Saga (Antragsverarbeitung) ausführen |
 | `POST /api/anmeldung` · `POST /api/abmeldung` · `GET /api/werbin` | Anmeldung (Token) und angemeldete Kennung/Rolle |
@@ -369,3 +377,18 @@ zehn Nutzer-Szenarien mit mehreren Sachbearbeitern, die jeweils am Ende den
 persistierten Endzustand per SQL auf den Oracle-Tabellen verifizieren —
 Testfälle mit Akteuren, Ablauf und erwartetem Datenbank-Endzustand sind in
 [regressionstests.md](regressionstests.md) dokumentiert.
+
+## JSON-Eingaben und Centgenauigkeit (R7W2-08)
+
+Schreibanfragen akzeptieren nur die für ihre Route vorgesehenen JSON-Felder.
+Tippfehler wie `kdumiete` statt `kduMiete` führen zu `400 VALIDATION` und werden
+nicht als fehlender Nullbetrag gespeichert. Die bekannte Clientangabe
+`sachbearbeiterId` bleibt aus Kompatibilitätsgründen zulässig, wird aber weiterhin
+ignoriert; die wirksame Kennung stammt aus der geprüften Sitzung.
+
+Geldbeträge müssen sich ohne Rundung in ganze Cent überführen lassen. `12.345`
+wird abgewiesen, `12.3400` ist verlustfrei als `12.34` zulässig. Dieselbe Grenze
+gilt in HTTP, direktem Fachservice und Saga-Payload. Fehlende oder null gesetzte
+optionale Geldfelder behalten ihre bisherige Null-/0-Bedeutung; RBS, Kennungen,
+Versionen und Monatsangaben behalten ihre bestehenden Pflichtprüfungen. Die
+Eingabegrenze ändert keine fachlichen Rundungsregeln bei der Leistungsberechnung.

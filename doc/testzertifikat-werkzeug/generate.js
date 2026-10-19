@@ -13,9 +13,9 @@ const P = {primary:"0E2A33",secondary:"526570",pass:"157534",fail:"A51D17",warn:
   PASS:"E6F4EA",FAIL:"FCE8E6",UNVERIFIED:"FFF4CC",NA:"EDF2F5"};
 const FONT = "Calibri";
 const labels = {"JUNIT:main":"Automatische Tests: Fachschicht und Transaktionskern","JUNIT:testsweet":"Automatische Eigentests der testsweet",
-  "FACH:POSITIV":"Fachschicht: Positivfälle","FACH:NEGATIV":"Fachschicht: Negativfälle","FACH:LAST":"Fachschicht: Lasttest",
-  "FACH:STRESS":"Fachschicht: Stresstest","WEB:POSITIV":"Weboberfläche: Positivfälle","WEB:NEGATIV":"Weboberfläche: Negativfälle",
-  "WEB:LAST":"Weboberfläche: Lasttest","GLM":"GLM: unabhängige Fallstichprobe","BUILD":"Übereinstimmung der getesteten Produkt-/Prüferbuilds","UNZUGEORDNETE_LAEUFE":"Nicht zuordenbare gestartete Läufe",
+  "FACH:POSITIV":"Fachschicht: Positivfälle","FACH:NEGATIV":"Fachschicht: Negativfälle","FACH:LAST":"Fachschicht: paralleler Massendurchlauf",
+  "FACH:STRESS":"Fachschicht: funktionaler Zweiphasentest","WEB:POSITIV":"Weboberfläche: Positivfälle","WEB:NEGATIV":"Weboberfläche: Negativfälle",
+  "WEB:LAST":"Weboberfläche: paralleler Massendurchlauf","GLM":"GLM: unabhängige Fallstichprobe","BUILD":"Übereinstimmung der getesteten Produkt-/Prüferbuilds","UNZUGEORDNETE_LAEUFE":"Nicht zuordenbare gestartete Läufe",
   "CERTIFICATE_SUITE":"Vollständiger Zertifikatsprüflauf"};
 const stateLabels = {PASS:"BESTANDEN",FAIL:"NICHT BESTANDEN",UNVERIFIED:"UNVOLLSTÄNDIG",NA:"NICHT ANWENDBAR"};
 function text(value, options={}) { return new TextRun({text:String(value),font:FONT,size:21,color:P.primary,...options}); }
@@ -47,6 +47,7 @@ const children = [
   para(evidence.verdict,{spacing:{before:100,after:150},children:[text(evidence.verdict,{bold:true,size:32,color:verdictColor})]}),
   para("",{children:[text(`Ausgestellt: ${now} · Zertifikat-ID: ${certificateId}`,{size:18,color:P.secondary})]}),
   para("Das Gesamturteil umfasst beide automatischen Testsuiten, alle unterstützten Modus-/Kategorie-Pflichtläufe, Reporterstellung und die dokumentierte GLM-Stichprobe. Jeder bekannte fachliche Fehler verhindert BESTANDEN. Fehlende, abgebrochene, übersprungene oder veraltete Pflichtnachweise ergeben UNVOLLSTÄNDIG."),
+  para("LAST und STRESS prüfen die Funktion bei paralleler Wiederholung beziehungsweise in zwei Bearbeitungswellen. Ihre begrenzten Fallzahlen belegen keine Dauerlast, keine Sättigungsgrenze und keine Produktionskapazität. Das Zertifikatsurteil enthält keinen solchen Kapazitätsnachweis."),
   table,
   para("Code-Reviews sind ergänzende Dokumentation unter doc/codereview/. Ein historischer Reviewabschluss ist kein automatisch bestandener aktueller Testnachweis."),
   para("Prüfbelege und Befunde",{heading:HeadingLevel.HEADING_1,pageBreakBefore:true,children:[text("Prüfbelege und Befunde",{bold:true,size:30})]}),
@@ -95,7 +96,7 @@ children.push(heading("Build- und Laufbindung"),para(`Nachweis-Fingerprint (SHA-
   para("In Abschnitt 7 der testsweet-Oberfläche auf „Mache alle Zertifikatstests“ klicken. Der Ablauf baut und prüft beide Programme, führt alle sieben Simulator-Kombinationen aus, prüft zuletzt die ausgewählten Fälle mit GLM und erstellt bei vollständigem Erfolg automatisch dieses Zertifikat. Fortschrittsbalken zeigen Phasen und tatsächliche Fälle; eine verlässliche Restzeit wird nicht behauptet."),
   para("Bei einer Testabweichung oder einem technischen Fehler stoppt der Ablauf. Die Fehlermeldung nennt den betroffenen Schritt und das Protokoll. Ein Abbruch oder fehlender Pflichtnachweis kann kein grünes Zertifikat erzeugen."),
   heading("Einzelprüfungen manuell ausführen"),
-  para("1. Beide Maven-Testsuiten mit den benötigten Datenbankprüfungen vollständig ausführen. Übersprungene Prüfungen bei identischem Build gesondert nachholen."),
+  para("1. Beide Maven-Testsuiten einschließlich der verpflichtenden Node-Prüfer für Zertifikatsbelege, Rechenreferenz, Antwortvertrag und Browser-Skripte mit den benötigten Datenbankprüfungen vollständig ausführen. Übersprungene Prüfungen bei identischem Build gesondert nachholen."),
   para("2. Fachschicht POSITIV, NEGATIV, LAST und STRESS sowie Weboberfläche POSITIV, NEGATIV und LAST vollständig durchführen."),
   para("3. GLM-Prüfung auf den aktuellen vollständigen Quellberichten starten und Befunde auswerten."),
   para("4. Zertifikat neu erstellen. Auch ein negatives oder unvollständiges Ergebnis wird dokumentiert; eine erfolgreiche Dateierzeugung ist keine fachliche Freigabe."),

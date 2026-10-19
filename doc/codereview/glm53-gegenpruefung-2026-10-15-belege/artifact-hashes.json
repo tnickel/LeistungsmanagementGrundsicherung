@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "sourceSha256": "076255b73566972fac137423b53d5ead8386f6cb70b2c700f4c23cfe49828831",
+  "artifacts": [
+    {
+      "path": "java-version.log",
+      "sha256": "1785fc3c6499db4c241992bdf13461d5d66c90a761ddabd7cb17c27d51b74707",
+      "bytes": 203
+    },
+    {
+      "path": "junit/main/TEST-de.allgemein.lmg.admin.SagaJournalRepairMainTest.xml",
+      "sha256": "250425f02a3cd890de1a6f3086705e37963f8ed1f50323206d6e89e37536e74f",
+      "bytes": 12567
+    },
+    {
+      "path": "junit/main/TEST-de.allgemein.lmg.calc.AlleinerziehendZwoelfProzentTest.xml",
+      "sha256": "adb11a9efcf05d80722d0225ba9d7770139f9d586987abee32dd5e6fd3a9f639",
+      "bytes": 13209
+    },
+    {
+      "path": "junit/main/TEST-de.allgemein.lmg.db.GrokFachRegressionDbTest.xml",
+      "sha256": "3465b44efe8014fa31a78da328c1027c5110e698fd3edf02bea262c27e663763",
+      "bytes": 27939
+    },
+    {
+      "path": "junit/main/TEST-de.allgemein.lmg.web.AltSagaRepairDbTest.xml",
+      "sha256": "82c28ac38a323abb410b9a3ce7777336d6f24b29dd028db9482bd2d0c1a53bd7",
+      "bytes": 16460
+    },
+    {
+      "path": "junit/main/TEST-de.allgemein.lmg.web.GrokWebRegressionTest.xml",
+      "sha256": "e69add2af42b8c9fe0e15bff9d8532cadc01f23020ca49d6cda4d4e67e3dd2c9",
+      "bytes": 19721
+    },
+    {
+      "path": "junit/main/TEST-de.allgemein.tx.saga.SagaEngineTest.xml",
+      "sha256": "da5aaa6973f27101117d59b1c46cf740bb020d8d2c3d8abb010a17ef783a6d5e",
+      "bytes": 41216
+    },
+    {
+      "path": "junit/testsweet/TEST-de.allgemein.lmg.web.ProduktAltSagaRepairDbTest.xml",
+      "sha256": "e8f7a449caad2aed2f38b95cf24b4cabc56f0b06fa44ecbd132b60b4a977b77a",
+      "bytes": 40202
+    },
+    {
+      "path": "junit/testsweet/TEST-de.allgemein.lmg.web.ProduktHttpSicherheitTest.xml",
+      "sha256": "bc98facccf377e36c7b8b98a6fa6c6d1a3c340981817eacfb3e61a33934f41bf",
+      "bytes": 49909
+    },
+    {
+      "path": "junit/testsweet/TEST-de.allgemein.testsweet.BuildEvidenceTest.xml",
+      "sha256": "defef65c5039fd0a9442adc794fb5080fa98da0658f7e23b2a10cc9b0446daff",
+      "bytes": 38089
+    },
+    {
+      "path": "junit/testsweet/TEST-de.allgemein.testsweet.GrokFachServiceDbTest.xml",
+      "sha256": "bc325949878f151f7c5ff74a60d274da507d6520e0ca5da8a8fe94f64af32289",
+      "bytes": 59506
+    },
+    {
+      "path": "junit/testsweet/TEST-de.allgemein.testsweet.ProduktAlleinerziehendZwoelfProzentTest.xml",
+      "sha256": "398644b2b55928e7e807f0630d85674e7c133217d406baf43a1aebf062ee21d3",
+      "bytes": 38604
+    },
+    {
+      "path": "junit-reader.json",
+      "sha256": "71e4c0b21bd9a85a61523c7fa335676698960cfc796fce3fd62e2b539dc733b5",
+      "bytes": 147
+    },
+    {
+      "path": "main-config-test-evidence.json",
+      "sha256": "adcd9657375f56157e549a12f42e7308ed567fca876173c436d16c89393bd499",
+      "bytes": 84315
+    },
+    {
+      "path": "main-db-test-evidence.json",
+      "sha256": "c327d534f209f071c75fc3f98ce0b0e7eefd275a4d9f639ba0cc49c85664469b",
+      "bytes": 95404
+    },
+    {
+      "path": "node-tests.log",
+      "sha256": "2caccce37bc2135a79f34633be6ca6e958cb23b125c3d55484a4276c1b2996e0",
+      "bytes": 27024
+    },
+    {
+      "path": "python-reference.log",
+      "sha256": "fc2c2e193d37d600ece343236b3015b03e2421373ef0d4c9ce308bd66dbff7e0",
+      "bytes": 115
+    },
+    {
+      "path": "real-runtime-probe.log",
+      "sha256": "e0e959389d907ffa6f631cfe8fa22030917726d2154987632cbd233838174669",
+      "bytes": 1016
+    },
+    {
+      "path": "runtime-suite.json",
+      "sha256": "0de351a29cc36255bf477cb805da96d026e347eb7ac67d7d74a4ffc1b3b75593",
+      "bytes": 202
+    },
+    {
+      "path": "schema-cleanup.log",
+      "sha256": "454e6aa2144358e6b2f5393c45fbf1096fc5ec0dc3f85259f8e9f2038fbe7370",
+      "bytes": 544
+    },
+    {
+      "path": "testsweet-test-evidence.json",
+      "sha256": "7d32ffed87a5ee93fbbfae3e74076b2a4e9fc0ba9f590cf605bfdcc77962256d",
+      "bytes": 96332
+    },
+    {
+      "path": "verification-summary.json",
+      "sha256": "48e58bc5bf51a8010cce253456d9af1d9bc402b078ef36ea99d6f2fd4829aaf8",
+      "bytes": 11123
+    }
+  ]
+}

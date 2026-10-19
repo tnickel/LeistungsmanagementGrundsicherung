@@ -20,6 +20,11 @@ public interface LeistungsService {
     /** Fallübersicht: alle Vorgänge mit Zahlbetrag-Vorschau. */
     List<VorgangslisteEintrag> listeBedarfsgemeinschaften();
 
+    /** Fallübersicht mit Vorschau für den ausdrücklich gewählten Bezugsmonat. */
+    default List<VorgangslisteEintrag> listeBedarfsgemeinschaften(String bezugsmonat) {
+        return listeBedarfsgemeinschaften();
+    }
+
     /** Vorgangsmaske: Kopfdaten, SozialFälle, Berechnung, Zahlungen, Journal. */
     Vorgangsdetail ladeDetail(long bgId);
 
@@ -29,6 +34,11 @@ public interface LeistungsService {
      * vollständigen Falldaten wird journalisiert (60-s-Zusammenfassung).
      */
     Vorgangsdetail ladeDetail(long bgId, String sachbearbeiterId);
+
+    /** Vorschau für den ausdrücklich gewählten Bezugsmonat; verändert keinen Bestand. */
+    default Vorgangsdetail ladeDetail(long bgId, String sachbearbeiterId, String bezugsmonat) {
+        return ladeDetail(bgId, sachbearbeiterId);
+    }
 
     /** Findet einen Vorgang über sein eindeutiges Aktenzeichen (lesend). */
     java.util.Optional<de.allgemein.lmg.model.Bedarfsgemeinschaft>
@@ -102,6 +112,12 @@ public interface LeistungsService {
 
     /** Erteilt einen Bewilligungsbescheid (§ 44 SGB XII); das Bescheiddatum ist der Ausstellungstag. */
     de.allgemein.lmg.model.Bescheid erteileBescheid(long bgId, String bewilligungVon, String bewilligungBis, String sachbearbeiterId);
+
+    /** Ändert die bestehende Bewilligung ab dem angegebenen Monat atomar. */
+    default de.allgemein.lmg.model.Bescheid aendereBescheid(long bgId, String bewilligungVon,
+            String bewilligungBis, String sachbearbeiterId) {
+        throw new UnsupportedOperationException("Änderungsbescheide werden nicht unterstützt");
+    }
 
     /** Liefert den aktuellen/letzten Bescheid der Bedarfsgemeinschaft, falls vorhanden. */
     java.util.Optional<de.allgemein.lmg.model.Bescheid> letzterBescheid(long bgId);

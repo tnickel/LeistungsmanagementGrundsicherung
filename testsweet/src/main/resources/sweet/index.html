@@ -117,7 +117,7 @@
             <div class="schnell-presets">
                 <span>Presets:</span>
                 <button type="button" class="btn-chip" id="preset-klein">Schnell (5 MA / 15 Fälle)</button>
-                <button type="button" class="btn-chip" id="preset-standard">Standard (10 MA / 60 Fälle)</button>
+                <button type="button" class="btn-chip" id="preset-standard">Standard (10 MA / 100 Fälle)</button>
                 <button type="button" class="btn-chip" id="preset-gross">Lasttest (20 MA / 120 Fälle)</button>
             </div>
         </div>
@@ -126,7 +126,7 @@
                 <input type="number" id="mitarbeiter" value="10" min="1" max="50">
             </label>
             <label>Aufträge
-                <input type="number" id="auftraege" value="60" min="1" max="3000">
+                <input type="number" id="auftraege" value="100" min="1" max="3000">
                 <small class="feldbereich" id="auftraege-range">1–3000</small>
             </label>
             <label>Seed (0 = zufällig)
@@ -136,11 +136,12 @@
                 <input type="number" id="denkzeit" value="20" min="0" max="5000">
             </label>
             <label class="checkbox">
-                <input type="checkbox" id="aufraeumen" checked> Altdaten (<code>SWEET-*</code>) vorab aufräumen
+                <input type="checkbox" id="aufraeumen" checked> Eigene frühere Läufe dieser Simulatorinstanz vorab aufräumen
             </label>
             <div class="aktions-knöpfe">
                 <button id="start" class="btn btn-erfolg">Simulation starten</button>
                 <button id="stop" class="btn btn-gefahr" disabled>Stoppen</button>
+                <button id="cleanup-prozesse" type="button" class="btn btn-sekundaer" title="Beendet verwaiste Chrome- und ChromeDriver-Hintergrundprozesse">🧹 Alte Prozesse killen</button>
             </div>
         </div>
         <div class="fortschritt-wrap">
@@ -254,6 +255,7 @@
             <div class="aktions-knöpfe">
                 <button type="button" id="zertifikat-tests-start" class="btn btn-primaer" disabled>Mache alle Zertifikatstests</button>
                 <button type="button" id="zertifikat-tests-stop" class="btn btn-sekundaer" disabled>Ablauf abbrechen</button>
+                <button type="button" id="zertifikat-cleanup-prozesse" class="btn btn-sekundaer" title="Beendet verwaiste Chrome- und ChromeDriver-Hintergrundprozesse">🧹 Alte Prozesse killen</button>
                 <a id="zertifikat-tests-pdf" class="btn btn-sekundaer" href="/api/zertifikat/pdf" target="_blank" hidden>Zertifikat öffnen (PDF)</a>
             </div>
             <p id="zertifikat-tests-status" role="status" aria-live="polite">Prüfe laufenden Zertifikatsablauf …</p>
@@ -303,14 +305,15 @@
                 und die echte Oracle-Datenbank und verifizieren anschließend jeden Datenbank-Endzustand per SQL.
                 Die vollständige Dokumentation dieser Läufe (Eingaben, Rechenwege, SQL-Prüfungen, Schrittprotokoll)
                 liegt je Lauf in <code>testsweet/logs/run-…/</code>.</p>
-                <p><strong>Woher kommen die 50 guten und 50 schlechten Fälle?</strong> Die Stichprobe wird aus den
+                <p><strong>Woher kommen die 100 guten und 100 schlechten Fälle?</strong> Die Stichprobe wird aus den
                 beiden <em>neuesten erfolgreichen</em> Positiv- und Negativ-Berichten gezogen, abwechselnd:
-                bei 100 Prüf Fällen also etwa 50 Positivfälle (Auszahlung wird korrekt berechnet und gebucht) und
-                50 Negativfälle (bewusst provozierte Regelverstöße, die die Anwendung abwehren muss — mit
+                beim Standard von 200 Prüffällen genau 100 Positivfälle (Auszahlung wird korrekt berechnet und gebucht) und
+                100 Negativfälle (bewusst provozierte Regelverstöße, die die Anwendung abwehren muss — mit
                 unverändertem Datenbank-Endzustand). Zuerst werden dabei die festen Fach-Grenzfälle genommen
                 (z.&nbsp;B. Entbindungs-Folgemonat, Vermögensverbrauch, KdU-Angemessenheitsgrenze,
                 Mehrbedarfs-Deckel §&nbsp;30 Abs. 6), danach weitere Fälle aus dem Bericht. Fehlen Fälle,
-                wird die Prüfung abgelehnt statt heimlich gekürzt.</p>
+                wird die Prüfung abgelehnt statt heimlich gekürzt oder einseitig aufgefüllt.
+                Bei einer ungeraden gewählten Fallzahl erhält die Positivgruppe den zusätzlichen Fall.</p>
                 <p><strong>Sind die Fälle jedes Mal gleich?</strong> Nein. Der Kombinationsgenerator erzeugt je
                 Seed andere Konstellationen (Haushalte, Merkmale, Einkommen, Vermögen, Verstoß-Kombinationen) —
                 jeder neue Simulatorlauf liefert also eine andere Stichprobe. Nur die Grenzfälle oben sind
@@ -345,8 +348,8 @@
         <p id="llm-transport-check" class="hinweis">Dateiübergabe: noch nicht geprüft.</p>
         <a id="llm-report-link" class="btn btn-sekundaer" href="/api/llm/report/pdf" target="_blank" style="display:none">Testreport mit KI-Prüfnachweis öffnen</a>
         <div class="konfig" style="margin-top:10px">
-            <label>Maximale Prüffälle
-                <input type="number" id="llm-faelle" value="100" min="2" max="1000">
+            <label>Prüffälle insgesamt (Standard: 100 positiv + 100 negativ)
+                <input type="number" id="llm-faelle" value="200" min="2" max="1000">
             </label>
             <div class="aktions-knöpfe">
                 <button type="button" class="btn btn-primaer" id="llm-start-knopf">GLM-5.3-Prüfung starten</button>
@@ -380,7 +383,7 @@
             <label>Zeitlimit je Anfrage (Sekunden)<input type="number" id="llm-timeout" min="5" max="900" required></label>
             <label>Antwortlimit (Tokens)<input type="number" id="llm-max-tokens" min="1024" max="131072" required></label>
             <label>Fälle je Anfrage<input type="number" id="llm-batch-size" min="1" max="10" required></label>
-            <label>Maximale Prüffälle<input type="number" id="llm-cases" min="2" max="1000" required></label>
+            <label>Prüffälle insgesamt<input type="number" id="llm-cases" value="200" min="2" max="1000" required></label>
         </div>
         <p id="llm-key-status" class="hinweis" role="status"></p>
         <div class="aktions-knöpfe">

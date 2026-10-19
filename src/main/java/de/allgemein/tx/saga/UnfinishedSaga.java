@@ -23,6 +23,7 @@ public final class UnfinishedSaga {
     private final String payload;
     private final SagaState state;
     private final Map<Integer, String> stepStates = new LinkedHashMap<>();
+    private final Map<Integer, String> stepNames = new LinkedHashMap<>();
 
     UnfinishedSaga(String sagaId, String type, String payload, SagaState state) {
         this.sagaId = sagaId;
@@ -53,6 +54,14 @@ public final class UnfinishedSaga {
 
     void putStepState(int index, String state) {
         stepStates.put(index, state);
+    }
+
+    void putStepName(int index, String name) {
+        stepNames.put(index, name);
+    }
+
+    public String stepName(int index) {
+        return stepNames.get(index);
     }
 
     public boolean isStepDone(int index) {

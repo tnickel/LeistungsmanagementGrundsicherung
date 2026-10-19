@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -91,5 +92,29 @@ class AntragsSagaValidationTest {
         assertDoesNotThrow(() -> AntragsSagaProzess.validierePayload(payload));
         payload.put("vermoegen", -5);
         assertThrows(FachlicheException.class, () -> AntragsSagaProzess.validierePayload(payload));
+    }
+
+    @Test
+    void subcentbetraegeWerdenInJedemSagaGeldfeldVorDerAusfuehrungAbgewiesen() {
+        for (String feld : java.util.List.of("startBudget", "vermoegen", "kduMiete", "kduBetriebskosten",
+                "kduHeizung", "einkommenRente", "einkommenErwerb")) {
+            Map<String, Object> payload = gueltigerPayload();
+            payload.put(feld, new java.math.BigDecimal("12.345"));
+            var fehler = assertThrows(FachlicheException.class, () -> AntragsSagaProzess.validierePayload(payload));
+            assertEquals(FachlicheException.VALIDATION, fehler.code());
+            assertTrue(fehler.getMessage().contains(feld));
+            payload.put(feld, new java.math.BigDecimal("12.3400"));
+            assertDoesNotThrow(() -> AntragsSagaProzess.validierePayload(payload));
+        }
+    }
+
+    @Test
+    void fehlendeOderNullOptionaleSagaGeldwerteBleibenZulaessig() {
+        Map<String, Object> payload = gueltigerPayload();
+        for (String feld : java.util.List.of("startBudget", "vermoegen", "kduMiete", "kduBetriebskosten",
+                "kduHeizung", "einkommenRente", "einkommenErwerb")) payload.remove(feld);
+        assertDoesNotThrow(() -> AntragsSagaProzess.validierePayload(payload));
+        payload.put("kduMiete", null);
+        assertDoesNotThrow(() -> AntragsSagaProzess.validierePayload(payload));
     }
 }

@@ -36,7 +36,7 @@ class ProduktPendingRecoveryDbTest {
             var journal = new SagaJournal(pool);
             var engine = new SagaEngine(new TxManager(pool), journal);
             try {
-                journal.start(id, type, "{\"synthetisch\":true}", definition.steps().size());
+                journal.start(id, type, "{\"synthetisch\":true}", definition.steps().stream().map(s -> s.name()).toList());
                 // Auch bereits vom alten Recovery fälschlich FAILED markierte Köpfe reparieren.
                 for (SagaState initial : new SagaState[]{SagaState.RUNNING, SagaState.FAILED}) {
                     if (initial == SagaState.FAILED) {

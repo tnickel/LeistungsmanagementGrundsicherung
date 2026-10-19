@@ -10,7 +10,7 @@ public record TxAuditEvent(
         Instant timestamp,
         String threadName,
         String category,    // "TX" oder "SAGA"
-        String eventType,   // "COMMIT", "ROLLBACK", "RETRY", "TIMEOUT", "START", "STEP_DONE", "COMPLETED", "COMPENSATING", "FAILED"
+        String eventType,   // "COMMIT", "ROLLBACK", "OUTCOME_UNKNOWN", "RETRY", "TIMEOUT", "START", "STEP_DONE", "COMPLETED", "COMPENSATING", "FAILED"
         String correlationId, // Tx-ID oder Saga-ID
         int attempt,
         long durationMillis,

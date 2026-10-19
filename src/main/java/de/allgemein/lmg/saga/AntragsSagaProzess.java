@@ -715,7 +715,7 @@ public final class AntragsSagaProzess {
         }
     }
 
-    /** Betrag mit zwei Nachkommastellen (kaufmännisch gerundet); negativ, zu groß oder keine Zahl → Fehler. */
+    /** Centgenauer Betrag; Subcentwerte, negative/zu große Werte oder keine Zahl → Fehler. */
     private static BigDecimal getBigDecimal(Object val) {
         if (val == null) return BigDecimal.ZERO.setScale(2);
         BigDecimal betrag;
@@ -733,11 +733,13 @@ public final class AntragsSagaProzess {
         if (betrag.signum() < 0) {
             throw new IllegalArgumentException("darf nicht negativ sein");
         }
-        BigDecimal gerundet = betrag.setScale(2, java.math.RoundingMode.HALF_UP);
-        if (gerundet.precision() - gerundet.scale() > 8) {
+        BigDecimal normalisiert;
+        try { normalisiert = betrag.setScale(2, java.math.RoundingMode.UNNECESSARY); }
+        catch (ArithmeticException e) { throw new IllegalArgumentException("muss centgenau sein (höchstens zwei wirksame Nachkommastellen)"); }
+        if (normalisiert.precision() - normalisiert.scale() > 8) {
             throw new IllegalArgumentException("ist zu groß (maximal 99.999.999,99 EUR)");
         }
-        return gerundet;
+        return normalisiert;
     }
 
     private static Long findBgId(Connection c, String aktenzeichen) throws SQLException {

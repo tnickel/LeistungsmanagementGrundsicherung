@@ -9,9 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Grenzfälle der Betrags-Normierung (NUMBER(10,2)): Die Prüfung muss NACH der
- * Rundung erfolgen — 99.999.999,999 würde sonst durch die Prüfung schlüpfen,
- * auf 100.000.000,00 aufrunden und erst in der DB mit ORA-01438 scheitern.
+ * Grenzfälle der centgenauen Betrags-Normierung (NUMBER(10,2)).
  */
 class SozialLeistungsServiceTest {
 
@@ -29,14 +27,13 @@ class SozialLeistungsServiceTest {
     void maximaleVorkommastellenSindErlaubt() {
         assertEquals(eur("99999999.99"),
                 SozialLeistungsService.normiereBetrag(eur("99999999.99"), "Betrag"));
-        // rundet auf den erlaubten Höchstwert, nicht darüber
+        // Zusätzliche Nullstellen verändern den Betrag nicht.
         assertEquals(eur("99999999.99"),
-                SozialLeistungsService.normiereBetrag(eur("99999999.994"), "Betrag"));
+                SozialLeistungsService.normiereBetrag(eur("99999999.9900"), "Betrag"));
     }
 
     @Test
-    void rundungUeberDieGrenzeWirdFachlichAbgewiesen() {
-        // 99.999.999,999 → HALF_UP → 100.000.000,00 = 9 Vorkommastellen → VALIDATION
+    void subcentbetragAnDerObergrenzeWirdFachlichAbgewiesen() {
         var ausnahme = assertThrows(FachlicheException.class,
                 () -> SozialLeistungsService.normiereBetrag(eur("99999999.999"), "Betrag"));
         assertEquals(FachlicheException.VALIDATION, ausnahme.code());
@@ -57,11 +54,14 @@ class SozialLeistungsServiceTest {
     }
 
     @Test
-    void nachkommastellenWerdenAufZweiNormiert() {
-        assertEquals(eur("10.56"),
-                SozialLeistungsService.normiereBetrag(eur("10.555"), "Betrag"));
+    void centgenaueWerteWerdenVerlustfreiNormiertUndSubcentwerteAbgewiesen() {
         assertEquals(eur("10.55"),
-                SozialLeistungsService.normiereBetrag(eur("10.554"), "Betrag"));
+                SozialLeistungsService.normiereBetrag(eur("10.5500"), "Betrag"));
+        for (String wert : java.util.List.of("10.555", "10.554", "12.345", "0.001")) {
+            var ausnahme = assertThrows(FachlicheException.class,
+                    () -> SozialLeistungsService.normiereBetrag(eur(wert), "Kaltmiete"));
+            assertEquals(FachlicheException.VALIDATION, ausnahme.code());
+        }
     }
 
     // ------------------------------------------------------------------

@@ -125,8 +125,10 @@ final class MdBericht {
                 + "Einkommen/Vermögen den Bedarf übersteigt, VALIDATION bei Doppelanordnung je "
                 + "Monat oder Zahlungsmonat außerhalb des Bewilligungszeitraums, BERECHTIGUNG bei "
                 + "Selbstfreigabe, KONKURRENZ bei veraltetem Maskenstand, BUDGET_ERSCHOEPFT bei "
-                + "zu kleinem Startbudget). Prüfe, dass der Datenbank-Endzustand unverändert "
-                + "geblieben ist (keine Zahlung, Budget unangetastet).\n");
+                + "zu kleinem Startbudget). Prüfe den unveränderten Fachzustand je "
+                + "erwartungsgemäß abgewehrtem Schritt gegenüber dessen unmittelbarem Vorzustand. "
+                + "Erfolgreiche Basisaktionen können Zahlungen, Bescheide und Budgetänderungen "
+                + "hinterlassen; ein Negativfall muss keinen insgesamt leeren Zahlungsbestand haben.\n");
         md.append("4. GRENZEN: Last-/Stresstests erzeugen nur Aggregate (kein Einzelfall-Nachrechnen); "
                 + "Web-Läufe (modus 2-web) nutzen dieselbe Datenstruktur, dokumentieren aber "
                 + "UI-Schritte. Globale Prüfungen stehen im Kopf als globale_pruefung-Zeilen.\n");

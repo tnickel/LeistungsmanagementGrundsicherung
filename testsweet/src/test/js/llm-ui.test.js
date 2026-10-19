@@ -383,3 +383,32 @@ test("Verspäteter Einzelstatus zeigt während und nach dem Gesamtlauf keine alt
   assert.equal(ui.element("pdfhinweis").style.display,"block");
   assert.equal(ui.element("zertifikat-tests-pdf").hidden,true);
 });
+
+test("GLM-Konfigurationsfallback setzt 200 Fälle und bewahrt ausdrücklich gewählten Umfang",()=>{
+  const ui=browser();
+  vm.runInContext("fillLlmConfig({})",ui.context);
+  assert.equal(ui.element("llm-cases").value,200);
+  assert.equal(ui.element("llm-faelle").value,200);
+  vm.runInContext("fillLlmConfig({cases:18})",ui.context);
+  assert.equal(ui.element("llm-cases").value,18);
+  assert.equal(ui.element("llm-faelle").value,18);
+});
+
+test("Standardpreset liefert 100 Positiv- und 100 Negativfälle und erhält die 500er-Breite",()=>{
+  const ui=browser();
+  for(const category of ["POSITIV","NEGATIV"]){
+    vm.runInContext(`gewaehlteKategorie='${category}';wendePresetAn('standard')`,ui.context);
+    assert.equal(ui.element("auftraege").value,100,category);
+    vm.runInContext("wendePresetAn('gross')",ui.context);
+    assert.equal(ui.element("auftraege").value,500,category);
+  }
+});
+
+test("statisches Formular und Erklärung stimmen mit dem Standard 100 plus 100 überein",()=>{
+  const html=fs.readFileSync(path.resolve(__dirname,"../../main/resources/sweet/index.html"),"utf8");
+  assert.match(html,/<input[^>]*id="auftraege"[^>]*value="100"/);
+  assert.match(html,/<input[^>]*id="llm-faelle"[^>]*value="200"/);
+  assert.match(html,/<input[^>]*id="llm-cases"[^>]*value="200"/);
+  assert.match(html,/200 Prüffällen genau 100 Positivfälle/);
+  assert.doesNotMatch(html,/50 guten und 50 schlechten/);
+});

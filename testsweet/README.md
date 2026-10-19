@@ -36,9 +36,9 @@ auch im Dialog für fehlende oder veraltete Prüfbelege. Der Ablauf erledigt:
 1. Hauptprogramm neu bauen, installieren und mit der eingerichteten Testdatenbank
    testen; die Konfigurationsprüfung zusätzlich ohne DB-Umgebungsüberschreibungen.
 2. testsweet neu bauen und seine automatischen Tests mit der Testdatenbank ausführen.
-3. Die sieben Pflichtkombinationen prüfen: Web Positiv 60, Negativ 60, Last 30;
+3. Die sieben Pflichtkombinationen prüfen: Web Positiv 100, Negativ 100, Last 30;
    Fachschicht Positiv 500, Negativ 500, Last 120, Stress 21 Nutzer in zwei Wellen
-   (42 Aufträge). Insgesamt sind das 1.312 Simulatoraufträge.
+   (42 Aufträge). Insgesamt sind das 1.392 Simulatoraufträge.
 4. GLM mit der im Feld „Maximale Prüffälle“ gewählten Fallzahl auf den frischen
    Positiv-/Negativberichten starten. Dies bleibt eine ausgewiesene Stichprobe.
 5. Bei vollständigem Erfolg das Zertifikat automatisch erstellen und dessen PDF
@@ -107,9 +107,9 @@ Ausführung direkt über CLI ohne Browser:
 ```cmd
 testsweet\start.bat run <mitarbeiter> <auftraege> [seed] [denkzeitMs] [kategorie]
 ```
-Beispiel (10 parallele Mitarbeiter, 60 Aufträge, Seed 42, 0 ms Denkzeit, Positivfälle):
+Beispiel (10 parallele Mitarbeiter, 100 Aufträge, Seed 42, 0 ms Denkzeit, Positivfälle):
 ```cmd
-testsweet\start.bat run 10 60 42 0
+testsweet\start.bat run 10 100 42 0
 ```
 Kategorie ist optional (`POSITIV` Standard, `NEGATIV`, `LAST`), z. B. 600 Lastdurchläufe:
 ```cmd
@@ -130,7 +130,7 @@ testsweet\start.bat web 2 4 42 200
 ## Konfiguration
 
 - GUI: Mitarbeiterzahl, Anzahl Aufträge, Seed (0 = zufällig; fester Seed =
-  reproduzierbare Szenarien), Denkzeit je Schritt, Altdaten-Aufräumatik.
+  reproduzierbare Szenarien), Denkzeit je Schritt, Bereinigung eigener früherer Läufe.
 - Datenbank: `TX_URL` / `TX_USER` / `TX_PASS` (Standard: Docker-DB
   `jdbc:oracle:thin:@//localhost:1521/FREEPDB1`, tx_demo/tx_demo); Systemproperties
   `tx.url` / `tx.user` / `tx.pass` haben Vorrang. Eingebetteter Webserver und
@@ -183,10 +183,10 @@ das Aktenzeichen-Präfix unterscheidet die Datenmengen in der Datenbank:
 
 | Kategorie | Fachschicht (Modus 1) | Weboberfläche (Modus 2) | Report |
 |-----------|----------------------|-------------------------|--------|
-| **POSITIV** (Standard) | `SWEET-` — die 10 Szenario-Arten oben | `SWEET-W-` | `testdokumentation.pdf` / `.md` je Fall |
-| **NEGATIV** | `SWEET-N-` | `SWEET-NW-` | `testdokumentation.pdf` / `.md` je Fall |
-| **LAST** | `SWEET-L-` | `SWEET-LW-` | **gekürzter** `lastreport.pdf` / `lastreport.md` (nur Aggregate) |
-| **STRESS** | `SWEET-S-` | — (bewusst nur Fachschicht) | **gekürzter** `lastreport.pdf` / `lastreport.md` |
+| **POSITIV** (Standard) | `SWEET-<Laufkennung>-` — die 10 Szenario-Arten oben | `SWEET-<Laufkennung>-W-` | `testdokumentation.pdf` / `.md` je Fall |
+| **NEGATIV** | `SWEET-<Laufkennung>-N-` | `SWEET-<Laufkennung>-NW-` | `testdokumentation.pdf` / `.md` je Fall |
+| **LAST** | `SWEET-<Laufkennung>-L-` | `SWEET-<Laufkennung>-LW-` | **gekürzter** `lastreport.pdf` / `lastreport.md` (nur Aggregate) |
+| **STRESS** | `SWEET-<Laufkennung>-S-` | — (bewusst nur Fachschicht) | **gekürzter** `lastreport.pdf` / `lastreport.md` |
 
 **Auftrags-Obergrenzen je Kategorie** (Feld „Aufträge", 1–Limit; GUI begrenzt das
 Eingabefeld, Simulator und CLI weisen Überschreitungen mit Klartext-Meldung ab):
@@ -230,11 +230,41 @@ Freigabe/Storno) in hoher Stückzahl gegen Transaktionssteuerung und Datenbank.
 Da bei 600+ Fällen eine Einzelfall-Dokumentation ausufern würde, schreibt der
 Simulator bewusst nur einen **Gesamtreport** (`lastreport.pdf`/`lastreport.md`)
 mit Aggregaten: Kennzahlen, Durchsatz (Aufträge/min), Dauer je Auftrag
-(min/Ø/max), Summe der verifizierten Auszahlungen, Verteilung je Szenario-Typ
+(min/Ø/max sowie p50/p95/p99 nach nearest-rank), Summe der verifizierten Auszahlungen, Verteilung je Szenario-Typ
 und je Sachbearbeiter. Die Einzelnachweise stehen vollständig in den
 Protokolldateien des Lauf-Verzeichnisses. GUI-Presets: Lasttest klein
-(10 MA/120), Standard **20 MA / 600 Fälle**, Dauerlast (30 MA/1200);
+(10 MA/120), Standard **20 MA / 600 Fälle**, Lasttest groß (30 MA/1200);
 Referenzlauf: 600/600 verifiziert in 3 s gegen die Docker-Oracle.
+
+LAST und STRESS sind begrenzte **funktionale Paralleltests**. Die Auftragstöpfe
+definieren weder eine Mindestlastdauer noch Sättigungsstufen; auch ein grüner
+Lauf ist deshalb kein Kapazitäts-, Dauerlast- oder Produktionslastnachweis.
+Die historischen Sekundenangaben oben sind keine Zusage für aktuelle Quellen
+oder andere Umgebungen. Der Durchsatz verwendet die monotone Laufdauer in
+Millisekunden, zählt abgeschlossene Aufträge und umfasst Vorbereitung sowie
+SQL-Endverifikation. Auftragsperzentile verwenden die Worker-Bearbeitungszeit
+ohne Wartezeit im Auftragstopf; n wird mit ausgewiesen. Für einen eigenständigen
+Kapazitätsnachweis sind ein vereinbartes Lastprofil, Messdauer, mehrere
+Parallelitätsstufen und Ressourcen-/Fehlergrenzen erforderlich.
+
+## Datenbesitz und Aufräumen
+
+Jeder Simulatorlauf erzeugt eine zufällige 128-Bit-Laufkennung. Seine Aktenzeichen
+beginnen mit `SWEET-<Laufkennung>-`; Modus, Kategorie und Auftragsnummer folgen.
+Seed und fachliche Eingaben bleiben reproduzierbar, die Aktenzeichen werden je
+Lauf neu vergeben. `run-state.json` und die Laufzusammenfassung nennen diesen
+Datennamensraum. Globale SQL-Prüfungen beziehen sich ausschließlich auf den
+aktuellen Lauf, sodass andere Läufe weder mitgezählt noch als eigene Fehler
+interpretiert werden.
+
+Die Option „Eigene frühere Läufe … aufräumen“ bereinigt nur Laufkennungen, die
+**dieselbe laufende Simulatorinstanz selbst erzeugt** hat. Der Filter ist
+parameterisiert und verwendet keine Wildcards. Beim ersten Lauf und nach einem
+Neustart gibt es keine übernommene Bereinigungsberechtigung. Fremde/historische
+`SWEET-*`-Daten und Journale ohne BG-Zuordnung bleiben erhalten; ein gemeinsames
+Präfix oder fremde Logdateien beweisen keinen Besitz. Historische Testdaten können
+separat nach Prüfung ihres Ursprungs gewartet werden. Es gibt keinen globalen
+Löschlauf auf `SWEET-%` oder `sb-sim-%` mehr.
 
 ## Logfiles (der eigentliche Zweck)
 
@@ -268,7 +298,10 @@ auf. Standard sind **GLM-5.3** (`glm-5.3`) und die Basisadresse
    gehören nicht zur LLM-Fallnachrechnung.
 2. **Zahnrad konfigurieren:** Endpunkt, Modell, API-Schlüssel, Zeitlimit (5–900 s),
    Antwortlimit (1024–131072 Tokens), **1–10 Fälle je Anfrage** und **2–1000 Prüffälle**.
-   Standard: 180 s, 16000 Tokens, 3 Fälle je Anfrage und 100 Prüffälle. Ein leeres
+   Standard: 180 s, 16000 Tokens, 3 Fälle je Anfrage und **200 Prüffälle: genau
+   100 Positiv- und 100 Negativfälle**. Simulator-Standard, CLI- und HTTP-Fallback
+   verwenden jeweils **100 Fälle pro Kategorie**; die breite Fachprüfung bleibt
+   bei 500 Positiv- und 500 Negativfällen. Ein leeres
    Schlüsselfeld behält den vorhandenen Schlüssel; die Checkbox entfernt den lokal
    gespeicherten Wert. „Verbindung zu GLM testen“ führt einen echten kleinen API-Aufruf aus,
    ersetzt aber keine Fachprüfung.
@@ -276,8 +309,10 @@ auf. Standard sind **GLM-5.3** (`glm-5.3`) und die Basisadresse
    „Prüfpaket ansehen“. „GLM-5.3-Prüfung starten“ sendet je Batch den vollständigen
    Prüfauftrag, die vollständigen Gesetzesgrundlagen und die vollständigen ausgewählten
    Fälle als drei **benannte Dokumenttexte im Request**. Es werden keine bloßen Dateipfade
-   übermittelt. Reichen die Quellfälle nicht aus, wird abgebrochen; es gibt keine stille
-   Kürzung. Die Auswahl ist eine dokumentierte Stichprobe, kein Nachweis aller Regelzweige.
+   übermittelt. Reicht eine Kategoriequote nicht aus, wird abgebrochen; es gibt keine stille
+   Kürzung oder einseitige Auffüllung. Gerade Fallzahlen werden hälftig aufgeteilt,
+   ungerade erhalten einen zusätzlichen Positivfall. Die Auswahl ist eine dokumentierte
+   Stichprobe, kein Nachweis aller Regelzweige.
    Alle API-Aufrufe verlangen JSON über `response_format: {"type":"json_object"}` und
    senden `thinking: {"type":"disabled"}`. Auch der Verbindungstest erwartet ein
    JSON-Objekt. Die API kann trotz `disabled` Reasoning-Tokens melden; diese Einstellung
@@ -398,17 +433,17 @@ Die Testdokumentation und Weboberfläche nutzen ein automatisiertes Grafiksystem
   4. `transaktionsarchitektur.png` / `.jpg`: Transaktionssteuerung & Oracle-ACID-Kern
   5. `stresstest_zwei_wellen.png` / `.jpg`: Stresstest-Szenario (Welle 1 → Phasenbarriere → Welle 2, Oracle-Kern, SQL-Endprüfung) — eingebettet in den Stresstest-Gesamtreport
 - **Eingebauter PDF-Generator (`SweetPdf`)**: Eigenentwicklung ohne Drittbibliotheken; bindet Grafiken als PDF-1.4 XObjects (`/Filter /DCTDecode`) ein und berechnet automatische Seitenumbrüche.
-- **Weboberfläche (Port 8095)**: Modernes Dashboard mit interaktiver Diagramm-Showcase-Galerie, Live-Statusindikator, Schnell-Presets (15 / 60 / 120 Fälle) und Volltext-Such- und Filterleiste.
+- **Weboberfläche (Port 8095)**: Modernes Dashboard mit interaktiver Diagramm-Showcase-Galerie, Live-Statusindikator, Positiv-/Negativ-Presets (15 / 100 / 500 Fälle) und Volltext-Such- und Filterleiste.
 
 Automatische SQL-, Rechen- und LLM-Ergebnisse stehen zusammen mit den Rohprotokollen
 zur fachlichen Auswertung zur Verfügung; ihre unterschiedliche Abdeckung bleibt erkennbar.
 
 ## Datenhygiene
 
-Alle Vorgänge tragen das Aktenzeichen-Präfix `SWEET-`; der optionale Aufräum-
-Schritt vor dem Lauf (GUI-Checkbox, Standard an) entfernt Reste früherer Läufe
-komplett (Kindtabellen zuerst). Der Seed-Bestand der Fachdatenbank bleibt
-unberührt.
+Der optionale Aufräumschritt entfernt ausschließlich frühere, von derselben
+Simulatorinstanz erzeugte Laufdaten (Kindtabellen zuerst). Fremde und historische
+Laufdaten werden erhalten. Die genauen Besitz- und Neustartregeln stehen oben
+unter „Datenbesitz und Aufräumen“.
 
 ## Sicherheitshinweis
 
@@ -438,6 +473,29 @@ Die Storno-Spurenprüfung ist weiterhin keine vollständige Rollback-Bilanz eine
 mehrschrittigen Auftrags.
 
 ## Regressionen aus dem Gesamt-Review vom 15.10.2026
+
+Die Gegenprüfung des Grok-Berichts ergänzt Produktregressionen für monatsbezogene
+Vorschauen, atomare Änderungsbescheide, eindeutige Kinderzähler und vollständigere
+Snapshot-Eingaben. Oracle-Tests prüfen die Zuordnung von Saga-Kompensationen nach
+Schrittnamen, eine künstlich verlorene Write-Ahead-Commitquittung nach echtem Commit
+und einen Kassenlauf mit 1.001 eigenen BEREIT-Zeilen. Die JavaScript-Prüfung
+`node --test testsweet/src/test/js/produkt-ui-review.test.js` führt die vollständige
+Produktdatei mit kontrolliertem DOM/HTTP aus: Ein unbekannter Schreibausgang löst nur
+lesendes Nachladen aus, und eine Auszahlung behält ihre Vorgangsnummer auch nach
+Browser-Reload. Diese gezielten Regressionen ersetzen weder die sieben Simulator-
+Vollläufe noch ein neues Gesamtzertifikat.
+
+`SweetUiRegressionTest` startet beide Browserdatei-Gegenproben (`llm-ui.test.js`
+und `produkt-ui-review.test.js`) auch im normalen Mavenlauf. Die neue
+`GrokFachServiceDbTest` prüft das installierte Produkt mit echten Service-Commits
+und konsistenten SQL-Snapshots der fünf Fachtabellen, insbesondere Änderungsbescheid,
+Rollback, ungeklärten Altmonats-Vermögenseinsatz, Legacy-Eingaben und Replay.
+`ProduktTaskAusgangDbTest` verbindet echten Fachcommit, Task-Wachhund, HTTP 409
+und unabhängige SQL-Nachkontrolle. Der Kassenlauf-Test erzwingt die 19c-Parsergrenze
+zusätzlich per JDBC-Guard, weil die aktuelle Free-Version 1.001 IDs bereits ohne
+Blockaufteilung akzeptiert. Mengenfehler im zweiten Block müssen sämtliche echten
+Oracle-Updates zurückrollen. Abdeckung und Grenzen je Review-Befund stehen in
+[doc/codereview/testsweet-abdeckung-2026-10-15.md](../doc/codereview/testsweet-abdeckung-2026-10-15.md).
 
 Die eigene Maven-Suite prüft zusätzlich den tatsächlichen Produkt-HttpServer auf alternative numerische Storno-IDs, Rollenprüfung, Login-Drosselung bei voller Phantomliste und Drucktoken nach Logout bzw. BG-Wechsel. Produktkern-Regressionen prüfen echte Oracle-Fehlercodes sowie den PENDING-Absturzpunkt und Wiederanlauf auf Oracle. Bescheid-Datenbanktests prüfen Service- und Saga-Erteilung und identischen Nachdruck nach Bank-/Behördenwechsel.
 

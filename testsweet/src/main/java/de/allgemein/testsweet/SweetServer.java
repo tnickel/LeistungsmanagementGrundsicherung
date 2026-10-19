@@ -151,6 +151,16 @@ final class SweetServer implements AutoCloseable {
                         sendeJson(exchange, Map.of("ok", true, "phase", simulator.phase().name()));
                     }
                 }
+                case "/api/cleanup-prozesse" -> {
+                    if (!"POST".equals(exchange.getRequestMethod())) { sendeFehler(exchange, 405, "nur POST"); return; }
+                    synchronized (operationLock) {
+                        int beendet = BrowserProzesse.raeumeAlleVerwaistenProzesseAuf();
+                        String meldung = beendet > 0
+                                ? beendet + " verwaiste(r) Browser- / ChromeDriver-Prozess(e) erfolgreich beendet."
+                                : "Keine verwaisten Browser- oder ChromeDriver-Prozesse gefunden.";
+                        sendeJson(exchange, Map.of("ok", true, "beendet", beendet, "meldung", meldung));
+                    }
+                }
                 case "/api/pdf" -> lieferePdf(exchange);
                 case "/api/md" -> liefereMd(exchange);
                 case "/api/zertifikat" -> {
@@ -255,13 +265,7 @@ final class SweetServer implements AutoCloseable {
                     + "den Fachschicht-Modus vorgesehen — bitte Modus 1 wählen");
             return;
         }
-        Simulator.LaufKonfiguration konfig = new Simulator.LaufKonfiguration(
-                zahl(wunsch, "mitarbeiter", 10),
-                zahl(wunsch, "auftraege", 60),
-                zahl(wunsch, "seed", 42),
-                zahl(wunsch, "denkzeitMs", 120),
-                Boolean.TRUE.equals(wunsch.get("aufraeumen")),
-                kategorie);
+        Simulator.LaufKonfiguration konfig = laufKonfiguration(wunsch, kategorie);
         // Vorabprüfung: Bei einer nicht erreichbaren Datenbank wird gar kein
         // Lauf angelegt (kein Laufverzeichnis, kein Abbruch-Nachweis), sondern
         // eine klare Meldung mit Startanleitung zurückgegeben.
@@ -282,6 +286,14 @@ final class SweetServer implements AutoCloseable {
         } catch (IllegalStateException e) {
             sendeFehler(exchange, 409, e.getMessage());
         }
+    }
+
+    /** Auch unvollständige HTTP-Wünsche verwenden denselben Standardumfang wie die CLI. */
+    static Simulator.LaufKonfiguration laufKonfiguration(Map<?, ?> wunsch, Simulator.Kategorie kategorie) {
+        return new Simulator.LaufKonfiguration(zahl(wunsch, "mitarbeiter", 10),
+                zahl(wunsch, "auftraege", SimulatorDefaults.ORDERS_PER_CATEGORY),
+                zahl(wunsch, "seed", 42), zahl(wunsch, "denkzeitMs", 120),
+                Boolean.TRUE.equals(wunsch.get("aufraeumen")), kategorie);
     }
 
     /** Zeilenende des simulation.log des letzten Laufs (Rückgriff, wenn kein Lauf aktiv ist). */
@@ -608,7 +620,6 @@ final class SweetServer implements AutoCloseable {
                 ? java.nio.file.Path.of(reviewedPdf) : java.nio.file.Path.of(String.valueOf(evidence.get("artifactDirectory"))).resolve("testreport-ki-anhang.pdf");
         byte[] bytes = java.nio.file.Files.readAllBytes(pdf);
         exchange.getResponseHeaders().set("Content-Type", "application/pdf");
-        exchange.getResponseHeaders().set("Cache-Control", "no-store");
         exchange.getResponseHeaders().set("Cache-Control", "no-store");
         exchange.sendResponseHeaders(200, bytes.length);
         try (OutputStream out = exchange.getResponseBody()) { out.write(bytes); }

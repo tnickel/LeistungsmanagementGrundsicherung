@@ -7,5 +7,12 @@ dir:ddl
 dir:tools
 file:pom.xml
 file:testsweet/pom.xml
+file:README.md
+file:testsweet/README.md
+file:doc/projektbeschreibung.md
+file:doc/architektur.md
+file:doc/leistungsmanagement.md
+file:doc/rechtsgrundlagen.md
+file:doc/regressionstests.md
 tool:doc/testzertifikat-werkzeug
 file:doc/testzertifikat-werkzeug/llm-answer-parity-corpus.json

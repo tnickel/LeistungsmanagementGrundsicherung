@@ -148,9 +148,13 @@ window.addEventListener("DOMContentLoaded", () => {
         if (e.target === $("testfall-overlay")) $("testfall-overlay").classList.remove("offen");
     });
 
-    // Start / Stop
+    // Start / Stop / Cleanup
     $("start").addEventListener("click", starteSimulation);
     $("stop").addEventListener("click", stoppeSimulation);
+    const cleanupBtn = $("cleanup-prozesse");
+    if (cleanupBtn) cleanupBtn.addEventListener("click", () => fuehreProzessCleanupAus(cleanupBtn));
+    const zertCleanupBtn = $("zertifikat-cleanup-prozesse");
+    if (zertCleanupBtn) zertCleanupBtn.addEventListener("click", () => fuehreProzessCleanupAus(zertCleanupBtn));
 
     // Dialog schließen
     $("schliessen").addEventListener("click", () => $("overlay").classList.remove("offen"));
@@ -216,25 +220,25 @@ let gewaehlteKategorie = "POSITIV";
 const KATEGORIE_HINWEISE = {
     POSITIV: "Positivfälle: Erfolgswege mit vollständiger Prüfung",
     NEGATIV: "Negativfälle: abgewehrte Fachfehler mit unverändertem Datenbank-Endzustand",
-    LAST: "Lasttest: schlanke Massendurchläufe — Report nur als Gesamtreport",
-    STRESS: "Stresstest: Aufträge = User-Zahl; je User 2 Tests (anlegen + nachbearbeiten) — nur Fachschicht-Modus, Gesamtreport"
+    LAST: "Lasttest: begrenzter Paralleltest — kein Kapazitäts- oder Dauerlastnachweis, Gesamtreport",
+    STRESS: "Stresstest: Aufträge = User-Zahl; je User 2 Tests — begrenzter Paralleltest, kein Kapazitätsnachweis; nur Fachschicht"
 };
 
 const KATEGORIE_PRESETS = {
     POSITIV: {
         klein: { label: "Schnell (5 MA / 15 Fälle)", ma: 5, auf: 15, seed: 42, denkzeit: 20 },
-        standard: { label: "Standard (10 MA / 60 Fälle)", ma: 10, auf: 60, seed: 42, denkzeit: 20 },
+        standard: { label: "Standard (10 MA / 100 Fälle)", ma: 10, auf: 100, seed: 42, denkzeit: 20 },
         gross: { label: "Breite 500 (20 MA / 500 Kombinationen)", ma: 20, auf: 500, seed: 42, denkzeit: 5 }
     },
     NEGATIV: {
         klein: { label: "Schnell (5 MA / 15 Fälle)", ma: 5, auf: 15, seed: 42, denkzeit: 20 },
-        standard: { label: "Standard (10 MA / 60 Fälle)", ma: 10, auf: 60, seed: 42, denkzeit: 20 },
+        standard: { label: "Standard (10 MA / 100 Fälle)", ma: 10, auf: 100, seed: 42, denkzeit: 20 },
         gross: { label: "Breite 500 (20 MA / 500 Kombinationen)", ma: 20, auf: 500, seed: 42, denkzeit: 5 }
     },
     LAST: {
         klein: { label: "Lasttest klein (10 MA / 120 Fälle)", ma: 10, auf: 120, seed: 42, denkzeit: 0 },
         standard: { label: "Lasttest (20 MA / 600 Fälle)", ma: 20, auf: 600, seed: 42, denkzeit: 0 },
-        gross: { label: "Dauerlast (30 MA / 1200 Fälle)", ma: 30, auf: 1200, seed: 42, denkzeit: 0 }
+        gross: { label: "Lasttest groß (30 MA / 1200 Fälle)", ma: 30, auf: 1200, seed: 42, denkzeit: 0 }
     },
     STRESS: {
         klein: { label: "Stress klein (10 MA / 500 User)", ma: 10, auf: 500, seed: 42, denkzeit: 0 },
@@ -347,6 +351,28 @@ async function stoppeSimulation() {
     aktualisiere();
 }
 
+async function fuehreProzessCleanupAus(btn) {
+    if (!btn) return;
+    const alterText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "🧹 Räume auf …";
+    try {
+        const antwort = await fetch("/api/cleanup-prozesse", { method: "POST" });
+        const ergebnis = await antwort.json();
+        if (ergebnis.ok) {
+            alert(ergebnis.meldung || "Verwaiste Prozesse erfolgreich beendet.");
+        } else {
+            alert("Fehler beim Aufräumen: " + (ergebnis.fehler || "Unbekannter Fehler"));
+        }
+    } catch (e) {
+        alert("Serverfehler beim Aufräumen: " + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = alterText;
+        aktualisiere();
+    }
+}
+
 // ------------------------------------------------------------------
 // Status & Polling
 // ------------------------------------------------------------------
@@ -399,7 +425,7 @@ async function aktualisiere() {
     $("balken").style.width = prozent + "%";
     $("fortschritt-prozent").textContent = prozent + " %";
     $("fortschritt-label").textContent = status.phase === "BEREIT" ? "Bereit"
-        : status.phase === "AUFRAEUMEN" ? "Bereinige Altdaten …"
+        : status.phase === "AUFRAEUMEN" ? "Bereinige eigene frühere Läufe …"
         : status.phase === "LAUF" ? `Simulation läuft (${fertig} von ${gesamt} erledigt)`
         : status.phase === "VERIFIKATION" ? "SQL-Endzustandsprüfung auf Datenbank …"
         : status.phase === "FEHLGESCHLAGEN" ? (status.letzteFehlermeldung || globalePruefText(status))
@@ -606,8 +632,8 @@ function fillLlmConfig(config) {
     $("llm-timeout").value = config.timeoutSeconds || 300;
     $("llm-max-tokens").value = config.maxTokens || 16384;
     $("llm-batch-size").value = config.batchSize || 3;
-    $("llm-cases").value = config.cases || 100;
-    $("llm-faelle").value = config.cases || 100;
+    $("llm-cases").value = config.cases || 200;
+    $("llm-faelle").value = config.cases || 200;
     $("llm-api-key").value = "";
     $("llm-clear-key").checked = false;
     $("llm-key-status").textContent = config.apiKeyConfigured ? "API-Schlüssel vorhanden." : "Noch kein API-Schlüssel vorhanden.";

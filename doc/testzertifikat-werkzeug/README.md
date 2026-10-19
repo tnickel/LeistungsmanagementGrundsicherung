@@ -57,7 +57,7 @@ Freigabe, bis die gesamte Pflichtmatrix danach erneut geprüft wurde.
 
    ```powershell
    mvn -f testsweet/pom.xml test
-   node --test doc/testzertifikat-werkzeug/certificate-evidence.test.js doc/testzertifikat-werkzeug/llm-answer-parity.test.js doc/testzertifikat-werkzeug/llm-reference.test.js testsweet/src/test/js/llm-ui.test.js
+   node --test doc/testzertifikat-werkzeug/certificate-evidence.test.js doc/testzertifikat-werkzeug/llm-answer-parity.test.js doc/testzertifikat-werkzeug/llm-reference.test.js testsweet/src/test/js/llm-ui.test.js testsweet/src/test/js/produkt-ui-review.test.js
    python -m unittest discover -s doc/testzertifikat-werkzeug -p test_nachrechnen.py
    ```
 
@@ -66,7 +66,8 @@ Freigabe, bis die gesamte Pflichtmatrix danach erneut geprüft wurde.
 4. GLM über das Zahnrad konfigurieren und in Abschnitt 7 starten. Prüfauftrag,
    Gesetzesgrundlagen und vollständige ausgewählte Fallgruppen werden als benannte
    Dokumenttexte gesendet. 2-1000 Fälle, 1-10 Fälle pro Fallgruppe. Formatfehler lösen
-   höchstens drei identische Sendeversuche mit jeweils 30 Sekunden Pause aus.
+   höchstens drei Sendeversuche mit jeweils 30 Sekunden Pause aus. Die ursprünglichen
+   Dokumenttexte bleiben vollständig; Wiederholungen ergänzen einen gezielten Korrekturhinweis.
    Fachliche Befunde werden erhalten und nicht durch Wiederholung verdeckt.
 5. Das Zertifikat über die GUI oder `erstelle-zertifikat.bat` erstellen. Negative
    Ergebnisse bleiben sichtbar. Bei Befunden die genannten Fall-IDs, Rechenwerte,
@@ -106,11 +107,42 @@ als READY markiert. Der Server prüft diese Bindung vor dem aktuellen PDF-Abruf.
 ## Quellen- und Buildbindung
 
 `tools/evidence-sources.txt` definiert das relevante Quellinventar.
+Neben Code, DDL und Prüferquellen bindet es die Projekt- und testsweet-README sowie die maßgeblichen
+Projekt-, Architektur-, Fach-, Rechtsgrundlagen- und Regressionsdokumente ein.
+Änderungen dieser Grundlagen entwerten ältere Nachweise auch ohne Codeänderung.
+Generierte Zertifikate, Reviewberichte, Logdateien und historische Belegordner
+bleiben außerhalb des Inventars; sonst würde das Erzeugen eines Nachweises seinen
+eigenen Quellenstand verändern.
+
+Die testsweet-Maven-Suite führt die Node-Prüfer für Zertifikatsbelege,
+Rechenreferenz und Antwortparität verpflichtend aus; die beiden Browserprüfer
+gehören ebenfalls zur Suite. Ein fehlender Prüfer, Prozessfehler, leeres Ergebnis
+oder übersprungener Werkzeugtest verhindert den Erfolg der Werkzeugprüfung.
+Die Kategorien LAST/STRESS im Zertifikat belegen funktionale Parallelabläufe mit
+begrenzten Fallzahlen. Sie liefern keinen Nachweis von Dauerlast, Sättigung oder
+Produktionskapazität.
 `tools/BuildStamp.java` erzeugt Compilerstempel und beginnt/beendet Maven-Testnachweise.
 JUnit-XML werden pro Lauf unter `target/test-evidence-history/` unveränderlich als
 Snapshots gebunden. Ein fehlender FINISH-Hook verdeckt vorhandene Surefire-Fehler nicht.
 Die lokale installierte Produkt-JAR, geladene Klassen, Prüfercode und Quellinventar
 werden mit Hashes verbunden; gleiche Versionsnummern allein reichen nicht.
+
+Der Gesamtlauf erstellt nach beiden Neubauten über eine frische Helfer-JVM eine
+eigene Runtime unter `certificate-suite-<ID>/runtime/`. Jeder Classpath-Eintrag
+wird vor und nach dem Kopieren gehasht; der Worker lädt Produkt und testsweet
+aus dieser Kopie. Manifesthash und tatsächliche CodeSource-Pfade werden beim
+Workerstart geprüft. Bestehende Laufverzeichnisse werden nicht überschrieben.
+
+Die ursprünglichen JUnit-Marker, archivierten Berichte und referenzierten
+Build-Artefakte bleiben ebenfalls strikt gebunden. Änderungen führen vor
+Phasenwechseln und während langer Prüfungen spätestens beim nächsten
+Kontrollintervall von 15 Sekunden zum technischen Abbruch mit Dateipfad.
+Weitere Kontrollen sichern den Export und die Erfolgsmeldung. Die Laufkopie
+macht parallele Neubauten im selben Workspace damit nicht zulässig; sie
+verhindert eine gemischte Runtime und einen erst spät erkannten Nachweisverlust.
+Für die neue Steuerungslogik muss eine bereits laufende testsweet-GUI neu
+gestartet werden. Ein älterer Controller ohne Runtime-Startnachweis wird
+ausdrücklich abgewiesen.
 
 Je gestartete GLM-Prüfung entsteht `testsweet/logs/llm-review-<UUID>/`:
 

@@ -21,7 +21,7 @@ final class BuildEvidence {
                 "testsweet", locationHash(location(BuildEvidence.class))); }
         catch (Exception error) { return Map.of(); }
     }
-    private static String locationHash(Path path) throws Exception {
+    static String locationHash(Path path) throws Exception {
         return Files.isRegularFile(path) ? hash(Files.readAllBytes(path)) : classesHash(path);
     }
 
@@ -85,7 +85,7 @@ final class BuildEvidence {
         }
         List<Map<String,Object>> result=new ArrayList<>();for(var entry:files.entrySet())result.add(Map.of("path",entry.getKey(),"sha256",hash(Files.readAllBytes(entry.getValue()))));return result;
     }
-    private static Path location(Class<?> type) throws Exception {return Path.of(type.getProtectionDomain().getCodeSource().getLocation().toURI()).toAbsolutePath().normalize();}
+    static Path location(Class<?> type) throws Exception {return Path.of(type.getProtectionDomain().getCodeSource().getLocation().toURI()).toAbsolutePath().normalize();}
     private static Map<String,Object> artifact(Path root,String name,Path location) throws Exception {
         boolean jar=Files.isRegularFile(location);String classes=jar?jarClassesHash(location):classesHash(location);
         Properties stamp=new Properties();

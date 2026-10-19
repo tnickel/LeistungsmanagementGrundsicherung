@@ -7,9 +7,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -50,6 +48,11 @@ public final class SagaJournal implements TxSagaJournal {
 
     @Override
     public void start(String sagaId, String type, String payload, int stepCount) throws SQLException {
+        start(sagaId, type, payload, java.util.Collections.nCopies(stepCount, null));
+    }
+
+    @Override
+    public void start(String sagaId, String type, String payload, List<String> stepNames) throws SQLException {
         // Kopf und alle Schritte atomar anlegen: ein Absturz dazwischen könnte sonst
         // eine RUNNING-Saga ohne Schritte hinterlassen.
         tx(connection -> {
@@ -62,10 +65,11 @@ public final class SagaJournal implements TxSagaJournal {
                 stmt.executeUpdate();
             }
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "INSERT INTO TX_SAGA_STEP (SAGA_ID, IDX, STATE) VALUES (?, ?, 'PENDING')")) {
-                for (int i = 0; i < stepCount; i++) {
+                    "INSERT INTO TX_SAGA_STEP (SAGA_ID, IDX, STATE, NAME) VALUES (?, ?, 'PENDING', ?)")) {
+                for (int i = 0; i < stepNames.size(); i++) {
                     stmt.setString(1, sagaId);
                     stmt.setInt(2, i);
+                    stmt.setString(3, stepNames.get(i));
                     stmt.addBatch();
                 }
                 stmt.executeBatch();
@@ -97,11 +101,12 @@ public final class SagaJournal implements TxSagaJournal {
         // Läuft IN der Fachtransaktion (atomar mit deren Commit); Guard: nur IN_FLIGHT → DONE.
         int geaendert = execUpdate(connection,
                 "UPDATE TX_SAGA_STEP SET STATE = 'DONE', NAME = ?, UPDATED_AT = SYSTIMESTAMP "
-                        + "WHERE SAGA_ID = ? AND IDX = ? AND STATE = 'IN_FLIGHT'",
+                        + "WHERE SAGA_ID = ? AND IDX = ? AND STATE = 'IN_FLIGHT' AND (NAME = ? OR NAME IS NULL)",
                 stmt -> {
                     stmt.setString(1, name);
                     stmt.setString(2, sagaId);
                     stmt.setInt(3, index);
+                    stmt.setString(4, name);
                 });
         if (geaendert != 1) {
             throw new SQLException("Journal-Eintrag für Schritt " + index + " der Saga " + sagaId
@@ -197,12 +202,11 @@ public final class SagaJournal implements TxSagaJournal {
         // Auch die Vergleichsseite muss diese DB-Systemzeit ohne Zone verwenden;
         // eine implizite Konversion nach SESSIONTIMEZONE verschiebt die Schutzfrist.
         String sql = """
-                SELECT s.SAGA_ID, s.SAGA_TYPE, s.PAYLOAD, s.STATE, st.IDX, st.STATE AS STEP_STATE
+                SELECT s.SAGA_ID, s.SAGA_TYPE, s.STATE
                 FROM TX_SAGA s
-                LEFT JOIN TX_SAGA_STEP st ON st.SAGA_ID = s.SAGA_ID
                 WHERE s.STATE IN ('RUNNING', 'FAILED', 'COMPENSATING')
                 """ + frist + """
-                ORDER BY s.SAGA_ID, st.IDX
+                ORDER BY s.SAGA_ID
                 """;
         Connection connection = pool.getConnection();
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
@@ -218,38 +222,26 @@ public final class SagaJournal implements TxSagaJournal {
 
     private List<UnfinishedSaga> leseUnfinished(PreparedStatement stmt) throws SQLException {
         try (ResultSet rs = stmt.executeQuery()) {
-            Map<String, UnfinishedSaga> byId = new LinkedHashMap<>();
-            List<String> ignoriert = new ArrayList<>();
+            List<UnfinishedSaga> result = new ArrayList<>();
             while (rs.next()) {
                 final String sagaId = rs.getString(1);
                 final String type = rs.getString(2);
-                final String payload = rs.getString(3);
-                final String stateText = rs.getString(4);
+                final String stateText = rs.getString(3);
                 // Robustes Mapping (M4): ein unbekannter Zustand legt den Wiederanlauf
                 // nicht still — diese Saga wird protokolliert und übersprungen.
                 SagaState state;
                 try {
                     state = SagaState.valueOf(stateText);
                 } catch (IllegalArgumentException e) {
-                    if (!ignoriert.contains(sagaId)) {
-                        ignoriert.add(sagaId);
-                        LOG.log(Level.SEVERE, "Saga " + sagaId + " hat unbekannten Zustand '"
-                                + stateText + "' und wird beim Wiederanlauf übersprungen", e);
-                    }
+                    LOG.log(Level.SEVERE, "Saga " + sagaId + " hat unbekannten Zustand '"
+                            + stateText + "' und wird beim Wiederanlauf übersprungen", e);
                     continue;
                 }
-                if (ignoriert.contains(sagaId)) {
-                    continue; // Schritt-Zeilen einer bereits übersprungenen Saga
-                }
-                UnfinishedSaga saga = byId.computeIfAbsent(
-                        sagaId, id -> new UnfinishedSaga(id, type, payload, state));
-                int index = rs.getInt(5);
-                String stepState = rs.getString(6);
-                if (!rs.wasNull()) {
-                    saga.putStepState(index, stepState);
-                }
+                // Der Vorscan liest ausschließlich TX_SAGA: PK SAGA_ID liefert
+                // genau eine Kopfzeile, keine mehrfachen Schrittzeilen mehr.
+                result.add(new UnfinishedSaga(sagaId,type,null,state));
             }
-            return new ArrayList<>(byId.values());
+            return result;
         }
     }
 
@@ -294,11 +286,12 @@ public final class SagaJournal implements TxSagaJournal {
             }
             UnfinishedSaga saga = new UnfinishedSaga(sagaId, type, payload, state);
             try (PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT IDX, STATE FROM TX_SAGA_STEP WHERE SAGA_ID = ? ORDER BY IDX")) {
+                    "SELECT IDX, STATE, NAME FROM TX_SAGA_STEP WHERE SAGA_ID = ? ORDER BY IDX")) {
                 stmt.setString(1, sagaId);
                 try (ResultSet rs = stmt.executeQuery()) {
                     while (rs.next()) {
                         saga.putStepState(rs.getInt(1), rs.getString(2));
+                        saga.putStepName(rs.getInt(1), rs.getString(3));
                     }
                 }
             }

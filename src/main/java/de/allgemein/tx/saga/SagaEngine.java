@@ -61,7 +61,7 @@ public final class SagaEngine {
     public String run(SagaDefinition definition, String payload) {
         String sagaId = UUID.randomUUID().toString();
         List<SagaStep> steps = definition.steps();
-        record(() -> journal.start(sagaId, definition.type(), payload, steps.size()));
+        record(() -> journal.start(sagaId, definition.type(), payload, steps.stream().map(SagaStep::name).toList()));
         de.allgemein.tx.audit.TxAuditLog.recordSagaStart(sagaId, definition.type(), payload);
 
         // Derselbe Kopf-Claim wie beim Recovery bleibt über ALLE Fachschritte erhalten.
@@ -82,12 +82,15 @@ public final class SagaEngine {
 
         int doneCount = 0;
         boolean imFlug = false;
+        boolean writeAheadUncertain = false;
         try {
             for (SagaStep step : steps) {
                 final int index = doneCount;
                 record(liveClaim::checkAlive);
                 // (a) Write-Ahead: Schritt als begonnen markieren, BEVOR die Fachtransaktion läuft.
+                writeAheadUncertain = true;
                 record(() -> journal.markStepInFlight(sagaId, index));
+                writeAheadUncertain = false;
                 imFlug = true;
                 // (b) Fachschritt und Journal-Eintrag in derselben Transaktion (atomarer Commit).
                 TxWork<Void> work = ctx -> {
@@ -116,6 +119,12 @@ public final class SagaEngine {
                 } finally {
                     cleanup.clear();
                     liveClaim.close();
+                }
+                if (writeAheadUncertain) {
+                    // Die Commit-Quittung des Write-Ahead kann verloren gegangen sein.
+                    // FAILED behält Payload und IN_FLIGHT für den exklusiven Wiederanlauf.
+                    // Die Fachaktion dieses Schritts wurde noch nicht gestartet.
+                    throw e;
                 }
                 SagaClaim compensationClaim;
                 try {
@@ -282,17 +291,33 @@ public final class SagaEngine {
             throws SQLException {
         List<SagaStep> steps = definition.steps();
 
+        // Historische Engines committeten die Fachaktion vor dem separaten stepDone.
+        // Daher kann auch neben DONE/COMPENSATED ein namenloses PENDING eine noch
+        // vorhandene Wirkung verbergen. Vor JEDEM automatischen Abschluss und vor
+        // jeder Fachkompensation zur manuellen Wirkungsprüfung anhalten.
+        boolean historischUngeklaert = saga.stepStates().entrySet().stream()
+                .anyMatch(entry -> UnfinishedSaga.STEP_PENDING.equals(entry.getValue())
+                        && (saga.stepName(entry.getKey()) == null
+                        || saga.stepName(entry.getKey()).isBlank()));
+        if (historischUngeklaert) {
+            LOG.severe("Saga " + saga.sagaId()
+                    + ": PENDING ohne stabilen Namen; historische Fachwirkung muss manuell geprüft werden");
+            claim.finish(SagaState.FAILED);
+            return SagaState.FAILED;
+        }
+
         // Fund H4: fachlich fertige Saga nur noch abschließen — die COMPLETED-Markierung
         // wird idempotent nachgezogen, wenn alle Schritte DONE sind (Absturzfenster zwischen
         // letztem Schritt-Commit und Markierung). Keine Kompensation!
-        if (saga.state() == SagaState.RUNNING && alleSchritteDone(saga, steps)) {
+        if (saga.state() == SagaState.RUNNING && alleSchritteDone(saga)) {
             claim.finish(SagaState.COMPLETED);
             return SagaState.COMPLETED;
         }
 
         if (alleSchrittePending(saga, steps)) {
-            // start() legt Kopf und Schritte atomar an. Ohne IN_FLIGHT-Marker
-            // konnte nach dem Write-Ahead-Vertrag noch keine Fachwirkung eintreten.
+            // Nur bereits bei PENDING gespeicherte Namen belegen den neuen
+            // atomaren Start-/Write-Ahead-Vertrag. Historische namenlose PENDINGs
+            // können eine Fachwirkung vor dem damaligen separaten stepDone verbergen.
             // Unter dem exklusiven Claim terminal beenden, auch für alte FAILED-Köpfe.
             claim.finish(SagaState.COMPENSATED);
             return SagaState.COMPENSATED;
@@ -313,7 +338,11 @@ public final class SagaEngine {
         // „möglicherweise committet" und wird mit kompensiert (idempotente Kompensationen).
         // Bereits COMPENSATED markierte Schritte (früherer Absturz) werden übersprungen.
         boolean vollstaendig = true;
-        for (int i = steps.size() - 1; i >= 0; i--) {
+        java.util.Map<String, SagaStep> byName = new java.util.HashMap<>();
+        for (SagaStep step : steps) byName.put(step.name(), step);
+        // Die ursprüngliche Reihenfolge ist im Journal gespeichert. Die aktuelle
+        // Definition darf neue Schritte enthalten oder anders sortiert sein.
+        for (int i : saga.stepStates().keySet().stream().sorted(java.util.Comparator.reverseOrder()).toList()) {
             if (!saga.isStepPossiblyCommitted(i)) {
                 continue; // PENDING (nie gelaufen) oder COMPENSATED (schon erledigt)
             }
@@ -321,7 +350,14 @@ public final class SagaEngine {
                 continue; // nach früherem Absturz bereits erledigt — idempotent weiter
             }
             final int index = i;
-            SagaStep step = steps.get(i);
+            String name = saga.stepName(i);
+            SagaStep step = name == null ? null : byName.get(name);
+            if (step == null) {
+                LOG.severe("Saga " + saga.sagaId() + ": stabiler Schrittname für Index " + i
+                        + " fehlt oder ist unbekannt; keine Kompensation über aktuellen Index");
+                vollstaendig = false;
+                continue;
+            }
             try {
                 txManager.execute(TxOptions.DEFAULT, ctx -> {
                     claim.checkAlive();
@@ -338,26 +374,19 @@ public final class SagaEngine {
                         + " — ältere Schritte werden trotzdem kompensiert.");
             }
         }
-        // Journal kann mehr Schritte haben als die aktuelle Definition (Definition geändert):
-        // diese sind nicht kompensierbar — konservativ als unvollständig werten.
-        for (var entry : saga.stepStates().entrySet()) {
-            if (entry.getKey() >= steps.size() && saga.isStepPossiblyCommitted(entry.getKey())) {
-                LOG.log(Level.SEVERE, "Saga " + saga.sagaId() + " hat Schritt " + entry.getKey()
-                        + " (" + entry.getValue() + "), den die Definition nicht mehr kennt"
-                        + " — Saga wird als FAILED markiert.");
-                vollstaendig = false;
-            }
-        }
         SagaState endState = vollstaendig ? SagaState.COMPENSATED : SagaState.FAILED;
         claim.finish(endState);
         return endState;
     }
 
-    private static boolean alleSchritteDone(UnfinishedSaga saga, List<SagaStep> steps) {
-        if (saga.stepStates().size() != steps.size() || steps.isEmpty()) {
+    private static boolean alleSchritteDone(UnfinishedSaga saga) {
+        if (saga.stepStates().isEmpty()) {
             return false;
         }
-        for (int i = 0; i < steps.size(); i++) {
+        // Kopf und vollständige ursprüngliche Schrittliste werden atomar angelegt.
+        // Neue Definitionsschritte dürfen einen bereits vollständig committeten
+        // alten Ablauf nicht nachträglich zur Kompensation machen.
+        for (int i = 0; i < saga.stepStates().size(); i++) {
             if (!saga.isStepDone(i)) {
                 return false;
             }
@@ -369,6 +398,7 @@ public final class SagaEngine {
         if (steps.isEmpty() || saga.stepStates().size() != steps.size()) return false;
         for (int i = 0; i < steps.size(); i++) {
             if (!UnfinishedSaga.STEP_PENDING.equals(saga.stepStates().get(i))) return false;
+            if (saga.stepName(i) == null || saga.stepName(i).isBlank()) return false;
         }
         return true;
     }

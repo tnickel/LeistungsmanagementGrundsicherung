@@ -219,9 +219,10 @@ final class TestfallKatalog {
                 anordnen (Status ANGELEGT, bewusst ohne Freigabe und ohne Bescheid), mit kurzer Denkzeit und \
                 zufälligen Beträgen. Geprüft wird je Auftrag der DB-Endzustand (Zahlung ANGELEGT mit dem \
                 vorab berechneten Betrag, Restbudget passend, Fall angelegt) — der Bericht ist bewusst ein \
-                gekürzter Gesamtbericht (lastreport) mit Aggregaten wie Durchsatz und maximale Sperrwartezeit \
-                statt Einzelfall-Seiten. Ziel der Kategorie: Durchsatz und Stabilität unter paralleler Last, \
-                nicht neue Fachpfade."""));
+                gekürzter Gesamtbericht (lastreport) mit Durchsatz auf Millisekundenbasis und p50/p95/p99 \
+                der Auftragsdauer statt Einzelfall-Seiten. Ziel ist die Funktionsprüfung unter paralleler \
+                Wiederholung. Mindestlastdauer, Sättigungsstufen, Sperrwartezeiten und Retry-Anzahlen werden \
+                nicht gemessen; ein grüner Lauf ist deshalb kein Kapazitäts- oder Dauerlastnachweis."""));
     }
 
     // ------------------------------------------------------------------
@@ -240,12 +241,13 @@ final class TestfallKatalog {
                         nachgewiesen. Nach dem Lauf prüfen die Einzel- und globalen SQL-Abfragen Vorgangsanzahl, \
                         Version 2, exakt eine ANGELEGT-Zahlung je User ohne Freigabevermerk, Zahlungssumme gegen \
                         die erwarteten Anordnungen, vier Journalzeilen je User und nichtnegative Budgets. \
-                        Sperrwartezeiten und Retry-Anzahlen werden nicht separat gemessen. Die Budgetkorrektheit \
+                        Mindestlastdauer und Sättigungsstufen sind nicht definiert; ein grüner Lauf ist kein \
+                        Kapazitäts- oder Dauerlastnachweis. Sperrwartezeiten und Retry-Anzahlen werden nicht separat gemessen. Die Budgetkorrektheit \
                         wird je User gegen den Szenario-Sollwert geprüft; Lastberichte fassen die Ergebnisse zusammen."""),
                 new Eintrag("Welle 1 — STRESS-ANLEGEN: Vorgang und Fall neu anlegen",
                         "N Aufträge (jeder Mitarbeiter bearbeitet einen Teil)",
                         """
-                        Jeder Auftrag der ersten Welle legt einen eindeutigen Vorgang (Aktenzeichen SWEET-S-…) mit \
+                        Jeder Auftrag der ersten Welle legt einen eindeutigen Vorgang (Aktenzeichen SWEET-<Laufkennung>-S-…) mit \
                         einem SozialFall (Regelbedarfsstufe 1, zufällige KdU) an — bewusst ohne Zahlung. Geprüft wird \
                         nach dem Lauf nur die Existenz und Grundkonsistenz der angelegten Daten (COUNT je Aktenzeichen \
                         = 1, Fall angelegt). Die eigentliche Belastung: alle Worker gleichzeitig auf INSERTs gegen \

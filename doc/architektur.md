@@ -176,6 +176,10 @@ COMPENSATED` (bzw. zurück zu FAILED, wenn eine Kompensation fehlschlägt).
   gilt Option D: Übersichten ohne Bankverbindungsdaten, jede Detail-Einsicht mit
   Kennung im Journal protokolliert (60-s-Zusammenfassung); ein Zuständigkeits-/
   Teammodell (Option B/C) bleibt Ausbaustufe.
+  Das Einsichtsprotokoll weist Zugriffe nach, begrenzt sie aber nicht. Es ersetzt
+  kein fachlich festgelegtes Zuständigkeits- und Berechtigungskonzept für den
+  Echtbetrieb. Testisolation über UUIDs ist davon unabhängig und führt keine
+  fachliche Mandanten- oder Teamtrennung ein.
   Seit v0.5.8 erfolgt die Zusammenfassung ausschließlich über persistierte
   Journalzeilen unter BG-Sperre; Rollbacks/Retry und mehrere Serviceinstanzen
   können keinen falschen Dedup-Zustand mehr erzeugen. Auszahlungs-Replays prüfen
@@ -191,7 +195,8 @@ HTTP-Executor-Shutdown und die genannten Grenzen der Simulator-Endpunkte.
 - **Web:** Pfad-Normalisierung (abschließende `/`) vor Rollenprüfung; Request-Body
   wird einmal gelesen und bei ORA-08177-Retry wiederverwendet; Überlast
   (abgelehnte Task-Einreichung) liefert 503 `UEBERLAST` mit `Retry-After`;
-  Standard-Poolgröße 16 (Warnung beim Start, wenn `poolSize < 2 × maxTasks`);
+  Standard-Poolgröße 24 (Warnung beim Start, wenn `poolSize < 3 × maxTasks`:
+  äußere Task-Tx, Kopf-Claim und Fach-/Journal-Tx);
   JSON-Parser: Tiefenlimit korrekt, `\u`-Escapes strikt hexadezimal;
   Anmelde-Drosselung: Schlüssel auf 64 Zeichen begrenzt, aktive Sperren werden
   nie verdrängt, abgelaufene Sitzungen werden periodisch aufgeräumt.
@@ -362,3 +367,174 @@ belegbaren Ursprung der gespeicherten Zeitwerte.
 - Java und Node akzeptieren beim LLM-Antwortvertrag nur ein vollständiges JSON-Objekt mit exakt Schema 2. Ein gemeinsamer Rohbytes-Korpus prüft u.a. Codeblöcke, doppelte Schlüssel, Unicode und Dezimalpräzision.
 
 Die Korrekturen ändern bereits erteilte Bescheide nicht rückwirkend. Unzutreffende Altbescheide benötigen eine fachliche Korrektur; fehlende historische Dokumentdaten lassen sich aus alten Berechnungssnapshots nicht rekonstruieren.
+
+### Gegenprüfung des Grok-Berichts vom 15.10.2026
+
+`TaskHandle` meldet einen Abbruch als `TaskOutcomeUnknownException`; die API antwortet
+mit `409 AUSGANG_UNBEKANNT`. Ein bereits erfolgter innerer Commit wird nicht durch
+den Abbruch der äußeren Task-Transaktion zurückgenommen. Deadline und Interrupt
+werden vor einem noch ausstehenden Commit geprüft. Die Maske lädt nach einem
+unklaren Schreibausgang nur lesend nach und behält die Auszahlungsvorgangsnummer
+je Benutzer, BG und Monat bis zur sicheren Antwort, auch nach Browser-Reload.
+
+Saga-Schrittnamen werden bereits bei der atomaren Anlage des PENDING-Journals
+gespeichert. Recovery ordnet Kompensationen über diese Namen und die ursprüngliche
+Reihenfolge zu. Fehlende oder unbekannte Namen führen zu FAILED mit erhaltenem
+Payload; alte namenlose IN_FLIGHT-Zeilen benötigen eine kontrollierte Klärung.
+Namen bleiben ein stabiler Vertrag für die jeweilige Wirkung. Ein Fehler der
+Write-Ahead-Commitquittung lässt den Vorgang für Recovery erreichbar. Der ungesperrte
+Vorscan liest ausschließlich Kopfmetadaten; Payload und Schritte erst unter Claim.
+
+Der Kassenlauf aktualisiert die gesperrte ID-Menge in Blöcken von höchstens 1.000
+auf derselben Verbindung und innerhalb einer Transaktion. Mengenabweichungen
+rollen auch schon ausgeführte Blöcke zurück. Die Blockgrenze sichert Oracle 19c;
+die aktuelle Free-Version hat nicht dieselbe IN-Listen-Grenze.
+
+Die Vorschau nimmt einen expliziten Bezugsmonat entgegen. Ein Änderungsbescheid
+ersetzt den bisherigen Status atomar und übernimmt unveränderte Altmonate in den
+neuen vollständigen Plan; die fachlichen Grenzen stehen in
+[leistungsmanagement.md](leistungsmanagement.md#bescheidbindung-änderungen-und-storno).
+Neue Snapshot-v3-Daten enthalten zusätzlich die ursprünglichen Fallmerkmale und
+Rohbeträge. Fehlende Angaben älterer Snapshots werden nicht nachträglich erfunden.
+Widersprüchliche Kinderzähler sowie mehrere beanspruchende Personen ohne erfasste
+Kinderzuordnung führen zur fachlichen Ablehnung. Dies ist eine Begrenzung des
+vorhandenen Zuordnungsmodells, kein allgemeines gesetzliches Ein-Eltern-Verbot.
+
+Konfigurationsfehler enthalten keine empfangenen Kontensegmente. Darstellbare
+HTTP-Antworten setzen `frame-ancestors 'none'`. Objektbezogene Zuständigkeiten und
+ein authentifizierter Aufruferkontext innerhalb aller direkten Java-Services
+bleiben eigenständige Architekturerweiterungen. Bewertung und aktuelle Prüfbelege:
+[Grok-Gegenprüfung](codereview/grundsicherung-grok-gegenpruefung-2026-10-15.md).
+
+### Alt-Saga vor dem Serverstart kontrolliert klären (ZC-1 / KA-3)
+
+Im Reviewstand vor dieser Korrektur blockierte `NAME IS NULL` allein eine
+vollständige all-PENDING-Liste noch nicht. Der belegte Fall besaß nur eine
+gespeicherte PENDING-Zeile, während die heutige
+Demo-Definition drei Schritte hat. Die fehlenden Zeilen beweisen nicht, dass
+niemals eine Fachwirkung eingetreten ist. Historische Engine-Stände committeten
+Fachaktionen vor einem separaten `stepDone` und legten Schrittzeilen einzeln an.
+Auch „alle vorhandenen Zeilen sind PENDING“ reicht deshalb für Altstände nicht
+als Nullwirkungsnachweis. Der korrigierte automatische Wiederanlauf beendet deshalb
+nur vollständige PENDING-Listen mit bereits bei der Anlage gespeicherten Namen;
+namenlose oder nur aus Leerraum bestehende PENDINGs halten den Wiederanlauf vor
+jeder automatischen Kompensation und jedem terminalen Abschluss an. Das gilt auch
+neben DONE- oder bereits COMPENSATED-Schritten: Die alte zweite Fachaktion kann
+committet sein, obwohl ihr separates `stepDone` fehlt. Solche Köpfe bleiben FAILED
+mit Payload; auch bekannte ältere Schritte werden bis zur Wirkungsprüfung nicht
+weiter kompensiert. Der Startschutz `requireSuccessfulRecovery` wird nicht umgangen.
+
+Das Offline-Werkzeug `de.allgemein.lmg.admin.SagaJournalRepairMain` funktioniert
+ohne gestartete Webanwendung. Es verarbeitet ausschließlich eine ausdrücklich
+angegebene Saga-ID mit passendem Typ. `inspect` sperrt Kopf und Schritte mit
+`FOR UPDATE NOWAIT`, sichert ihren vollständigen Zustand und rollt ohne Änderung
+zurück. `resolve-pending` verlangt denselben SHA-256-Snapshot, einen getrennten
+Wirkungsprüfbeleg samt SHA-256 sowie Betreiber, Begründung und zwei ausdrückliche
+Bestätigungen. Es akzeptiert ausschließlich einen FAILED-Kopf mit nichtleerer,
+zusammenhängender PENDING-Liste; diese Struktur ist nur ein technischer Guard,
+kein automatischer Beweis fehlender Wirkung. IN_FLIGHT, DONE, COMPENSATED,
+unbekannte Zustände, fehlende Indizes oder ein lebender Claim werden abgewiesen.
+
+Vorgehen im Wartungsfenster:
+
+1. Alle schreibenden Anwendungsinstanzen, Simulatoren und Saga-Worker stoppen.
+   Der Betreiber verantwortet diesen Wartungszustand; eine NOWAIT-Sperre allein
+   erkennt nicht jede historische Anwendung, die ohne Kopf-Claim geschrieben hat.
+   Oracle bleibt verfügbar. Ein fertiger, geprüfter Build muss vorliegen; während
+   einer Zertifikatssuite weder bauen noch dieses Betriebsverfahren ausführen.
+2. Kandidaten zunächst nur lesend ermitteln, etwa mit
+   `SELECT SAGA_ID,SAGA_TYPE,STATE FROM TX_SAGA WHERE STATE = 'FAILED'`.
+   Für den Einzelfall ein geschütztes lokales Verzeichnis anlegen. Beispiel:
+   `testsweet/logs/saga-repair/FALL/` ist Git-ignoriert, seine Zugriffsrechte müssen
+   trotzdem auf die zuständigen Betreiber begrenzt werden. Snapshots enthalten
+   möglicherweise Sozialdaten aus dem Payload. Sie gehören weder in Git noch in
+   einen Review-Bericht oder eine Konsolenausgabe. Aufbewahrung und Löschung richten
+   sich nach dem betrieblichen Datenschutz- und Nachweiskonzept.
+3. Zugang ausschließlich über `TX_URL`, `TX_USER`, `TX_PASS` in der Umgebung
+   bereitstellen; kein Passwort als Programmargument. Aus dem Projektverzeichnis
+   die betroffene, zuvor geprüfte ID und den tatsächlichen Typ einsetzen:
+
+   ```powershell
+   mvn -q "-Dexec.mainClass=de.allgemein.lmg.admin.SagaJournalRepairMain" "-Dexec.args=inspect --saga-id EIGENE-GEPRUEFTE-UUID --type ANTRAGSVERARBEITUNG --output testsweet/logs/saga-repair/FALL/snapshot.json" exec:java
+   ```
+
+   Die Ausgabe nennt ausschließlich den Snapshot-Hash. Die geschützte Datei
+   enthält Kopf, Payload, Zeitstempel und alle Schrittzeilen. `CREATE_NEW`
+   verhindert das Überschreiben vorhandener Sicherungen.
+4. Anhand der damaligen Definition, des gesicherten Payloads, der Fachzeilen und
+   vorhandener Audit-/Kassenbelege unabhängig feststellen, ob Wirkungen vorliegen.
+   Bei der Demo betrifft dies `TX_DEMO_ANTRAG` und `TX_DEMO_ZAHLUNG`; historische
+   Zeilen können noch ohne `SAGA_ID` angelegt worden sein. Ein heutiger Nulltreffer
+   auf dieser Spalte oder ein nicht eindeutiger Name reicht dann nicht. Für
+   `SGB_XII_ANTRAGSVERARBEITUNG` gehören unter anderem Aktenzeichen, Vorgang,
+   SozialFälle, Bescheide, Journalmarker und `SAGA-<ID>`-Zahlungen zum Abgleich.
+   Fehlende historische Korrelation bleibt ungeklärt. Bei möglicher oder
+   nachgewiesener Wirkung **nicht** mit diesem Werkzeug auflösen; die alte
+   Wirkung und eine dazu passende Kompensation müssen fachlich/manuell geprüft
+   werden. Keine heutigen Schrittnamen anhand eines Index nachtragen, keine
+   FAILED-Zeilen löschen und keinen Kopf pauschal als COMPLETED kennzeichnen.
+5. Nur bei unabhängig belegter Wirkungslosigkeit den Nachweis als geschützte
+   Textdatei `effect-evidence.txt` sichern und mit `Get-FileHash -Algorithm SHA256`
+   hashen. Betreiberkennung und eine sachliche einzeilige Begründung ohne
+   Steuerzeichen angeben. Das Ausgabe-Unterverzeichnis `resolution` muss noch
+   **nicht** existieren:
+
+   ```powershell
+   mvn -q "-Dexec.mainClass=de.allgemein.lmg.admin.SagaJournalRepairMain" "-Dexec.args=resolve-pending --saga-id EIGENE-GEPRUEFTE-UUID --type ANTRAGSVERARBEITUNG --snapshot testsweet/logs/saga-repair/FALL/snapshot.json --snapshot-sha256 SNAPSHOT_SHA256 --evidence testsweet/logs/saga-repair/FALL/effect-evidence.txt --evidence-sha256 BELEG_SHA256 --operator BETREIBER --reason 'Unabhaengiger Wirkungsabgleich abgeschlossen' --maintenance MAINTENANCE_CONFIRMED --no-effects NO_EFFECTS_CONFIRMED --output testsweet/logs/saga-repair/FALL/resolution" exec:java
+   ```
+
+   Unter erneut gehaltenen Kopf- und Schrittsperren muss der Journalzustand exakt
+   zur Sicherung passen. Vor der Datenbankänderung werden Snapshot, Wirkungsbeleg
+   und Auflösungsabsicht ausschließlich neu geschrieben, mit
+   `FileChannel.force(true)` geflusht und durch erneutes Lesen gehasht. Erst danach wird
+   genau dieser FAILED-Kopf auf COMPENSATED gesetzt und sein Payload entfernt;
+   Schrittzeilen bleiben erhalten. Dies ist ein dokumentierter Abschluss ohne
+   Fachwirkung, keine Bewilligung und keine Kompensation einer vermuteten Zahlung.
+6. Nur eine bestätigte Commit-Rückkehr erzeugt `resolution-outcome.json` mit
+   `COMMITTED`. Eine verlorene Commit-Quittung erzeugt, soweit Dateischreiben noch
+   möglich ist, `COMMIT_OUTCOME_UNKNOWN` und einen Fehler. Dann **nicht erneut
+   ausführen**: Journalzustand und gesicherte Auflösungsabsicht unabhängig prüfen.
+   Ein fehlender Abschlussbeleg ist ebenfalls kein grüner Nachweis. Nach
+   bestätigter Klärung den regulären Serverstart erneut ausführen; weitere
+   fehlerhafte Sagas müssen jeweils separat geprüft werden.
+
+Regressionen verwenden ausschließlich eigene UUID-Altjournale. Sie prüfen den
+echten Oracle-Wiederanlauf samt demselben Startguard, danach den kontrollierten
+Abschluss einer nachweislich wirkungslosen Testfixture. Gemischte Altjournale mit
+DONE/COMPENSATED und namenlosem oder leerraumhaltigem PENDING enthalten eine
+nachweislich committete zweite Demo-Fachwirkung; ihre direkte SQL-Nachprüfung
+verlangt FAILED, erhaltenen Payload und unveränderte Wirkungen ohne Teilkompensation.
+Weitere Fälle fixieren
+unveränderte Daten bei IN_FLIGHT/DONE, veralteten Hashes, lebenden Claims und
+vorhandenen Ausgabedateien sowie den unbekannten Ausgang nach echtem Commit mit
+synthetisch verlorener Quittung. Das Verfahren beweist keine Wirkungslosigkeit
+beliebiger historischer Produktivdaten.
+
+### Fehlende Commit-Quittung und laufbezogene Simulator-Daten (R7W2)
+
+Nach Aufruf von JDBC `commit()` beweist eine SQLException, ein Runtimefehler
+oder ein fataler Treiberfehler keinen Rollback. Der TxManager erhält den Ausgang
+als unbekannt, führt höchstens eine best-effort Bereinigung aus und wiederholt
+die Facharbeit nicht. Das Audit nennt `TX.OUTCOME_UNKNOWN`, keinen bestätigten
+Rollback. Ein manueller Kontext bleibt `COMMIT_OUTCOME_UNKNOWN` und erlaubt keine
+weitere Facharbeit, auch nach `rollback`, `close` oder `finish`. Der Task überträgt
+diesen Zustand in `409 AUSGANG_UNBEKANNT`; ein bestätigter Commit wird durch einen
+später gesetzten Interrupt nicht nachträglich zum Rollback. Der unbekannte
+Commit-Ausgang erhält bei fatalem Fehler weiterhin Error-Semantik.
+Die erlaubten Sperrkonflikte aus der Facharbeit vor dem Commit bleiben
+wiederholbar. Ein Vendorcode 54/60/8177 aus einem bereits versuchten Commit
+berechtigt dagegen konservativ zu keiner automatischen Wiederholung.
+
+Simulatorläufe erhalten einen zufälligen UUID-Namensraum für ihre Aktenzeichen.
+Cleanup darf nur frühere Laufkennungen verwenden, die dieselbe Simulatorinstanz
+selbst erzeugt hat; fremde Daten, fremde Logverzeichnisse und `BG_ID IS NULL`
+beweisen keine solche Zuordnung. Laufweite SQL-Prüfungen verwenden ausschließlich
+den aktuellen Namensraum. Nach einem Neustart bleiben vorherige Daten erhalten;
+es gibt keinen pauschalen `SWEET-%`-Aufräumer. Dies ersetzt keine Testdatenbank-
+Konfiguration, beseitigt aber die automatische Löschung fremder Läufe.
+
+LAST und STRESS bleiben begrenzte funktionale Parallelprüfungen. Durchsatz wird
+aus Millisekunden berechnet; Latenzperzentile nennen den Stichprobenumfang. Weder
+eine Mindestlastdauer noch Sättigungsstufen werden behauptet. Ein bestandenes
+Gesamtzertifikat ist deshalb kein Kapazitätsnachweis. Die Node-Werkzeugprüfer sind
+zusätzlich zu den Browserprüfern verpflichtender Teil der testsweet-Maven-Suite.

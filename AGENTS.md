@@ -91,14 +91,72 @@ Redo-Logging, Recovery) — wir programmieren nur die Steuerungsschicht darüber
    Oracle UCP ersetzen; alles hängt nur an `getConnection`/`release`.
 4. Keine verteilten Transaktionen (XA) im Kern — erst einführen, wenn wirklich
    mehrere Datenbanken in einer logischen Einheit nötig sind.
-5. Der Task-Wachhund unterbricht Tasks nach `TxOptions.timeout`; der Interrupt
-   lässt den JDBC-Aufruf fehlschlagen, wodurch die DB zurückrollt.
+5. Der Task-Wachhund unterbricht Tasks nach `TxOptions.timeout`. Der TxManager
+   prüft Deadline und Interrupt vor dem Commit und rollt offene Transaktionen bei
+   Fehlern zurück. Ein Interrupt beweist weder den JDBC-Abbruch noch den Rollback
+   bereits committeter innerer Fachtransaktionen. `TaskOutcomeUnknownException`
+   verlangt eine Statusprüfung; die HTTP-Schicht meldet `409 AUSGANG_UNBEKANNT`.
 
-## Stand (Stand: 2026-10-13, Version 0.5.8)
+## Stand (Stand: 2026-10-15, Version 0.5.8)
 
 Kernbibliothek und Fachschicht vollständig umgesetzt, umfassendem Codereview unterzogen
 (Bericht: `doc/codereview/codereview-bericht-2026-10-12.md`) und auf echter Oracle 19c
 Enterprise Edition (VirtualBox, Port 1921/o19c1p1) sowie 23ai Free verifiziert:
+
+- **DeepSeek-Gegenprüfung 15.10.2026:** Fehlende Commitquittung führt auch bei
+  fatalem Treiberfehler zu unbekanntem Ausgang/HTTP 409, keinem Retry und keinem
+  Rollbackbeleg; manuelle API erhält UNKNOWN. Fachkonflikte vor Commit bleiben
+  wiederholbar. Simulator-Cleanup und globale SQL-Prüfung verwenden eigene UUID-
+  Laufkennungen; nach GUI-Neustart bleiben alte Daten erhalten. Millisekunden-
+  Durchsatz und p50/p95/p99 sind Laufkennzahlen, LAST/STRESS kein Kapazitätsnachweis.
+  Unbekannte JSON-Felder und Subcentwerte werden abgewiesen, optionale Nullwerte
+  bleiben erlaubt. Alle fünf Node-Prüfdateien gehören zur Maven-Prüfung; testsweet-
+  README ist quellengebunden. Frisch auf eigenem Schema: Hauptsuite 395 (1 Skip,
+  Konfiguration separat 2/2), testsweet 329/329, Node 142/142, Python 11/11,
+  Runtime-Probe und FACH 100 POSITIV / 100 NEGATIV / 120 LAST / 42 STRESS grün.
+  Kein neuer externer GLM-/Gesamtzertifikatslauf. Fiktiver Verbrauch deckenden
+  Vermögens ist kein zulässiger Reparaturautomatismus; Teamzuständigkeit und ein
+  strenger Betriebsmodus bleiben gesonderte Facherweiterungen. Bewertung/Belege:
+  `doc/codereview/deepseek-gegenpruefung-2026-10-15.md`.
+
+- **Antigravity-Gegenprüfung 15.10.2026:** Deadlock-/Prozess-Kill-Tests verwenden
+  Sequenz-IDs, UUID-Aktenzeichen und eigene Saga-Korrelation; Parallelregressionen
+  prüfen Recovery und getrenntes Cleanup. GLM-Unterlagen erläutern Bescheid-Demopfad,
+  unveränderten Zustand je Abwehrschritt und Journalwirkungen. Zertifikatsworker
+  laufen aus einer gehashten Runtime-Kopie; ursprüngliche Belege werden vor Phasen,
+  während langer Prüfungen und bis nach dem Export kontrolliert. Alte GUI-Controller
+  benötigen einen Neustart. Frisch auf eigenem Schema/Maven-Repository: Hauptsuite
+  353 (1 Skip, Konfiguration separat 2/2), testsweet 301/301, Node 139/139, Python
+  11/11, Runtime-Probe und Fachsimulator je 100 POSITIV/NEGATIV bestanden. Kein neuer
+  externer GLM- oder vollständiger Zertifikatslauf. Teamzuständigkeiten und belegte
+  Vermögenshistorie bleiben Fachmodellerweiterungen. Belege und kritische Bewertung:
+  `doc/codereview/antigravity-gegenpruefung-2026-10-15.md`.
+
+- **Grok-Gegenprüfung 15.10.2026:** Task-Abbruch meldet unbekannten Ausgang,
+  Auszahlung behält ihre Vorgangsnummer über Reloads. Saga-Recovery bindet an
+  gespeicherte Schrittnamen; ungeklärtes Write-Ahead bleibt recoverbar, Vorscan
+  ohne Payload. Kassenlauf aktualisiert in 1.000er-Blöcken innerhalb einer Tx.
+  Vorschau nimmt Bezugsmonat entgegen; explizite Änderungsbescheide ersetzen den
+  Monatsplan atomar bei erhaltenen Altmonaten und unverändertem Alt-Snapshot.
+  Kinderzähler und ungeklärte Mehrfachzuordnung werden abgewiesen; neue Snapshots
+  enthalten die ursprünglichen Eingaben. Kontenfehler ohne Geheimnisse und
+  CSP-Frame-Schutz ergänzt, README korrigiert. Frisch geprüft: 351 Haupttests
+  (1 Skip, separat Konfiguration 2/2), testsweet 260/260, Node 136/136, Python 11/11
+  auf Temurin 25 mit Zielversion 21 und Oracle Free. Keine neuen Simulator-/GLM-
+  oder Gesamtzertifikatsnachweise. Teamzuständigkeiten und nachweisgebundene
+  Vermögenshistorie bleiben Modellgrenzen. Bewertung aller 16 Fremdbefunde:
+  `doc/codereview/grundsicherung-grok-gegenpruefung-2026-10-15.md`.
+
+- **testsweet-Abdeckung 15.10.2026:** Standardläufe POSITIV/NEGATIV je 100,
+  GLM-Standard genau 100/100 (200 gesamt), feste Kategoriequote ohne einseitige
+  Auffüllung. Web-Zertifikatsläufe je 100, Fach-Breite bleibt 500/500; Matrix
+  insgesamt 1.392 Aufträge. 28 zusätzliche testsweet-Java-Ausführungen ergänzen
+  Service-/Oracle-, Task-/HTTP-, Saga- und Kassenblockregressionen; Produkt-UI-
+  Gegenproben laufen jetzt auch im Mavenlauf. Frisch: Hauptsuite 351 (Skip separat
+  abgedeckt), testsweet 288/288, Node 139/139, Fachsimulator 100/100 POSITIV und
+  100/100 NEGATIV. Lokales 100/100-Prüfpaket validiert; kein externer GLM-Aufruf,
+  kein neuer Sieben-Modi-Gesamtlauf und kein Gesamtzertifikat. Matrix/Belege:
+  `doc/codereview/testsweet-abdeckung-2026-10-15.md`.
 
 - **v0.5.8 — Nachprüfung und Regressionen**: Bescheide speichern einen monatlichen
   Bewilligungsplan (Snapshot v2, v1 weiter lesbar) für Vermögensverbrauch,
@@ -114,9 +172,9 @@ Enterprise Edition (VirtualBox, Port 1921/o19c1p1) sowie 23ai Free verifiziert:
   Verifikation und Grenzen: `doc/codereview/codereview-nachbesserungsbericht-2026-10-12.md`.
 - **v0.5.8 — Nachbesserung nach Gegenprüfung (Nachtrag, gleiche Version):** Request-Body
   wird für TxManager-Retry zwischengespeichert (Stream war bei Wiederholung verbraucht);
-  Überlast antwortet 503 UEBERLAST mit Retry-After statt 500; Pool-Default 16 +
-  Startwarnung bei poolSize < 2 × maxTasks (Task hält Fachtx + Saga-Journal = 2
-  Verbindungen); JSON-Parser: Tiefenzähler-Fix bei leeren Objekten, strikte \u-Escapes;
+  Überlast antwortet 503 UEBERLAST mit Retry-After statt 500; Pool-Default 24 +
+  Startwarnung bei poolSize < 3 × maxTasks (HTTP-Saga-Task hält äußere Task-Tx,
+  Kopf-Claim und Fach-/Journal-Tx); JSON-Parser: Tiefenzähler-Fix bei leeren Objekten, strikte \u-Escapes;
   Anmelde-Drosselung gehärtet (Schlüssel ≤ 64 Zeichen, aktive Sperren nie verdrängt,
   Sitzungs-Cleanup); Audit-Fehlerzeilen nur noch Klassenname + ORA-Code (Sozialdaten in
   Exception-Meldungen), Log-Injection maskiert; Saga: mehrdeutiger Commit-Ausgang wird
@@ -205,7 +263,7 @@ Enterprise Edition (VirtualBox, Port 1921/o19c1p1) sowie 23ai Free verifiziert:
 - **Fachschicht Leistungsmanagement (SDN.Leistung LMG)**: SGB-XII-Bedarfsberechnung
   vollständig (RBS 1–6, Mehrbedarfe § 30 Abs. 1/2/3/7 mit Obergrenze Abs. 6 und
   stufenabhängigem Warmwasser-Satz, KdU-Dreiteilung mit § 35-Angemessenheitsgrenze je Bedarfsgemeinschaft
-  und Warmwasser-Abzug nur bei zentraler Erzeugung, Absetzbeträge § 82 Abs. 2, Erwerbsfreibetrag
+  ohne Abzug zentraler Warmwasserkosten, Absetzbeträge § 82 Abs. 2, Erwerbsfreibetrag
   § 82 Abs. 3, Vermögensanrechnung § 90 mit Schonvermögen), Zahlungs-Workflow
   (Idempotenz inkl. Recheck unter Sperre, `SELECT … FOR UPDATE`, Budget-Prüfung,
   Zahlung immer `ANGELEGT` — Vier-Augen serverseitig erzwungen), optimistisches Locking

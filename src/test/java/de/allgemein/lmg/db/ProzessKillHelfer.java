@@ -17,19 +17,18 @@ import java.sql.SQLException;
  * IN_FLIGHT-Zustand (keinfinally, kein Cleanup, wie ein Stromausfall).
  *
  * <pre>
- *   java -cp &lt;test-classpath&gt; de.allgemein.lmg.db.ProzessKillHelfer URL USER PASS AKTENZEICHEN
+ *   java -cp &lt;test-classpath&gt; de.allgemein.lmg.db.ProzessKillHelfer AKTENZEICHEN SAGA_TYPE
+ *   Datenbankzugang ausschließlich über geerbte TX_URL/TX_USER/TX_PASS.
  * </pre>
  */
 public final class ProzessKillHelfer {
-
-    public static final String SAGA_TYPE = "KILL_TEST";
 
     private ProzessKillHelfer() {
     }
 
     /** Dieselbe Definition wie der Kind-Prozess — der Eltern-Test recovert damit. */
-    public static SagaDefinition definition() {
-        return SagaDefinition.of(SAGA_TYPE)
+    public static SagaDefinition definition(String sagaType) {
+        return SagaDefinition.of(sagaType)
                 .step("vorgang anlegen", ProzessKillHelfer::vorgangAnlegen,
                         ProzessKillHelfer::vorgangHistorisieren)
                 .step("langlaufend", ProzessKillHelfer::langlaufend,
@@ -58,7 +57,7 @@ public final class ProzessKillHelfer {
         // IN_FLIGHT ist geschrieben (Write-Ahead), wenn wir hier ankommen. Der
         // Eltern-Prozess killt uns während dieser Wartezeit hart.
         try {
-            Thread.sleep(30_000);
+            Thread.sleep(120_000);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -70,12 +69,14 @@ public final class ProzessKillHelfer {
     }
 
     public static void main(String[] args) throws Exception {
+        if(args.length!=2) throw new IllegalArgumentException("Aktenzeichen und laufisolierter Saga-Typ erforderlich");
         Class.forName("oracle.jdbc.OracleDriver");
-        try (SimpleConnectionPool pool = new SimpleConnectionPool(args[0], args[1], args[2], 2)) {
+        try (SimpleConnectionPool pool = new SimpleConnectionPool(System.getenv("TX_URL"),System.getenv("TX_USER"),
+                System.getenv("TX_PASS"),2,java.time.Duration.ofSeconds(5),5000,10000)) {
             SagaEngine engine = new SagaEngine(new TxManager(pool), new SagaJournal(pool));
-            System.out.println("KILL-START " + args[3]);
+            System.out.println("KILL-START " + args[0]);
             System.out.flush();
-            engine.run(definition(), args[3]);
+            engine.run(definition(args[1]),args[0]);
         }
     }
 }

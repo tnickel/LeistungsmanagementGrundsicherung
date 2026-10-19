@@ -1,0 +1,265 @@
+{
+  "schemaVersion": 1,
+  "checks": [
+    {
+      "name": "main-clean-install-db",
+      "startedAt": "2026-10-15T18:09:29.7969462+02:00",
+      "finishedAt": "2026-10-15T18:10:31.7388528+02:00",
+      "exitCode": 0
+    },
+    {
+      "name": "main-config-without-db",
+      "startedAt": "2026-10-15T18:10:31.7707624+02:00",
+      "finishedAt": "2026-10-15T18:10:41.9085439+02:00",
+      "exitCode": 0
+    },
+    {
+      "name": "testsweet-clean-test-db",
+      "startedAt": "2026-10-15T18:10:41.9210489+02:00",
+      "finishedAt": "2026-10-15T18:12:39.8761626+02:00",
+      "exitCode": 0
+    },
+    {
+      "name": "testsweet-classpath",
+      "startedAt": "2026-10-15T18:12:39.8847970+02:00",
+      "finishedAt": "2026-10-15T18:12:42.4098243+02:00",
+      "exitCode": 0
+    },
+    {
+      "name": "real-runtime-snapshot",
+      "startedAt": "2026-10-15T18:12:52.6910398+02:00",
+      "finishedAt": "2026-10-15T18:12:59.4741762+02:00",
+      "exitCode": 0
+    },
+    {
+      "name": "real-runtime-probe",
+      "startedAt": "2026-10-15T18:12:59.5242692+02:00",
+      "finishedAt": "2026-10-15T18:13:02.8194507+02:00",
+      "exitCode": 0
+    },
+    {
+      "name": "junit-reader",
+      "startedAt": "2026-10-15T18:13:02.8219455+02:00",
+      "finishedAt": "2026-10-15T18:13:03.9062070+02:00",
+      "exitCode": 0
+    },
+    {
+      "name": "fach-positiv-default-100",
+      "startedAt": "2026-10-15T18:13:03.9079118+02:00",
+      "finishedAt": "2026-10-15T18:13:12.1971100+02:00",
+      "exitCode": 0
+    },
+    {
+      "name": "fach-negativ-100",
+      "startedAt": "2026-10-15T18:13:12.1985210+02:00",
+      "finishedAt": "2026-10-15T18:13:17.5805966+02:00",
+      "exitCode": 0
+    },
+    {
+      "name": "offline-package-100-100",
+      "startedAt": "2026-10-15T18:13:17.5818426+02:00",
+      "finishedAt": "2026-10-15T18:13:21.2491246+02:00",
+      "exitCode": 0
+    }
+  ],
+  "junit": [
+    {
+      "marker": "main-db-test-evidence.json",
+      "counts": {
+        "tests": 375,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 1
+      },
+      "sha256": "c327d534f209f071c75fc3f98ce0b0e7eefd275a4d9f639ba0cc49c85664469b",
+      "runId": "ab49369c-9920-4ef0-9b32-13fd21df0392"
+    },
+    {
+      "marker": "main-config-test-evidence.json",
+      "counts": {
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "sha256": "adcd9657375f56157e549a12f42e7308ed567fca876173c436d16c89393bd499",
+      "runId": "b79baf50-5a59-4460-b272-96c10d9696da"
+    },
+    {
+      "marker": "testsweet-test-evidence.json",
+      "counts": {
+        "tests": 313,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "sha256": "7d32ffed87a5ee93fbbfae3e74076b2a4e9fc0ba9f590cf605bfdcc77962256d",
+      "runId": "b9b51cbe-aa28-41e1-bf89-7d9280e1396c"
+    }
+  ],
+  "simulators": [
+    {
+      "runId": "run-20261015-181304-13336702989735409243",
+      "category": "POSITIV",
+      "cases": 100,
+      "runStateSha256": "f4a15e8f1ab8ec97c40e401707b714724d31e23f3359cdc8e165f65a85ed26ee"
+    },
+    {
+      "runId": "run-20261015-181312-5053932747528862237",
+      "category": "NEGATIV",
+      "cases": 100,
+      "runStateSha256": "fc84abddd9dde8220468983456d06052106f8cdab29fc81faec999cdd62c117b"
+    }
+  ],
+  "sourceSha256": "076255b73566972fac137423b53d5ead8386f6cb70b2c700f4c23cfe49828831",
+  "verifiedSourceFiles": 274,
+  "sourceDrift": 0,
+  "junitReader": [
+    {
+      "module": "main",
+      "state": "PASS",
+      "reasons": []
+    },
+    {
+      "module": "testsweet",
+      "state": "PASS",
+      "reasons": []
+    }
+  ],
+  "node": {
+    "tests": 142,
+    "pass": 142,
+    "fail": 0,
+    "skipped": 0
+  },
+  "pythonReference": {
+    "tests": 11,
+    "passed": 11
+  },
+  "runtimeProbe": {
+    "kind": "READ_ONLY_RUNTIME_PROBE",
+    "status": "PASS",
+    "sourceSha256": "076255b73566972fac137423b53d5ead8386f6cb70b2c700f4c23cfe49828831",
+    "artifacts": [
+      {
+        "sourceMatch": true,
+        "path": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\certificate-suite-fcebbb82-bec3-4226-bded-a5cade6b49d0\\runtime\\entry-001.jar",
+        "kind": "jar",
+        "sha256": "df3ab20d04c9a177d4b21f2e65b5637a8e3874fafefd6728e14611f1d9fe6986",
+        "classesSha256": "224bb75e959fbb3023b820d777ed2228efedba6179d4d7a3d2c3f8c52d6a5b57",
+        "name": "product"
+      },
+      {
+        "sourceMatch": true,
+        "path": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\certificate-suite-fcebbb82-bec3-4226-bded-a5cade6b49d0\\runtime\\entry-000",
+        "kind": "classes",
+        "sha256": "89911baf140ba923300ff3e24950751279eba7f9ad154246051a8cabd2dee869",
+        "classesSha256": "89911baf140ba923300ff3e24950751279eba7f9ad154246051a8cabd2dee869",
+        "name": "testsweet"
+      }
+    ],
+    "originalJUnitGuardsVerified": true,
+    "simulatorExecuted": false,
+    "externalLlmInvoked": false
+  },
+  "runtimeEntries": 75,
+  "runtimeManifestSha256": "242e7ec1e1114f452242108e4cfe3c3e39d9b9f9d71ad87b86276c72414bd3bf",
+  "localReviewPackage": {
+    "positive": 100,
+    "negative": 100,
+    "uniqueCaseIds": 200,
+    "manifest": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\llm-review-81f35366-fdaf-4f7d-abf2-e258d0b50d0a\\manifest.json",
+    "liveApiRequest": false,
+    "glmVerdict": "NOT_RUN"
+  },
+  "externalGlmInvoked": false,
+  "fullCertificateRunExecuted": false,
+  "head": "37abfb6f3da841e440ab21a53fbffa7eadf7cd04",
+  "workingTreeContainsUncommittedChanges": true,
+  "isolatedOracleSchema": "GLM_FIX_20261015",
+  "isolatedSchemaRemoved": true,
+  "temporaryCredentialFileRemoved": true,
+  "developerSchemaReset": false,
+  "jvm": "openjdk version \"25.0.4.1\" 2026-08-18 LTS\nOpenJDK Runtime Environment Temurin-25.0.4.1+1 (build 25.0.4.1+1-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.4.1+1 (build 25.0.4.1+1-LTS, mixed mode, sharing)",
+  "oracle": "Oracle AI Database 26ai Free 23.26.3.0.0, FREEPDB1",
+  "compilerRelease": 21,
+  "selectedJUnitReports": [
+    {
+      "module": "main",
+      "className": "de.allgemein.lmg.admin.SagaJournalRepairMainTest",
+      "originalPath": "target/test-evidence-history/ab49369c-9920-4ef0-9b32-13fd21df0392/TEST-de.allgemein.lmg.admin.SagaJournalRepairMainTest.xml",
+      "savedPath": "junit/main/TEST-de.allgemein.lmg.admin.SagaJournalRepairMainTest.xml",
+      "sha256": "250425f02a3cd890de1a6f3086705e37963f8ed1f50323206d6e89e37536e74f"
+    },
+    {
+      "module": "main",
+      "className": "de.allgemein.lmg.calc.AlleinerziehendZwoelfProzentTest",
+      "originalPath": "target/test-evidence-history/ab49369c-9920-4ef0-9b32-13fd21df0392/TEST-de.allgemein.lmg.calc.AlleinerziehendZwoelfProzentTest.xml",
+      "savedPath": "junit/main/TEST-de.allgemein.lmg.calc.AlleinerziehendZwoelfProzentTest.xml",
+      "sha256": "adb11a9efcf05d80722d0225ba9d7770139f9d586987abee32dd5e6fd3a9f639"
+    },
+    {
+      "module": "main",
+      "className": "de.allgemein.lmg.db.GrokFachRegressionDbTest",
+      "originalPath": "target/test-evidence-history/ab49369c-9920-4ef0-9b32-13fd21df0392/TEST-de.allgemein.lmg.db.GrokFachRegressionDbTest.xml",
+      "savedPath": "junit/main/TEST-de.allgemein.lmg.db.GrokFachRegressionDbTest.xml",
+      "sha256": "3465b44efe8014fa31a78da328c1027c5110e698fd3edf02bea262c27e663763"
+    },
+    {
+      "module": "main",
+      "className": "de.allgemein.lmg.web.AltSagaRepairDbTest",
+      "originalPath": "target/test-evidence-history/ab49369c-9920-4ef0-9b32-13fd21df0392/TEST-de.allgemein.lmg.web.AltSagaRepairDbTest.xml",
+      "savedPath": "junit/main/TEST-de.allgemein.lmg.web.AltSagaRepairDbTest.xml",
+      "sha256": "82c28ac38a323abb410b9a3ce7777336d6f24b29dd028db9482bd2d0c1a53bd7"
+    },
+    {
+      "module": "main",
+      "className": "de.allgemein.lmg.web.GrokWebRegressionTest",
+      "originalPath": "target/test-evidence-history/ab49369c-9920-4ef0-9b32-13fd21df0392/TEST-de.allgemein.lmg.web.GrokWebRegressionTest.xml",
+      "savedPath": "junit/main/TEST-de.allgemein.lmg.web.GrokWebRegressionTest.xml",
+      "sha256": "e69add2af42b8c9fe0e15bff9d8532cadc01f23020ca49d6cda4d4e67e3dd2c9"
+    },
+    {
+      "module": "main",
+      "className": "de.allgemein.tx.saga.SagaEngineTest",
+      "originalPath": "target/test-evidence-history/ab49369c-9920-4ef0-9b32-13fd21df0392/TEST-de.allgemein.tx.saga.SagaEngineTest.xml",
+      "savedPath": "junit/main/TEST-de.allgemein.tx.saga.SagaEngineTest.xml",
+      "sha256": "da5aaa6973f27101117d59b1c46cf740bb020d8d2c3d8abb010a17ef783a6d5e"
+    },
+    {
+      "module": "testsweet",
+      "className": "de.allgemein.lmg.web.ProduktAltSagaRepairDbTest",
+      "originalPath": "testsweet/target/test-evidence-history/b9b51cbe-aa28-41e1-bf89-7d9280e1396c/TEST-de.allgemein.lmg.web.ProduktAltSagaRepairDbTest.xml",
+      "savedPath": "junit/testsweet/TEST-de.allgemein.lmg.web.ProduktAltSagaRepairDbTest.xml",
+      "sha256": "e8f7a449caad2aed2f38b95cf24b4cabc56f0b06fa44ecbd132b60b4a977b77a"
+    },
+    {
+      "module": "testsweet",
+      "className": "de.allgemein.lmg.web.ProduktHttpSicherheitTest",
+      "originalPath": "testsweet/target/test-evidence-history/b9b51cbe-aa28-41e1-bf89-7d9280e1396c/TEST-de.allgemein.lmg.web.ProduktHttpSicherheitTest.xml",
+      "savedPath": "junit/testsweet/TEST-de.allgemein.lmg.web.ProduktHttpSicherheitTest.xml",
+      "sha256": "bc98facccf377e36c7b8b98a6fa6c6d1a3c340981817eacfb3e61a33934f41bf"
+    },
+    {
+      "module": "testsweet",
+      "className": "de.allgemein.testsweet.BuildEvidenceTest",
+      "originalPath": "testsweet/target/test-evidence-history/b9b51cbe-aa28-41e1-bf89-7d9280e1396c/TEST-de.allgemein.testsweet.BuildEvidenceTest.xml",
+      "savedPath": "junit/testsweet/TEST-de.allgemein.testsweet.BuildEvidenceTest.xml",
+      "sha256": "defef65c5039fd0a9442adc794fb5080fa98da0658f7e23b2a10cc9b0446daff"
+    },
+    {
+      "module": "testsweet",
+      "className": "de.allgemein.testsweet.GrokFachServiceDbTest",
+      "originalPath": "testsweet/target/test-evidence-history/b9b51cbe-aa28-41e1-bf89-7d9280e1396c/TEST-de.allgemein.testsweet.GrokFachServiceDbTest.xml",
+      "savedPath": "junit/testsweet/TEST-de.allgemein.testsweet.GrokFachServiceDbTest.xml",
+      "sha256": "bc325949878f151f7c5ff74a60d274da507d6520e0ca5da8a8fe94f64af32289"
+    },
+    {
+      "module": "testsweet",
+      "className": "de.allgemein.testsweet.ProduktAlleinerziehendZwoelfProzentTest",
+      "originalPath": "testsweet/target/test-evidence-history/b9b51cbe-aa28-41e1-bf89-7d9280e1396c/TEST-de.allgemein.testsweet.ProduktAlleinerziehendZwoelfProzentTest.xml",
+      "savedPath": "junit/testsweet/TEST-de.allgemein.testsweet.ProduktAlleinerziehendZwoelfProzentTest.xml",
+      "sha256": "398644b2b55928e7e807f0630d85674e7c133217d406baf43a1aebf062ee21d3"
+    }
+  ]
+}

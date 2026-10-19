@@ -81,10 +81,7 @@ final class WebMitarbeiter implements Runnable {
             simulator.meldeWorkerAbsturz(current, e);
         } finally {
             aktiv = false;
-            if (treiber == null) {
-                BrowserProzesse.loescheProfil(fensterProfil);
-                fensterProfil = null;
-            }
+            schliesse();
         }
     }
 

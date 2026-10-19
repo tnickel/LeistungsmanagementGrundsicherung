@@ -79,15 +79,23 @@ public final class Benutzerverwaltung {
     public Benutzerverwaltung(String definition, Duration idleTimeout) {
         this.idleTimeout = idleTimeout == null || idleTimeout.isNegative() || idleTimeout.isZero()
                 ? STANDARD_IDLE_TIMEOUT : idleTimeout;
+        if (definition == null) {
+            throw new IllegalArgumentException("Benutzerkonten müssen konfiguriert sein");
+        }
+        int eintrag = 0;
         for (String teil : definition.split(";")) {
-            String[] felder = teil.trim().split(":");
+            eintrag++;
+            String[] felder = teil.trim().split(":", -1);
             if (felder.length != 3 || felder[0].isBlank() || felder[1].isBlank()) {
                 throw new IllegalArgumentException(
-                        "LMG_BENUTZER erwartet 'kennung:passwort:rolle' je Eintrag, erhalten: '" + teil + "'");
+                        "Ungültiger Benutzerkonteneintrag " + eintrag
+                                + ": erwartet wird 'kennung:passwort:rolle'");
             }
             String rolle = felder[2].trim();
             if (!Benutzer.ROLLE_ADMIN.equals(rolle) && !Benutzer.ROLLE_SACHBEARBEITER.equals(rolle)) {
-                throw new IllegalArgumentException("Unbekannte Rolle '" + rolle + "' (erlaubt: admin, sachbearbeiter)");
+                // Auch das Rollenfeld kann bei einem verschobenen Trennzeichen ein Passwort enthalten.
+                throw new IllegalArgumentException("Ungültige Rolle im Benutzerkonteneintrag " + eintrag
+                        + " (erlaubt: admin, sachbearbeiter)");
             }
             konten.put(felder[0].trim(), new Konto(felder[1], rolle));
         }

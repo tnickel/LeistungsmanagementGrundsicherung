@@ -96,15 +96,26 @@ public final class ZahlungDao {
         if (ids.isEmpty()) {
             return 0;
         }
-        String platzhalter = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
-        try (PreparedStatement stmt = ctx.connection().prepareStatement(
+        int anzahl = 0;
+        // Oracle 19c erlaubt höchstens 1000 Ausdrücke pro IN-Liste. Alle Blöcke
+        // bleiben auf derselben Verbindung in derselben Transaktion gesperrt.
+        for (int offset = 0; offset < ids.size(); offset += 1000) {
+            List<Long> block = ids.subList(offset, Math.min(offset + 1000, ids.size()));
+            String platzhalter = String.join(",", java.util.Collections.nCopies(block.size(), "?"));
+            try (PreparedStatement stmt = ctx.connection().prepareStatement(
                 "UPDATE ZAHLUNG SET ZAHLUNGSSTATUS = 'UEBERGEBEN' "
                         + "WHERE ID IN (" + platzhalter + ") AND ZAHLUNGSSTATUS = 'BEREIT'")) {
-            for (int i = 0; i < ids.size(); i++) {
-                stmt.setLong(i + 1, ids.get(i));
+                for (int i = 0; i < block.size(); i++) {
+                    stmt.setLong(i + 1, block.get(i));
+                }
+                int geaendert = stmt.executeUpdate();
+                if (geaendert != block.size()) {
+                    throw new SQLException("Kassenübergabe stimmt nicht mit der gesperrten Menge überein");
+                }
+                anzahl += geaendert;
             }
-            return stmt.executeUpdate();
         }
+        return anzahl;
     }
 
     /** Rechnerische Feststellung (Vier-Augen-Freigabe): Status ANGELEGT -> BEREIT. */

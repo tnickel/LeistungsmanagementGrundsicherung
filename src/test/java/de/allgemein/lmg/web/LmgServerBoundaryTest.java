@@ -1,6 +1,7 @@
 package de.allgemein.lmg.web;
 
 import de.allgemein.lmg.model.SozialFall;
+import de.allgemein.lmg.model.Bedarfsgemeinschaft;
 import de.allgemein.lmg.service.LeistungsService;
 import de.allgemein.lmg.service.Systemdiagnose;
 import de.allgemein.tx.FakePool;
@@ -51,6 +52,8 @@ class LmgServerBoundaryTest {
                     return switch (method.getName()) {
                         case "legeSozialFallAn" -> args[1];
                         case "aktualisiereSozialFall" -> args[0];
+                        case "legeBedarfsgemeinschaftAn" -> new Bedarfsgemeinschaft(1, (String)args[0],
+                                (String)args[1], true, (java.math.BigDecimal)args[2], null, 1);
                         case "generiereBescheidHtml" -> {
                             if (failPrint) throw new TxException("Geheimname DE89370400440532013000",
                                     new java.sql.SQLException("Geheime Falldaten", "23000", 12899), false, 1);
@@ -110,6 +113,55 @@ class LmgServerBoundaryTest {
         assertEquals(Long.MAX_VALUE, ((java.math.BigDecimal) row.get("version")).longValueExact());
         assertEquals(false, row.get("schwanger"));
         assertEquals(1, calls.get());
+    }
+
+    @Test void unknownFieldsAreRejectedOnEveryDataWritingRouteBeforeCallingService() throws Exception {
+        for (String route : List.of("POST /api/bedarfsgemeinschaften", "PUT /api/bedarfsgemeinschaften/1",
+                "POST /api/bedarfsgemeinschaften/1/sozialfaelle", "PUT /api/sozialfaelle/1",
+                "POST /api/bedarfsgemeinschaften/1/bescheid", "PUT /api/bedarfsgemeinschaften/1/bescheid",
+                "POST /api/auszahlung")) {
+            String[] parts = route.split(" ");
+            var response = send(parts[0], parts[1], "{\"kdumiete\":100}", token);
+            assertEquals(400, response.statusCode(), route);
+            assertEquals("VALIDATION", ((Map<?,?>)Json.parse(response.body())).get("code"));
+            assertTrue(response.body().contains("unbekanntes Feld"), response.body());
+        }
+        assertEquals(0, calls.get());
+    }
+
+    @Test void allFinancialFieldsRejectSubcentValuesBeforeCallingService() throws Exception {
+        for (String field : List.of("kduMiete", "kduBetriebskosten", "kduHeizung", "einkommenRente",
+                "einkommenErwerb", "abzSteuern", "abzSozialversicherung", "abzVersicherungen", "abzErwerbsaufwendungen")) {
+            for (String method : List.of("POST", "PUT")) {
+                String path = method.equals("POST") ? "/api/bedarfsgemeinschaften/1/sozialfaelle" : "/api/sozialfaelle/1";
+                var response = send(method, path, "{\"regelbedarfsstufe\":1,\"version\":1,\"" + field + "\":12.345}", token);
+                assertEquals(400, response.statusCode(), method + " " + field);
+                assertEquals("VALIDATION", ((Map<?,?>)Json.parse(response.body())).get("code"));
+            }
+        }
+        assertEquals(400, send("POST", "/api/bedarfsgemeinschaften",
+                "{\"aktenzeichen\":\"BG-EXACT\",\"hauptpersonName\":\"Test\",\"startBudget\":12.345}", token).statusCode());
+        assertEquals(400, send("PUT", "/api/bedarfsgemeinschaften/1",
+                "{\"statusAktiv\":true,\"version\":1,\"vermoegen\":12.345}", token).statusCode());
+        assertEquals(0, calls.get());
+    }
+
+    @Test void optionalZeroAndLosslesslyNormalizableMoneyRemainSupported() throws Exception {
+        var response = send("PUT", "/api/sozialfaelle/1",
+                "{\"regelbedarfsstufe\":1,\"version\":1,\"kduMiete\":12.3400,\"einkommenRente\":null}", token);
+        assertEquals(200, response.statusCode(), response.body());
+        Map<?,?> row = (Map<?,?>)((Map<?,?>)Json.parse(response.body())).get("sozialfall");
+        assertEquals(new java.math.BigDecimal("12.34"), row.get("kduMiete"));
+        assertEquals(new java.math.BigDecimal("0.00"), row.get("kduHeizung"));
+        assertEquals(new java.math.BigDecimal("0.00"), row.get("einkommenRente"));
+        for (String extra : List.of("", ",\"startBudget\":null")) {
+            var created = send("POST", "/api/bedarfsgemeinschaften",
+                    "{\"aktenzeichen\":\"BG-ZERO\",\"hauptpersonName\":\"Test\"" + extra + "}", token);
+            assertEquals(200, created.statusCode(), created.body());
+            assertEquals(new java.math.BigDecimal("0.00"), ((Map<?,?>)((Map<?,?>)Json.parse(created.body()))
+                    .get("bedarfsgemeinschaft")).get("budgetRest"));
+        }
+        assertEquals(3, calls.get());
     }
 
     @Test void printRejectsOverloadWith503AndRetryAfter() throws Exception {

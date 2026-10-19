@@ -71,6 +71,48 @@ class LlmReviewServiceTest {
         try(var service=serviceForTests()){assertThrows(IllegalArgumentException.class,()->service.buildPackage(2));}
     }
 
+    @Test void defaultPackageActuallyContainsExactlyOneHundredCasesPerCategory() throws Exception {
+        quotaFixtures(100, 100);
+        try (var service = serviceForTests()) {
+            int defaultCount = ((Number) service.configuration().get("cases")).intValue();
+            var result = service.buildPackage(defaultCount);
+            var ids = (List<?>) result.get("selectedCaseIds");
+            assertEquals(200, ids.size());
+            assertEquals(100, ids.stream().filter(id -> id.toString().startsWith("POSITIV:")).count());
+            assertEquals(100, ids.stream().filter(id -> id.toString().startsWith("NEGATIV:")).count());
+            var manifest = (Map<?, ?>) Json.parse(Files.readString(Path.of((String) result.get("directory")).resolve("manifest.json")));
+            var counts = (Map<?, ?>) manifest.get("selectedCases");
+            assertEquals(100, ((Number) counts.get("POSITIV")).intValue());
+            assertEquals(100, ((Number) counts.get("NEGATIV")).intValue());
+        }
+    }
+
+    @Test void packageRejectsMissingPositiveQuotaInsteadOfFillingFromNegativeExcess() throws Exception {
+        quotaFixtures(99, 101);
+        try (var service = serviceForTests()) {
+            var error = assertThrows(IllegalArgumentException.class, () -> service.buildPackage(200));
+            assertTrue(error.getMessage().contains("100 Positivfälle und 100 Negativfälle"));
+            assertTrue(error.getMessage().contains("99 POSITIV und 101 NEGATIV"));
+        }
+    }
+
+    private void quotaFixtures(int positiveCount, int negativeCount) throws Exception {
+        fixtures();
+        for (var category : List.of("POSITIV", "NEGATIV")) {
+            Path source = root.resolve("testsweet/logs/run-20261013-" + (category.equals("POSITIV") ? "100000" : "100001")
+                    + "/testdokumentation.md");
+            String old = Files.readString(source);
+            StringBuilder text = new StringBuilder(old.substring(0, old.indexOf("## TF ")));
+            int count = category.equals("POSITIV") ? positiveCount : negativeCount;
+            for (int i = 1; i <= count; i++) {
+                text.append("## TF ").append(i).append(" QUOTENPROBE SWEET-").append(i).append('\n')
+                        .append(calculationFixture()).append('\n');
+            }
+            Files.writeString(source, text);
+            refreshReportHash(source);
+        }
+    }
+
     @Test void realHttpRequestContainsExactDocumentsAndSurvivesRestart() throws Exception {
         fixtures();
         List<String> bodies = new CopyOnWriteArrayList<>();

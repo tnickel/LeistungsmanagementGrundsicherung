@@ -33,7 +33,7 @@ import java.util.UUID;
  */
 public final class SzenarioBibliothek {
 
-    /** Aktenzeichen-Präfix aller Simulator-Vorgänge (auch fürs Aufräumen). */
+    /** Erkennbares Basispräfix; allein ausdrücklich kein Besitznachweis für eine Bereinigung. */
     public static final String PREFIX = "SWEET-";
 
     private static final String[] VORNAMEN = {
@@ -102,8 +102,9 @@ public final class SzenarioBibliothek {
      * Erzeugt {@code anzahl} NEGATIV-Aufträge: Jede der neun kuratierten Abwehr-Arten
      * mindestens einmal, danach Auffüllung mit garantiert verschiedenen Verstoß-
      * Kombinationen (siehe {@link #kombinationNegativ}). Abgewehrte Fachfehler sind
-     * das erwartete Ergebnis (schrittMitErwartetemFehler), geprüft wird der
-     * unveränderte Datenbank-Endzustand (keine Zahlung, unverändertes Budget …).
+     * das erwartete Ergebnis (schrittMitErwartetemFehler). Geprüft wird der
+     * unveränderte Fachzustand je abgewehrtem Schritt; erfolgreiche Basisaktionen
+     * eines Kombinationsfalls behalten ihre Zahlungen und Budgetänderungen.
      */
     public List<Auftrag> erzeugeNegativ(int anzahl, String praefix) {
         this.praefix = praefix;

@@ -92,8 +92,24 @@ Fehlercodes und die enge Storno-Abwehr sind keine eigenständigen Gesetzeszitate
   sich am Regelfall des § 44 Abs. 3; vorläufige Entscheidungen und gesetzlich mögliche
   Ausnahmezeiträume sind nicht gesondert modelliert. Ein 22-Monats-Auftrag muss daher
   als Produktvalidierung unverändert abgewiesen werden.
-- Sobald ein Bescheid existiert, sind Zahlungen nur in bescheidgedeckten Monaten
-  zulässig (sonst VALIDATION-Ablehnung).
+- Bescheidbindung hat zwei ausdrücklich unterschiedliche Produktpfade:
+  **Ohne bisherigen Bescheid** (`BESCHEID COUNT=0` für die BG) bleibt der
+  vereinfachte Demopfad offen. Das Fehlen eines Bescheids ist in diesem Pfad kein
+  Abwehrgrund; eine rechnerisch, budgetseitig und im übrigen Workflow gültige
+  Anordnung darf erfolgreich sein. **Sobald mindestens ein Bescheid existiert**
+  (jeder Status zählt), braucht der Zahlungsmonat genau einen ERTEILT-Bescheid
+  und die aktuelle Berechnung muss seinem gespeicherten Monatsbetrag entsprechen;
+  fehlende/mehrdeutige Deckung oder abweichender Betrag führen zu **VALIDATION**.
+  Ein verworfener Bescheidversuch legt keine Bescheidzeile an und aktiviert diese
+  Bindung nicht. Das ist der implementierte Produktvertrag, keine Behauptung über
+  die verwaltungsrechtliche Zulässigkeit einer Auszahlung ohne Verwaltungsakt.
+- NEGATIV bezeichnet erwartete Abwehrschritte, nicht zwingend einen insgesamt
+  leeren Zahlungsbestand. **Je erwartungsgemäß abgewehrtem Schritt** bleiben
+  die Fachtabellen gegenüber dessen unmittelbarem Vorzustand unverändert.
+  Erfolgreiche Basisaktionen vor, zwischen oder nach solchen Schritten behalten
+  ihre dokumentierte Wirkung. Weder `BESCHEID COUNT=0` noch `ZAHLUNG COUNT=0`
+  begründet allein ein PASS: Fehlercode, Abwehrgrund, Zeitpunkt, vollständiger
+  Ablauf, Beträge und alle Soll-/Ist-Prüfpunkte müssen zusammenpassen.
 - Zahlungsstatus: ANGELEGT → BEREIT (Vier-Augen-Freigabe durch andere Person) → UEBERGEBEN
   (Kassenlauf). **Storno ist nur aus ANGELEGT oder BEREIT zulässig**. Für UEBERGEBEN
   (oder bereits STORNIERT) wird Storno mit **VALIDATION** ohne Fachänderung abgewiesen;
@@ -104,6 +120,41 @@ Fehlercodes und die enge Storno-Abwehr sind keine eigenständigen Gesetzeszitate
   durch einen Storno-Replay nicht erneut zurückgebucht werden.
 - Optimistisches Locking: Speichern mit veraltetem Versionsstand wird mit KONKURRENZ
   abgewiesen (kein Lost Update).
+
+## Journalwirkungen im direkten Fachservicepfad
+
+Die folgende Zuordnung beschreibt die transaktionalen `JOURNAL`-Einträge des
+Fachservice, keine gesetzliche Journalanzahl. Eine Protokollzeile kann mehrere
+Serviceaufrufe zusammenfassen; daher nicht Protokollzeilen zählen, sondern die
+tatsächlich dokumentierten erfolgreichen Fachaktionen. Bei einer abgewehrten
+Fachaktion rollt ihre Transaktion einschließlich ihrer Journale zurück: Beitrag 0.
+
+| Erfolgreiche Fachaktion | Neue Journalzeilen für die betroffene BG |
+|---|---:|
+| Vorgang anlegen | 1 |
+| SozialFall anlegen | 1 je angelegtem SozialFall |
+| SozialFall ändern, auch Mietänderung | 1 |
+| Vorgangskopf ändern | 1 |
+| Bewilligungsbescheid oder Änderungsbescheid erteilen | 1 |
+| Neue Auszahlung anordnen | 1 |
+| Zahlung freigeben | 1 |
+| Zahlung stornieren | 1 |
+| Kassenlauf | 0; bei Übergabe mindestens einer Zahlung entsteht 1 globaler Eintrag mit `BG_ID IS NULL` |
+| Bloße Leseabfrage ohne Sachbearbeiterkennung | 0 |
+
+Eine Wiederholung derselben Zahlungsanordnung erzeugt kein zweites Fachjournal.
+Protokollierte Einsichten mit Kennung sind davon getrennte Audit-Einträge; sie
+können den unfiltrierten BG-`JOURNAL COUNT` erhöhen (60-Sekunden-Dedup je
+Zugriffsart/Kennung/BG). Maßgeblich ist das konkrete SQL: `WHERE BG_ID=?` zählt
+globale Kassenjournale nicht mit; ein Filter `AKTION_TEXT NOT LIKE 'Einsicht: %'`
+schließt Einsichts-Audits aus. Ein unveränderter Fachzustands-Hash mit ausdrücklich
+ausgeklammerten Einsichts-Audits beweist keinen unveränderten unfiltrierten Journalcount.
+
+Herleitungsbeispiel für den Kombinationsfall mit erfolgreicher Vorgangsanlage,
+einer SozialFall-Anlage, einer erfolgreichen Mietänderung und anschließend
+KONKURRENZ- sowie BUDGET_ERSCHOEPFT-Abwehr: **1 + 1 + 1 + 0 + 0 = 3**
+BG-Journalzeilen, sofern keine protokollierten Einsichts-Audits hinzukommen.
+Die Abwehrmeldungen erzeugen Protokollzeilen, aber keine zusätzlichen Fachjournale.
 
 ## Bewusste Vereinfachungen (kein Zertifikatsgegenstand, in Doku ausgewiesen)
 

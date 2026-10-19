@@ -15,11 +15,12 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class GlobaleVerifikationTest {
     @TempDir Path temp;
+    private final RunDataScope scope = RunDataScope.create();
 
     @Test void fehlendeFreigabeMachtAuftragLaufUndMarkdownRot() throws Exception {
         AtomicInteger nummer = new AtomicInteger();
         List<Auftrag.Pruefung> pruefungen = GlobaleVerifikation.pruefe(
-                () -> countConnection(nummer.getAndIncrement() == 0 ? 1 : 2), 1, List.of());
+                () -> countConnection(nummer.getAndIncrement() == 0 ? 1 : 2), 1, List.of(), scope);
         assertTrue(pruefungen.get(0).ok());
         assertFalse(pruefungen.get(1).ok());
         assertEquals("2", pruefungen.get(1).ist());
@@ -44,7 +45,7 @@ class GlobaleVerifikationTest {
     }
 
     @Test void sqlAusfallIstEineFehlgeschlagenePruefungAuchOhneAuftraege() {
-        var pruefungen = GlobaleVerifikation.pruefe(() -> { throw new SQLException("DB offline"); }, 0, List.of());
+        var pruefungen = GlobaleVerifikation.pruefe(() -> { throw new SQLException("DB offline"); }, 0, List.of(), scope);
         assertEquals(2, pruefungen.size());
         assertTrue(pruefungen.stream().noneMatch(Auftrag.Pruefung::ok));
         assertTrue(pruefungen.stream().allMatch(p -> p.hinweis().contains("DB offline")));
@@ -55,7 +56,7 @@ class GlobaleVerifikationTest {
     }
 
     @Test void fehlerfreierBestandLaesstAlleGlobalenPruefungenBestehen() {
-        var pruefungen = GlobaleVerifikation.pruefe(() -> countConnection(0), 0, List.of());
+        var pruefungen = GlobaleVerifikation.pruefe(() -> countConnection(0), 0, List.of(), scope);
         assertTrue(pruefungen.stream().allMatch(Auftrag.Pruefung::ok));
     }
 

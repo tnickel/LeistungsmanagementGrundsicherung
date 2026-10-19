@@ -1,0 +1,21 @@
+{
+  "doc/Projektübersicht.docx": {
+    "bytes": 2379350,
+    "sha256": "310228a794211c8cbcd5157f0882cd7ab8e0a5fb67ee652d06595a760470e32f"
+  },
+  "doc/Projektübersicht.pdf": {
+    "bytes": 847718,
+    "sha256": "5a8e55223383569f6f1962fa730ba01144cf2fa72a942f88ea833140f47a5200"
+  },
+  "qa": {
+    "pages": 18,
+    "toc_populated": true,
+    "toc_links": 10,
+    "all_pages_visually_checked": true,
+    "title_image": true,
+    "preface": true,
+    "visuals": 4,
+    "source_references": 28,
+    "toc_page_numbers_verified": 10
+  }
+}

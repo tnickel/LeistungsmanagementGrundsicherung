@@ -25,7 +25,7 @@
       <div class="sidebar-footer">
         <div class="sidebar-user" id="sidebar-benutzer">nicht angemeldet</div>
         <button id="btn-abmelden" class="linkartig abmelden hidden">Abmelden</button>
-        <div class="sidebar-version">SDN.Leistung LMG · Version 0.5.4</div>
+        <div class="sidebar-version">SDN.Leistung LMG · Version 0.5.8</div>
       </div>
     </aside>
 
@@ -53,6 +53,7 @@
       <section id="view-uebersicht" class="view hidden">
         <header class="kopfleiste">
           <h1>Fallübersicht</h1>
+          <label>Bezugsmonat <input id="uebersicht-monat" type="month" required></label>
           <button id="btn-neu-vorgang" class="sekundaer">+ Neuer Vorgang</button>
           <button id="btn-saga-antrag" class="sekundaer">⚡ Antrags-Saga (E2E)</button>
           <input id="suchfeld" class="suchfeld" type="search"
@@ -147,7 +148,7 @@
             <div class="widget-wert" id="widget-aktive">–</div>
           </div>
           <div class="widget">
-            <div class="widget-titel">Zahlbetrag-Vorschau (Summe)</div>
+            <div class="widget-titel">Zahlbetrag-Vorschau (Summe) · <span id="vorschau-monat"></span></div>
             <div class="widget-wert" id="widget-vorschau">–</div>
           </div>
           <div class="widget">
@@ -313,8 +314,12 @@
               </div>
               <div style="margin-top: 12px; display: flex; gap: 8px;">
                 <button id="btn-bescheid-erteilen" class="sekundaer">Bescheid erteilen</button>
+                <button id="btn-bescheid-aendern" class="sekundaer hidden">Änderungsbescheid erteilen</button>
                 <button id="btn-bescheid-drucken" class="primaer hidden">🖨️ Amtlichen Bescheid drucken (PDF)</button>
               </div>
+              <p class="hinweis">Für eine Änderung bezeichnet „Bewilligung von“ den ersten betroffenen Monat.
+                „Bewilligung bis“ bleibt das bisherige Ende. Bereits angeordnete Zahlungen im
+                Änderungszeitraum müssen zuerst fachlich geprüft und gegebenenfalls storniert werden.</p>
             </div>
 
             <div class="karte">

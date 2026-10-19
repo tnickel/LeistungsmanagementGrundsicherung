@@ -112,6 +112,7 @@ class SagaParallelRecoverTest {
                 }
                 UnfinishedSaga saga = new UnfinishedSaga(kopf.sagaId, kopf.type, kopf.payload, kopf.state);
                 kopf.steps.forEach(saga::putStepState);
+                kopf.steps.keySet().forEach(i -> saga.putStepName(i, List.of("eins", "zwei", "drei").get(i)));
                 offen.add(saga);
             }
             return offen;
@@ -136,6 +137,7 @@ class SagaParallelRecoverTest {
             synchronized (this) {
                 snapshot = new UnfinishedSaga(kopf.sagaId, kopf.type, kopf.payload, kopf.state);
                 kopf.steps.forEach(snapshot::putStepState);
+                kopf.steps.keySet().forEach(i -> snapshot.putStepName(i, List.of("eins", "zwei", "drei").get(i)));
             }
             return new SagaClaim() {
                 @Override

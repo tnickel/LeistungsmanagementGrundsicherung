@@ -1,0 +1,12 @@
+[
+  {
+    "module": "main",
+    "state": "PASS",
+    "reasons": []
+  },
+  {
+    "module": "testsweet",
+    "state": "PASS",
+    "reasons": []
+  }
+]

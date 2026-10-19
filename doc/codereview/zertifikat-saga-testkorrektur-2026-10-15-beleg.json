@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "failedCertificateSuite": "912fe3ab-a9d2-4a0e-af53-250875e2fb40",
+  "execution": {
+    "startedAt": "2026-10-15T14:03:45.6091855+02:00",
+    "finishedAt": "2026-10-15T14:05:12.2644686+02:00",
+    "exitCode": 0,
+    "command": "mvn -B -f testsweet/pom.xml clean test",
+    "schema": "TX_DEMO",
+    "database": "FREEPDB1",
+    "demoSagaColumnPresent": false
+  },
+  "tests": 291.0,
+  "failures": 0.0,
+  "errors": 0.0,
+  "skipped": 0.0,
+  "sourceSha256": "ec1f2804ac49249ae61675ef6eb0dd647368fedeb44d4a592a1d01add8a89ebd",
+  "fixtureSuites": [
+    {
+      "name": "de.allgemein.testsweet.ProduktSagaJournalRegressionDbTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "sha256": "b565c720b1f5f1bb2f389a96314837456f817a8f3f25e8efcbebac60af075532"
+    },
+    {
+      "name": "de.allgemein.testsweet.SagaFixtureSchemaRegressionTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "sha256": "900d0625d805fb889b4fc2be621e57ff15c70b8ac4c4e4da021e30e46b4e12e9"
+    }
+  ],
+  "testEvidenceSha256": "5d0dfaa97c126defd6fe9b343e449806b9abbc57383c081acd82f2ce30dd836e",
+  "pipelineLogSha256": "68d1523932ed1c48574732d2c9ba215c5d743595f4cbd82eaf16c569a785b530",
+  "fullCertificateRerun": false
+}

@@ -1,4 +1,4 @@
-﻿param([int]$Port = 0, [switch]$LibraryOnly)
+param([int]$Port = 0, [switch]$LibraryOnly)
 $ErrorActionPreference = 'Stop'
 
 function Test-SweetOwner($Process, [string]$ProjectRoot) {
@@ -45,3 +45,4 @@ foreach ($ownerId in $listeners) {
     if ($LASTEXITCODE -ne 0) { throw "testsweet-Prozess $ownerId konnte nicht beendet werden" }
 }
 Write-Output "Verifizierte testsweet-Prozesskette auf Port $Port beendet."
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'raeume-fenster.ps1') -AllDrivers | Out-Null

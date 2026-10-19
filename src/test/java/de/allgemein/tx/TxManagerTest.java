@@ -17,6 +17,38 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TxManagerTest {
 
     @Test
+    void interruptNachFacharbeitVerhindertCommitAuchBeiGenugRestzeit() {
+        FakePool pool = new FakePool(1);
+        try {
+            assertThrows(TxTimeoutException.class, () -> new TxManager(pool).execute(TxOptions.DEFAULT, ctx -> {
+                Thread.currentThread().interrupt();
+                return "darf nicht committen";
+            }));
+            assertEquals(0, pool.commits.get());
+            assertEquals(1, pool.rollbacks.get());
+            assertTrue(Thread.currentThread().isInterrupted());
+        } finally {
+            Thread.interrupted();
+        }
+    }
+
+    @Test
+    void manuellerCommitPrueftInterruptVorDemJdbcAufruf() throws Exception {
+        FakePool pool = new FakePool(1);
+        TxManager manager = new TxManager(pool);
+        TxContext context = manager.begin(TxOptions.DEFAULT);
+        try {
+            Thread.currentThread().interrupt();
+            assertThrows(TxTimeoutException.class, () -> manager.commit(context));
+            assertEquals(0, pool.commits.get());
+        } finally {
+            Thread.interrupted();
+            manager.finish(context);
+        }
+        assertEquals(1, pool.rollbacks.get());
+    }
+
+    @Test
     void manuellerBeginGibtAuchBeiRuntimeFehlerDieVerbindungFrei() {
         var released = new java.util.concurrent.atomic.AtomicInteger();
         var expected = new IllegalStateException("Treiberfehler");

@@ -62,6 +62,9 @@ public final class TxContext implements AutoCloseable {
 
     /** Zwischen den Schritten aufrufen: bricht ab, sobald das Zeitlimit überschritten ist. */
     public void checkDeadline() {
+        if (Thread.currentThread().isInterrupted()) {
+            throw TxException.timeout("Transaktion vor Commit unterbrochen");
+        }
         Duration left = remaining();
         if (left.isNegative() || left.isZero()) {
             throw TxException.timeout("Zeitlimit der Transaktion überschritten");
@@ -85,8 +88,13 @@ public final class TxContext implements AutoCloseable {
         status = TxStatus.ROLLED_BACK;
     }
 
+    void markCommitOutcomeUnknown() {
+        status = TxStatus.COMMIT_OUTCOME_UNKNOWN;
+    }
+
     /**
      * Sicherheitsnetz: eine vergessene offene Transaktion wird zurückgerollt.
+     * Bei unbekanntem Commit-Ausgang ist dies nur Aufräumen; UNKNOWN bleibt erhalten.
      *
      * <p><b>Achtung (CR-018):</b> {@code close()} gibt die Verbindung NICHT an den Pool
      * zurück — das leistet ausschließlich {@link TxManager#finish(TxContext)}. Wer
@@ -96,13 +104,15 @@ public final class TxContext implements AutoCloseable {
      */
     @Override
     public void close() {
-        if (status == TxStatus.ACTIVE) {
+        if (status == TxStatus.ACTIVE || status == TxStatus.COMMIT_OUTCOME_UNKNOWN) {
             try {
                 connection.rollback();
             } catch (SQLException ignored) {
                 // Verbindung ist vermutlich eh hinüber; der Pool wirft sie beim Freigeben weg
             }
-            status = TxStatus.ABORTED;
+            // Aufräumen kann eine noch offene Transaktion beenden, aber einen
+            // möglicherweise schon ausgeführten Commit nicht rückgängig machen.
+            if (status == TxStatus.ACTIVE) status = TxStatus.ABORTED;
         }
     }
 }
