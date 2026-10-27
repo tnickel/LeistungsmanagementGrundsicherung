@@ -292,7 +292,14 @@ Der integrierte JDK-HttpServer stellt alle Fach- und Systemfunktionen über eine
 
 Reine Unit-Tests greifen bei Transaktionssteuerungen zu kurz: Ob Sperren sauber greifen, Deadlocks transparent wiederholt werden, Budgets cent-genau stimmen und das Vier-Augen-Prinzip unter echter Last standhält, zeigt sich erst bei gleichzeitigen Zugriffen.
 
-Hierfür existiert mit **`testsweet/`** ein eigenständiger **Mitarbeiter-Simulator** (außerhalb von `mvn test`): **N simulierte Sachbearbeiter** greifen parallel auf einen gemeinsamen **Auftragstopf** zu, bearbeiten komplexe SGB-XII-Fälle über die echte Fachschicht (`SozialLeistungsService` &rarr; `TxManager` &rarr; Oracle Database) und verifizieren anschließend den **persistierte Endzustände direkt per SQL gegen die Datenbank**. Je Lauf werden **Modus** (Fachschicht oder Weboberfläche/Selenium) und **Testfallkategorie** gewählt: **Positivfälle** (Erfolgswege), **Negativfälle** (abgewehrte Fachfehler — z. B. Selbstfreigabe, Doppelzahlung, ungültige SEPA-Daten — mit Prüfung des unveränderten Datenbank-Endzustands) und **Lasttest** (600+ schlanke Durchläufe mit gekürztem Gesamtreport statt Einzeldokumentation).
+Hierfür existiert mit **`testsweet/`** ein eigenständiger **Mitarbeiter-Simulator** (außerhalb von `mvn test`): **N simulierte Sachbearbeiter** greifen parallel auf einen gemeinsamen **Auftragstopf** zu, bearbeiten komplexe SGB-XII-Fälle über die echte Fachschicht (`SozialLeistungsService` &rarr; `TxManager` &rarr; Oracle Database) und verifizieren anschließend den **persistierten Endzustand direkt per SQL gegen die Datenbank**. Je Lauf werden **Modus** (Fachschicht oder Weboberfläche/Selenium) und **Testfallkategorie** gewählt:
+
+* **POSITIV (bis zu 500 Kombinationen):** Erfolgswege mit 10 kuratierten Grundarten, 9 festen Grenzfällen und einem systematisch streuenden **Kombinationsgenerator** (Haushaltsformen, Merkzeichen, Schwangerschaft, Wohnkostensplit, Freibeträge, Vermögen). Eine Hash-Signaturmenge garantiert, dass **keine Konstellation doppelt** vorkommt.
+* **NEGATIV (bis zu 500 Kombinationen):** Abgewehrte Fachfehler (Verstöße aus 4 Gruppen: Anlage/SEPA, Anordnung, Vier-Augen-Workflow, Datenkonsistenz) mit striktem Beweis des **unveränderten Datenbank-Endzustands**.
+* **ECHT (5 belegte Konstellationen):** Quellenbasierte Modellfälle aus Gesetz (Anlage § 28 SGB XII), Rechtsprechung (BSG B 8 SO 4/24 R, LSG BW), kommunaler KdU-Richtlinie (Landkreis Altenburger Land) und Lebenshilfe-Beispielen (u. a. Schonvermögen vs. `KEIN_ANSPRUCH`-Abwehr bei 44.500 € Vermögen). Echte Bescheide mit voller Berechnung sind wegen des Sozialdatenschutzes (§ 67 ff. SGB X, § 35 SGB I) nicht öffentlich verfügbar.
+* **RECHNER (12 extern abgeglichene Fälle):** Bruch des Erwartungswert-Zirkelschlusses („selbst ausgedacht, selbst ausgerechnet“): 12 Konstellationen wurden mit dem externen Online-Rechner *steuerschroeder.de* (SGB XII Rechtsstand 03.07.2026) berechnet; die Sollbeträge (227,00 € bis 1.427,00 €) stehen als feste SQL-Erwartungen im Testcode.
+* **LAST (bis zu 1.200 Durchläufe):** Schlanke Massendurchläufe zur Durchsatz- und Latenzmessung mit aggregiertem Gesamtreport (`lastreport.pdf` / `lastreport.md`).
+* **STRESS (bis zu 3.000 User = 6.000 Transaktionsblöcke):** Zwei Wellen über dieselben User mit Phasenbarriere (Welle 1: Anlegen; Welle 2: Miete ändern & Auszahlung anordnen mit Prüfung des optimistischen Sperrens Version 1 &rarr; 2).
 
 <p align="center">
   <img src="testsweet/assets/simulator_zyklus.png" alt="Ablauf und Testzyklus des testsweet Simulators" width="90%" />
@@ -337,22 +344,21 @@ Nach Abarbeitung des Auftragstopfs verlässt sich der Simulator nicht auf Rückg
   <img src="testsweet/assets/vier_augen_workflow.png" alt="Vier-Augen-Freigabeprozess und Zahlungs-Workflow" width="90%" />
 </p>
 
-### 4. Automatische Testdokumentation: Zero-Dependency PDF & maschinenlesbares Markdown
-Nach jedem Lauf generiert das System vollautomatisch zwei umfassende Testberichte in `testsweet/logs/run-<Zeitstempel>/`:
+### 4. Automatische Testdokumentation, Testreport & Testzertifikat
+Nach jedem Lauf generiert das System vollautomatisch umfassende Testberichte und Nachweise:
 
 1. **Revisionssichere PDF-Testdokumentation (`testdokumentation.pdf`)**:
-   * **Eigenentwickelter PDF-Generator (`SweetPdf`)**: 100 % Standard-Java 21 ohne iText, PDFBox oder externe Abhängigkeiten. Schreibt natives PDF-1.4 mit Vektor-Schriften, exakter XRef-Byte-Adressierung und PDF-Image-XObjects (`/Filter /DCTDecode`).
-   * **Repräsentatives Deckblatt**: Mit professionellem Titelbild (`titelbild.jpg`), Metadaten-Kasten und grünem 100 %-Verifikationsbanner.
-   * **Eingebettete Fach- & Architekturflussdiagramme (200 dpi)**:
-     * *Transaktionssteuerung & Oracle-ACID-Kern* (`transaktionsarchitektur.png`)
-     * *Gesetzliche Berechnungskaskade SGB XII* (`bedarfsberechnung_sgb12.png`)
-     * *Vier-Augen-Auszahlungsworkflow* (`vier_augen_workflow.png`)
-     * *Simulator-Ablauf & Testzyklus* (`simulator_zyklus.png`)
-   * **Paginiertes Inhaltsverzeichnis**: Exakte Seitenverweise über das gesamte Dokument.
+   * **Eigenentwickelter PDF-Generator (`SweetPdf`)**: 100 % Standard-Java 21 ohne Drittbibliotheken. Schreibt natives PDF-1.4 mit Vektor-Schriften, exakter XRef-Byte-Adressierung und eingebetteten 200-dpi-Ablaufdiagrammen.
+   * **Repräsentatives Deckblatt & Diagramm-Showcase**: Enthält *Transaktionssteuerung & Oracle-ACID-Kern*, *Gesetzliche Berechnungskaskade SGB XII*, *Vier-Augen-Auszahlungsworkflow* und *Simulator-Testzyklus*.
    * **Lückenloser Einzelnachweis je Testfall**: Jeder Testfall erhält eine eigene A4-Seite mit Sachverhaltsbeschreibung, schrittweiser mathematischer Bedarfsberechnung inklusive Paragraphennachweisen, SQL-Verifikationstabelle (Erwartung vs. Datenbank-Ist) und Auszug aus dem Revisionsprotokoll.
 2. **Maschinenlesbare Markdown-Dokumentation (`testdokumentation.md`)**:
-   * Vollständiger Prüfbericht inklusive aller generierten Datenbank-IDs, Aktenzeichen und **copy-paste-fähiger SQL-Prüfabfragen**.
-   * Dient dem unabhängigen, automatisierten Nachprüfen durch externe Auditoren oder KI-Modelle.
+   * Vollständiger Prüfbericht inklusive aller generierten Datenbank-IDs, Aktenzeichen und copy-paste-fähiger SQL-Prüfabfragen. Enthält den Block `pruefanleitung_fur_ki` zum unabhängigen Nachprüfen durch externe Auditoren oder KI-Modelle.
+3. **KI-Prüfbericht (`testdokumentation-geprueft.pdf`)**:
+   * Ergänzt die Testdokumentation um den verifizierten Prüfnachweis der **GLM-5.3**-API-Nachrechnung mit kryptographischer SHA-256-Bindung aller Requests, Responses und Quellsnapshots.
+4. **Management-Testreport (`doc/SDN-Leistung-LMG-Testreport.pdf`)**:
+   * Management- und Prüfbericht als PDF und DOCX: Erläutert die Testverfahren verständlich mit 4 Fachdiagrammen und liefert die Gesamtbewertung aller **12 deklarierten Prüfebenen** (Fachschicht POSITIV, NEGATIV, ECHT, RECHNER, LAST, STRESS; Web-UI POSITIV, NEGATIV, LAST; JUnit Hauptmodul & testsweet; GLM-Stichprobe).
+5. **Offizielles Testzertifikat (`SDN-Leistung-LMG-Testzertifikat.pdf`)**:
+   * 201-seitiges formal gebundenes Revisions-Testzertifikat mit Bestanden-Status aller 10 Qualitätsschichten, 395/395 Haupttests, 329/329 testsweet-Tests und 200/200 GLM-5.3-Nachrechnungen (Zertifikat-ID `b805c5b6-20b0-4215-83a5-26900a2f31e4`).
 
 <p align="center">
   <img src="testsweet/assets/bedarfsberechnung_sgb12.png" alt="Gesetzliche SGB-XII-Berechnungskaskade" width="90%" />
@@ -363,11 +369,10 @@ Die mitgelieferte Weboberfläche bietet eine moderne Arbeitsumgebung für Last- 
 * **Modus-Auswahl per Mausklick:**
   * **Modus 1 (Fachschicht):** High-Performance Transaktionslast direkt über `SozialLeistungsService → TxManager → Oracle`.
   * **Modus 2 (Weboberfläche / Selenium):** Echte parallele Chrome-Fenster im Bildschirmraster bedienen interaktiv die SDN.Leistung-Oberfläche (Anmeldung, Fallerfassung, Auszahlung, Vier-Augen-Freigabe, Storno) mit automatischer Screenshot-Dokumentation.
+* **Testfallkategorien als Tabs:** Positivfälle, Negativfälle, Echte Fälle (5 belegte Quellen), Rechner-Fälle (12 extern abgeglichene Fälle), Lasttest und Stresstest.
 * **Echtzeit-Mitarbeiterkarten:** Visualisiert jeden simulierten Sachbearbeiter live mit aktuellem Auftrag, Status-Puls und Reaktionszeiten.
-* **Diagramm-Showcase:** Interaktive Galerie aller vier Fachflussdiagramme direkt im Browser.
-* **Filter & Volltextsuche:** Schnelle Filterung nach Verifikationsstatus (*Alle*, *Nur Verifiziert*, *Auffälligkeiten*) sowie Sofortsuche über Aktenzeichen, Personen und Szenario-Typen.
-* **1-Klick-Presets:** Vorkonfigurierte Profile für Schnelltests (5 SB / 15 Fälle), Standardläufe (10 SB / **100 Fälle je Positiv-/Negativkategorie**) und Lasttests (20 SB / 120 Fälle). Die GLM-Stichprobe umfasst standardmäßig **100 Positiv- und 100 Negativfälle**; eine fehlende Kategoriequote wird nicht einseitig aufgefüllt.
-* **Sofort-Download:** Direkte Links zur generierten PDF- und Markdown-Dokumentation.
+* **1-Klick-Zertifikatslauf:** Führt Neubuild, automatisierte Testsuiten, alle 7 Simulator-Pflichtkombinationen (1.392 Aufträge), GLM-Stichprobe und Zertifikatserstellung vollautomatisch aus.
+* **Sofort-Download & API:** Direkte Links zur generierten Testdokumentation, Testreport (`/api/testreport/pdf`) und Testzertifikat.
 
 ### 6. Start & CI/CD Batch-Ausführung
 
@@ -375,35 +380,38 @@ Die mitgelieferte Weboberfläche bietet eine moderne Arbeitsumgebung für Last- 
 # 1. Interaktives Dashboard starten (Port 8095, Modus 1 & 2 direkt wählbar):
 testsweet\start.bat
 
-# 2. Headless-Batchlauf für CI/CD (Modus 1 Fachschicht, Standard: 10 Sachbearbeiter, 100 Aufträge):
-testsweet\start.bat run
+# 2. Headless-Batchlauf für CI/CD (Modus 1 Fachschicht, z. B. 10 Sachbearbeiter, 100 Aufträge):
+testsweet\start.bat run 10 100 42 0 POSITIV
 
 # 3. Weboberflächen-Batchlauf (Modus 2 Selenium, z. B. 2 Browserfenster, 4 Aufträge):
-testsweet\start.bat web 2 4
+testsweet\start.bat web 2 4 42 200 POSITIV
 ```
 
-> ⚡ **Performance:** Der Batchlauf von **60 komplexen Vorgängen mit 10 parallelen Sachbearbeitern** (Modus 1) wird auf der lokalen Oracle-Datenbank in rund **1,3 bis 1,5 Sekunden** vollständig abgearbeitet, zu 100 % per SQL verifiziert und in eine druckfertige 72-seitige PDF-Dokumentation überführt.
-
 *Detaillierte Dokumentation und Konfiguration: [testsweet/README.md](testsweet/README.md).*
-*Verwandt: Die deterministische Szenario-Regression [`SzenarioRegressionTest`](src/test/java/de/allgemein/lmg/SzenarioRegressionTest.java) ([doc/regressionstests.md](doc/regressionstests.md)).*
+*Belege zu den echten Fällen & Online-Rechnern: [doc/belege/echt-und-rechner-faelle-2026-10-27.md](doc/belege/echt-und-rechner-faelle-2026-10-27.md).*
 
 ---
 
 ## 📚 Begleitende Dokumentation & Praxishandbuch
 
-Im Ordner [`doc/`](doc/) stehen ausführliche Architekturberichte und das offizielle Benutzerhandbuch bereit:
+Im Ordner [`doc/`](doc/) stehen ausführliche Architekturberichte, der Management-Testreport und das offizielle Benutzerhandbuch bereit:
 
 <p align="center">
   <a href="doc/SDN-Leistung-LMG-Benutzerhandbuch.pdf">
     <img src="doc/manual-bilder/handbuch_cover.jpg" alt="SDN.Leistung Benutzerhandbuch Cover" width="300" style="border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);" />
   </a>
   <br>
-  <strong><a href="doc/SDN-Leistung-LMG-Benutzerhandbuch.pdf">📖 SDN-Leistung-LMG-Benutzerhandbuch.pdf (42 Seiten, Vollständige Referenz)</a></strong>
+  <strong><a href="doc/SDN-Leistung-LMG-Benutzerhandbuch.pdf">📖 SDN-Leistung-LMG-Benutzerhandbuch.pdf (62 Seiten, Vollständige Referenz)</a></strong>
 </p>
 
+* [doc/SDN-Leistung-LMG-Testreport.pdf](doc/SDN-Leistung-LMG-Testreport.pdf) — Management-Testreport: Erläuterung der Testverfahren und 12-Ebenen-Gesamtbewertung mit 4 Fachdiagrammen
+* [doc/SDN-Leistung-LMG-Testzertifikat.pdf](doc/SDN-Leistung-LMG-Testzertifikat.pdf) — Revisions-Testzertifikat (201 S., Urteil BESTANDEN, 200/200 GLM-5.3-Nachrechnungen)
+* [doc/SDN-Leistung-LMG-Projektuebersicht.pdf](doc/SDN-Leistung-LMG-Projektuebersicht.pdf) — Offizielle Projektübersicht zu Entwicklung, Architektur und Qualitätssicherung
+* [doc/belege/echt-und-rechner-faelle-2026-10-27.md](doc/belege/echt-und-rechner-faelle-2026-10-27.md) — Belegverzeichnis zu den Kategorien ECHT (5 Fälle) und RECHNER (12 Fälle)
 * [doc/architektur.md](doc/architektur.md) — Detaillierte Baustein-Architektur, Concurrency-Regeln und Datenfluss
 * [doc/leistungsmanagement.md](doc/leistungsmanagement.md) — Fachspezifikation des Sozialleistungsrechts und Schnittstellen
-* [doc/projektbeschreibung.md](doc/projektbeschreibung.md) — Motivation, CICS-Ablösung und wirtschaftlicher Kontext
+* [doc/rechtsgrundlagen.md](doc/rechtsgrundlagen.md) — Rechtsquellen-Verzeichnis mit Herkunftsnachweisen (SGB XII, SGB X)
+* [doc/regressionstests.md](doc/regressionstests.md) — Die 10 Szenarien der deterministischen Szenario-Regression
 * [doc/roadmap.md](doc/roadmap.md) — Umsetzungsstand und geplante Enterprise-Ausbaustufen
 
 ---

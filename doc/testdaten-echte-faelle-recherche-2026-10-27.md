@@ -63,3 +63,35 @@ Nutzbarkeit gesondert nachweisen. Ein negatives Suchergebnis ersetzt diese Arbei
   und [Sekundärbericht zu B 8 SO 4/24 R](https://sozialrat.org/bsg-urteil-grundsicherung-alter-27-mai-2026-vermoegensuebergangsregel/).
 - [Externer Rechner](https://www.steuerschroeder.de/Steuerrechner/Grundsicherung.html),
   Seiten-Rechtsstand 03.07.2026.
+
+## Zweite Suchrunde (27.10.2026, Nutzer-Rückfrage „weitere echte Beispiele für 2026")
+
+Geprüfte weitere Gattungen: DRV-Merkblätter, Wohlfahrtsverbands-Ratgeber, Fachseiten
+(Tacheles), Musterbescheide/Schuldenberatungs-Flyer, freie LSG-Volltexte (nrwe.justiz),
+Hochschulklausuren. Ergebnis in der Sprache der überarbeiteten Fassung: **kein weiterer
+vollständiger öffentlicher Fallbestand mit 2026er Sätzen**; zusätzlich zu den bekannten
+Grenzen zwei 2026-nahe Sonderfunde, die vor allem **Modellgrenzen des Produkts** zeigen:
+
+1. **§ 82a SGB XII (Grundrenten-Freibetrag), Beispielstand 01.01.2026** (Fachverlags-
+   Beitrag, Haufe): Regelaltersrente 1.000 EUR brutto / 878 EUR Zahlbetrag, 34 Jahre
+   Grundrentenzeiten — der §-82a-Freibetrag erhöht die Grundsicherung erheblich. Das
+   Produkt bildet § 82a nicht ab; ein Testfall würde eine bekannte Fachlücke grün
+   testen. Wertvollster Ausgangspunkt für eine Produkt-Erweiterung, nicht für ECHT.
+2. **LSG NRW, L 9 SO 139/21 (07.04.2022, freier Volltext über nrwe.justiz.nrw.de):**
+   Untermieter in 123-qm-Wohnung, anteilige Miete 310 EUR zzgl. 160 EUR Heizkosten-
+   vorauszahlung (Gesamtwohnung 910 EUR), Richtlinien Kreis Düren; Streit über die
+   Kopfteils-Aufteilung nach § 42a Abs. 4 SGB XII. Ohne Kopfteils-/Untermietelogik im
+   Produkt nicht abbildbar — dokumentierte Modellgrenze.
+3. Ältere vollständige Beispielrechnungen (vor-2026-Sätze, als ECHT-Fälle verworfen):
+   Caritas-Aachen-Testbogen SGB XII (2019), Ahrensburger Netzwerk trotzALTER („Frau K.",
+   540 EUR Witwenrente), Seniorenvertretung Tempelhof-Schöneberg (2018),
+   Volkssolidarität-Broschüre (2020, Regelsatz 442 EUR). Konstellationen decken bereits
+   vorhandene ECHT-/POSITIV-Merkmale ab.
+4. Presse 2026 (Südkurier, Stuttgarter Zeitung, Arbeitsagentur) bestätigt nur die
+   Satzlage (563/506 EUR, Nullrunde, SGB-II-Umbau „Grundsicherungsgeld" ab 07/2026) —
+   keine Fallrechnungen; Klausurportale (Studocu) sind älter und SGB-II-lastig.
+
+**Fazit:** Der belegbare Bestand bleibt fünf ECHT-Fälle plus zwölf RECHNER-Fälle (mit den
+in dieser Datei beschriebenen Beleggrenzen). Die zweite Runde legt zusätzlich zwei
+Fachlücken offen (§ 82a-Freibetrag, § 42a Abs. 4 Kopfteils-Miete), die als künftige
+Produkt-Erweiterungen geführt werden sollten, bevor man sie testen kann.
