@@ -18,7 +18,7 @@ function browser() {
       classList:{toggle(name,on){if(on)classes.add(name);else classes.delete(name);},add(name){classes.add(name);},remove(name){classes.delete(name);},contains(name){return classes.has(name);}},
       replaceChildren(){this.children=[];},appendChild(child){this.children.push(child);},
       removeAttribute(name){delete this[name];},showModal(){this.open=true;this.shown++;},close(){this.open=false;},
-      addEventListener(){},querySelectorAll(){return [];}};
+      listeners:new Map(),addEventListener(name,callback){this.listeners.set(name,callback);},querySelectorAll(){return [];}};
     elements.set(id,value);return value;
   }
   const context = vm.createContext({
@@ -26,11 +26,17 @@ function browser() {
     document:{getElementById:element,createElement:tag=>({tag,textContent:"",innerHTML:""})},
     sessionStorage:{getItem:key=>storage.get(key) || null,setItem:(key,value)=>storage.set(key,value)},
     fetch:async (url,options)=>{assert.ok(responses.length,"Ungeplanter HTTP-Aufruf: "+url);const queued=responses.shift();assert.equal(url,queued.url);return typeof queued.response === "function" ? queued.response(options) : queued.response;},
-    setInterval:()=>1,clearInterval:()=>{},console,
+    setInterval:()=>1,clearInterval:()=>{},console,alert:()=>{},
   });
   vm.runInContext(source,context,{filename:"sweet/app.js"});
   assert.equal(typeof callbacks.get("DOMContentLoaded"),"function");
   return {element,context,storage,
+    installReport(){
+      const begin=source.indexOf('    const reportKnopf = $("testreportknopf");');
+      const end=source.indexOf('    initialisiereLlm();',begin);
+      assert.ok(begin>0&&end>begin);vm.runInContext(source.slice(begin,end),context);
+    },
+    report(){return element("testreportknopf").listeners.get("click")();},
     simulator(data){context.simulatorFixture=data;return vm.runInContext("zeigeSimulatorFehler(simulatorFixture)",context);},
     response(data,ok=true,url="/api/llmpruefung"){responses.push({url,response:{ok,json:async()=>data}});},
     deferred(promise,url="/api/llmpruefung"){responses.push({url,response:()=>promise});},
@@ -411,4 +417,65 @@ test("statisches Formular und Erkl채rung stimmen mit dem Standard 100 plus 100 �
   assert.match(html,/<input[^>]*id="llm-cases"[^>]*value="200"/);
   assert.match(html,/200 Pr체ff채llen genau 100 Positivf채lle/);
   assert.doesNotMatch(html,/50 guten und 50 schlechten/);
+});
+
+test("Reportknopf und alter Reportlink bleiben bei laufender oder unbekannter Suite gesperrt",()=>{
+  const ui=browser();ui.element("testreportlink").style.display="inline-block";
+  ui.suite(suiteStatus());
+  assert.equal(ui.element("testreportknopf").disabled,true);
+  assert.equal(ui.element("testreportlink").style.display,"none");
+  vm.runInContext("zertifikatSuiteStatusBekannt=false;sperreZertifikatSuiteBedienung()",ui.context);
+  assert.equal(ui.element("testreportknopf").disabled,true);
+  ui.suite(suiteStatus({state:"IDLE",running:false}));
+  assert.equal(ui.element("testreportknopf").disabled,false);
+});
+
+test("Reportexport sperrt Doppelklick und neue L채ufe und gibt nach Erfolg wieder frei",async()=>{
+  const ui=browser();ui.installReport();ui.suite(suiteStatus({state:"IDLE",running:false}));
+  ui.element("testreportlink").style.display="inline-block";
+  let resolve;ui.deferred(new Promise(done=>{resolve=done;}),"/api/testreport");
+  const pending=ui.report();
+  for(const id of ["testreportknopf","start","zertifikatknopf","zertifikat-tests-start","llm-start-knopf"])
+    assert.equal(ui.element(id).disabled,true,id);
+  assert.equal(ui.element("testreportlink").style.display,"none");
+  await ui.report(); // Ein zweiter Fetch w채re ungeplant und w체rde diese Probe rot machen.
+  resolve({ok:true,json:async()=>({ok:true,pdf:"fixture.pdf",reportId:"ID",laeufe:9,davonErfolgreich:9})});
+  await pending;
+  assert.equal(ui.element("testreportknopf").disabled,false);
+  assert.equal(ui.element("testreportlink").style.display,"inline-block");
+});
+
+test("Sp채te Reportantwort aktiviert w채hrend neuer Suite weder Knopf noch alten Link",async()=>{
+  const ui=browser();ui.installReport();ui.suite(suiteStatus({state:"IDLE",running:false}));
+  let resolve;ui.deferred(new Promise(done=>{resolve=done;}),"/api/testreport");
+  const pending=ui.report();ui.suite(suiteStatus());
+  resolve({ok:true,json:async()=>({ok:true,pdf:"fixture.pdf"})});await pending;
+  assert.equal(ui.element("testreportknopf").disabled,true);
+  assert.equal(ui.element("testreportlink").style.display,"none");
+});
+
+test("Fehlgeschlagener Reportexport entwertet den alten Link und entsperrt die Bedienung",async()=>{
+  const ui=browser();ui.installReport();ui.suite(suiteStatus({state:"IDLE",running:false}));
+  ui.element("testreportlink").style.display="inline-block";
+  ui.response({fehler:"kontrollierter Exportfehler"},false,"/api/testreport");await ui.report();
+  assert.equal(ui.element("testreportknopf").disabled,false);
+  assert.equal(ui.element("testreportlink").style.display,"none");
+});
+
+test("Serverstatus eines Exports aus anderem Tab sperrt Report und Starts",()=>{
+  const ui=browser();
+  vm.runInContext('momentanerStatus={phase:"BEREIT",documentExportRunning:true};sperreZertifikatSuiteBedienung()',ui.context);
+  for(const id of ["testreportknopf","start","zertifikat-tests-start"])
+    assert.equal(ui.element(id).disabled,true,id);
+});
+
+test("Kurz veralteter Busy-Poll versteckt einen frisch erstellten Report nur bis zur Entsperrung",async()=>{
+  const ui=browser();ui.installReport();ui.suite(suiteStatus({state:"IDLE",running:false}));
+  let resolve;ui.deferred(new Promise(done=>{resolve=done;}),"/api/testreport");const pending=ui.report();
+  vm.runInContext('momentanerStatus={phase:"BEREIT",documentExportRunning:true}',ui.context);
+  resolve({ok:true,json:async()=>({ok:true,pdf:"fixture.pdf"})});await pending;
+  assert.equal(ui.element("testreportlink").style.display,"none");
+  vm.runInContext('momentanerStatus={phase:"BEREIT",documentExportRunning:false};sperreZertifikatSuiteBedienung()',ui.context);
+  assert.equal(ui.element("testreportlink").style.display,"inline-block");
+  assert.equal(ui.element("testreportknopf").disabled,false);
 });

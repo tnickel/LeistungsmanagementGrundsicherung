@@ -1,0 +1,59 @@
+{
+  "verifiedAt": "2026-10-27T09:15:26.976468+00:00",
+  "environment": "isolated schema on lmg-oracle / FREEPDB1",
+  "schema": "TSFIX_913BAFB1E3D04610",
+  "schemaRemoved": true,
+  "existingTxDemoChanged": false,
+  "databasePrivilegesUsed": "OS SYSDBA only for own schema prepare/removal; runtime used own account",
+  "runs": [
+    {
+      "category": "ECHT",
+      "totalCases": 5,
+      "verifiedCases": 5,
+      "state": "PASS",
+      "runId": "run-20261027-101222-1390714291352317868",
+      "runDirectory": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\run-20261027-101222-1390714291352317868",
+      "sourceSha256": "4b17c5ef7021915d3610774dd1bb145341d1f596e0d1973eb5c699eb2fe702c1",
+      "sourceArtifactsMatch": true,
+      "processBuildUnchanged": true,
+      "reportsComplete": true,
+      "logComplete": true,
+      "evidenceErrors": [],
+      "directSqlSnapshot": "oracle-echt.json"
+    },
+    {
+      "category": "RECHNER",
+      "totalCases": 12,
+      "verifiedCases": 12,
+      "state": "PASS",
+      "runId": "run-20261027-101226-17481924151665281028",
+      "runDirectory": "D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\\testsweet\\logs\\run-20261027-101226-17481924151665281028",
+      "sourceSha256": "4b17c5ef7021915d3610774dd1bb145341d1f596e0d1973eb5c699eb2fe702c1",
+      "sourceArtifactsMatch": true,
+      "processBuildUnchanged": true,
+      "reportsComplete": true,
+      "logComplete": true,
+      "evidenceErrors": [],
+      "directSqlSnapshot": "oracle-rechner.json"
+    }
+  ],
+  "readinessSmoke": {
+    "exitCode": 0,
+    "elapsedSeconds": 7.172,
+    "timeoutSeconds": 15,
+    "schema": "TSFIX_913BAFB1E3D04610",
+    "containerMutationsBlocked": true,
+    "credentialsLogged": false,
+    "processExecutionPolicy": "Bypass as in start.bat; no persisted setting change"
+  },
+  "ddlSha256": {
+    "oracle_schema.sql": "f4ea9cc00c055cd95008fdae440e2752d1b01e12905babfc1c8e8ad1a82d53e6",
+    "lmg_schema.sql": "b9c84f910fe3df8a3e04da9f3a4ee7b4564bac1477ff4c5b8d1cb508246d0aa7"
+  },
+  "ddlImport": "Executable DDL lines unchanged; pure comment lines omitted for SQLPlus parser; only SATZSTAND 2026 seeded",
+  "excluded": [
+    "external provider",
+    "Selenium",
+    "formal full certificate suite"
+  ]
+}

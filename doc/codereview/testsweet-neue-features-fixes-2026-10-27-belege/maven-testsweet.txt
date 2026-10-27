@@ -1,0 +1,193 @@
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by org.fusesource.jansi.internal.JansiLoader in an unnamed module (file:/D:/DevelopmentTools/apache-maven-3.9.6/lib/jansi-2.4.0.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by com.google.common.util.concurrent.AbstractFuture$UnsafeAtomicHelper (file:/D:/DevelopmentTools/apache-maven-3.9.6/lib/guava-32.0.1-jre.jar)
+WARNING: Please consider reporting this to the maintainers of class com.google.common.util.concurrent.AbstractFuture$UnsafeAtomicHelper
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+Okt. 27, 2026 10:11:42 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:42.974074400Z [tx-task-1] TX.COMMIT id=52492981-5757-4ffe-bae6-3414b6c70816 attempt=1 duration=7ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.005727900Z [tx-task-2] TX.COMMIT id=5af03461-d7ac-4b6f-b01b-12ce2522790f attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.017766300Z [tx-task-1] TX.COMMIT id=23c48ece-996b-4360-98f5-b734e731810f attempt=1 duration=1ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.023451100Z [tx-task-2] TX.COMMIT id=e140fc33-acfa-4d1b-a637-7a2c47d5f24f attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.045159900Z [tx-task-1] TX.COMMIT id=117e7d17-fdee-4be7-8792-04975b34477a attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.073649500Z [tx-task-2] TX.COMMIT id=f7649968-917e-4b64-9a83-b302cf6ece18 attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.076649400Z [tx-task-1] TX.COMMIT id=36cd65f5-8244-47fb-ba04-56d2ee6fcbab attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.084760600Z [tx-task-1] TX.COMMIT id=692178bb-c357-4be1-92ea-0c0df98068a0 attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.093495300Z [tx-task-2] TX.COMMIT id=b2338c1c-faa8-4a2f-bb95-594519c467e8 attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.096504100Z [tx-task-1] TX.COMMIT id=5711894c-b62f-4d3c-9d69-0d98d1255eef attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.104856300Z [tx-task-1] TX.COMMIT id=201db8e6-80f9-4f0a-b8c2-9ea56192e102 attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.107361300Z [tx-task-2] TX.COMMIT id=016f42db-b75f-476e-985d-6a9d2c0b266b attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.109366800Z [tx-task-1] TX.COMMIT id=3a31b642-e8b5-426e-9418-ebe9fec42d6b attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.117366900Z [tx-task-1] TX.COMMIT id=87b1966e-a1ec-4b78-946d-8c0d4d3dd044 attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.119325100Z [tx-task-2] TX.COMMIT id=1a27949c-2d25-4b91-9555-58c80e62dc68 attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.123330Z [tx-task-1] TX.ROLLBACK id=7df7b728-d4d1-407a-9da5-562433854a79 attempt=1 duration=1ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.124330800Z [tx-task-2] TX.COMMIT id=5505b8ed-e62e-4edb-8358-730de560f184 attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.128356100Z [tx-task-1] TX.COMMIT id=8581808e-22d8-4c25-b0f8-afabcabd7009 attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.132910700Z [tx-task-2] TX.COMMIT id=382ce585-078d-45cd-9435-5aa4e2bb5452 attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.135910600Z [tx-task-1] TX.ROLLBACK id=b70efd3d-2c69-4224-bb46-94e1ae4dd37d attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.135910600Z [tx-task-2] TX.COMMIT id=94a14acd-38af-4896-9fa0-d0ae37499abc attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.139421Z [tx-task-1] TX.COMMIT id=c973e36d-95d8-49e7-b9d3-209c20f9521e attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.142929800Z [tx-task-2] TX.COMMIT id=53a595e3-9439-4910-836a-ba19a2689938 attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.144928800Z [tx-task-1] TX.ROLLBACK id=c581de62-f781-4482-9661-63257a6c4305 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.145930500Z [tx-task-2] TX.COMMIT id=80123bda-2a31-403f-a90c-344a11777aa8 attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.149440200Z [tx-task-1] TX.COMMIT id=ca5f6362-d5a2-445d-b3d5-c22c29a45642 attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.152439200Z [tx-task-2] TX.COMMIT id=4fb4eb9b-94aa-439b-b00b-74b0ebe3fd49 attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.155439700Z [tx-task-1] TX.COMMIT id=ef1d2b59-17d7-4812-9722-e58629e0ba7e attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.156439Z [tx-task-2] TX.COMMIT id=01b82020-541a-4e8e-a52a-c0a7a834ec46 attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.157941700Z [tx-task-1] TX.COMMIT id=c84e2a27-b99a-463c-b213-896ab614ee2e attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.165947900Z [tx-task-1] TX.COMMIT id=2b069dd3-9103-4a7c-b1b5-107d19d39ef1 attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.168454300Z [tx-task-2] TX.COMMIT id=1d911e56-d0b6-4e87-9d89-90422dd3df68 attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.171456600Z [tx-task-1] TX.COMMIT id=845ae42c-f760-4cb6-8761-3bcb1c14530e attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.173456500Z [tx-task-2] TX.COMMIT id=72e3648c-db7c-4c1c-adc1-62b7dfcb3dc9 attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.184965900Z [tx-task-1] TX.COMMIT id=26866134-9f7c-405e-af15-9c134cee77c9 attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.187470100Z [tx-task-2] TX.COMMIT id=007b86cd-04fe-4afa-978e-b47d02d6b2c6 attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.195477700Z [tx-task-1] TX.COMMIT id=8c661dd9-d910-48f5-a1ee-ea6362ceae99 attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.198667400Z [tx-task-2] TX.ROLLBACK id=af839c82-6932-4acc-826b-7d05c1ddd8d2 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.199666700Z [tx-task-1] TX.ROLLBACK id=c676bc1a-acd1-4322-b810-4ee49fb4153a attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.202177600Z [tx-task-2] TX.ROLLBACK id=20534376-64f4-4ea3-a8d5-6a12ecbbd073 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.203177Z [tx-task-1] TX.ROLLBACK id=56bf7e20-ddc8-4f69-8d5c-8e4fc507d321 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.205177100Z [tx-task-2] TX.ROLLBACK id=1a6c68d9-7f4c-4057-b64a-eccaaa6e52af attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.207781100Z [tx-task-1] TX.ROLLBACK id=52707398-df58-4cbe-a4f9-2133a536edb5 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.238042100Z [tx-task-1] TX.ROLLBACK id=6f43f3d7-1603-4137-987e-bf3a4ab5aeef attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.240567500Z [tx-task-2] TX.ROLLBACK id=a0972569-2c25-461e-8123-0d9b766ecc71 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.241567600Z [tx-task-1] TX.ROLLBACK id=2b29f283-2bd8-40ed-ab40-de17b49b1d05 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.243567600Z [tx-task-2] TX.ROLLBACK id=9515003b-d857-40f6-9b62-e5fd393205b0 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.244567700Z [tx-task-1] TX.ROLLBACK id=2ae4e186-42d7-4881-b5ed-bfa25a680adb attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.245568800Z [tx-task-2] TX.ROLLBACK id=77a5772c-89c8-4bc6-9a8b-394f54a4bc44 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.246571200Z [tx-task-1] TX.COMMIT id=d433d941-ffd5-427e-8f7e-e890ff24b73e attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.253476700Z [tx-task-1] TX.COMMIT id=d27a3c2e-13ee-4c8e-b7a7-793913523dd3 attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.255480500Z [tx-task-2] TX.COMMIT id=436e4a1b-9833-483d-8297-0d817fefddbe attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.260490700Z [tx-task-1] TX.COMMIT id=64bcbeef-efc4-43ef-bba5-c7e05870543f attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.261493700Z [tx-task-2] TX.COMMIT id=7a22732e-d066-4f21-a87a-8543d480790a attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.270003Z [tx-task-1] TX.COMMIT id=d25a7a73-3df1-426e-9273-c037102307d8 attempt=1 duration=0ms
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.272003Z [tx-task-2] TX.ROLLBACK id=b619ed04-47b3-4f99-a7f0-110de0a4ba79 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.273002800Z [tx-task-1] TX.ROLLBACK id=0695a15a-c043-4975-bc5d-55ebeb0ffd1b attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.275002600Z [tx-task-2] TX.ROLLBACK id=f7e3eb0a-7fba-4f7e-9b63-c791eba0a894 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.276003100Z [tx-task-1] TX.ROLLBACK id=6d48cf40-1493-4589-93d9-8d1e5fd51098 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.277505200Z [tx-task-2] TX.ROLLBACK id=8652e246-2f3c-414c-9797-bf430b236e73 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.278507900Z [tx-task-1] TX.ROLLBACK id=a2133de2-9ef9-44b9-b09f-ddd6268a29c1 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.279508800Z [tx-task-2] TX.ROLLBACK id=d75c198f-b589-473f-99d1-113b89ffcc7c attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.281511500Z [tx-task-1] TX.ROLLBACK id=50660813-a71a-429f-981f-5125f0649006 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.282512200Z [tx-task-2] TX.ROLLBACK id=ff3038e0-675a-492b-91d1-fd0cef3cd2f0 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.283511900Z [tx-task-1] TX.ROLLBACK id=ffe6ea18-a9af-4510-9734-dddaa776dd9d attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.285512400Z [tx-task-2] TX.ROLLBACK id=11f4bf23-e80b-49c9-a6a4-22f626a9ce8c attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.286511400Z [tx-task-1] TX.ROLLBACK id=aabd591e-9862-4cbe-8fc9-0aa1c4491f89 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.288013400Z [tx-task-2] TX.ROLLBACK id=ad9b1e74-720d-4b92-bf8d-6db4e7d67466 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.289017400Z [tx-task-1] TX.ROLLBACK id=27a3d417-4da6-459e-a245-2fbb84af79cf attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.291020500Z [tx-task-2] TX.ROLLBACK id=2037ef68-7e54-4139-876f-2845718f34f7 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.292019900Z [tx-task-1] TX.ROLLBACK id=9029a350-1b36-4a6f-b938-6ef6438a9aa3 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.293020Z [tx-task-2] TX.ROLLBACK id=22fd7125-87c2-40c8-96b0-000d4b35c2a8 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.294020800Z [tx-task-1] TX.ROLLBACK id=a370d8b5-2bc4-4dba-903b-78f3eb897871 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.295021800Z [tx-task-2] TX.ROLLBACK id=14ee999b-ca41-4fbe-ae89-db935b1d7917 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.296054500Z [tx-task-1] TX.ROLLBACK id=1ab3dc6b-76de-4f06-a79b-36c09653fd22 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.297738400Z [tx-task-2] TX.ROLLBACK id=2fa69b4c-d8d4-47b5-b9d4-04cf87bdf4e8 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.299108700Z [tx-task-1] TX.ROLLBACK id=5f85c3bb-13e4-4448-a45b-bbc467031984 attempt=1 duration=0ms error="FachlicheException"
+Okt. 27, 2026 10:11:43 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:11:43.300113700Z [tx-task-2] TX.ROLLBACK id=aa7d4124-d3e1-4048-8486-1581825b1805 attempt=1 duration=0ms error="FachlicheException"
+[Fatal Error] TEST-xxe.xml:1:10: DOCTYPE ist nicht zulässig, wenn das Feature "http://apache.org/xml/features/disallow-doctype-decl" auf "true" gesetzt ist.
+Lognachweis unvollständig: java.io.IOException: CONTROLLED_CLOSE_FAILURE
+Testdokumentation konnte nicht geschrieben werden: DirectoryNotEmptyException: C:\Users\tnickel\AppData\Local\Temp\junit7706716272905489267\run-20261027-101310-14128091786846404484\testdokumentation.pdf
+Lognachweis unvollständig: java.io.IOException: Stream closed
+Okt. 27, 2026 10:13:18 AM de.allgemein.tx.TxManager execute
+WARNUNG: Transaktionsversuch 1/3 fehlgeschlagen, Wiederholung folgt: TxException ORA-00054
+Okt. 27, 2026 10:13:18 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:13:18.952405Z [main] TX.RETRY id=ba19f680-2b9d-42c1-8f2b-c1d9f4cc048e attempt=1 details="TxException ORA-00054"
+Okt. 27, 2026 10:13:18 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:13:18.955412700Z [main] TX.COMMIT id=ba19f680-2b9d-42c1-8f2b-c1d9f4cc048e attempt=2 duration=7ms
+Okt. 27, 2026 10:13:18 AM de.allgemein.tx.TxManager execute
+WARNUNG: Transaktionsversuch 1/3 fehlgeschlagen, Wiederholung folgt: TxException ORA-00060
+Okt. 27, 2026 10:13:18 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:13:18.955412700Z [main] TX.RETRY id=c4808531-e8a3-42dd-9cbe-82f72445abd9 attempt=1 details="TxException ORA-00060"
+Okt. 27, 2026 10:13:18 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:13:18.958413300Z [main] TX.COMMIT id=c4808531-e8a3-42dd-9cbe-82f72445abd9 attempt=2 duration=2ms
+Okt. 27, 2026 10:13:18 AM de.allgemein.tx.TxManager execute
+WARNUNG: Transaktionsversuch 1/3 fehlgeschlagen, Wiederholung folgt: TxException ORA-08177
+Okt. 27, 2026 10:13:18 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:13:18.958413300Z [main] TX.RETRY id=62f8eae2-187a-4a64-9b86-c3c33cc8f75c attempt=1 details="TxException ORA-08177"
+Okt. 27, 2026 10:13:18 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:13:18.959922700Z [main] TX.COMMIT id=62f8eae2-187a-4a64-9b86-c3c33cc8f75c attempt=2 duration=1ms
+Okt. 27, 2026 10:13:18 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:13:18.960923100Z [main] TX.ROLLBACK id=0045c4e0-8dfb-4601-a4b8-2d87093d43b9 attempt=1 duration=0ms error="TxException ORA-00018"
+Okt. 27, 2026 10:13:18 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:13:18.960923100Z [main] TX.ROLLBACK id=dedf846f-a4c7-4352-979e-3166308a73a1 attempt=1 duration=0ms error="TxException ORA-00020"
+Okt. 27, 2026 10:13:18 AM de.allgemein.tx.audit.TxAuditLog logSafely
+INFORMATION: 2026-10-27T09:13:18.961923Z [main] TX.ROLLBACK id=9965c099-222c-42a7-95f7-53f9d2a7c6b4 attempt=1 duration=0ms error="TxException ORA-04031"

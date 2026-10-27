@@ -1,0 +1,79 @@
+{
+  "missingCoverageAndFailedJunit": {
+    "runs": [
+      {
+        "key": "Fachschicht|ECHT",
+        "lauf": {
+          "modus": "Fachschicht",
+          "kategorie": "ECHT",
+          "datum": "2026-10-27",
+          "gesamt": 5,
+          "verifiziert": 5,
+          "fehlgeschlagen": 0,
+          "erfolgreich": true,
+          "ordner": "testsweet/logs/run-20261027-120000-999"
+        }
+      }
+    ],
+    "junit": {
+      "Hauptprojekt": {
+        "datum": "27.10.2026",
+        "tests": 1,
+        "fehler": 1,
+        "skipped": 0
+      },
+      "testsweet": null
+    },
+    "certificate": [
+      "Hiermit wird bestätigt, dass die Software SDN.Leistung (Leistungsmanagement Grundsicherung, Version 0.5.8) zum Stand 27.10.2026 auf den in diesem Report beschriebenen Ebenen geprüft wurde: automatisierte Unit-Tests und Regressionstests, Fachschicht- und Weboberflächen-Prüfung mit gesteuertem Browser, synthetische Testfälle mit unabhängig nachgerechneten Sollwerten, echte Fälle aus Gesetz, Rechtsprechung und kommunaler Richtlinie, Abgleich mit einem externen Online-Rechner sowie Belastung der Transaktionssteuerung mit parallelen Prozessen.",
+      "Gesamturteil zum Stand dieses Reports: BESTANDEN",
+      "Von 1 ausgewerteten Prüfläufen waren 1 vollständig bestanden. Dieser Report und dieses Zertifikat beziehen sich auf den genannten Erstellungsstand und werden bei jeder Erneuerung vollständig neu gebildet (Report-Kennung PROBE). Der formale, beleggebundene Zertifikatsnachweis mit Build-Bindung ist das separate Dokument „SDN-Leistung-LMG-Testzertifikat“."
+    ]
+  },
+  "sameSecondOrder": {
+    "actualNewer": "run-20261027-120000-111",
+    "selected": "testsweet/logs/run-20261027-120000-999"
+  },
+  "realFailureClassifiedAsAbort": [
+    "Die folgende Übersicht zeigt je Prüfebene den jeweils jüngsten Lauf. „Verifiziert“ ist die Zahl der Fälle, deren Datenbank-Endzustand vollständig geprüft wurde. Als „ABGEBROCHEN“ gilt ein Lauf, der vor der Verifikation abgestorben ist (z. B. ein eingefrorenes Browserfenster) — er ist kein fachliches Scheitern, sondern ein nicht zustande gekommener Nachweis. Prüfebenen ohne Eintrag sind zum Stand dieses Reports noch nicht gelaufen.",
+    "ABGEBROCHEN",
+    "FEHLGESCHLAGEN"
+  ],
+  "mixedSurefire": {
+    "Hauptprojekt": {
+      "datum": "27.10.2026",
+      "tests": 40,
+      "fehler": 0,
+      "skipped": 0
+    },
+    "testsweet": null
+  },
+  "verifyAfterNewFailedRun": [
+    "{\"state\":\"READY\",\"reportId\":\"BE4B86EC\"}\n"
+  ],
+  "missingTocAnchors": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+  ],
+  "shiftedHeadingPages": [
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+  ],
+  "missingPdftotext": "pdftotext fehlgeschlagen: "
+}

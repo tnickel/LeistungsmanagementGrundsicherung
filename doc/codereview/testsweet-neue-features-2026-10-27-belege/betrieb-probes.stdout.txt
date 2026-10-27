@@ -1,0 +1,33 @@
+SICHERE AST-PROBE: kein Portzugriff, kein taskkill, kein Docker, nur fiktive Prozessobjekte.
+[
+  {
+    "Name": "Maven ohne exec.mainClass, POM-Default DemoMain",
+    "Accepted": true,
+    "CommandLine": "java -Dmaven.multiModuleProjectDirectory=\"D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\" org.codehaus.plexus.classworlds.launcher.Launcher exec:java"
+  },
+  {
+    "Name": "Maven explizit fremde Klasse",
+    "Accepted": false,
+    "CommandLine": "java -Dmaven.multiModuleProjectDirectory=\"D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\" org.codehaus.plexus.classworlds.launcher.Launcher exec:java -Dexec.mainClass=example.OtherServer"
+  },
+  {
+    "Name": "Maven fremde Klasse als gequotetes Argument",
+    "Accepted": true,
+    "CommandLine": "java -Dmaven.multiModuleProjectDirectory=\"D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung\" org.codehaus.plexus.classworlds.launcher.Launcher exec:java \"-Dexec.mainClass=example.OtherServer\""
+  },
+  {
+    "Name": "Direkter Start mit Projekt-Classpath",
+    "Accepted": true,
+    "CommandLine": "java -cp \"D:\\AntiGravitySoftware\\GitWorkspace\\LeistungsmanagementGrundsicherung/target/classes\" de.allgemein.lmg.web.LmgServerMain"
+  },
+  {
+    "Name": "Direkter Start von externem JAR ohne Projektpfad",
+    "Accepted": false,
+    "CommandLine": "java -cp C:/runtime/lmg.jar de.allgemein.lmg.web.LmgServerMain"
+  }
+]
+SICHERE BASH-PROBE: sqlplus ist eine printf-Funktion; Passwort-Dummy ist p$ssword.
+ARG=<-S>
+ARG=<-L>
+ARG=<review/p@localhost:1521/FREEPDB1>
+PROBEN REPRODUZIERT. Dies ist ein Fehlernachweis des geprueften Stands, kein bestandener Sicherheitstest.

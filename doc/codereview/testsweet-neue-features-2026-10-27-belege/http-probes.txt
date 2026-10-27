@@ -1,0 +1,7 @@
+POST endpoint rejects GET=405
+duplicate publication guarded=409
+PDF blocked while publishing=409
+suite start during report=202; fake starts=1
+publication blocked during suite=409
+old report served during suite=200
+publication allowed during GLM=200

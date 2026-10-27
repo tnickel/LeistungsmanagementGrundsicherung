@@ -1,0 +1,19 @@
+Title:           SDN.Leistung Testreport
+Author:          testsweet Testreport-Werkzeug
+Creator:         Writer
+Producer:        LibreOffice 26.8.0.3 (X86_64)
+CreationDate:    Tue Oct 27 10:17:18 2026 Mitteleuropäische Zeit
+Custom Metadata: no
+Metadata Stream: yes
+Tagged:          yes
+UserProperties:  no
+Suspects:        no
+Form:            none
+JavaScript:      no
+Pages:           12
+Encrypted:       no
+Page size:       595.304 x 841.89 pts (A4)
+Page rot:        0
+File size:       550936 bytes
+Optimized:       no
+PDF version:     1.7

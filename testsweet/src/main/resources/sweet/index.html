@@ -45,7 +45,7 @@
                 <a id="mdknopf" class="btn btn-sekundaer" href="/api/md" target="_blank">{ } Markdown für KI-Review</a>
                 <button type="button" id="zertifikatknopf" class="btn btn-sekundaer">🏅 Testzertifikat erstellen</button>
                 <a id="zertifikatlink" class="btn btn-sekundaer" href="/api/zertifikat/pdf" target="_blank" style="display:none">🏅 Zertifikat öffnen (PDF)</a>
-                <button type="button" id="testreportknopf" class="btn btn-sekundaer" title="Management-Bericht als PDF: Kapitel, Ergebnistabellen, Zertifikatsseite — bei jedem Klick frisch erzeugt">📊 Testreport (PDF) erstellen</button>
+                <button type="button" id="testreportknopf" class="btn btn-sekundaer" title="Management-Bericht als PDF: Kapitel, Ergebnistabellen und belegabhängige Gesamtbewertung">📊 Testreport (PDF) erstellen</button>
                 <a id="testreportlink" class="btn btn-sekundaer" href="/api/testreport/pdf" target="_blank" style="display:none">📊 Testreport öffnen (PDF)</a>
             </div>
         </div>
@@ -104,10 +104,10 @@
                 Negativfälle
             </button>
             <button type="button" class="d-tab" id="kategorie-echt" data-kategorie="ECHT">
-                Echte Fälle (5 belegte Quellen)
+                Echte Fälle (5 quellenbasierte Modellfälle)
             </button>
             <button type="button" class="d-tab" id="kategorie-rechner" data-kategorie="RECHNER">
-                Rechner-Fälle (extern abgeglichen)
+                Rechner-Fälle (12 Fälle, externe Stichprobe)
             </button>
             <button type="button" class="d-tab" id="kategorie-last" data-kategorie="LAST">
                 Lasttest (schlanke Massendurchläufe)
@@ -259,7 +259,7 @@
     <section class="abschnitt" id="llm-abschnitt">
         <div id="zertifikat-tests" class="zertifikat-tests">
             <h2>Alle Tests bis zum Zertifikat</h2>
-            <p>Automatische Tests, alle sieben Simulatorläufe, danach GLM und zum Schluss das Zertifikat. Fehler brechen den Ablauf ab.</p>
+            <p>Automatische Tests, die sieben Simulatorläufe der Zertifikatsmatrix, danach GLM für Positiv-/Negativfälle und zum Schluss das Zertifikat. ECHT und RECHNER sind separate Fachläufe und gehören nicht zu diesem Gesamtlauf. Fehler brechen den Ablauf ab.</p>
             <div class="aktions-knöpfe">
                 <button type="button" id="zertifikat-tests-start" class="btn btn-primaer" disabled>Mache alle Zertifikatstests</button>
                 <button type="button" id="zertifikat-tests-stop" class="btn btn-sekundaer" disabled>Ablauf abbrechen</button>

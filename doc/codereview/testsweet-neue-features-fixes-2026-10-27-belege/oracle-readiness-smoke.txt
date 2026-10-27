@@ -1,0 +1,2 @@
+Datenbank ist bereit.
+PASS: echtes SQL*Plus-Login auf eigenem Testschema; Containerstart/-stopp gesperrt.

@@ -1,24 +1,27 @@
 package de.allgemein.testsweet;
 
+import de.allgemein.lmg.calc.Leistungsberechnung;
+import de.allgemein.lmg.model.SozialFall;
+import de.allgemein.lmg.service.FachlicheException;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Die Kategorien ECHT und RECHNER sichern belegte Fremdwerte ab: Gesetz
- * (Anlage § 28 SGB XII), Gerichtsurteile (BSG B 8 SO 4/24 R u. a.),
- * kommunale KdU-Richtlinie (Landkreis Altenburger Land, 27.05.2026) und der
- * externe Online-Rechner steuerschroeder.de (Rechtsstand 03.07.2026,
- * abgerufen 27.10.2026 — doc/belege/echt-und-rechner-faelle-2026-10-27.md).
+ * Feste Gegenanker für die quellenbasierten Modell- und Rechnervergleichsfälle.
+ * Quellen belegen Bausteine, keine vollständige Rechtsprüfung aller Fälle.
+ * Externe Browserbelege liegen für RECHNER 1/6/12 vor; die ursprüngliche
+ * Zwölf-Fälle-Erhebung ist unvollständig belegt (siehe Belegverzeichnis).
  *
- * <p>Diese Tests halten die extern belegten Sollwerte als Konstanten fest:
- * Ändert jemand die Bedarfsberechnung, werden sie rot — genau der gewollte
- * Bruch des Erwartungswert-Zirkelschlusses („selbst ausgedacht, selbst
- * ausgerechnet").</p>
+ * <p>Separat festgehaltene Konstanten kontrollieren sowohl Produkt-Rechenblöcke
+ * als auch tatsächlich verwendete SQL-Erwartungen. Abweichungen dieser
+ * Ergebnisse werden erkannt; nicht jede beliebige Berechnungsänderung.</p>
  */
 class EchtRechnerFallTest {
 
@@ -45,7 +48,7 @@ class EchtRechnerFallTest {
     }
 
     @Test
-    void echteFaelleRechnenExaktWieDieExternenBelege() {
+    void echteModellfaelleRechnenWieDieSeparatenHandwerte() {
         List<Auftrag> topf = new SzenarioBibliothek(42).erzeugeEcht(5, "SWEET-TEST-E-");
 
         // ECHT 1: 506 + 506 + 320 + 100 + 110 (Anlage SGB XII + Altenburger Richtwerte)
@@ -64,12 +67,12 @@ class EchtRechnerFallTest {
         assertEquals(new BigDecimal("0.00"), b800.ergebnis().verwertbaresVermoegen());
 
         // ECHT 4 (zwei Kfz 31.000 EUR, Paar): verwertbar 11.000 deckt den
-        // Bedarf 1.542 weit über → Abwehr wie im Urteil (kein Anspruch)
+        // Bedarf 1.542 weit über → Abwehr im Modell; heutiger Kfz-Schutz ungeprüft
         var kfz = topf.get(3).rechenbloecke.get(0);
         assertEquals(new BigDecimal("-9458.00"), kfz.ergebnis().zahlbetrag());
         assertEquals(new BigDecimal("11000.00"), kfz.ergebnis().verwertbaresVermoegen());
 
-        // ECHT 5 (kommunale Obergrenze): KdU 700 auf 590 gekappt, Grenze im Block dokumentiert
+        // ECHT 5: gewählter Modell-Gesamtdeckel, keine vollständige Richtlinienprüfung
         var deckel = topf.get(4).rechenbloecke.get(0);
         assertEquals(new BigDecimal("1153.00"), deckel.ergebnis().zahlbetrag());
         assertEquals(new BigDecimal("590.00"), deckel.kduParameter().angemessenheitsgrenze());
@@ -86,12 +89,108 @@ class EchtRechnerFallTest {
             assertEquals("RECHNER-" + (i + 1), auftrag.szenarioTyp);
             assertTrue(auftrag.aktenzeichen.startsWith("SWEET-TEST-R-"));
             assertEquals(1, auftrag.rechenbloecke.size(), "Fall " + (i + 1) + ": genau ein Monat");
-            // Der externe Rechnerwert steht fest im Test; die Referenzrechnung
-            // (dieselbe Klasse wie das Produkt) muss ihn exakt liefern.
+            // Separater fester Vergleichswert: sowohl Rechenblock als auch
+            // konkrete SQL-Erwartung müssen ihn liefern (keine reine Referenztautologie).
             assertEquals(new BigDecimal(RECHNER_SOLLWERTE.get(i)),
                     auftrag.rechenbloecke.get(0).ergebnis().zahlbetrag(),
-                    "RECHNER-Fall " + (i + 1) + " weicht vom externen Rechnerergebnis ab");
+                    "RECHNER-Fall " + (i + 1) + " weicht vom festen Vergleichswert ab");
+            assertMoneyExpectation(auftrag, "AUSZAHLUNGSBETRAG", RECHNER_SOLLWERTE.get(i));
+            assertMoneyExpectation(auftrag, "VERMOEGENSEINSATZ", "0.00");
+            assertMoneyExpectation(auftrag, "VERMOEGEN", "0.00");
+            assertMoneyExpectation(auftrag, "BUDGET_REST", "100.00");
+            assertEquals(new BigDecimal(RECHNER_SOLLWERTE.get(i)).add(new BigDecimal("100.00")),
+                    auftrag.rechenbloecke.getFirst().budget());
+            var payment = moneyExpectation(auftrag, "AUSZAHLUNGSBETRAG");
+            assertEquals(List.of(17L, "2026-10"), payment.parameter().apply(Map.of("bgId", 17L)));
         }
+    }
+
+    @Test
+    void echteErfolgsfaelleVerankernDieTatsaechlichenSqlSollwerte() {
+        var cases = new SzenarioBibliothek(42).erzeugeEcht(5, "SWEET-TEST-E-");
+        for (int index : List.of(0, 2, 4)) {
+            var expected = Map.of(0, "1542.00", 2, "1023.00", 4, "1153.00");
+            var auftrag = cases.get(index);
+            assertMoneyExpectation(auftrag, "AUSZAHLUNGSBETRAG", expected.get(index));
+            assertMoneyExpectation(auftrag, "VERMOEGENSEINSATZ", "0.00");
+            assertMoneyExpectation(auftrag, "VERMOEGEN", index == 2 ? "800.00" : "0.00");
+            assertMoneyExpectation(auftrag, "BUDGET_REST", "100.00");
+            String month = index == 4 ? "2026-07" : "2026-10";
+            assertEquals(List.of(17L, month), moneyExpectation(auftrag, "AUSZAHLUNGSBETRAG")
+                    .parameter().apply(Map.of("bgId", 17L)));
+        }
+    }
+
+    @Test
+    void vermoegensAbwehrVerankertFehlerUndUnveraendertenZustand() {
+        var cases = new SzenarioBibliothek(42).erzeugeEcht(5, "SWEET-TEST-E-");
+        for (int index : List.of(1, 3)) {
+            var auftrag = cases.get(index);
+            var guarded = auftrag.aktionen.stream().filter(a -> a.erwarteterFehler() != null).toList();
+            assertEquals(1, guarded.size());
+            assertEquals(FachlicheException.KEIN_ANSPRUCH, guarded.getFirst().erwarteterFehler());
+            assertEquals(List.of("Einkommen/Vermögen übersteigen den Gesamtbedarf"),
+                    guarded.getFirst().erwarteteFehlergruende());
+            assertMoneyExpectation(auftrag, "BUDGET_REST", "1000.00");
+            assertMoneyExpectation(auftrag, "VERMOEGEN", index == 1 ? "44500.00" : "31000.00");
+            var noPayment = auftrag.erwartungen.stream()
+                    .filter(e -> e.sql().equals("SELECT COUNT(*) FROM ZAHLUNG WHERE BG_ID = ?")).toList();
+            assertEquals(1, noPayment.size());
+            assertEquals("0", noPayment.getFirst().erwartet());
+            assertTrue(auftrag.beschreibungEinfach.contains("nicht modelliert"));
+        }
+    }
+
+    @Test
+    void gesamtdeckelIstKeineKomponentenOderEinzelfallPruefung() {
+        var block = new SzenarioBibliothek(42).erzeugeEcht(5, "SWEET-TEST-E-").get(4)
+                .rechenbloecke.getFirst();
+        var input = new SozialFall(0, 0, 1, false, false, 0, 0, false,
+                new BigDecimal("300"), new BigDecimal("90"), new BigDecimal("300"),
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                BigDecimal.ZERO, BigDecimal.ZERO, 0);
+        var capped = Leistungsberechnung.berechne(0, List.of(input), block.kduParameter(), BigDecimal.ZERO);
+        var uncapped = Leistungsberechnung.berechne(0, List.of(input),
+                Leistungsberechnung.KduParameter.AUS, BigDecimal.ZERO);
+        assertEquals(new BigDecimal("1153.00"), capped.zahlbetrag());
+        assertEquals(new BigDecimal("1253.00"), uncapped.zahlbetrag());
+        assertNotEquals(capped.zahlbetrag(), uncapped.zahlbetrag());
+        // Ob höhere Heizkosten anzuerkennen sind, verlangt eine gesonderte
+        // Fachentscheidung. Dieser Test behauptet keinen rechtlichen Sollbescheid.
+        assertTrue(block.zusatzHinweise().stream().anyMatch(h -> h.contains("Einzelfallentscheidungen")));
+    }
+
+    @Test
+    void alleTeiltopfeErhaltenIdentitaetReihenfolgeUndPraefix() {
+        var completeEcht = new SzenarioBibliothek(42).erzeugeEcht(5, "SWEET-TEST-E-");
+        var completeRechner = new SzenarioBibliothek(42).erzeugeRechner(12, "SWEET-TEST-R-");
+        for (int count = 1; count <= 5; count++) {
+            var partial = new SzenarioBibliothek(91).erzeugeEcht(count, "SWEET-TEST-E-");
+            assertEquals(completeEcht.subList(0, count).stream().map(a -> a.szenarioTyp).toList(),
+                    partial.stream().map(a -> a.szenarioTyp).toList());
+            assertTrue(partial.stream().allMatch(a -> a.aktenzeichen.startsWith("SWEET-TEST-E-")));
+        }
+        for (int count = 1; count <= 12; count++) {
+            var partial = new SzenarioBibliothek(91).erzeugeRechner(count, "SWEET-TEST-R-");
+            assertEquals(completeRechner.subList(0, count).stream().map(a -> a.szenarioTyp).toList(),
+                    partial.stream().map(a -> a.szenarioTyp).toList());
+            for (int i = 0; i < count; i++)
+                assertMoneyExpectation(partial.get(i), "AUSZAHLUNGSBETRAG", RECHNER_SOLLWERTE.get(i));
+            assertTrue(partial.stream().allMatch(a -> a.aktenzeichen.startsWith("SWEET-TEST-R-")));
+        }
+    }
+
+    private static Erwartung moneyExpectation(Auftrag auftrag, String column) {
+        var matching = auftrag.erwartungen.stream()
+                .filter(e -> e.sql().startsWith("SELECT " + column + " ") && e.art() == Erwartung.Art.BETRAG)
+                .toList();
+        assertEquals(1, matching.size(), auftrag.szenarioTyp + ": genau eine SQL-Erwartung für " + column);
+        return matching.getFirst();
+    }
+
+    private static void assertMoneyExpectation(Auftrag auftrag, String column, String expected) {
+        assertEquals(new BigDecimal(expected), new BigDecimal(moneyExpectation(auftrag, column).erwartet()),
+                auftrag.szenarioTyp + ": SQL-Sollwert " + column);
     }
 
     @Test

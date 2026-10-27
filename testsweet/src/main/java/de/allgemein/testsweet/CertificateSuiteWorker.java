@@ -7,7 +7,8 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
 
-/** Frische JVM nach dem Neubuild: alle sieben Simulatorarten, GLM, gemeinsamer Zertifikatspublisher. */
+/** Frische JVM: sieben definierte Matrixläufe, GLM für POSITIV/NEGATIV und Zertifikat;
+ *  die separaten Kategorien ECHT/RECHNER gehören nicht zu diesem Gesamtumfang. */
 final class CertificateSuiteWorker {
     record Job(String mode,Simulator.Kategorie category,int employees,int orders) { }
     static final List<Job> JOBS=List.of(

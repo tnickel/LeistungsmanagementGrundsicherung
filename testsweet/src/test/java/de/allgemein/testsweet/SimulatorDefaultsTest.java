@@ -52,6 +52,9 @@ class SimulatorDefaultsTest {
     @Test
     void zertifikatsmatrixErhoehtWebAufHundertUndBehaeltBreiteFachlaeufe() {
         assertEquals(7, CertificateSuiteWorker.JOBS.size());
+        assertFalse(CertificateSuiteWorker.JOBS.stream().anyMatch(j ->
+                j.category()==Simulator.Kategorie.ECHT || j.category()==Simulator.Kategorie.RECHNER),
+                "Die dokumentierte siebenfache Zertifikatsmatrix schließt die separaten Modell-/Vergleichsfälle aus");
         for (var category : List.of(Simulator.Kategorie.POSITIV, Simulator.Kategorie.NEGATIV)) {
             var web = CertificateSuiteWorker.JOBS.stream().filter(j -> j.mode().equals("WEB") && j.category() == category).findFirst().orElseThrow();
             var fach = CertificateSuiteWorker.JOBS.stream().filter(j -> j.mode().equals("FACH") && j.category() == category).findFirst().orElseThrow();

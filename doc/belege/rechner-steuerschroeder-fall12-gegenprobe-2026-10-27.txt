@@ -1,0 +1,58 @@
+Quelle: https://www.steuerschroeder.de/Steuerrechner/Grundsicherung.html
+Eigene Browser-Gegenprobe: 27.10.2026; Seiten-Rechtsstand 03.07.2026
+Auszug: ausschließlich Rechnerformular bzw. Rechnerergebnis.
+
+				538 container gs-ausgabe
+					539 heading Voraussichtliche Leistung (Überschlag 2026), Value: 3
+						540 text Voraussichtliche Leistung (Überschlag 2026)
+					541 table
+						542 row
+							543 cell
+								544 text Regelbedarf (Stufe 2 – je Partner, §§ 27a, 28 SGB XII)
+							545 cell
+								546 text 1.012,00
+							547 cell
+								548 text €
+						549 row
+							550 cell
+								551 text +
+							552 cell
+								553 text Unterkunft & Heizung (§ 42 Nr. 4 i. V. m. § 35 SGB XII)
+							554 cell
+								555 text 415,00
+							556 cell
+								557 text €
+						558 row
+							559 cell
+								560 text =
+							561 cell
+								562 text Gesamtbedarf
+							563 cell
+								564 text 1.427,00
+							565 cell
+								566 text €
+						567 row
+							568 cell
+								569 text −
+							570 cell
+								571 text Anrechenbares Einkommen (nach Abzug der Freibeträge)
+							572 cell
+								573 text 350,00
+							574 cell
+								575 text €
+						576 row
+							577 cell
+								578 text =
+							579 cell
+								580 text Voraussichtliche monatliche Leistung
+							581 cell
+								582 text 1.077,00
+							583 cell
+								584 text €
+					585 text Berücksichtigte Freibeträge:
+					586 content list
+						587 container
+							588 AXListMarker • 
+							589 text Erwerbseinkommen (§ 82 Abs. 3 SGB XII): 150,00 €
+					590 container
+						591 text Rechtsstand 2026 · Vereinfachte Überschlagsrechnung nach SGB XII · Regelbedarfe unverändert (Besitzschutz § 28a Abs. 5 SGB XII, RBSFV 2026) ·  Kein Ersatz für einen Bescheid des Sozialamts.

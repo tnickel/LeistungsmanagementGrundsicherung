@@ -50,13 +50,38 @@ class SimulatorBoundaryTest {
     }
     @Test void cliRejectsInvalidConfigurationWithExitTwoWithoutCreatingRunEvidence() throws Exception {
         String cp=System.getProperty("surefire.test.class.path",System.getProperty("java.class.path"));
-        for (List<String> args : List.of(List.of("run","0","1"),List.of("run","1","501"),List.of("run","abc"),List.of("run","1","1","42","0","INVALID"),List.of("run","1","6","42","0","ECHT"),List.of("run","1","13","42","0","RECHNER"),List.of("web","1","1","42","0","STRESS"),List.of("web","1","1","42","0","ECHT"))) {
+        for (List<String> args : List.of(List.of("run","0","1"),List.of("run","1","501"),List.of("run","abc"),List.of("run","1","1","42","0","INVALID"),List.of("run","1","6","42","0","ECHT"),List.of("run","1","13","42","0","RECHNER"),List.of("web","1","1","42","0","STRESS"),List.of("web","1","1","42","0","ECHT"),List.of("web","1","1","42","0","RECHNER"))) {
             var command=new java.util.ArrayList<>(List.of(Path.of(System.getProperty("java.home"),"bin","java").toString(),
                     "-Dfile.encoding=UTF-8","-Dstdout.encoding=UTF-8","-Dstderr.encoding=UTF-8","-cp",cp,SweetMain.class.getName()));command.addAll(args);
             Path output=temp.resolve("cli.log");Process process=new ProcessBuilder(command).directory(temp.toFile()).redirectErrorStream(true).redirectOutput(output.toFile()).start();
             assertTrue(process.waitFor(20,TimeUnit.SECONDS));assertEquals(2,process.exitValue(),Files.readString(output));
             assertFalse(Files.exists(temp.resolve("testsweet/logs")));
         }
+    }
+
+    @Test void unsupportedWebCategoriesNeverMutateStatusOrCreateWorkers() throws Exception {
+        var cleanup=new java.util.concurrent.atomic.AtomicInteger();
+        Simulator simulator=new Simulator(null,cleanup::incrementAndGet);
+        for(var category:List.of(Simulator.Kategorie.ECHT,Simulator.Kategorie.RECHNER,Simulator.Kategorie.STRESS)) {
+            var config=new Simulator.LaufKonfiguration(1,1,42,0,false,category);
+            assertThrows(IllegalStateException.class,()->simulator.starteWeb(config));
+            assertThrows(IllegalStateException.class,()->simulator.laufWebSynchron(config));
+            assertNull(simulator.laufStart());assertNull(simulator.konfiguration());
+            assertNull(simulator.letztesLogVerzeichnis());assertFalse(simulator.laufAktiv());
+            assertTrue(simulator.auftraege().isEmpty());assertEquals(0,cleanup.get());
+        }
+    }
+
+    @Test void completedWebWorkersDoNotTriggerBrowserScansInTheNextFachRun() throws Exception {
+        var cleanup=new java.util.concurrent.atomic.AtomicInteger();
+        Simulator simulator=new Simulator(null,cleanup::incrementAndGet);
+        set(simulator,"webMitarbeiter",List.of(new WebMitarbeiter(simulator,"fixture","unused",0,1,0)));
+        set(simulator,"webCleanupPending",true);
+        var close=Simulator.class.getDeclaredMethod("schliesseRessourcen");close.setAccessible(true);close.invoke(simulator);
+        assertEquals(1,cleanup.get());
+        var reset=Simulator.class.getDeclaredMethod("setzeLaufZurueck");reset.setAccessible(true);reset.invoke(simulator);
+        simulator.stoppe();close.invoke(simulator);simulator.stoppe();
+        assertEquals(1,cleanup.get(),"Historische Worker sind kein aktueller Browserbesitz");
     }
     @Test void certificateWebRunNeverFallsBackToAnUnverifiedExternalServerOnOccupiedPort() throws Exception {
         String cp=System.getProperty("surefire.test.class.path",System.getProperty("java.class.path"));

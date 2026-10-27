@@ -1,23 +1,6 @@
 param([int]$Port = 0, [switch]$Db)
 $ErrorActionPreference = 'Stop'
-
-function Test-LmgOwner($Process, [string]$ProjectRoot) {
-    if ($Process.Name -notin @('java.exe','javaw.exe')) { return $false }
-    $command = [string]$Process.CommandLine
-    $root = [IO.Path]::GetFullPath($ProjectRoot).TrimEnd('\').Replace('\','/')
-    $normalized = $command.Replace('\','/')
-    if ($normalized -notmatch ([regex]::Escape($root) + '(?:/|[";\s]|$)')) { return $false }
-    if ($command -match '(?:^|\s|=)de\.allgemein\.lmg\.web\.LmgServerMain(?:\s|$)') { return $true }
-    # Maven exec:java laeuft in der Maven-JVM; nur das bekannte Projekt-POM mit
-    # LmgServerMain-Default zulassen, fremde exec.mainClass-Overrides ablehnen.
-    if ($command -match '(?:^|\s)-Dexec\.mainClass=(?!de\.allgemein\.lmg\.web\.LmgServerMain(?:\s|$))') { return $false }
-    $launcher = $command -match 'org\.codehaus\.plexus\.classworlds\.launcher\.Launcher'
-    $goal = $command -match '(?:^|\s)exec:java(?:\s|$)'
-    $module = [regex]::Match($normalized, '(?:^|\s)"?-Dmaven\.multiModuleProjectDirectory=(?:"([^"]+)"|([^"\s]+))"?(?:\s|$)')
-    if (-not $launcher -or -not $goal -or -not $module.Success) { return $false }
-    $directory = if ($module.Groups[1].Success) { $module.Groups[1].Value } else { $module.Groups[2].Value }
-    return $directory.TrimEnd('/') -ieq $root
-}
+. (Join-Path $PSScriptRoot 'tools/LmgOperating.ps1')
 
 if ($Port -eq 0) {
     if ([string]::IsNullOrWhiteSpace($env:LMG_PORT)) { $Port = 8080 }
@@ -59,7 +42,7 @@ if ($Db) {
             Write-Output '[Hinweis] Kein Container "lmg-oracle" vorhanden.'
         }
         else {
-            $laeuft = docker ps --format '{{.Names}}' | Select-String -SimpleMatch 'lmg-oracle'
+            $laeuft = docker ps --format '{{.Names}}' | Where-Object { $_ -ceq 'lmg-oracle' }
             if (-not $laeuft) {
                 Write-Output 'DB-Container lmg-oracle laeuft bereits nicht.'
             }

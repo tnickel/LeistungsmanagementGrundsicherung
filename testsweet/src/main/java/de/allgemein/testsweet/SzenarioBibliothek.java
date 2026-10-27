@@ -131,14 +131,14 @@ public final class SzenarioBibliothek {
     }
 
     // ------------------------------------------------------------------
-    // ECHT — belegte echte Fälle (nur Fachschicht). Jeder Auftrag beruht auf
+    // ECHT — quellenbasierte Modellfälle (nur Fachschicht). Jeder Auftrag beruht auf
     // einer benannten externen Quelle (Gesetz, Gerichtsurteil, kommunale
     // Richtlinie, Verbandsbeispiel); Ergänzungen und Herleitung der
     // Erwartungswerte sind je Fall dokumentiert. Vollständiges
     // Quellenverzeichnis mit Abrufdatum: doc/belege/echt-und-rechner-faelle-2026-10-27.md
     // ------------------------------------------------------------------
 
-    /** Erzeugt den ECHT-Topf: genau die fünf belegten Fälle in fester
+    /** Erzeugt den ECHT-Topf: genau die fünf quellenbasierten Modellfälle in fester
      *  Reihenfolge; {@code anzahl} begrenzt für schnelle Läufe (1–5). */
     public List<Auftrag> erzeugeEcht(int anzahl, String praefix) {
         this.praefix = praefix;
@@ -152,16 +152,15 @@ public final class SzenarioBibliothek {
     }
 
     // ------------------------------------------------------------------
-    // RECHNER — mit externem Online-Rechner abgeglichene Fälle (nur
-    // Fachschicht). Alle zwölf Konstellationen wurden am 2026-10-27 über den
-    // SGB-XII-Rechner steuerschroeder.de (Rechtsstand 03.07.2026) gerechnet;
-    // der dort angezeigte Ergebnisbetrag ist als fester Erwartungswert
-    // übernommen und im Laufbeleg dokumentiert. Betriebskosten sind bewusst
+    // RECHNER — feste Vergleichsfälle (nur Fachschicht). Die zwölf Werte der
+    // ursprünglichen Rechner-Erhebung sind handrechenbar; deren vollständige
+    // externe Erhebung ist nicht belegt. Eigene Browserbelege bestätigen die
+    // Fälle 1, 6 und 12 am 27.10.2026 (Belegverzeichnis). Betriebskosten sind bewusst
     // 0,00 (der Rechner fragt nur Kaltmiete und Heizkosten ab); Warmwasser
     // zentral (kein dezentraler Mehrbedarf).
     // ------------------------------------------------------------------
 
-    /** Erzeugt den RECHNER-Topf: genau die zwölf abgeglichenen Fälle in
+    /** Erzeugt den RECHNER-Topf: genau die zwölf festen Vergleichsfälle in
      *  fester Reihenfolge; {@code anzahl} begrenzt für schnelle Läufe (1–12). */
     public List<Auftrag> erzeugeRechner(int anzahl, String praefix) {
         this.praefix = praefix;
@@ -175,7 +174,7 @@ public final class SzenarioBibliothek {
         auftraege.add(rechnerFall(nr++, false, false, "260", "110", "350", "0", "583.00",
                 "563 + 370 (KdU-Richtwerte Altenburg 260/110) − Rente 350"));
         auftraege.add(rechnerFall(nr++, false, false, "390", "110", "0", "0", "1063.00",
-                "563 + 500 (KdU-Obergrenzen Altenburg 390/110)"));
+                "563 + 500 (Nettokaltmietdeckel 390 und Heiz-Prüfschwelle 110, keine Richtlinienvollprüfung)"));
         // Alleinstehend mit Merkzeichen G (Mehrbedarf 17 % = 95,71 EUR)
         auftraege.add(rechnerFall(nr++, true, false, "345", "70", "0", "0", "1073.71",
                 "563 + 95,71 (Merkzeichen G) + 415"));
@@ -2897,7 +2896,7 @@ public final class SzenarioBibliothek {
         return belegterFall(nr, "ECHT-ANLAGE-KDU", "Echt, Anlage+KdU",
                 "Paar mit amtlichen Regelbedarfsstufen und kommunalen KdU-Richtwerten",
                 personen, List.of("2026-10"), Leistungsberechnung.KduParameter.AUS,
-                BigDecimal.ZERO, List.of("1542.00"),
+                BigDecimal.ZERO, List.of("1542.00"), List.of("0.00"), "0.00",
                 "Anlage zu § 28 SGB XII (RBS 2 = 506 EUR, abgerufen 27.10.2026) und "
                         + "KdU-Richtlinie Landkreis Altenburger Land v. 27.05.2026 "
                         + "(Abschn. 3.3.2/3.3.4/3.3.5, 2 Personen: 320/100/110 EUR).",
@@ -2905,24 +2904,27 @@ public final class SzenarioBibliothek {
                         + "kein Einkommen, kein Vermögen.");
     }
 
-    /** ECHT 2 — BSG, Urteil vom 27.05.2026, B 8 SO 4/24 R: alleinstehende Frau
-     *  mit 44.500 EUR Vermögen (Rückkaufswert einer Rentenversicherung, Bank-
-     *  guthaben, Schmuck, Pkw). Das Urteil nennt keine Rente und keine KdU —
-     *  ergänzt (dokumentiert): Rente 900 EUR, KdU-Richtwerte 1 Person der
-     *  Altenburger Richtlinie (260/90/110). Verwertbares Vermögen 34.500 EUR
-     *  übersteigt den Restbedarf (1.023 − 900 = 123 EUR): Die Anordnung wird
-     *  mit KEIN_ANSPRUCH abgewehrt, Vermögen und Budget bleiben unverändert. */
+    /** ECHT 2 — synthetische Vermögensvariante mit dem im Sekundärbericht zum
+     *  BSG-Verfahren B 8 SO 4/24 R genannten Gesamtwert 44.500 EUR.
+     *  Rente 900 EUR ist frei ergänzt; KdU 260/90/110 stammt aus Altenburger
+     *  Richtwerten. Individuelle Privilegierungen der Vermögensarten und der
+     *  historische Übergangstatbestand werden nicht modelliert. 34.500 EUR
+     *  Einsatz ist deshalb ein Modellwert, keine heutige Einzelfallentscheidung.
+     *  Die technische Abwehr muss Vermögen und Budget unverändert lassen. */
     private Auftrag echtBsgVermoegen(int nr) {
         return echtAbwehrFall(nr, "ECHT-BSG-VERMOEGEN", "Echt, BSG 44.500 EUR",
-                "BSG-Fall: verwertbares Vermögen deckt den Bedarf",
+                "Vermögensmodell mit historischem BSG-Gesamtwert: Abwehr ohne Bestandsänderung",
                 List.of(person(1, false, "260", "90", "110", "900", "0")),
                 new BigDecimal("44500.00"),
-                "BSG, Urteil v. 27.05.2026, B 8 SO 4/24 R (Vermögen rund 44.500 EUR; betroffene "
-                        + "Bescheide 2022/2023); Rente/KdU ergänzt aus der KdU-Richtlinie "
-                        + "Altenburger Land (1 Person).",
+                "Sekundärbericht zum BSG-Verfahren B 8 SO 4/24 R: https://sozialrat.org/"
+                        + "bsg-urteil-grundsicherung-alter-27-mai-2026-vermoegensuebergangsregel/ "
+                        + "(Gesamtvermögen rund 44.500 EUR). Rente 900 EUR frei ergänzt; KdU nach "
+                        + "Altenburger Richtwerten. Amtlicher Urteilsvolltext nicht unabhängig geprüft; "
+                        + "Vermögensprivilegierungen und historischer Übergangstatbestand nicht modelliert.",
                 "Handrechnung: Bedarf 1.023,00 − Rente 900 = 123,00 Restbedarf; verwertbares "
                         + "Vermögen 44.500 − 10.000 Schonvermögen = 34.500 deckt diesen weit "
-                        + "über — KEIN_ANSPRUCH (§§ 43, 90), Vermögen bleibt 44.500.");
+                        + "über — technische KEIN_ANSPRUCH-Abwehr im Modell, Vermögen bleibt 44.500. "
+                        + "Kein Nachweis, dass 34.500 EUR im heutigen Einzelfall verwertbar sind.");
     }
 
     /** ECHT 3 — Verbandsbeispiel (Lebenshilfe): „A hat 800 Euro auf dem
@@ -2935,31 +2937,32 @@ public final class SzenarioBibliothek {
         return belegterFall(nr, "ECHT-SCHONVERMOEGEN-800", "Echt, 800 EUR",
                 "Verbandsbeispiel: Vermögen unter dem Schonvermögen",
                 personen, List.of("2026-10"), Leistungsberechnung.KduParameter.AUS,
-                new BigDecimal("800.00"), List.of("1023.00"),
+                new BigDecimal("800.00"), List.of("1023.00"), List.of("0.00"), "800.00",
                 "Lebenshilfe-Beispiel „A hat 800 Euro auf dem Konto“ (unter dem Schonvermögen "
                         + "unschädlich); KdU-Richtwerte Altenburger Land (1 Person).",
                 "Handrechnung: 563 + 460 = 1.023,00; Vermögenseinsatz 0,00 (800 < 10.000 "
                         + "Schonvermögen), Vermögen bleibt 800,00.");
     }
 
-    /** ECHT 4 — über die Lebenshilfe dokumentiertes LSG-Urteil: Ehepaar mit
-     *  zwei Kraftfahrzeugen im Wert von 31.000 EUR, kein Anspruch. Das Modell
-     *  2026 kommt zum selben Ergebnis über den Einsatz-Grundsatz: Schonvermögen
-     *  2 × 10.000 = 20.000 EUR, verwertbar 11.000 EUR übersteigt den monatlichen
-     *  Bedarf 1.542 EUR — KEIN_ANSPRUCH, Vermögen und Budget unverändert. */
+    /** ECHT 4 — synthetische Vermögensvariante mit historischem Kfz-Gesamtwert
+     *  aus LSG Hamburg, 03.04.2020, L 4 SO 46/18 (via Lebenshilfe).
+     *  Die heutige Kfz-Privilegierung nach § 90 Abs. 2 Nr. 10 wird nicht
+     *  modelliert; Einzelwerte und Angemessenheitsentscheidung fehlen.
+     *  31.000 − 2 × 10.000 = 11.000 EUR ist allein der Modellwert. */
     private Auftrag echtKfzPaar(int nr) {
         return echtAbwehrFall(nr, "ECHT-LSG-KFZ-PAAR", "Echt, Kfz-Paar 31.000",
-                "LSG-Fall: zwei Pkw decken den Bedarf",
+                "Vermögensmodell mit historischem Kfz-Gesamtwert; heutiger Kfz-Schutz nicht geprüft",
                 List.of(person(2, false, "320", "100", "110", "0", "0"),
                         person(2, false, "0", "0", "0", "0", "0")),
                 new BigDecimal("31000.00"),
-                "LSG-Urteil (via Lebenshilfe dokumentiert): Ehepaar, zwei Kfz im Wert von "
+                "LSG Hamburg, 03.04.2020, L 4 SO 46/18 (via Lebenshilfe): Ehepaar, zwei Kfz im Wert von "
                         + "31.000 EUR, kein Anspruch nach der damals geltenden Vermögensgrenze; "
-                        + "KdU-Richtwerte Altenburger Land (2 Personen).",
+                        + "KdU-Richtwerte Altenburger Land (2 Personen). Der heutige Kfz-Schutz "
+                        + "nach § 90 Abs. 2 Nr. 10 und individuelle Verwertbarkeit sind nicht modelliert.",
                 "Handrechnung: Bedarf 1.542,00 (506 + 506 + 530) ohne Einkommen; verwertbares "
                         + "Vermögen 31.000 − 20.000 (2 × 10.000 Schonvermögen) = 11.000 deckt "
-                        + "diesen weit über — KEIN_ANSPRUCH; das Urteil lehnte nach der alten "
-                        + "Vermögensgrenze ab, der Ausgang ist im Ergebnis gleich.");
+                        + "diesen weit über — technische KEIN_ANSPRUCH-Abwehr im Modell. "
+                        + "Kein unabhängiger Nachweis einer heutigen rechtlichen Abweisung.");
     }
 
     /** ECHT-Abwehrfall: Verwertbares Vermögen übersteigt den Restbedarf — die
@@ -3008,29 +3011,33 @@ public final class SzenarioBibliothek {
                 .dokumentiere(kurz + ". Quelle: " + quelle + " Herleitung: " + herleitung, bloecke);
     }
 
-    /** ECHT 5 — kommunale KdU-Deckelung: Die Altenburger Richtlinie setzt die
+    /** ECHT 5 — Gesamtdeckel als Modellparameter: Die Altenburger Richtlinie setzt die
      *  Obergrenze der Nettokaltmiete ab 01.07.2026 auf das 1,5-fache des
-     *  Richtwerts (1 Person: 390 EUR); mit den Grenzwerten für Betriebs- und
-     *  Heizkosten (90/110 EUR) ergibt sich die geprüfte BG-Grenze von 590 EUR.
-     *  Tatsächliche KdU 700 EUR (Miete 500) werden auf 590 EUR gekappt. */
+     *  Richtwerts (1 Person: 390 EUR). Betriebs-/Heizkosten 90/110 sind dagegen
+     *  Nichtprüfungsgrenzen mit möglicher Einzelfallprüfung. Die Summe 590 EUR
+     *  ist hier ein gewählter Gesamtdeckel; dessen technische Anwendung prüft
+     *  keine vollständige oder gleichwertige Umsetzung der Richtlinie. */
     private Auftrag echtKduDeckel(int nr) {
         List<SozialFall> personen = new ArrayList<>();
         personen.add(person(1, false, "500", "90", "110", "0", "0"));
         return belegterFall(nr, "ECHT-KDU-DECKEL", "Echt, KdU-Deckel",
-                "Kommunale Obergrenze: KdU wird auf 590 EUR gekappt",
+                "Modell-Gesamtdeckel 590 EUR; keine vollständige Richtlinienprüfung",
                 personen, List.of("2026-07"), new Leistungsberechnung.KduParameter(
                         BigDecimal.ZERO, new BigDecimal("590.00")),
-                BigDecimal.ZERO, List.of("1153.00"),
+                BigDecimal.ZERO, List.of("1153.00"), List.of("0.00"), "0.00",
                 "KdU-Richtlinie Landkreis Altenburger Land v. 27.05.2026, Abschn. 3.3.3 "
                         + "(Obergrenze Nettokaltmiete ab 01.07.2026 = 1,5-facher Richtwert, "
-                        + "1 Person 390 EUR), 3.3.4/3.3.5 (90/110 EUR).",
-                "Handrechnung: KdU 500 + 90 + 110 = 700 über der Summe der Richtlinien-"
-                        + "Obergrenzen 590 → gekappt; 563 + 590 = 1.153,00 EUR.");
+                        + "1 Person 390 EUR), 3.3.4/3.3.5 (Nichtprüfungsgrenzen 90/110 EUR). "
+                        + "https://sessionnet.altenburgerland.de/bi/getfile.php?id=52833&type=do",
+                "Handrechnung des gewählten Modells: KdU 500 + 90 + 110 = 700; "
+                        + "Gesamtdeckel 390 + 90 + 110 = 590 → gekappt; 563 + 590 = 1.153,00 EUR. "
+                        + "Einzelfallentscheidungen über höhere Betriebs-/Heizkosten sind nicht abgebildet.");
     }
 
     /** RECHNER-Fall: Konstellation des externen Online-Rechners steuerschroeder.de
      *  (SGB XII, Rechtsstand 03.07.2026, abgerufen 27.10.2026) als fester
-     *  Auftrag; der dort angezeigte Ergebnisbetrag ist der erwartete Zahlbetrag. */
+     *  Auftrag mit festem, handrechenbarem Sollbetrag. Die ursprüngliche externe
+     *  Zwölf-Fälle-Erhebung ist unvollständig belegt; Browserbelege bestätigen 1/6/12. */
     private Auftrag rechnerFall(int nr, boolean merkzeichenG, boolean paar, String miete,
             String heizung, String rente, String erwerb, String erwartet, String rechenweg) {
         List<SozialFall> personen = new ArrayList<>();
@@ -3042,12 +3049,13 @@ public final class SzenarioBibliothek {
                 + (rente.equals("0") ? "" : ", Rente " + rente + " EUR")
                 + (erwerb.equals("0") ? "" : ", Erwerb netto " + erwerb + " EUR");
         return belegterFall(nr, "RECHNER-" + nr, "Rechner-Fall " + nr,
-                "Extern abgeglichen: " + konstellation,
+                "Fester Vergleichsfall: " + konstellation,
                 personen, List.of("2026-10"), Leistungsberechnung.KduParameter.AUS,
-                BigDecimal.ZERO, List.of(erwartet),
+                BigDecimal.ZERO, List.of(erwartet), List.of("0.00"), "0.00",
                 "Extern: Online-Rechner https://www.steuerschroeder.de/Steuerrechner/Grundsicherung.html "
-                        + "(SGB XII, Rechtsstand 03.07.2026), am 27.10.2026 je Fall eingegeben; "
-                        + "angezeigtes Rechner-Ergebnis als Erwartungswert übernommen.",
+                        + "(SGB XII, Rechtsstand 03.07.2026). Ursprüngliche Zwölf-Fälle-Erhebung "
+                        + "nicht vollständig belegt; eigene Browserbelege am 27.10.2026 für Fälle 1, 6, 12. "
+                        + "Quellenstatus: doc/belege/echt-und-rechner-faelle-2026-10-27.md.",
                 "Rechner-Rechenweg: " + rechenweg
                         + " — Betriebskosten bewusst 0,00 (Rechner fragt sie nicht ab).");
     }
@@ -3064,26 +3072,29 @@ public final class SzenarioBibliothek {
 
     /** Baut einen festen ECHT-/RECHNER-Auftrag: Vorgang anlegen, Personen
      *  erfassen, bei zwei Monaten Bescheid erteilen, je Monat eine Anordnung.
-     *  Die erwarteten Zahlbeträge stehen als fest dokumentierte Werte im Code
-     *  (externer Beleg), Vermögenseinsatz und Endvermögen aus der Referenz-
-     *  rechnung mit derselben Fortschreibung wie das Produkt. */
+     *  Die erwarteten Zahlbeträge, Vermögenseinsatz und Endvermögen stehen
+     *  als dokumentierte Werte im Code und werden ausdrücklich als feste
+     *  Erwartungen übergeben. Nur der dokumentierte Rechenblock verwendet
+     *  die Produktberechnung; er ist keine unabhängige Teilwertreferenz. */
     private Auftrag belegterFall(int nr, String typ, String name, String kurz,
             List<SozialFall> personen, List<String> monate,
             Leistungsberechnung.KduParameter kduParameter, BigDecimal vermoegen,
-            List<String> erwarteteZahlbetraege, String quelle, String herleitung) {
+            List<String> erwarteteZahlbetraege, List<String> expectedAssetUse,
+            String expectedFinalAssets, String quelle, String herleitung) {
+        if (erwarteteZahlbetraege.size() != monate.size() || expectedAssetUse.size() != monate.size())
+            throw new IllegalArgumentException("Jeder Monat benötigt feste Zahlbetrags- und Vermögenswerte");
         List<Leistungsberechnung.Berechnungsergebnis> results = new ArrayList<>();
         List<BigDecimal> assets = new ArrayList<>();
-        BigDecimal aktuell = vermoegen, total = BigDecimal.ZERO;
+        BigDecimal aktuell = vermoegen;
         for (String monat : monate) {
             assets.add(aktuell);
             var result = Leistungsberechnung.berechne(0,
                     Bewilligungsplan.faelleFuerMonat(personen, monat), kduParameter, aktuell);
             results.add(result);
-            total = total.add(result.zahlbetrag());
             aktuell = aktuell.subtract(result.verwertbaresVermoegen());
         }
-        BigDecimal budget = total.add(new BigDecimal("100.00"));
-        BigDecimal endVermoegen = aktuell;
+        BigDecimal budget = erwarteteZahlbetraege.stream().map(BigDecimal::new)
+                .reduce(new BigDecimal("100.00"), BigDecimal::add);
         List<Rechenblock> bloecke = new ArrayList<>();
         BigDecimal rest = budget;
         for (int i = 0; i < monate.size(); i++) {
@@ -3124,13 +3135,13 @@ public final class SzenarioBibliothek {
                 ctx -> List.of(ctx.get("bgId")), personen.size()));
         for (int i = 0; i < monate.size(); i++) {
             String monat = monate.get(i);
-            erwartungen.add(Erwartung.betrag("Zahlbetrag " + monat + " (extern belegt)",
+            erwartungen.add(Erwartung.betrag("Zahlbetrag " + monat + " (fester Sollwert)",
                     "SELECT AUSZAHLUNGSBETRAG FROM ZAHLUNG WHERE BG_ID = ? AND ZAHLUNGSMONAT = ?",
                     ctx -> List.of(ctx.get("bgId"), monat), erwarteteZahlbetraege.get(i)));
             erwartungen.add(Erwartung.betrag("Vermögenseinsatz " + monat,
                     "SELECT VERMOEGENSEINSATZ FROM ZAHLUNG WHERE BG_ID = ? AND ZAHLUNGSMONAT = ?",
                     ctx -> List.of(ctx.get("bgId"), monat),
-                    results.get(i).verwertbaresVermoegen().toPlainString()));
+                    expectedAssetUse.get(i)));
             erwartungen.add(Erwartung.text("Vier-Augen-Warteschlange " + monat,
                     "SELECT ZAHLUNGSSTATUS FROM ZAHLUNG WHERE BG_ID = ? AND ZAHLUNGSMONAT = ?",
                     ctx -> List.of(ctx.get("bgId"), monat), "ANGELEGT"));
@@ -3140,7 +3151,7 @@ public final class SzenarioBibliothek {
                 ctx -> List.of(ctx.get("bgId")), "100.00"));
         erwartungen.add(Erwartung.betrag("Vermögen nach Fortschreibung",
                 "SELECT VERMOEGEN FROM BEDARFSGEMEINSCHAFT WHERE ID = ?",
-                ctx -> List.of(ctx.get("bgId")), endVermoegen.toPlainString()));
+                ctx -> List.of(ctx.get("bgId")), expectedFinalAssets));
         if (monate.size() == 2) erwartungen.add(Erwartung.ganzeZahl(
                 "Genau ein Bescheid deckt beide Monate",
                 "SELECT COUNT(*) FROM BESCHEID WHERE BG_ID = ? AND BEWILLIGUNG_VON = ? AND BEWILLIGUNG_BIS = ?",

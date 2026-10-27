@@ -23,7 +23,11 @@ Redo-Logging, Recovery) — wir programmieren nur die Steuerungsschicht darüber
   **Modus 2 (Weboberfläche/Selenium)** und je **Testfallkategorie** (Positivfälle,
   Negativfälle = erwartete Fachfehler mit unverändertem DB-Endzustand, Lasttest =
   schlanke Massendurchläufe mit gekürztem Gesamtreport, Stresstest = zwei Wellen über
-  dieselben User mit Phasenbarriere, nur Fachschicht); seit 2026-10-13 füllt ein
+  dieselben User mit Phasenbarriere, nur Fachschicht; zusätzlich ECHT = fünf
+  quellenbasierte Modellfälle und RECHNER = zwölf feste Vergleichsfälle, beide nur
+  Fachschicht mit Limits 5/12 und externen Browserbelegen für RECHNER 1/6/12).
+  ECHT/RECHNER gehören nicht zur automatischen Zertifikatssuite oder GLM-Auswahl;
+  Quellenbausteine ersetzen keine vollständige rechtliche Einzelfallprüfung. Seit 2026-10-13 füllt ein
   **Kombinationsgenerator** Positiv- und Negativtöpfe über die kuratierten Arten hinaus
   mit garantiert verschiedenen Konstellationen (Haushalte, Merkmale inkl. Entbindungs-
   monat, Einkommen, Vermögen, Wege bzw. Verstoß-Kombinationen aus vier Gruppen —
@@ -38,8 +42,9 @@ Redo-Logging, Recovery) — wir programmieren nur die Steuerungsschicht darüber
   gezielten Korrekturhinweis. Danach Abbruch mit protokolliertem Fehler. Lokale Schlüsseldatei
   ist Git-ignoriert. Maßgeblich sind die aktuellen quellen- und buildgebundenen JUnit-,
   Simulator- und GLM-Belege im Testzertifikat. „Mache alle Zertifikatstests“ führt
-  Neubuild, beide automatischen Testsuiten, alle sieben Simulator-Kombinationen,
-  GLM-Stichprobe und Zertifikatsexport als asynchronen Gesamtlauf mit Fortschritt
+  Neubuild, beide automatischen Testsuiten, die sieben festgelegten Kombinationen
+  (Fachschicht POSITIV/NEGATIV/LAST/STRESS und WEB POSITIV/NEGATIV/LAST, ohne ECHT/RECHNER),
+  POSITIV-/NEGATIV-GLM-Stichprobe und Zertifikatsexport als asynchronen Gesamtlauf mit Fortschritt
   aus. Frische Prüf-JVM und eigene Webports; Quellenänderungen, Abbrüche und Fehler
   verhindern einen grünen Nachweis. Status unter `testsweet/logs/certificate-suite-<ID>/`.
   Historische Testzahlen werden nicht

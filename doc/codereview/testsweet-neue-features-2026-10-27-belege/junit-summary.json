@@ -1,0 +1,432 @@
+{
+  "command": "mvn -q -f testsweet/pom.xml clean test",
+  "exitCode": 0,
+  "java": "openjdk version \"25.0.4.1\" 2026-08-18 LTS",
+  "release": 21,
+  "txUrlConfigured": false,
+  "startedAt": "2026-10-27T08:38:49.882685900Z",
+  "completedAt": "2026-10-27T08:40:28.857530600Z",
+  "state": "COMPLETED",
+  "suites": [
+    {
+      "suite": "de.allgemein.lmg.web.ProduktAltSagaRepairDbTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 3
+    },
+    {
+      "suite": "de.allgemein.lmg.web.ProduktGeldEingabeHttpDbTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 3
+    },
+    {
+      "suite": "de.allgemein.lmg.web.ProduktHttpSicherheitTest",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.lmg.web.ProduktPendingRecoveryDbTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1
+    },
+    {
+      "suite": "de.allgemein.testsweet.BescheidDokumentDbTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2
+    },
+    {
+      "suite": "de.allgemein.testsweet.BrowserProzesseTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.BuildEvidenceTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.CertificateRuntimeSnapshotTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.CertificateSuiteHttpTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.CertificateSuiteServiceTest",
+      "tests": 17,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.CertificateSuiteStateTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.CertificateToolsRegressionTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.DbErreichbarkeitTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.EchtRechnerFallTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.FachzustandPoolTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.GlobaleVerifikationTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.GrokFachProduktRegressionTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.GrokFachServiceDbTest",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 10
+    },
+    {
+      "suite": "de.allgemein.testsweet.KassenIsolationDbTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1
+    },
+    {
+      "suite": "de.allgemein.testsweet.KassenMassenlaufDbTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2
+    },
+    {
+      "suite": "de.allgemein.testsweet.KiPruefAnhangTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.LlmAnswerParityTest",
+      "tests": 45,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.LlmCalculationReferenceTest",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.LlmFachregelnPaketTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.LlmRetryStatistikTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.LlmReviewServiceTest",
+      "tests": 25,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.MdBerichtFilterTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.MitarbeiterErwarteterFehlerTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.NachweisIntegritaetTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.NegativZustandsDbTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 2
+    },
+    {
+      "suite": "de.allgemein.testsweet.NegativZustandsTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.ProduktAlleinerziehendZwoelfProzentTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.ProduktCommitAusgangDbTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 3
+    },
+    {
+      "suite": "de.allgemein.testsweet.ProduktRetryRegressionTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.ProduktSagaJournalRegressionDbTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 5
+    },
+    {
+      "suite": "de.allgemein.testsweet.ProduktTaskAusgangDbTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 4
+    },
+    {
+      "suite": "de.allgemein.testsweet.PruefpaketDokumentationTest",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.ReviewLaufRegressionTest",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.ReviewOutcomeTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.RunChronologyTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.RunDataScopeDbTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1
+    },
+    {
+      "suite": "de.allgemein.testsweet.RunDataScopeTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.RunMetricsTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.SagaFixtureSchemaRegressionTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.SepaPruefpaketEingabenTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.SimulatorBoundaryTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.SimulatorDefaultsTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.StornoZwischenstandTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.SweetServerLlmHttpTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.SweetServerReportRegressionTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.SweetUiRegressionTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.SzenarioAbdeckungTest",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.SzenarioAktionTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.SzenarioGeneratorRegressionTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.TestfallKatalogTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.VerifikatorVergleichTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.WebDialogRegressionTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.WebLoginRegressionTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.WebVorgangSuchenRegressionTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "de.allgemein.testsweet.WebWiederaufnahmeTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ]
+}

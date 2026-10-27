@@ -41,6 +41,10 @@ final class SweetServer implements AutoCloseable {
     private final CertificateSuiteService certificateSuite;
     private final java.util.concurrent.atomic.AtomicBoolean certificateBusy = new java.util.concurrent.atomic.AtomicBoolean();
     private final java.util.concurrent.atomic.AtomicBoolean reportBusy = new java.util.concurrent.atomic.AtomicBoolean();
+    @FunctionalInterface interface DocumentProcess {
+        String run(ProcessBuilder builder, int timeoutSeconds) throws Exception;
+    }
+    private final DocumentProcess documentProcess;
 
     SweetServer(Simulator simulator, int port) throws IOException {
         this(simulator, port, repositoryRoot());
@@ -51,10 +55,16 @@ final class SweetServer implements AutoCloseable {
     }
 
     SweetServer(Simulator simulator, int port, java.nio.file.Path repository, CertificateSuiteService certificateSuite) throws IOException {
+        this(simulator, port, repository, certificateSuite, SweetServer::runProcess);
+    }
+
+    SweetServer(Simulator simulator, int port, java.nio.file.Path repository,
+                CertificateSuiteService certificateSuite, DocumentProcess documentProcess) throws IOException {
         BuildEvidence.initialize();
         this.simulator = simulator;
         this.repository = repository.toAbsolutePath().normalize();
         this.certificateSuite = certificateSuite;
+        this.documentProcess = java.util.Objects.requireNonNull(documentProcess);
         this.llm = new LlmReviewService(this.repository);
         de.allgemein.lmg.web.HttpServerLimits.configure();
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
@@ -74,7 +84,7 @@ final class SweetServer implements AutoCloseable {
                 sendeFehler(exchange, 403, "Nur Anfragen derselben lokalen Oberfläche sind zulässig");
                 return;
             }
-            if (certificateSuite.running() && List.of("/api/pdf", "/api/md", "/api/llm/report/pdf", "/api/zertifikat/pdf").contains(pfad)) {
+            if (certificateSuite.running() && List.of("/api/pdf", "/api/md", "/api/llm/report/pdf", "/api/zertifikat/pdf", "/api/testreport/pdf").contains(pfad)) {
                 sendeFehler(exchange, 409, "Alle Zertifikatstests laufen. Frühere Berichte sind bis zum Abschluss kein aktueller Gesamtnachweis.");
                 return;
             }
@@ -112,7 +122,7 @@ final class SweetServer implements AutoCloseable {
                 case "/api/zertifikat/tests/start" -> {
                     if (!"POST".equals(exchange.getRequestMethod())) { sendeFehler(exchange, 405, "nur POST"); return; }
                     synchronized (operationLock) {
-                        if (simulator.laufAktiv() || Boolean.TRUE.equals(llm.status().get("running")) || certificateBusy.get()) {
+                        if (simulator.laufAktiv() || Boolean.TRUE.equals(llm.status().get("running")) || documentExportActive()) {
                             sendeFehler(exchange, 409, "Zuerst den laufenden Test oder Export abschließen oder abbrechen."); return;
                         }
                         Map<?,?> body = readJsonBody(exchange);
@@ -148,6 +158,7 @@ final class SweetServer implements AutoCloseable {
                     if (!"POST".equals(exchange.getRequestMethod())) { sendeFehler(exchange, 405, "nur POST"); return; }
                     synchronized (operationLock) {
                         requireNoCertificateSuite();
+                        requireNoDocumentExport();
                         simulator.stoppe();
                         sendeJson(exchange, Map.of("ok", true, "phase", simulator.phase().name()));
                     }
@@ -178,7 +189,10 @@ final class SweetServer implements AutoCloseable {
                         sendeFehler(exchange, 405, "nur POST");
                     }
                 }
-                case "/api/testreport/pdf" -> liefereTestreportPdf(exchange);
+                case "/api/testreport/pdf" -> {
+                    if (!"GET".equals(exchange.getRequestMethod())) { sendeFehler(exchange, 405, "nur GET"); return; }
+                    liefereTestreportPdf(exchange);
+                }
                 case "/api/zertifikat/pdf" -> liefereZertifikatPdf(exchange);
                 case "/api/auftraege" -> sendeJson(exchange, Map.of("auftraege", auftragsliste()));
                 case "/api/testfaelle" -> sendeJson(exchange, testfallKatalog(exchange));
@@ -187,6 +201,7 @@ final class SweetServer implements AutoCloseable {
                     else if ("POST".equals(exchange.getRequestMethod())) {
                         synchronized (operationLock) {
                             requireNoCertificateSuite();
+                            requireNoDocumentExport();
                             llm.saveConfiguration(readJsonBody(exchange));
                             sendeJson(exchange, llm.configuration());
                         }
@@ -194,7 +209,7 @@ final class SweetServer implements AutoCloseable {
                 }
                 case "/api/llm/test" -> {
                     if ("POST".equals(exchange.getRequestMethod())) {
-                        synchronized (operationLock) { requireNoCertificateSuite(); sendeJson(exchange, llm.testConnection()); }
+                        synchronized (operationLock) { requireNoCertificateSuite(); requireNoDocumentExport(); sendeJson(exchange, llm.testConnection()); }
                     }
                     else sendeFehler(exchange, 405, "nur POST");
                 }
@@ -202,8 +217,8 @@ final class SweetServer implements AutoCloseable {
                     if (!"POST".equals(exchange.getRequestMethod())) { sendeFehler(exchange, 405, "nur POST"); return; }
                     synchronized (operationLock) {
                     requireNoCertificateSuite();
-                    if (simulator.laufAktiv() || certificateBusy.get()) {
-                        sendeFehler(exchange, 409, "Zuerst den Simulator-Lauf abschließen"); return;
+                    if (simulator.laufAktiv() || documentExportActive()) {
+                        sendeFehler(exchange, 409, "Zuerst den Simulator-Lauf oder Dokumentexport abschließen"); return;
                     }
                     Map<?, ?> body = readJsonBody(exchange);
                     Map<String,Object> started = llm.start(zahl(body, "faelle", ((Number) llm.configuration().get("cases")).intValue()));
@@ -216,7 +231,7 @@ final class SweetServer implements AutoCloseable {
                 case "/api/llmpruefung" -> liefereLlmPruefung(exchange);
                 case "/api/llmpruefung/paket" -> {
                     if ("POST".equals(exchange.getRequestMethod())) {
-                        synchronized (operationLock) { requireNoCertificateSuite(); erzeugePruefpaket(exchange); }
+                        synchronized (operationLock) { requireNoCertificateSuite(); requireNoDocumentExport(); erzeugePruefpaket(exchange); }
                     } else {
                         sendeFehler(exchange, 405, "nur POST");
                     }
@@ -248,8 +263,8 @@ final class SweetServer implements AutoCloseable {
 
     private void starteLauf(HttpExchange exchange) throws IOException {
         requireNoCertificateSuite();
-        if (certificateBusy.get() || Boolean.TRUE.equals(llm.status().get("running"))) {
-            sendeFehler(exchange, 409, "Die GLM-Prüfung muss vor einem neuen Simulator-Lauf abgeschlossen sein");
+        if (documentExportActive() || Boolean.TRUE.equals(llm.status().get("running"))) {
+            sendeFehler(exchange, 409, "GLM-Prüfung und Dokumentexport vor einem neuen Simulator-Lauf abschließen");
             return;
         }
         Map<?, ?> wunsch = readJsonBody(exchange);
@@ -447,6 +462,7 @@ final class SweetServer implements AutoCloseable {
     private Map<String, Object> status() {
         Map<String, Object> antwort = new LinkedHashMap<>();
         antwort.put("phase", simulator.phase().name());
+        antwort.put("documentExportRunning", documentExportActive());
         Map<String, Object> evidence = llm.status();
         ReviewOutcome outcome = ReviewOutcome.evaluate(simulator, evidence);
         antwort.put("laufErfolgreich", "PASS".equals(outcome.state()) && simulator.nachweiseVollstaendig());
@@ -665,6 +681,14 @@ final class SweetServer implements AutoCloseable {
         if (certificateSuite.running()) throw new IllegalStateException("Alle Zertifikatstests laufen. Bitte den Gesamtlauf abschließen oder über „Zertifikatslauf abbrechen“ beenden.");
     }
 
+    private boolean documentExportActive() {
+        return certificateBusy.get() || reportBusy.get();
+    }
+
+    private void requireNoDocumentExport() {
+        if (documentExportActive()) throw new IllegalStateException("Dokument wird erstellt oder geprüft. Bitte den Export abschließen.");
+    }
+
     @Override public void close() {
         certificateSuite.close();
         simulator.stoppe();
@@ -791,6 +815,7 @@ final class SweetServer implements AutoCloseable {
     private void erzeugeZertifikat(HttpExchange exchange) throws IOException {
         synchronized (operationLock) {
             requireNoCertificateSuite();
+            requireNoDocumentExport();
             if (simulator.laufAktiv() || Boolean.TRUE.equals(llm.status().get("running"))) { sendeFehler(exchange, 409, "Lauf oder GLM-Prüfung zuerst abschließen"); return; }
             if (!certificateBusy.compareAndSet(false, true)) { sendeFehler(exchange, 409, "Ein Zertifikat wird bereits erzeugt"); return; }
         }
@@ -801,7 +826,7 @@ final class SweetServer implements AutoCloseable {
         java.nio.file.Path werkzeug = werkzeugOrdner();
         if (werkzeug == null) { sendeFehler(exchange, 404, "Zertifikat-Werkzeug fehlt"); return; }
         try {
-            String output = runProcess(new ProcessBuilder("node", "publish-certificate.js", "--publish", repository.toString())
+            String output = documentProcess.run(new ProcessBuilder("node", "publish-certificate.js", "--publish", repository.toString())
                     .directory(werkzeug.toFile()), 390);
             Object parsed = Json.parse(output.trim());
             if (!(parsed instanceof Map<?,?> marker) || !"READY".equals(marker.get("state")))
@@ -819,18 +844,19 @@ final class SweetServer implements AutoCloseable {
         }
     }
 
-    /** Management-Testreport (PDF) je Klick frisch erzeugen: fixe Erklärtkapitel
-     *  plus dynamische Ergebniszahlen aus den Prüfläufen; letzte Seite Zertifikat. */
+    /** Management-Testreport mit Methodenbeschreibung, belegabhängigen Ergebnissen
+     *  und Gesamtbewertung; das formale Testzertifikat bleibt ein eigener Export. */
     private void erzeugeTestreport(HttpExchange exchange) throws IOException {
         synchronized (operationLock) {
             requireNoCertificateSuite();
-            if (simulator.laufAktiv()) { sendeFehler(exchange, 409, "Lauf zuerst abschließen"); return; }
+            requireNoDocumentExport();
+            if (simulator.laufAktiv() || Boolean.TRUE.equals(llm.status().get("running"))) { sendeFehler(exchange, 409, "Lauf oder GLM-Prüfung zuerst abschließen"); return; }
             if (!reportBusy.compareAndSet(false, true)) { sendeFehler(exchange, 409, "Ein Testreport wird bereits erzeugt"); return; }
         }
         try {
             java.nio.file.Path werkzeug = repository.resolve("doc/testreport-werkzeug");
             if (!java.nio.file.Files.isDirectory(werkzeug)) { sendeFehler(exchange, 404, "Testreport-Werkzeug fehlt"); return; }
-            String output = runProcess(new ProcessBuilder("node", "publish-report.js", "--publish", repository.toString())
+            String output = documentProcess.run(new ProcessBuilder("node", "publish-report.js", "--publish", repository.toString())
                     .directory(werkzeug.toFile()), 300);
             Object parsed = Json.parse(output.trim());
             if (!(parsed instanceof Map<?,?> marker) || !"READY".equals(marker.get("state")))
@@ -849,22 +875,39 @@ final class SweetServer implements AutoCloseable {
         }
     }
 
-    /** Liefert das zuletzt erzeugte Report-PDF aus — veraltet Fassungen werden abgewiesen. */
+    /** Liefert ausschließlich die einmal gelesenen und genau so verifizierten PDF-Bytes. */
     private void liefereTestreportPdf(HttpExchange exchange) throws IOException {
         java.nio.file.Path datei = repository.resolve("doc/SDN-Leistung-LMG-Testreport.pdf");
         if (!java.nio.file.Files.exists(datei)) {
             sendeFehler(exchange, 404, "Noch kein Testreport vorhanden — zuerst „Testreport erstellen“ klicken");
             return;
         }
-        if (reportBusy.get()) { sendeFehler(exchange, 409, "Testreport wird gerade neu erstellt"); return; }
+        synchronized (operationLock) {
+            requireNoCertificateSuite();
+            requireNoDocumentExport();
+            if (simulator.laufAktiv() || Boolean.TRUE.equals(llm.status().get("running"))) {
+                sendeFehler(exchange, 409, "Lauf oder GLM-Prüfung zuerst abschließen"); return;
+            }
+            reportBusy.set(true);
+        }
+        byte[] bytes;
         try {
-            runProcess(new ProcessBuilder("node", "publish-report.js", "--verify", repository.toString())
+            String output = documentProcess.run(new ProcessBuilder("node", "publish-report.js", "--verify", repository.toString())
                     .directory(repository.resolve("doc/testreport-werkzeug").toFile()), 30);
+            Object parsed = Json.parse(output.trim());
+            if (!(parsed instanceof Map<?, ?> marker) || !"READY".equals(marker.get("state"))
+                    || !(marker.get("pdfSha256") instanceof String expected) || !expected.matches("[0-9a-f]{64}")) {
+                throw new IOException("PDF-Prüfbeleg fehlt");
+            }
+            bytes = java.nio.file.Files.readAllBytes(datei);
+            String actual = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes));
+            if (!actual.equals(expected)) throw new IOException("Report-PDF wurde während der Prüfung ersetzt");
         } catch (Exception error) {
             sendeFehler(exchange, 409, "Testreport ist veraltet. Neu erstellen. " + error.getMessage());
             return;
+        } finally {
+            reportBusy.set(false);
         }
-        byte[] bytes = java.nio.file.Files.readAllBytes(datei);
         exchange.getResponseHeaders().set("Content-Type", "application/pdf");
         exchange.getResponseHeaders().set("Cache-Control", "no-store");
         exchange.getResponseHeaders().set("Content-Disposition", "inline; filename=\"testreport.pdf\"");
@@ -874,7 +917,7 @@ final class SweetServer implements AutoCloseable {
         }
     }
 
-    private static String runProcess(ProcessBuilder builder, int timeoutSeconds) throws Exception {
+    static String runProcess(ProcessBuilder builder, int timeoutSeconds) throws Exception {
         java.nio.file.Path output = java.nio.file.Files.createTempFile("testsweet-export-", ".log");
         Process process = null;
         try {
@@ -908,7 +951,7 @@ final class SweetServer implements AutoCloseable {
         }
         if (certificateBusy.get()) { sendeFehler(exchange,409,"Zertifikat wird gerade neu erstellt"); return; }
         try {
-            runProcess(new ProcessBuilder("node", "publish-certificate.js", "--verify", repository.toString())
+            documentProcess.run(new ProcessBuilder("node", "publish-certificate.js", "--verify", repository.toString())
                     .directory(werkzeug.toFile()), 30);
         } catch (Exception error) {
             sendeFehler(exchange,409,"Zertifikat ist kein aktueller Nachweis. Neu erstellen. " + error.getMessage()); return;

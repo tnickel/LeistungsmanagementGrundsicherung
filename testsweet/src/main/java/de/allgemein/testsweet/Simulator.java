@@ -154,6 +154,9 @@ public final class Simulator {
     private volatile int stressPhase1Ende = -1;
     private volatile CountDownLatch stressPhase1Latch;
     private volatile List<WebMitarbeiter> webMitarbeiter = List.of();
+    /** Browserbesitz des laufenden Webdurchgangs; die Worker-Liste bleibt für die Anzeige erhalten. */
+    private volatile boolean webCleanupPending;
+    private final Runnable browserCleanup;
     private final java.util.concurrent.ConcurrentHashMap<String, String> webKonten =
             new java.util.concurrent.ConcurrentHashMap<>();
     /** Administrationskonto für Rollenwechsel-Abläufe (Storno freigegebener Zahlungen). */
@@ -171,7 +174,12 @@ public final class Simulator {
     }
 
     Simulator(ZustandsLeser zustandsLeser) {
+        this(zustandsLeser, WebMitarbeiter::raeumeVerwaisteFensterAuf);
+    }
+
+    Simulator(ZustandsLeser zustandsLeser, Runnable browserCleanup) {
         this.zustandsLeser = zustandsLeser;
+        this.browserCleanup = java.util.Objects.requireNonNull(browserCleanup);
         this.dbUrl = System.getProperty("tx.url", umgebung("TX_URL", "jdbc:oracle:thin:@//localhost:1521/FREEPDB1"));
         this.dbUser = System.getProperty("tx.user", umgebung("TX_USER", "tx_demo"));
         this.dbPass = System.getProperty("tx.pass", umgebung("TX_PASS", "tx_demo"));
@@ -447,7 +455,7 @@ public final class Simulator {
         // Chrome-Prozessen des Nutzers mehrere Sekunden — ein Worker-Absturz
         // (STRESS-Abbruch, Stop-Knopf) darf daran nicht hängen. Der bewusste
         // Cleanup-Knopf (/api/cleanup-prozesse) räumt weiterhin immer.
-        if (!webMitarbeiter.isEmpty()) WebMitarbeiter.raeumeVerwaisteFensterAuf();
+        if (webCleanupPending) browserCleanup.run();
     }
 
     // ------------------------------------------------------------------
@@ -498,6 +506,7 @@ public final class Simulator {
     /** Startet einen Weboberflächen-Lauf synchron im aufrufenden Thread (für CLI). */
     public void laufWebSynchron(LaufKonfiguration konfig) throws Exception {
         pruefeKonfiguration(konfig.kategorie(), konfig.mitarbeiter(), konfig.auftraege());
+        if (webUnzulaessig(konfig.kategorie())) throw new IllegalStateException(webNurFachschichtMeldung());
         if (!laufAktiv.compareAndSet(false, true)) {
             throw new IllegalStateException("Es läuft bereits ein Simulator-Lauf");
         }
@@ -555,6 +564,7 @@ public final class Simulator {
         if (webUnzulaessig(konfig.kategorie())) {
             throw new IllegalStateException(webNurFachschichtMeldung());
         }
+        webCleanupPending = true;
         phase = Phase.BEREIT;
         auftraege = List.of();
         modusLetzter = "WEB";
@@ -595,7 +605,7 @@ public final class Simulator {
         // Fenster eines früheren Laufs schließen — inklusive verwaister Fenster aus
         // gestorbenen Server-Prozessen — bevor neue geöffnet werden
         webMitarbeiter.forEach(WebMitarbeiter::schliesse);
-        WebMitarbeiter.raeumeVerwaisteFensterAuf();
+        browserCleanup.run();
         pruefeDatenbank();
         if (konfig.aufraeumen()) {
             phase = Phase.AUFRAEUMEN;
@@ -644,8 +654,7 @@ public final class Simulator {
                 beendeExecutor(executor, 0, () -> webMitarbeiter.forEach(WebMitarbeiter::schliesse));
             }
             laufExecutor = null;
-            webMitarbeiter.forEach(WebMitarbeiter::schliesse);
-            WebMitarbeiter.raeumeVerwaisteFensterAuf();
+            finishWebCleanup();
         }
 
         // Verifikation wie in Modus 1: Erwartungshaltung per SQL gegen die Datenbank
@@ -1260,10 +1269,7 @@ public final class Simulator {
     }
 
     private void schliesseRessourcen() {
-        if (webMitarbeiter != null && !webMitarbeiter.isEmpty()) {
-            webMitarbeiter.forEach(WebMitarbeiter::schliesse);
-        }
-        WebMitarbeiter.raeumeVerwaisteFensterAuf();
+        finishWebCleanup();
         if (pool != null) {
             pool.close();
             pool = null;
@@ -1272,6 +1278,13 @@ public final class Simulator {
             webPool.close();
             webPool = null;
         }
+    }
+
+    private void finishWebCleanup() {
+        if (!webCleanupPending) return;
+        webMitarbeiter.forEach(WebMitarbeiter::schliesse);
+        browserCleanup.run();
+        webCleanupPending = false;
     }
 
     // ------------------------------------------------------------------

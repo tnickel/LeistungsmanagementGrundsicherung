@@ -39,11 +39,11 @@ class CertificateSuiteHttpTest {
             assertEquals(202,started.statusCode());assertEquals(18,suite.requestedCases);
             assertEquals("RUNNING",((Map<?,?>)Json.parse(started.body())).get("state"));
             assertEquals(409,send(client,server,"POST","/api/zertifikat/tests/start","{}").statusCode());
-            for(String route:new String[]{"/api/start","/api/stop","/api/llm/start","/api/llm/config","/api/llm/test","/api/llmpruefung/paket","/api/zertifikat"}) {
+            for(String route:new String[]{"/api/start","/api/stop","/api/llm/start","/api/llm/config","/api/llm/test","/api/llmpruefung/paket","/api/zertifikat","/api/testreport"}) {
                 var response=send(client,server,"POST",route,"{}");
                 assertEquals(409,response.statusCode(),route+": "+response.body());
             }
-            for(String route:new String[]{"/api/pdf","/api/md","/api/llm/report/pdf","/api/zertifikat/pdf"}) {
+            for(String route:new String[]{"/api/pdf","/api/md","/api/llm/report/pdf","/api/zertifikat/pdf","/api/testreport/pdf"}) {
                 var response=send(client,server,"GET",route,null);
                 assertEquals(409,response.statusCode(),route);assertEquals("no-store",response.headers().firstValue("Cache-Control").orElseThrow());
             }
@@ -97,6 +97,8 @@ class CertificateSuiteHttpTest {
             set(llm,"progress",Map.of("state","IDLE","running",false));
             AtomicBoolean exporting=(AtomicBoolean)field(server,"certificateBusy");exporting.set(true);
             assertEquals(409,send(client,server,"POST","/api/zertifikat/tests/start","{}").statusCode());exporting.set(false);
+            AtomicBoolean report=(AtomicBoolean)field(server,"reportBusy");report.set(true);
+            assertEquals(409,send(client,server,"POST","/api/zertifikat/tests/start","{}").statusCode());report.set(false);
             assertEquals(0,suite.started);
         }
     }

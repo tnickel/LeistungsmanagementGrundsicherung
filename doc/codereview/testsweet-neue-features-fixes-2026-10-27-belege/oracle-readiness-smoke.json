@@ -1,0 +1,9 @@
+{
+  "exitCode": 0,
+  "elapsedSeconds": 7.172,
+  "timeoutSeconds": 15,
+  "schema": "TSFIX_913BAFB1E3D04610",
+  "containerMutationsBlocked": true,
+  "credentialsLogged": false,
+  "processExecutionPolicy": "Bypass as in start.bat; no persisted setting change"
+}

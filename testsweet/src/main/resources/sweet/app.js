@@ -10,6 +10,19 @@ function esc(wert) {
 
 function $(id) { return document.getElementById(id); }
 
+let reportExportRunning = false;
+let certificateExportRunning = false;
+let reportReady = false;
+
+function documentExportRunning() {
+    return reportExportRunning || certificateExportRunning || Boolean(momentanerStatus && momentanerStatus.documentExportRunning);
+}
+
+function hideReportLink(invalidate = true) {
+    if (invalidate) reportReady = false;
+    if ($("testreportlink")) $("testreportlink").style.display = "none";
+}
+
 const STATUS_TEXT = {
     OFFEN: "offen",
     IN_BEARBEITUNG: "in Bearbeitung",
@@ -64,7 +77,9 @@ window.addEventListener("DOMContentLoaded", () => {
     const zertKnopf = $("zertifikatknopf");
     if (zertKnopf) {
         zertKnopf.addEventListener("click", async () => {
-            if (zertifikatSuiteGesperrt()) return;
+            if (zertifikatSuiteGesperrt() || documentExportRunning() || zertKnopf.disabled) return;
+            certificateExportRunning = true;
+            sperreZertifikatSuiteBedienung();
             entwerteSuiteNachManuellerAktion();
             zertKnopf.disabled = true;
             zertKnopf.textContent = "🏅 Zertifikat wird erstellt …";
@@ -92,6 +107,7 @@ window.addEventListener("DOMContentLoaded", () => {
             } catch (e) {
                 alert("Serverfehler beim Erstellen: " + e.message);
             } finally {
+                certificateExportRunning = false;
                 zertKnopf.disabled = false;
                 zertKnopf.textContent = "🏅 Testzertifikat erstellen";
                 sperreZertifikatSuiteBedienung();
@@ -100,20 +116,24 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     // Management-Testreport: Knopf erzeugt bei jedem Klick einen frischen
-    // PDF-Bericht (fixe Erklärtkapitel + dynamische Laufzahlen, Zertifikat am Ende).
+    // PDF-Bericht mit tatsächlichem Prüfumfang und belegabhängiger Gesamtbewertung.
     const reportKnopf = $("testreportknopf");
     if (reportKnopf) {
         reportKnopf.addEventListener("click", async () => {
-            if (zertifikatSuiteGesperrt()) return;
+            if (zertifikatSuiteGesperrt() || documentExportRunning() || reportKnopf.disabled) return;
+            reportExportRunning = true;
+            hideReportLink();
+            sperreZertifikatSuiteBedienung();
             entwerteSuiteNachManuellerAktion();
             reportKnopf.disabled = true;
             reportKnopf.textContent = "📊 Testreport wird erstellt …";
             try {
                 const antwort = await fetch("/api/testreport", { method: "POST" });
                 const ergebnis = await antwort.json();
-                if (ergebnis.fehler) {
-                    alert("Testreport konnte nicht erstellt werden: " + ergebnis.fehler);
+                if (antwort.ok === false || ergebnis.fehler) {
+                    alert("Testreport konnte nicht erstellt werden: " + (ergebnis.fehler || "HTTP " + antwort.status));
                 } else {
+                    reportReady = true;
                     const link = $("testreportlink");
                     if (link) link.style.display = "inline-block";
                     let meldung = "Testreport erstellt und nach doc/ kopiert:\n" + ergebnis.pdf;
@@ -127,8 +147,10 @@ window.addEventListener("DOMContentLoaded", () => {
             } catch (e) {
                 alert("Serverfehler beim Erstellen: " + e.message);
             } finally {
+                reportExportRunning = false;
                 reportKnopf.disabled = false;
                 reportKnopf.textContent = "📊 Testreport (PDF) erstellen";
+                sperreZertifikatSuiteBedienung();
             }
         });
     }
@@ -259,8 +281,8 @@ let gewaehlteKategorie = "POSITIV";
 const KATEGORIE_HINWEISE = {
     POSITIV: "Positivfälle: Erfolgswege mit vollständiger Prüfung",
     NEGATIV: "Negativfälle: abgewehrte Fachfehler mit unverändertem Datenbank-Endzustand",
-    ECHT: "Echte Fälle: 5 belegte Konstellationen aus Gesetz, Rechtsprechung und kommunaler Richtlinie — nur Fachschicht",
-    RECHNER: "Rechner-Fälle: 12 Fälle, deren Sollwerte ein externer Online-Rechner (SGB XII, Rechtsstand 2026) geliefert hat — nur Fachschicht",
+    ECHT: "Echte Fälle: 5 quellenbasierte Modellfälle mit ausdrücklich begrenzter Rechtsübertragung — nur Fachschicht",
+    RECHNER: "Rechner-Fälle: 12 feste Vergleichsfälle; externe Stichprobe 1/6/12 belegt — nur Fachschicht",
     LAST: "Lasttest: begrenzter Paralleltest — kein Kapazitäts- oder Dauerlastnachweis, Gesamtreport",
     STRESS: "Stresstest: Aufträge = User-Zahl; je User 2 Tests — begrenzter Paralleltest, kein Kapazitätsnachweis; nur Fachschicht"
 };
@@ -439,7 +461,7 @@ async function aktualisiere() {
         $("phase-text").textContent = "Status nicht verfügbar";
         $("phase").className = "phase FEHLGESCHLAGEN";
         $("pdfleiste").style.display = "none";
-        $("zertifikatlink").style.display = "none";
+        $("zertifikatlink").style.display = "none"; hideReportLink();
         $("review-warning").hidden = false;
         $("review-warning").className = "review-error";
         $("review-warning").textContent = "Aktueller Laufstatus ist nicht bestätigt: " + e.message;
@@ -502,7 +524,7 @@ async function aktualisiere() {
         + " · KI: " + (review.llmState || "UNVERIFIED")
         + ((review.errors || []).length ? "\n" + review.errors.join("\n") : "");
     if (zertifikatSuiteAnsichtAktiv()) warning.hidden = true;
-    if (laeuft) $("zertifikatlink").style.display = "none";
+    if (laeuft) { $("zertifikatlink").style.display = "none"; hideReportLink(); }
     zeigeSimulatorFehler(status);
 
     // PDF / Markdown Banner
@@ -521,7 +543,7 @@ async function aktualisiere() {
         pdfLeiste.style.display = "none";
         pdfHinweis.style.display = "none";
         pdfHinweis.textContent = "";
-        if (zertifikatSuiteAnsichtAktiv()) $("zertifikatlink").style.display = "none";
+        if (zertifikatSuiteAnsichtAktiv()) { $("zertifikatlink").style.display = "none"; hideReportLink(); }
     }
 
     if (status.logVerzeichnis) {
@@ -1026,7 +1048,7 @@ async function ladeLlmPruefung() {
             findings.appendChild(row);
         }
         findings.hidden = findings.children.length === 0;
-        if (data.running) $("zertifikatlink").style.display = "none";
+        if (data.running) { $("zertifikatlink").style.display = "none"; hideReportLink(); }
         zeigeLlmRetryFehler({...data,state: data.state === "PASS" && !accepted ? "UNVERIFIED" : data.state});
         const transport = $("llm-transport-check");
         transport.textContent = data.transportVerified ? "✓ Dateiübergabe geprüft: alle Prüfdokumente vollständig gesendet, SHA-256 und API-Antworten validiert." : "Dateiübergabe: noch nicht vollständig bestätigt.";
@@ -1049,7 +1071,7 @@ async function ladeLlmPruefung() {
             $("llm-transport-check").className = "nok";
             $("llm-transport-check").textContent = "Dateiübergabe kann aktuell nicht bestätigt werden.";
             $("llm-report-link").style.display = "none";
-            $("zertifikatlink").style.display = "none";
+            $("zertifikatlink").style.display = "none"; hideReportLink();
         }
     }
 }
@@ -1074,7 +1096,7 @@ function entwerteSuiteNachManuellerAktion() {
     zertifikatSuiteManuellErsetzt = true;
     ++llmStatusRequestId;
     $("zertifikat-tests-pdf").hidden = true;
-    $("zertifikatlink").style.display = "none";
+    $("zertifikatlink").style.display = "none"; hideReportLink();
     if (zertifikatSuiteStatus && zertifikatSuiteStatus.state !== "IDLE") {
         $("zertifikat-tests-status").className = "hinweis";
         $("zertifikat-tests-status").textContent = "Letzter Gesamtlauf durch manuelle Aktion ergänzt. Aktuelle Gültigkeit des Zertifikats muss neu geprüft werden.";
@@ -1091,10 +1113,10 @@ function sperreZertifikatSuiteBedienung() {
         $("pdfleiste").style.display = "none";
         $("pdfhinweis").style.display = "none";
         $("pdfhinweis").textContent = "";
-        $("zertifikatlink").style.display = "none";
+        $("zertifikatlink").style.display = "none"; hideReportLink();
     }
-    const locked = zertifikatSuiteGesperrt();
-    const ids = ["start", "stop", "zertifikatknopf", "llm-start-knopf", "llm-paket-knopf",
+    const locked = zertifikatSuiteGesperrt() || documentExportRunning();
+    const ids = ["start", "stop", "zertifikatknopf", "testreportknopf", "llm-start-knopf", "llm-paket-knopf",
         "llm-config-open", "llm-config-save", "llm-config-test", "llm-faelle"];
     if (locked) {
         for (const id of ids) if ($(id)) $(id).disabled = true;
@@ -1107,6 +1129,12 @@ function sperreZertifikatSuiteBedienung() {
     }
     zertifikatSuiteBedienungWarGesperrt = locked;
     const manualRunning = llmEinzellaufAktiv || momentanerStatus && ["AUFRAEUMEN", "LAUF", "VERIFIKATION"].includes(momentanerStatus.phase);
+    for (const id of ["testreportknopf", "zertifikatknopf"]) {
+        if ($(id)) $(id).disabled = locked || Boolean(manualRunning);
+    }
+    if (manualRunning) hideReportLink();
+    else if (locked) hideReportLink(false);
+    else if ($("testreportlink")) $("testreportlink").style.display = reportReady ? "inline-block" : "none";
     for (const id of ["zertifikat-tests-start", "llm-retry-suite-start"]) {
         if ($(id)) $(id).disabled = locked || Boolean(manualRunning);
     }
@@ -1158,7 +1186,7 @@ function renderZertifikatSuite(data) {
     target.textContent = zertifikatSuiteManuellErsetzt ? "Letzter Gesamtlauf durch manuelle Aktion ergänzt. Aktuelle Gültigkeit des Zertifikats muss neu geprüft werden." : labels[data.state] + (data.message ? " " + data.message : "");
     target.className = accepted ? "ok" : zertifikatSuiteManuellErsetzt ? "hinweis" : bad ? "nok" : "";
     $("zertifikat-tests-pdf").hidden = !accepted;
-    if (!accepted && data.state !== "IDLE") $("zertifikatlink").style.display = "none";
+    if (!accepted && data.state !== "IDLE") { $("zertifikatlink").style.display = "none"; hideReportLink(); }
     $("zertifikat-tests-fortschritt").hidden = data.state === "IDLE";
     const completed = Math.max(0, Number(data.completedPhases || data.completedSteps) || 0);
     const total = Math.max(0, Number(data.totalPhases || data.totalSteps) || 0);
@@ -1249,7 +1277,7 @@ function zertifikatSuiteStatusFehler(error) {
     $("zertifikat-tests-status").className = "nok";
     $("zertifikat-tests-status").textContent = "Status nicht erreichbar. Erfolg und Abbruch sind nicht bestätigt; Verbindung zum Server prüfen. " + error.message;
     $("zertifikat-tests-pdf").hidden = true;
-    $("zertifikatlink").style.display = "none";
+    $("zertifikatlink").style.display = "none"; hideReportLink();
     sperreZertifikatSuiteBedienung();
 }
 
@@ -1273,7 +1301,7 @@ async function starteZertifikatSuite() {
     ++zertifikatSuiteAnfrage; // Eine ältere IDLE-/SUCCESS-Antwort darf diesen Start nicht überschreiben.
     sperreZertifikatSuiteBedienung();
     $("zertifikat-tests-pdf").hidden = true;
-    $("zertifikatlink").style.display = "none";
+    $("zertifikatlink").style.display = "none"; hideReportLink();
     $("zertifikat-tests-status").textContent = "Zertifikatsablauf wird gestartet …";
     $("zertifikat-tests-status").className = "";
     if ($("llm-retry-dialog").open) $("llm-retry-dialog").close();

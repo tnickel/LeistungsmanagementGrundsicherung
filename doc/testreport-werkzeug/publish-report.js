@@ -3,7 +3,7 @@
 // mit echten Seitenzahlen (Zwei-Durchlauf über pdftotext), fixen Erklärtkapiteln
 // (Testarten, Fachschicht/Selenium, Sollwert-Herkunft, echte Fälle, externer
 // Rechner, parallele Transaktionssteuerung), dynamischen Ergebnistabellen aus
-// testsweet/logs und einer Zertifikatsseite am Ende.
+// testsweet/logs und einer Gesamtbewertung des erklärten Prüfumfangs.
 //
 // Aufruf:  node publish-report.js --publish <repo>   (erzeugt und veröffentlicht)
 //          node publish-report.js --verify <repo>    (prüft Aktualität der PDF)
@@ -33,7 +33,7 @@ const KAPITEL = [
   "6  Transaktionssteuerung unter parallelen Prozessen",
   "7  Ergebnisübersicht der Prüfläufe",
   "8  Fazit",
-  "Testzertifikat",
+  "Gesamtbewertung des Prüfumfangs",
 ];
 
 function text(value, options = {}) {
@@ -72,7 +72,7 @@ function tabelle(kopf, zeilen, spaltenBreite) {
         zelle(k, { bold: true, fill: P.hell })) }),
       ...zeilen.map((z, i) => new TableRow({ cantSplit: true,
         children: z.map((v, j) => zelle(v, { fill: i % 2 ? P.zeile : undefined,
-          color: j === z.length - 1 && /BESTANDEN|grün/.test(String(v)) ? P.pass
+          color: j === z.length - 1 && /^(?:BESTANDEN|grün)$/.test(String(v)) ? P.pass
             : j === z.length - 1 && /NICHT|FEHL|rot/.test(String(v)) ? P.fail
             : j === z.length - 1 && /ABGEBROCHEN/.test(String(v)) ? P.warn : undefined,
           bold: j === z.length - 1 })) })),
@@ -83,48 +83,48 @@ function tabelle(kopf, zeilen, spaltenBreite) {
 // Fixe Kapiteltexte (Management-Erklärungen; bewusst laienverständlich)
 // ------------------------------------------------------------------
 const T_EINLEITUNG = [
-  "Dieser Bericht fasst zusammen, wie die Fachsoftware SDN.Leistung — Leistungsmanagement Grundsicherung (LMG) geprüft wurde und mit welchem Ergebnis. Er richtet sich an das Management und Vorgesetzte, nicht an Entwickler: Alle Fachbegriffe werden erklärt, alle Ergebnisse stehen am Ende in einer Übersichtstabelle.",
-  "Die Software unterstützt Sachbearbeiter der Sozialverwaltung bei der Bedarfsberechnung und der Auszahlung von Grundsicherungsleistungen nach dem SGB XII. Sie ersetzt eine teure lizenzierte Transaktionssteuerung durch eine Eigenentwicklung auf Java 21 und Oracle. Weil hier Sozialleistungen in Euro berechnet und gezahlt werden, ist die Prüfqualität zentral: Ein falscher Betrag ist im Ergebnis ein falscher Bescheid.",
-  "Geprüft wurde auf mehreren Ebenen: automatisierte Unit-Tests und Regressionstests (Kapitel 1), zwei grundsätzlich verschiedene Prüfwege — direkt über die Fachschicht und über die echte Weboberfläche mit einem gesteuerten Browser (Kapitel 2) —, Zehntausende automatisch erzeugte Testfälle mit unabhängig nachgerechneten Sollwerten (Kapitel 3), echte Fälle aus Gesetz, Rechtsprechung und kommunalen Richtlinien (Kapitel 4), der Abgleich mit einem externen Online-Rechner als unabhängiger zweiter Instanz (Kapitel 5) sowie die Belastung der Transaktionssteuerung mit parallelen Prozessen (Kapitel 6). Kapitel 7 zeigt die konkreten Ergebnisse; die letzte Seite ist das Testzertifikat.",
-  "Dieser Bericht wird bei jeder Erneuerung vollständig neu erzeugt — Datum, Report-Kennung und alle Ergebniszahlen stammen aus dem jeweiligen aktuellen Stand der Prüfläufe. Der formale, beleggebundene Nachweis bleibt daneben das separate Testzertifikat.",
+  "Dieser Managementreport erläutert die Prüfverfahren der Fachsoftware SDN.Leistung — Leistungsmanagement Grundsicherung (LMG). Er zeigt den beim Export vorgefundenen und auf Aktualität geprüften Nachweisstand. Eine Methodenbeschreibung belegt allein noch keine erfolgreiche Durchführung.",
+  "Der erklärte Umfang umfasst neun Simulator-Kombinationen: Fachschicht mit POSITIV, NEGATIV, ECHT, RECHNER, LAST und STRESS sowie Weboberfläche mit POSITIV, NEGATIV und LAST. Hinzu kommen die laufgebundenen JUnit-Prüfungen beider Module und die GLM-Stichprobe aus Positiv- und Negativfällen. Fehlende Ebenen bleiben ausdrücklich unvollständig.",
+  "Die Software unterstützt Berechnung und Auszahlung von Grundsicherungsleistungen nach SGB XII mit Java und Oracle. Die folgenden Kapitel beschreiben, welche Kontrollen vorgesehen sind. Kapitel 7 und die Gesamtbewertung entscheiden anhand tatsächlicher Belege, welche davon für den aktuellen Stand nachgewiesen sind.",
+  "Der Report ist eine datierte Momentaufnahme. Sein Abruf prüft PDF-Integrität und den unveränderten Eingabebestand. Der gesonderte formale Zertifikatsnachweis bleibt das Dokument SDN-Leistung-LMG-Testzertifikat.",
 ];
 const T_UNIT = [
-  ["Was sind Unit-Tests?", "Ein Unit-Test prüft das kleinste Baustein einer Software im Kleinen: eine einzelne Klasse oder Methode wird mit festen Ein- und Ausgabewerten aufgerufen, und der Test vergleicht das Ergebnis mit dem erwarteten Wert — vollautomatisch, in Millisekunden, bei jedem Build. Ein Beispiel aus diesem Projekt: Der Prüfziffern-Validator für IBANs erhält eine festgelegte, ungültige Kontonummer und muss sie zurückweisen. Tut er es nicht, schlägt der Test rot an, noch bevor jemand die Software startet. Hunderte dieser Prüfungen laufen mit einem einzigen Befehl (mvn test); sie sichern die Grundmechanik der Software und laufen daher bei jeder Änderung erneut."],
-  ["Was sind Regressionstests?", "Eine Regression ist ein Fehler, der entsteht, wenn eine eigentlich neue Funktion etwas Altes kaputtmacht: Gestern funktionierte die Auszahlung, heute — nach einer kleinen Änderung an der Berechnung — nicht mehr. Regressionstests verhindern genau das, indem sie frühere, bereits gelöste Prüfszenarien dauerhaft wiederholen: Zehn dokumentierte Nutzer-Szenarien (Antrag erfassen, Auszahlung freigeben, Storno und Korrektur, Kassenlauf und andere) werden mit mehreren simulierten Sachbearbeitern durchgespielt, und am Ende wird direkt in der Oracle-Datenbank geprüft, ob exakt der dokumentierte Endzustand eingetreten ist — Beträge, Status, Verantwortliche. Zentraler Schutz gegen den „Erwartungswert-Zirkelschluss“: Die Sollwerte dieser Szenarien sind von Hand gerechnet und dokumentiert („Goldwerte“), ohne dass die zu prüfende Software selbst das Ergebnis geliefert hat."],
-  ["Warum beides fest ins Projekt gehört", "Unit-Tests und Regressionstests sind die dauerhafte Grundabsicherung: Sie laufen bei jeder Änderung automatisch mit und halten das gesamte Projekt in einem bekannten, geprüften Zustand (im Fachjargon: „grün“). Alle weiteren Prüfwege dieses Berichts bauen auf dieser Basis auf."],
+  ["Was sind Unit-Tests?", "Ein Unit-Test vergleicht einen Softwarebaustein mit festgelegten Erwartungen, etwa gültige und ungültige IBANs oder handgerechnete Beträge. Maven führt diese Prüfungen aus. Ein übersprungener, noch laufender oder veralteter Test ist kein bestandener aktueller Nachweis."],
+  ["Was sind Regressionstests?", "Regressionstests wiederholen festgelegte Abläufe, damit frühere Fehler nicht erneut auftreten. Zu den Verfahren gehören zehn dokumentierte Nutzer-Szenarien mit SQL-Prüfung persistierter Endzustände. Separate Goldwerttests vergleichen ausgewählte Rechnungen mit handgerechneten Konstanten; sie machen nicht jeden generierten Sollwert unabhängig."],
+  ["Wie ihr Stand bewertet wird", "Die Ergebnistabelle verwendet laufgebundene XML-Belege, Klassen- und Methodeninventar sowie Quellen- und Buildbindung. Alte lose XML-Dateien werden nicht als ein neuer Gesamtlauf addiert. Fehler erhalten Vorrang vor fehlender Vollständigkeit; übersprungene Pflichtprüfungen verhindern BESTANDEN."],
 ];
 const T_WEGE = [
-  ["Prüfweg 1: Fachschicht — direkt unter der Motorhaube", "Die Fachschicht ist die innere Logik der Software: derselbe Baustein, den später auch die Weboberfläche aufruft, hier aber direkt und ohne Bildschirm. Der Mitarbeiter-Simulator „testsweet“ lässt dutzende simulierte Sachbearbeiter gleichzeitig Vorgänge anlegen, Bedarfe berechnen, Auszahlungen anordnen, freigeben und stornieren — tausende Fälle in Sekunden. Weil kein Bildschirm und kein Browser dazwischenliegen, ist dieser Weg schnell genug für große Fallzahlen und liefert die aussagekräftigsten Zahlen für Beträge, Budgets und Datenbank-Endzustände."],
-  ["Prüfweg 2: Weboberfläche mit Selenium — als würde ein Mensch davor sitzen", "Selenium ist ein Werkzeug, das einen echten Chrome-Browser wie ein Mensch bedient: Der Simulator meldet sich mit Kennung und Passwort an, klickt durch die Masken, füllt Felder aus (einschließlich sensibler Monats-Auswahlfelder), ordnet Auszahlungen an und meldet sich ab. Ein zweites, eigenes Browserfenster übernimmt die Rolle des Kollegen, der freigibt — die Vier-Augen-Kontrolle wird also tatsächlich über zwei getrennte Bildschirmsitzungen geprüft, so wie im Echtbetrieb. Jeder Arbeitsschritt erzeugt einen Screenshot als Beweis, was wirklich im Browser stand. Dieser Weg ist langsamer und läuft deshalb mit kleineren Fallzahlen — aber er ist der einzige, der Bedienfehler findet, die unter der Motorhaube unsichtbar sind: unleserliche oder falsch formatierte Maskenfelder, fehlende Fehlerdialoge, Knöpfe, die der falschen Rolle angezeigt werden."],
-  ["Warum beide Wege zusammengehören", "Die Fachschicht beweist, dass die Fachlogik richtig rechnet und richtig bucht. Die Weboberfläche beweist, dass ein Mensch mit der Software tatsächlich dasselbe Ergebnis erreichen würde. Stimmen beide Endzustände in der Datenbank überein — Betrag für Betrag —, bedienen Oberfläche und Kern wirklich dasselbe System. Genau das wird je Lauf verglichen."],
+  ["Prüfweg Fachschicht", "Simulierte Sachbearbeiter rufen die Fachservices direkt auf und prüfen anschließend Datenbank-Endzustände. Kategorie, Anzahl und Grad der Parallelität werden für jeden Lauf festgelegt. Laufzeiten und Durchsatz sind Messwerte dieses Laufs und keine allgemeine Kapazitätszusage."],
+  ["Prüfweg Weboberfläche", "Selenium bedient die tatsächliche Weboberfläche im Chrome-Browser. Dazu gehören Anmeldung, Formulare, Auszahlungs- und Freigabeschritte mit getrennten Kennungen. SQL prüft die Ergebnisse. Screenshots ergänzen die Ablaufbelege; sie ersetzen keine eigenständige Prüfung der Bedienbarkeit."],
+  ["Aussage beider Wege", "Beide Wege prüfen unterschiedliche Zugänge zur Fachlogik. Ob die vorgesehenen Abläufe auf beiden Wegen aktuell erfolgreich waren, zeigt erst Kapitel 7. ECHT, RECHNER und STRESS sind ausschließlich für die Fachschicht vorgesehen."],
 ];
 const T_SOLLWERTE = [
-  ["Wie die Testfälle erzeugt werden", "Drei Sorten von Testfällen füllen die Töpfe: erstens kuratierte Szenarien, die von Hand aus der Fachlogik abgeleitet sind (Standardrente, Paar-Haushalt, Mehrbedarfe, Vermögensfälle, Storno mit Korrektur, Kassenlauf und weitere); zweitens handgerechnete Grenzfälle mit festen Werten — etwa eine Alleinerziehende mit sechs Kindern, deren Auszahlungssumme auf dem Papier steht, bevor die Software startet; drittens ein Kombinationsgenerator, der Haushaltsformen, Merkmale (Schwangerschaft, Schwerbehinderung, Warmwasser), Einkommen, Vermögen und Abläufe solange neu würfelt, bis die gewünschte Fallzahl erreicht ist — mit einer Signatur-Menge, die garantiert, dass keine Konstellation doppelt vorkommt."],
-  ["Wo die erwarteten Werte (Sollwerte) herkommen", "Die entscheidende Frage bei automatisch erzeugten Fällen lautet: Womit vergleichen wir das Ergebnis der Software? Die Antwort hat mehrere Stufen. Für die zufällig erzeugten Fälle berechnet eine referenzimplementierte, reine Berechnungsklasse der Fachschicht den Sollbetrag mit — dieselbe Mathematik wie im Produkt, aber ohne Datenbank und ohne Oberfläche; der komplette Rechenweg wird je Fall als „Rechenblock“ dokumentiert. Dieses Vorgehen wäre für sich genommen ein Zirkelschluss (man könnte denselben Fehler doppelt haben), deshalb gibt es bewusst Gegenmaßnahmen: Die Grenz- und Goldwert-Fälle sind von Hand gerechnet, ohne dass die Software das Ergebnis je geliefert hat."],
-  ["Die Rolle des Sprachmodells (LLM): Prüfer, nicht Vorlage", "Ein großes Sprachmodell (GLM) beteiligt sich als unabhängige Nachrechen-Instanz — aber nicht, wie man meinen könnte, als Quelle der Sollwerte. Der Ablauf ist genau umgekehrt: Das LLM erhält den fertigen Prüfungsstapel — vollständig dokumentierte Fälle mit allen Eingaben (Haushalt, Einkommen, Vermögen, Wohnkosten), den zugehörigen Gesetzestexten und den Rechenblöcken der Software — und rechnet jeden Fall selbstständig nach. Stimmt sein Ergebnis mit dem dokumentierten Sollwert überein, ist der Fall bestätigt; weicht es ab, wird das als Befund gemeldet und blockiert den Nachweis. Das LLM erzeugt also keine Erwartungswerte, es überprüft sie. Ergänzend kommen seit Oktober 2026 zwei völlig unabhängige Wertequellen hinzu: echte Fälle aus Gesetz und Rechtsprechung (Kapitel 4) und der Abgleich mit einem externen Online-Rechner (Kapitel 5)."],
+  ["Wie die Testfälle entstehen", "Die Töpfe kombinieren kuratierte Abläufe, feste Grenzfälle und generierte Konstellationen. Eine Signatur-Menge verhindert Wiederholungen innerhalb des jeweiligen generierten Topfs. Wiederholte Läufe sind keine zusätzliche Zahl unterschiedlicher fachlich geprüfter Fälle."],
+  ["Wo Sollwerte herkommen", "Viele Rechenblöcke und technische Erwartungen stammen aus derselben Berechnungsklasse wie das Produkt. Sie prüfen vor allem Persistenz und Workflow. Separate Handkonstanten und externe Gegenproben begrenzen gemeinsame Rechenfehler für ausgewählte Ergebnisse. Bei ECHT und RECHNER sind feste Zahlbeträge hinterlegt; Vermögenseinsatz und Endvermögen sind teilweise weiter aus der Produktreferenz abgeleitet."],
+  ["Rolle des Sprachmodells", "GLM kann fertige Positiv- und Negativfälle mit Eingaben, Rechenwegen und Gesetzesunterlagen nachprüfen. Die Auswertung verlangt tatsächliche API-Belege, strukturierte Fallabdeckung und geprüfte Dokumenthashes. Kapitel 7 nennt den aktuellen Zustand. ECHT und RECHNER gehören nicht zu dieser GLM-Stichprobe. Ein fehlender oder veralteter GLM-Nachweis bestätigt keine Fachrechnung."],
 ];
 const T_ECHT = [
-  "Automatisch erzeugte Fälle — so viele es auch sind — haben einen gemeinsamen Ursprung: Sie stammen aus der eigenen Werkstatt. Deshalb wurde im Oktober 2026 im Internet systematisch nach echten Sozialfällen mit echten Ergebnissen gesucht. Das Ergebnis dieser Recherche ist ebenso wichtig wie die Fälle selbst: Echte Leistungsbescheide sind Sozialdaten und unterliegen dem Vertraulichkeitsschutz (§ 67 ff. SGB X) — eine öffentliche Datenbank mit echten Fällen und Auszahlungsbeträgen existiert nicht und darf nicht existieren.",
-  "Was sehr wohl existiert, sind belegbare Konstellationen und Werte aus amtlichen Quellen. Fünf davon sind als eigene Testfallkategorie „ECHT“ fest in die Testsuite eingebaut: die amtlichen Regelbedarfsstufen 2026 aus der Anlage zu § 28 SGB XII (563 € Alleinstehende, 506 € je Partner und weitere Stufen); ein Urteil des Bundessozialgerichts vom 27.05.2026 (B 8 SO 4/24 R) über eine Frau mit 44.500 € Vermögen; ein Landessozialgericht-Urteil über ein Ehepaar mit zwei Kraftfahrzeugen im Wert von 31.000 €; das Verbandsbeispiel „800 Euro auf dem Konto“ (Vermögen unterhalb der Schonvermögensgrenze bleibt geschützt) und die KdU-Richtlinie des Landkreises Altenburger Land vom 27.05.2026 mit echten ortsüblichen Miet-Richtwerten und der neuen Obergrenze für Unterkunftskosten ab 01.07.2026.",
-  "Wo eine Quelle Angaben nicht nennt (das Urteil etwa keine Miete), wird ergänzt — und diese Ergänzung ist im jeweiligen Fall dokumentiert. Besonders lehrreich sind die beiden großen Vermögensfälle: Nach heutigem Modellrecht wird verwertbares Vermögen auf den Bedarf angerechnet, sodass diese Anträge korrekt mit „KEIN_ANSPRUCH“ abgewiesen werden — und genau das prüft der Testfall, einschließlich des Nachweises, dass bei der Abweisung nichts in der Datenbank verändert wurde. Alle Quellen sind mit Abrufdatum je Fall dokumentiert (doc/belege/).",
+  "ECHT bezeichnet fünf quellenbasierte Modellkonstellationen. Bei der dokumentierten Recherche wurde kein geeigneter vollständiger öffentlicher Fallbestand gefunden. Daraus folgt weder die Nichtexistenz aller anonymisierten Fälle noch ein pauschales Veröffentlichungsverbot.",
+  "Die Fälle verwenden Regelbedarfsstufen, einen historischen BSG-Vermögenswert von 44.500 EUR, einen historischen Kfz-Gesamtwert von 31.000 EUR, ein Verbandsbeispiel mit 800 EUR sowie örtliche Unterkunftswerte. Ergänzte Rente und Wohnkosten sind Modellannahmen. Die Fälle sind keine vollständige Nachprüfung damaliger Leistungsbescheide.",
+  "Die Vermögensabwehr prüft die Produktformel und unveränderte Fachzustände. Zusätzliche heutige Privilegierungen einzelner Vermögensarten, insbesondere angemessener Kfz, werden dabei nicht vollständig abgebildet. Der KdU-Fall verwendet einen aus Einzelwerten abgeleiteten Gesamtdeckel von 590 EUR; er belegt keine vollständige komponentenweise Anwendung der kommunalen Richtlinie. Betriebs- und Heizwerte sind dort Prüfschwellen mit Einzelfallprüfung.",
 ];
 const T_RECHNER = [
-  "Die zweite unabhängige Instanz ist ein externer Online-Rechner: der SGB-XII-Grundsicherungsrechner von steuerschroeder.de (https://www.steuerschroeder.de/Steuerrechner/Grundsicherung.html, Rechtsstand 03.07.2026). Er wurde von anderen Programmierern mit einer eigenen Codebasis erstellt — wenn unsere Software bei denselben Eingaben andere Ergebnisse liefert, ist eines von beiden falsch.",
-  "Am 27.10.2026 wurden zwölf Konstellationen stellvertretend interaktiv durch den externen Rechner gerechnet: Alleinstehende und Paare, mit und ohne Rente, mit Erwerbseinkommen (einschließlich des gesetzlichen 30-%-Freibetrags), mit Schwerbehinderten-Merkzeichen G und mit den echten Miet-Richtwerten des Landkreises Altenburger Land. Das jeweilige Rechner-Ergebnis wurde als fester Sollwert in die Testsuite übernommen — inklusive eines Beleg-Screenshots.",
-  "Das Ergebnis des Abgleichs: Alle zwölf externen Ergebnisse stimmten auf den Cent mit unserer Software überein (Spannweite 227,00 € bis 1.427,00 € monatlicher Anspruch). Diese zwölf Fälle laufen seither bei jedem Prüflauf als eigene Kategorie „RECHNER“ mit — jeder Wert ist zusätzlich in einem JUnit-Test fest verankert: Jede künftige Änderung an der Bedarfsberechnung, die auch nur einen Cent verschiebt, färbt den Test rot.",
+  "Die Kategorie RECHNER enthält zwölf feste Zahlbetragserwartungen für eine begrenzte Schnittmenge zum SGB-XII-Rechner unter https://www.steuerschroeder.de/Steuerrechner/Grundsicherung.html. Betriebskosten sind null, Warmwasser zentral, Vermögen null; Sonderregeln wie Grundrentenfreibetrag und zusätzliche Altersvorsorge sind nicht Gegenstand des Vergleichs.",
+  "Die ursprüngliche Behauptung zwölf externer Aufrufe ist nicht für jeden Fall durch Eingabe-/Ergebnisbelege gesichert. Die Review-Gegenprobe vom 27.10.2026 bestätigt die Fälle 1, 6 und 12 mit 978,00 EUR, 268,71 EUR und 1.077,00 EUR. Diese neue Stichprobe ist von der früheren Erhebung getrennt dokumentiert.",
+  "Alle zwölf festen Erwartungen reichen von 227,00 bis 1.427,00 EUR. JUnit prüft die Berechnung gegen diese Konstanten; ein gesondert gestarteter RECHNER-Simulatorlauf prüft die SQL-Ergebnisse. Die Kategorie läuft nicht automatisch bei jedem Simulatorlauf und ist nicht Teil der GLM-Stichprobe. Änderungen werden nur erkannt, soweit sie kontrollierte Ergebnisse oder Verträge betreffen.",
 ];
 const T_PARALLEL = [
-  ["Was hier geprüft wird und warum", "Die Software ersetzt eine Transaktionssteuerung (im Großrechnerumfeld klassisch ein „TP-Monitor“). Ihre Kernpflicht: Auch wenn viele Sachbearbeiter gleichzeitig arbeiten, bleibt jede einzelne Aufgabe unteilbar — entweder vollständig ausgeführt oder gar nicht (das ACID-Prinzip, gestellt vom Oracle-Kern). Die Gefahr unter Last sind typische Mehrbenutzer-Fehler: verlorene Änderungen, doppelte Auszahlungen, erschöpfte Verbindungsvorräte, Deadlocks (zwei Prozesse blockieren gegenseitig)."],
-  ["Lasttest: viele Mitarbeiter gleichzeitig", "Der Lasttest lässt bis zu 50 simulierte Sachbearbeiter parallel dieselben Oracle-Tabellen und Zähler beschreiben: Jeder Auftrag durchläuft die schlanke Kette „Vorgang anlegen → Fall erfassen → Auszahlung anordnen“ mit zufälligen Beträgen. Geprüft wird je Auftrag der Datenbank-Endzustand: Die angelegte Zahlung muss exakt den vorab berechneten Betrag tragen, das Budget muss passend gemindert sein. Der Bericht dazu ist bewusst schlank (Aggregate statt Einzelseiten); er weist ausdrücklich darauf hin, dass hier Funktionsfähigkeit unter Wiederholung, keine Kapazitätszusage geprüft wird."],
-  ["Stresstest: zwei Wellen über dieselben Fälle", "Der Stresstest verdoppelt die Anforderung: Eine erste Welle legt je „User“ einen Vorgang mit Fall an; eine zweite Welle bearbeitet danach genau dieselben Vorgänge nach — findet sie über das Aktenzeichen wieder, erhöht die Miete und ordnet dann die Auszahlung an. Zwischen beiden Wellen sorgt eine Phasenbarriere dafür, dass Welle 2 erst startet, wenn Welle 1 vollständig abgeschlossen ist — sonst würde der Test sich selbst stören und eine Konkurrenz vortäuschen, die es nicht gab. Das optimistische Sperren muss dabei sauber greifen: Die Fallversion muss exakt von 1 auf 2 gehen, die Zahlung muss den Betrag nach der Korrektur tragen. Geprüft wird je User per SQL auf der Datenbank."],
-  ["Ergebnis", "Die parallelen Läufe bestätigen die Transaktionssteuerung: korrekte Endzustände unter Gleichzeitigkeit, keine negativen Budgets, keine doppelten Zahlungen. Sperrkonflikte, die Oracle gelegentlich meldet (ORA-00060 Deadlock), werden von der Software erkannt und sicher wiederholt — auch das ist mit einem echten, absichtlich erzeugten Deadlock getestet. Die konkreten Zahlen des jüngsten Laufs stehen in Kapitel 7."],
+  ["Was geprüft werden soll", "Parallele Abläufe können verlorene Änderungen, doppelte Zahlungen, Sperrkonflikte oder Poolengpässe offenlegen. Oracle stellt die transaktionalen Datenbankmechanismen bereit. Ein unklarer Commit-Ausgang erfordert Statusklärung; eine Zeitüberschreitung beweist keinen bereits erfolgten Rollback."],
+  ["Lasttest", "Viele Mitarbeiter wiederholen eine schlanke Fachkette. SQL vergleicht Betrag und Budget mit den Szenarioerwartungen. Der aggregierte Bericht beschreibt diesen Lauf; daraus folgt keine allgemeine Kapazitätsgrenze."],
+  ["Stresstest", "Zwei Wellen bearbeiten dieselben Vorgänge mit einer Phasenbarriere dazwischen. Die zweite Welle findet die Daten wieder, ändert Miete und ordnet die Zahlung an. SQL kontrolliert Endzustand und Versionen."],
+  ["Deadlock und aktueller Nachweis", "Ein eigener Oracle-Test erzeugt gekreuzte Sperren und prüft die Wiederholung. Seine Existenz belegt keine aktuelle Ausführung: Er benötigt eine konfigurierte Datenbank. Ob die benötigten aktuellen JUnit- und Simulatorbelege vorliegen, entscheidet die folgende Übersicht."],
 ];
 
 // ------------------------------------------------------------------
 // Dokumentbau
 // ------------------------------------------------------------------
-function titelseite(datum, reportId, version) {
-  const bild = path.join(__dirname, "..", "..", "testsweet", "src", "main", "resources", "sweet", "assets", "titelbild.jpg");
+function titelseite(repo, datum, reportId, version) {
+  const bild = path.join(repo, "testsweet", "src", "main", "resources", "sweet", "assets", "titelbild.jpg");
   const kinder = [];
   if (fs.existsSync(bild)) {
     kinder.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 300 },
@@ -153,7 +153,7 @@ function inhaltsverzeichnis(seiten) {
   KAPITEL.forEach((titel, i) => {
     kinder.push(new Paragraph({ spacing: { after: 90 }, tabStops: [{ type: "right", position: 9026, leader: "dot" }],
       children: [
-        text(titel + "\t", { size: 22, bold: i === 0 || titel === "Testzertifikat" }),
+        text(titel + "\t", { size: 22, bold: i === 0 || titel === KAPITEL[9] }),
         text(seiten ? String(seiten[i]) : "—", { size: 22 }),
       ] }));
   });
@@ -189,65 +189,44 @@ function kapitelParallel() {
   return [h1(KAPITEL[6]), ...T_PARALLEL.map(([frage, antwort]) => [h2(frage), absatz(antwort)]).flat()];
 }
 
-function ergebnisTabelle(repo) {
-  const letzte = runs.letzteLaeufe(repo);
-  const namen = { "Fachschicht|POSITIV": "Fachschicht: Positivfälle", "Fachschicht|NEGATIV": "Fachschicht: Negativfälle",
-    "Fachschicht|ECHT": "Fachschicht: Echte Fälle", "Fachschicht|RECHNER": "Fachschicht: Rechner-Fälle",
-    "Fachschicht|LAST": "Fachschicht: Lasttest (parallel)", "Fachschicht|STRESS": "Fachschicht: Stresstest (2 Wellen)",
-    "WEB|POSITIV": "Weboberfläche: Positivfälle", "WEB|NEGATIV": "Weboberfläche: Negativfälle", "WEB|LAST": "Weboberfläche: Lasttest" };
-  const zeilen = letzte.map(({ key, lauf }) => {
-    const ergebnis = lauf.erfolgreich ? "BESTANDEN"
-      : lauf.verifiziert === 0 ? "ABGEBROCHEN" : "FEHLGESCHLAGEN";
-    return [namen[key] || key, runs.deutschDatum(lauf.datum), String(lauf.gesamt),
-      String(lauf.verifiziert), ergebnis];
+function stateLabel(state) {
+  return ({PASS:"BESTANDEN",FAIL:"FEHLGESCHLAGEN",ABORTED:"ABGEBROCHEN",RUNNING:"LÄUFT",UNVERIFIED:"UNVOLLSTÄNDIG"})[state] || "UNVOLLSTÄNDIG";
+}
+function ergebnisTabelle(repo, stand = runs.reportStand(repo)) {
+  const rows = stand.layers.map(layer=>{
+    const item=layer.evidence, isJunit=layer.id.startsWith("JUnit:"), isGlm=layer.id.startsWith("GLM:");
+    const total=isJunit?item?.tests:isGlm?item?.cases?.length:item?.gesamt;
+    const verified=isJunit?item?.passed:isGlm?item?.valid?item.cases.length:0:item?.verifiziert;
+    const date=isJunit?item?.marker?.startedAt:isGlm?item?.datum:item?.startedAt;
+    return [layer.id.replace("|",": "),runs.deutschDatum(date),Number.isInteger(total)?String(total):"—",Number.isInteger(verified)?String(verified):"—",stateLabel(layer.state)];
   });
-  const junit = runs.junitStand(repo);
-  const junitZeilen = Object.entries(junit).map(([modul, stand]) => stand
-    ? ["Unit-/Regressionstests: " + modul, stand.datum, String(stand.tests),
-       String(stand.tests - stand.fehler - stand.skipped), stand.fehler ? "FEHLGESCHLAGEN" : "BESTANDEN"]
-    : ["Unit-/Regressionstests: " + modul, "—", "—", "—", "siehe Testzertifikat"]);
-  return [h1(KAPITEL[7]), absatz("Die folgende Übersicht zeigt je Prüfebene den jeweils jüngsten Lauf. „Verifiziert“ ist die Zahl der Fälle, deren Datenbank-Endzustand vollständig geprüft wurde. Als „ABGEBROCHEN“ gilt ein Lauf, der vor der Verifikation abgestorben ist (z. B. ein eingefrorenes Browserfenster) — er ist kein fachliches Scheitern, sondern ein nicht zustande gekommener Nachweis. Prüfebenen ohne Eintrag sind zum Stand dieses Reports noch nicht gelaufen."),
-    tabelle(["Prüfebene", "Datum", "Fälle", "davon verifiziert", "Ergebnis"], [...zeilen, ...junitZeilen]),
-    hinweis("Der beleggebundene, formale Nachweis mit Build-Bindung und Hashprüfung je Lauf ist das separate Zertifikatsdokument (doc/testzertifikat-werkzeug).")];
+  return [h1(KAPITEL[7]),
+    absatz("Der erklärte Umfang steht vollständig in der Tabelle, auch wenn ein Nachweis fehlt. Bekannte Fach-/SQL-/Testfehler heißen FEHLGESCHLAGEN. Abbruch, laufende Prüfung, fehlende Buildbindung und fehlende Evidenz sind eigenständige unvollständige Zustände."),
+    tabelle(["Prüfebene", "Datum", "Fälle", "verifiziert", "Ergebnis"],rows),
+    ...stand.layers.filter(layer=>layer.state!=="PASS").map(layer=>hinweis(layer.id+": "+[...new Set(layer.reasons)].join("; "))),
+    hinweis("GLM prüft eine Positiv-/Negativstichprobe; ECHT/RECHNER haben eigene SQL-Läufe. Dieser Managementreport ersetzt nicht das gesonderte formale Zertifikatsdokument.")];
+}
+function kapitelFazit(repo, stand = runs.reportStand(repo)) {
+  const good=stand.layers.filter(x=>x.state==="PASS").length;
+  return [h1(KAPITEL[8]),absatz("Gesamtbewertung: "+stand.verdict+". Von "+stand.layers.length+" erklärten Prüfebenen sind "+good+" aktuell vollständig belegt."),
+    absatz(stand.verdict==="BESTANDEN" ? "Alle in Kapitel 7 erklärten Ebenen erfüllen die dort geprüften Nachweisanforderungen. Die Aussage gilt für die dokumentierten Szenarien und Modellgrenzen." : "Eine vollständige positive Bestätigung ist mit diesem Nachweisstand nicht möglich. Die nicht bestandenen oder unvollständigen Ebenen und ihre Gründe stehen in Kapitel 7."),
+    absatz("Vor einer Freigabe sind bekannte Fehler zu klären und fehlende aktuelle Prüfungen nachzuholen. Eine erfolgreiche Wiederholung ersetzt ältere Ergebnisse nur bei eindeutig späterer Laufzeit und gültigen Belegen.")];
+}
+function zertifikatsSeite(datum, reportId, repo, stand = runs.reportStand(repo)) {
+  const color=stand.verdict==="BESTANDEN"?P.pass:stand.verdict==="NICHT BESTANDEN"?P.fail:P.warn;
+  return [h1(KAPITEL[9]),absatz("Diese Seite fasst den erklärten Prüfumfang aus Kapitel 7 zum Erstellungsdatum "+datum+" zusammen. Sie bestätigt keine zusätzliche Prüfung und keine über die dort ausgewiesenen Belege hinausgehende Fachabdeckung."),
+    new Paragraph({spacing:{before:200,after:200},children:[text("Gesamtbewertung: "+stand.verdict,{size:28,bold:true,color})]}),
+    absatz("Report-Kennung "+reportId+". Nur vollständig aktuelle PASS-Ebenen tragen eine positive Gesamtbewertung; bekannte Fehler haben Vorrang vor Unvollständigkeit. Die Eingaben und PDF-Bytes sind beim Abruf erneut zu prüfen."),
+    hinweis("Der formale, beleggebundene Zertifikatsnachweis ist ausschließlich das separate Dokument SDN-Leistung-LMG-Testzertifikat. Die Kategorien ECHT/RECHNER belegen quellenbasierte Modellfälle und feste Ergebnissperren; sie ersetzen keine vollständige Prüfung realer Bescheide.")];
 }
 
-function kapitelFazit(repo) {
-  const letzte = runs.letzteLaeufe(repo);
-  const alle = letzte.length, gut = letzte.filter(l => l.lauf.erfolgreich).length;
-  const satz = alle === 0 ? "Zum Stand dieses Reports liegen keine Prüfläufe vor."
-    : gut === alle ? "Alle " + alle + " ausgewerteten Prüfläufe sind vollständig bestanden."
-      : gut + " von " + alle + " ausgewerteten Prüfläufen sind bestanden; Details stehen in Kapitel 7.";
-  return [h1(KAPITEL[8]), absatz(satz),
-    absatz("Über alle Ebenen hinweg ergibt sich ein konsistentes Bild: Die Fachberechnung liefert in handgerechneten Goldwerten, unabhängig nachgerechneten KI-Prüfungen, echten externen Quellen und dem Abgleich mit einem fremden Online-Rechner dieselben Beträge. Die Abwehr unzulässiger Operationen ist sauber (keine halben Buchungen), die Transaktionssteuerung hält der parallelen Belastung stand, und die Weboberfläche bedient nachweislich dieselbe Fachlogik wie der direkte Fachweg."),
-    absatz("Empfehlung: Die Prüfpyramide in dieser Zusammensetzung beibehalten und bei jeder fachlichen Änderung erneut vollständig durchlaufen lassen; dieser Report wird dabei jedes Mal neu erzeugt und ersetzt keine Archivierung der Einzelnachweise.")];
-}
-
-function zertifikatsSeite(datum, reportId, repo) {
-  const letzte = runs.letzteLaeufe(repo);
-  const gut = letzte.filter(l => l.lauf.erfolgreich).length;
-  const urteil = letzte.length && gut === letzte.length ? "BESTANDEN" : "UNVOLLSTÄNDIG — siehe Kapitel 7";
-  const farbe = urteil === "BESTANDEN" ? P.pass : P.warn;
-  return [h1(KAPITEL[9]),
-    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 240, after: 300 },
-      children: [text("SDN.Leistung — Leistungsmanagement Grundsicherung (LMG)", { size: 24, color: P.secondary })] }),
-    absatz("Hiermit wird bestätigt, dass die Software SDN.Leistung (Leistungsmanagement Grundsicherung, Version 0.5.8) zum Stand " + datum + " auf den in diesem Report beschriebenen Ebenen geprüft wurde: automatisierte Unit-Tests und Regressionstests, Fachschicht- und Weboberflächen-Prüfung mit gesteuertem Browser, synthetische Testfälle mit unabhängig nachgerechneten Sollwerten, echte Fälle aus Gesetz, Rechtsprechung und kommunaler Richtlinie, Abgleich mit einem externen Online-Rechner sowie Belastung der Transaktionssteuerung mit parallelen Prozessen."),
-    new Paragraph({ spacing: { before: 200, after: 200 }, shading: { type: ShadingType.CLEAR, fill: "E6F4EA" },
-      padding: { top: 160, bottom: 160, left: 200, right: 200 },
-      children: [text("Gesamturteil zum Stand dieses Reports: " + urteil, { size: 28, bold: true, color: farbe })] }),
-    absatz("Von " + letzte.length + " ausgewerteten Prüfläufen waren " + gut + " vollständig bestanden. Dieser Report und dieses Zertifikat beziehen sich auf den genannten Erstellungsstand und werden bei jeder Erneuerung vollständig neu gebildet (Report-Kennung " + reportId + "). Der formale, beleggebundene Zertifikatsnachweis mit Build-Bindung ist das separate Dokument „SDN-Leistung-LMG-Testzertifikat“."),
-    new Paragraph({ spacing: { before: 500, after: 60 },
-      children: [text("Ort, Datum: ____________________________   ,   " + datum)] }),
-    new Paragraph({ spacing: { before: 200 },
-      children: [text("Unterschrift (Qualitätssicherung): ___________________________________") ] })];
-}
-
-function baueDokument(repo, datum, reportId, seiten) {
+function baueDokument(repo, datum, reportId, seiten, stand = runs.reportStand(repo)) {
   const kinder = [
-    ...titelseite(datum, reportId, "0.5.8"),
+    ...titelseite(repo, datum, reportId, "0.5.8"),
     ...inhaltsverzeichnis(seiten),
     ...kapitelEinleitung(datum), ...kapitelUnit(), ...kapitelWege(), ...kapitelSollwerte(),
     ...kapitelEcht(), ...kapitelRechner(), ...kapitelParallel(),
-    ...ergebnisTabelle(repo), ...kapitelFazit(repo), ...zertifikatsSeite(datum, reportId, repo)];
+    ...ergebnisTabelle(repo, stand), ...kapitelFazit(repo, stand), ...zertifikatsSeite(datum, reportId, repo, stand)];
   return new Document({ creator: "testsweet Testreport-Werkzeug", title: "SDN.Leistung Testreport",
     styles: { default: { document: { run: { font: FONT, size: 21 } } } },
     sections: [{ properties: {},
@@ -261,75 +240,119 @@ function soffice() {
   return fs.existsSync("C:/Program Files/LibreOffice/program/soffice.com")
     ? "C:/Program Files/LibreOffice/program/soffice.com" : "soffice";
 }
+function cleanTemporary(directory, prefix) {
+  const resolved=path.resolve(directory),base=path.resolve(os.tmpdir())+path.sep;
+  if (!resolved.startsWith(base) || !path.basename(resolved).startsWith(prefix)) throw Error("Ungültiges temporäres Cleanupziel");
+  fs.rmSync(resolved,{recursive:true,force:true});
+}
 function nachPdf(docxPfad, ausgabeOrdner) {
-  const profil = fs.mkdtempSync(path.join(os.tmpdir(), "report-office-"));
-  const ergebnis = spawnSync(soffice(), ["-env:UserInstallation=" + pathToFileURL(profil).href,
-    "--headless", "--convert-to", "pdf", "--outdir", ausgabeOrdner, docxPfad],
-    { encoding: "utf8", timeout: 120000 });
-  fs.rmSync(profil, { recursive: true, force: true });
-  if (ergebnis.status !== 0) throw Error("soffice fehlgeschlagen: " + (ergebnis.stderr || ergebnis.stdout));
-  const pdf = docxPfad.replace(/\.docx$/, ".pdf");
-  if (!fs.existsSync(pdf) || fs.readFileSync(pdf).subarray(0, 5).toString("ascii") !== "%PDF-") throw Error("PDF fehlt");
-  return pdf;
-}
-/** Kapitel-Anker: pdftotext liefert CP1252-Umlautverstümmelung, deshalb
- *  wird zeilenverankert nach umlautfreien Präfixen der Überschriften gesucht. */
-const SUCHER = [/^Einleitung/m, /^1\s+Testarten/m, /^2\s+Zwei/m, /^3\s+Herkunft/m,
-  /^4\s+Echte/m, /^5\s+Unabh/m, /^6\s+Transaktionssteuerung/m, /^7\s+Ergebnis/m,
-  /^8\s+Fazit/m, /^Testzertifikat/m];
-
-function seitenErmitteln(pdf) {
-  const ergebnis = spawnSync("pdftotext", ["-layout", pdf, "-"], { encoding: "utf8", timeout: 60000 });
-  if (ergebnis.status !== 0) throw Error("pdftotext fehlgeschlagen: " + (ergebnis.stderr || ""));
-  const seiten = ergebnis.stdout.split("\f");
-  return SUCHER.map(sucher => {
-    for (let i = 2; i < seiten.length; i++) {           // Seite 1 Titel, Seite 2 Inhaltsverzeichnis
-      if (sucher.test(seiten[i])) return i + 1;
-    }
-    return null;
-  });
-}
-function hash(datei) { return crypto.createHash("sha256").update(fs.readFileSync(datei)).digest("hex"); }
-
-async function veroeffentliche(repo) {
-  const datum = new Date().toLocaleDateString("de-DE", { year: "numeric", month: "2-digit", day: "2-digit" });
-  const reportId = crypto.randomUUID().slice(0, 8).toUpperCase();
-  const staging = fs.mkdtempSync(path.join(os.tmpdir(), "testreport-"));
+  const profil=fs.mkdtempSync(path.join(os.tmpdir(),"report-office-"));
   try {
-    // Durchlauf 1: TOC ohne Seitenzahlen → Seiten ermitteln
-    let docx1 = path.join(staging, "pass1.docx");
-    await Packer.toBuffer(baueDokument(repo, datum, reportId, null)).then(b => fs.writeFileSync(docx1, b));
-    const seiten = seitenErmitteln(nachPdf(docx1, staging));
-    // Durchlauf 2: TOC mit echten Seitenzahlen → fertiges PDF
-    let docx2 = path.join(staging, "SDN-Leistung-LMG-Testreport.docx");
-    await Packer.toBuffer(baueDokument(repo, datum, reportId, seiten)).then(b => fs.writeFileSync(docx2, b));
-    const pdf = nachPdf(docx2, staging);
-    const zielDocx = path.join(repo, "doc", "SDN-Leistung-LMG-Testreport.docx");
-    const zielPdf = path.join(repo, "doc", "SDN-Leistung-LMG-Testreport.pdf");
-    fs.copyFileSync(docx2, zielDocx); fs.copyFileSync(pdf, zielPdf);
-    const stand = { reportId, erzeugtAm: new Date().toISOString(),
-      docxSha256: hash(docx2), pdfSha256: hash(pdf) };
-    fs.writeFileSync(path.join(__dirname, "stand-report.json"), JSON.stringify(stand, null, 2));
-    const letzte = runs.letzteLaeufe(repo);
-    const gut = letzte.filter(l => l.lauf.erfolgreich).length;
-    process.stdout.write(JSON.stringify({ state: "READY", reportId, pdf: zielPdf,
-      laeufe: letzte.length, davonErfolgreich: gut, seiten: seiten.length ? seiten[seiten.length - 1] : null }) + "\n");
-  } finally { fs.rmSync(staging, { recursive: true, force: true }); }
+    const result=spawnSync(soffice(),["-env:UserInstallation="+pathToFileURL(profil).href,"--headless","--convert-to","pdf","--outdir",ausgabeOrdner,docxPfad],{encoding:"utf8",timeout:120000});
+    if (result.error || result.status!==0) throw Error("soffice fehlgeschlagen: "+(result.error?.message || result.stderr || result.stdout));
+    const pdf=path.join(ausgabeOrdner,path.basename(docxPfad,".docx")+".pdf");
+    if (!fs.existsSync(pdf) || fs.readFileSync(pdf).subarray(0,5).toString("ascii")!=="%PDF-") throw Error("PDF fehlt");
+    return pdf;
+  } finally { cleanTemporary(profil,"report-office-"); }
 }
-
+// Nur Kapitelüberschriften nach Titel/Verzeichnis; erlaubte Einrückung durch Satz.
+const SUCHER=[/^[ \t]*Einleitung\b/m,/^[ \t]*1\s+Testarten\b/m,/^[ \t]*2\s+Zwei\b/m,/^[ \t]*3\s+Herkunft\b/m,
+  /^[ \t]*4\s+Echte\b/m,/^[ \t]*5\s+Unabh/m,/^[ \t]*6\s+Transaktionssteuerung\b/m,/^[ \t]*7\s+Ergebnis/m,/^[ \t]*8\s+Fazit\b/m,/^[ \t]*Gesamtbewertung des Pr/m];
+function chapterPages(raw) {
+  const pages=raw.split("\f");
+  const selected=SUCHER.map((anchor,index)=>{
+    const hits=[];
+    for(let page=2;page<pages.length;page++) if(anchor.test(pages[page]))hits.push(page+1);
+    if(hits.length!==1)throw Error("Kapitelanker fehlt oder ist mehrdeutig: "+KAPITEL[index]);
+    return hits[0];
+  });
+  if(selected.some((page,index)=>!Number.isInteger(page) || page<3 || index>0 && page<=selected[index-1])) throw Error("Kapitelreihenfolge/Seitenzahlen ungültig");
+  return selected;
+}
+function seitenErmitteln(pdf) {
+  const result=spawnSync("pdftotext",["-layout",pdf,"-"],{encoding:"utf8",timeout:60000});
+  if(result.error || result.status!==0)throw Error("pdftotext fehlgeschlagen: "+(result.error?.message || result.stderr || ""));
+  return chapterPages(result.stdout);
+}
+function hash(file){return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");}
+function assertInputs(repo,fingerprint){if(runs.inputFingerprint(repo)!==fingerprint)throw Error("Prüfeingaben wurden während des Exports verändert — neu erstellen");}
+function reportPaths(repo){
+  return {manifest:path.join(repo,"doc/testreport-werkzeug/stand-report.json"),pdf:path.join(repo,"doc/SDN-Leistung-LMG-Testreport.pdf"),docx:path.join(repo,"doc/SDN-Leistung-LMG-Testreport.docx")};
+}
+function atomicCopy(source,target,id){
+  const temporary=target+"."+id+".tmp";
+  try{fs.copyFileSync(source,temporary);fs.renameSync(temporary,target);}finally{if(fs.existsSync(temporary))fs.unlinkSync(temporary);}
+}
+function acquirePublishLock(file) {
+  const token=crypto.randomUUID();
+  const openOwned=()=>{
+    const descriptor=fs.openSync(file,"wx");
+    try{fs.writeFileSync(descriptor,JSON.stringify({pid:process.pid,token}));return {descriptor,token};}
+    catch(error){fs.closeSync(descriptor);fs.unlinkSync(file);throw error;}
+  };
+  try { return openOwned(); }
+  catch (error) {
+    if(error.code!=="EEXIST")throw error;
+    // Nur ein Prozess darf eine verwaiste Sperre prüfen und entfernen. Ohne
+    // dieses Gate könnten zwei Wiederanläufe die neue Sperre des anderen löschen.
+    const recovery=file+".recovery";
+    let gate;try{gate=fs.openSync(recovery,"wx");}catch(_){throw Error("Report-Exportsperre wird gerade geprüft; bei dauerhaftem Fehler manuell prüfen: "+recovery);}
+    try{
+      if(!fs.existsSync(file))return openOwned();
+      let previous;try{previous=JSON.parse(fs.readFileSync(file,"utf8"));}catch(_){throw Error("Unlesbare Report-Exportsperre; manuell prüfen: "+file);}
+      if(!Number.isInteger(previous.pid) || previous.pid<=0 || typeof previous.token!=="string")throw Error("Ungültige Report-Exportsperre; manuell prüfen: "+file);
+      try{process.kill(previous.pid,0);throw Error("Ein Reportexport läuft bereits (PID "+previous.pid+")");}
+      catch(probe){if(probe.code!=="ESRCH")throw probe;}
+      fs.unlinkSync(file);return openOwned();
+    }finally{fs.closeSync(gate);fs.unlinkSync(recovery);}
+  }
+}
+function releasePublishLock(file,owned) {
+  fs.closeSync(owned.descriptor);
+  if(fs.existsSync(file) && JSON.parse(fs.readFileSync(file,"utf8")).token===owned.token)fs.unlinkSync(file);
+}
+async function veroeffentliche(repo) {
+  const paths=reportPaths(repo),lock=path.join(repo,"doc/testreport-werkzeug/publish.lock");
+  const owned=acquirePublishLock(lock);
+  let staging;
+  try{
+    const inventory=runs.inputInventory(repo),fingerprint=crypto.createHash("sha256").update(JSON.stringify(inventory)).digest("hex"),stand=runs.reportStand(repo);
+    assertInputs(repo,fingerprint);
+    const datum=new Date().toLocaleDateString("de-DE",{timeZone:"Europe/Berlin",year:"numeric",month:"2-digit",day:"2-digit"}),reportId=crypto.randomUUID().slice(0,8).toUpperCase();
+    staging=fs.mkdtempSync(path.join(os.tmpdir(),"testreport-"));
+    const first=path.join(staging,"pass1.docx");
+    fs.writeFileSync(first,await Packer.toBuffer(baueDokument(repo,datum,reportId,null,stand)));
+    const pages=seitenErmitteln(nachPdf(first,staging));
+    const second=path.join(staging,"SDN-Leistung-LMG-Testreport.docx");
+    fs.writeFileSync(second,await Packer.toBuffer(baueDokument(repo,datum,reportId,pages,stand)));
+    const pdf=nachPdf(second,staging),finalPages=seitenErmitteln(pdf);
+    if(JSON.stringify(pages)!==JSON.stringify(finalPages))throw Error("Kapitelstartseiten haben sich im zweiten Durchlauf verändert — Veröffentlichung abgebrochen");
+    assertInputs(repo,fingerprint);
+    const marker={schemaVersion:2,reportId,erzeugtAm:new Date().toISOString(),verdict:stand.verdict,inputFingerprint:fingerprint,inputInventory:inventory,docxSha256:hash(second),pdfSha256:hash(pdf)};
+    atomicCopy(second,paths.docx,reportId);atomicCopy(pdf,paths.pdf,reportId);
+    assertInputs(repo,fingerprint);
+    const markerFile=paths.manifest+"."+reportId+".tmp";
+    try{fs.writeFileSync(markerFile,JSON.stringify(marker,null,2));fs.renameSync(markerFile,paths.manifest);}finally{if(fs.existsSync(markerFile))fs.unlinkSync(markerFile);}
+    const count=stand.letzte.length,good=stand.letzte.filter(x=>x.lauf.erfolgreich).length;
+    const result={state:"READY",reportId,pdf:paths.pdf,pdfSha256:marker.pdfSha256,verdict:stand.verdict,laeufe:count,davonErfolgreich:good,seiten:finalPages.at(-1)};
+    process.stdout.write(JSON.stringify(result)+"\n");return result;
+  }finally{
+    try{releasePublishLock(lock,owned);}finally{if(staging)cleanTemporary(staging,"testreport-");}
+  }
+}
 function pruefe(repo) {
-  const standDatei = path.join(__dirname, "stand-report.json");
-  const pdf = path.join(repo, "doc", "SDN-Leistung-LMG-Testreport.pdf");
-  if (!fs.existsSync(standDatei) || !fs.existsSync(pdf)) throw Error("Kein aktueller Report vorhanden");
-  const stand = JSON.parse(fs.readFileSync(standDatei, "utf8"));
-  if (hash(pdf) !== stand.pdfSha256) throw Error("Report-PDF ist nicht die zuletzt erzeugte Fassung — neu erstellen");
-  process.stdout.write(JSON.stringify({ state: "READY", reportId: stand.reportId }) + "\n");
+  const paths=reportPaths(repo);
+  if(!fs.existsSync(paths.manifest) || !fs.existsSync(paths.pdf) || !fs.existsSync(paths.docx))throw Error("Kein vollständig veröffentlichter Report vorhanden");
+  const marker=JSON.parse(fs.readFileSync(paths.manifest,"utf8"));
+  if(marker.schemaVersion!==2 || !marker.reportId || !Array.isArray(marker.inputInventory) || !marker.inputFingerprint)throw Error("Report ohne gültige Eingabebindung — neu erstellen");
+  if(hash(paths.pdf)!==marker.pdfSha256 || hash(paths.docx)!==marker.docxSha256)throw Error("Reportdateien stimmen nicht mit dem veröffentlichten Stand überein");
+  assertInputs(repo,marker.inputFingerprint);
+  return {state:"READY",reportId:marker.reportId,pdfSha256:marker.pdfSha256,verdict:marker.verdict};
 }
-
-if (require.main === module) {
-  const modus = process.argv[2], repo = path.resolve(process.argv[3] || path.join(__dirname, "..", ".."));
-  if (modus === "--publish") veroeffentliche(repo).catch(e => { console.error(e.message); process.exit(1); });
-  else if (modus === "--verify") { try { pruefe(repo); } catch (e) { console.error(e.message); process.exit(1); } }
-  else { console.error("Aufruf: node publish-report.js --publish|--verify <repo>"); process.exit(2); }
+if(require.main===module){
+  const command=process.argv[2],repo=path.resolve(process.argv[3] || path.join(__dirname,"../.."));
+  if(command==="--publish")veroeffentliche(repo).catch(error=>{console.error(error.message);process.exitCode=1;});
+  else if(command==="--verify"){try{process.stdout.write(JSON.stringify(pruefe(repo))+"\n");}catch(error){console.error(error.message);process.exitCode=1;}}
+  else{console.error("Aufruf: node publish-report.js --publish|--verify <repo>");process.exitCode=2;}
 }
-module.exports = { baueDokument };
+module.exports={baueDokument,ergebnisTabelle,kapitelFazit,zertifikatsSeite,chapterPages,seitenErmitteln,assertInputs,pruefe,veroeffentliche,stateLabel};

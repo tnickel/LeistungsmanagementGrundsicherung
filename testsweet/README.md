@@ -95,12 +95,14 @@ Protokollpfad. Identische Diagnosezeilen werden nur einmal angezeigt. Ein
 Build-/Quellstandfehler beweist allein keinen Rechenfehler oder GLM-Ausfall; er
 sperrt den Erfolgsnachweis. Neubuild und Neustart machen alte Testbelege nicht
 nachträglich gültig. Für ein vollständiges Zertifikat sind aktuelle Nachweise
-beider automatischer Testsuiten, aller sieben unterstützten Simulator-Kombinationen
-und der GLM-Stichprobe nötig.
+beider automatischer Testsuiten, der sieben festgelegten Simulator-Kombinationen
+und der POSITIV-/NEGATIV-GLM-Stichprobe nötig. ECHT und RECHNER gehören nicht
+zu diesem automatischen Gesamtumfang; ihre eigenständigen Fachläufe sind separat nachzuweisen.
 Die Oberfläche öffnet sich automatisch unter <http://127.0.0.1:8095/> (Port über `SWEET_PORT`).
 Dort kann zwischen **Modus 1 (Fachschicht)** und **Modus 2 (Weboberfläche/Selenium)** gewählt
 werden — und darüber hinaus über die Reiterleiste **Testfallkategorie** (zwischen Moduswahl und
-Laufkonfiguration) zwischen **Positivfällen**, **Negativfällen** und **Lasttest** (siehe unten).
+Laufkonfiguration) zwischen **Positivfällen**, **Negativfällen**, **ECHT**, **RECHNER**, **Lasttest**
+und **Stresstest** (siehe unten).
 
 ### Option B: Headless Batch-Lauf (Fachschicht, für CI/CD und automatisierte Abnahme)
 Ausführung direkt über CLI ohne Browser:
@@ -176,7 +178,7 @@ Regel und Vermögensverbrauch). Historische Referenzläufe vor der Nachbesserung
 500 Positiv (480 Kombinationen) und 500 Negativ (491 Kombinationen) — jeweils
 500/500 verifiziert in 4 bzw. 3 Sekunden; GUI-Preset „Breite 500“ setzt beide ein.
 
-## Testfallkategorien (Positiv / Negativ / Lasttest)
+## Testfallkategorien
 
 Zwischen Moduswahl und Laufkonfiguration wählt die GUI die **Testfallkategorie**;
 das Aktenzeichen-Präfix unterscheidet die Datenmengen in der Datenbank:
@@ -185,38 +187,57 @@ das Aktenzeichen-Präfix unterscheidet die Datenmengen in der Datenbank:
 |-----------|----------------------|-------------------------|--------|
 | **POSITIV** (Standard) | `SWEET-<Laufkennung>-` — die 10 Szenario-Arten oben | `SWEET-<Laufkennung>-W-` | `testdokumentation.pdf` / `.md` je Fall |
 | **NEGATIV** | `SWEET-<Laufkennung>-N-` | `SWEET-<Laufkennung>-NW-` | `testdokumentation.pdf` / `.md` je Fall |
-| **ECHT** | `SWEET-<Laufkennung>-E-` — 5 belegte echte Fälle | — (bewusst nur Fachschicht) | `testdokumentation.pdf` / `.md` je Fall |
-| **RECHNER** | `SWEET-<Laufkennung>-R-` — 12 extern abgeglichene Fälle | — (bewusst nur Fachschicht) | `testdokumentation.pdf` / `.md` je Fall |
+| **ECHT** | `SWEET-<Laufkennung>-E-` — 5 quellenbasierte Modellfälle | — (bewusst nur Fachschicht) | `testdokumentation.pdf` / `.md` je Fall |
+| **RECHNER** | `SWEET-<Laufkennung>-R-` — 12 feste Vergleichsfälle; externe Stichprobe 1/6/12 belegt | — (bewusst nur Fachschicht) | `testdokumentation.pdf` / `.md` je Fall |
 | **LAST** | `SWEET-<Laufkennung>-L-` | `SWEET-<Laufkennung>-LW-` | **gekürzter** `lastreport.pdf` / `lastreport.md` (nur Aggregate) |
 | **STRESS** | `SWEET-<Laufkennung>-S-` | — (bewusst nur Fachschicht) | **gekürzter** `lastreport.pdf` / `lastreport.md` |
 
 **Auftrags-Obergrenzen je Kategorie** (Feld „Aufträge", 1–Limit; GUI begrenzt das
 Eingabefeld, Simulator und CLI weisen Überschreitungen mit Klartext-Meldung ab):
 **500** Positiv- und **500** Negativ-Kombinationen (unser vereinbarter Testfallbestand),
-**5** echte Fälle, **12** Rechner-Fälle (fester belegter Bestand),
+**5** ECHT-Modellfälle, **12** Rechner-Vergleichsfälle (fester Bestand),
 **1200** Lastdurchläufe, **3000** Stress-User (je User zwei Wellen).
 
-**Echte Fälle** (ECHT, Fachschicht, 5 Aufträge): belegte Konstellationen aus
-externen Quellen statt eigener Erwartungswerte — Anlage zu § 28 SGB XII
-(amtliche Regelbedarfsstufen 2026), BSG, Urteil v. 27.05.2026, B 8 SO 4/24 R
-(44.500 EUR Vermögen), ein LSG-Urteil über zwei Kraftfahrzeuge (31.000 EUR,
-via Lebenshilfe dokumentiert), das Lebenshilfe-Beispiel „800 Euro auf dem
-Konto" (Schonvermögen) und die KdU-Richtlinie des Landkreises Altenburger Land
-v. 27.05.2026 (Richtwerte, Betriebs-/Heizkostengrenzen, Nettokaltmiete-
-Obergrenze ab 01.07.2026). Die beiden großen Vermögensfälle enden erwartbar in
-KEIN_ANSPRUCH-Abwehr (verwertbares Vermögen deckt den Bedarf; per SQL bleibt
-der Fachbestand unverändert). Quellen mit Abrufdatum je Fall:
-`doc/belege/echt-und-rechner-faelle-2026-10-27.md`.
+**Quellenbasierte Modellfälle** (Kategorie ECHT, Fachschicht, 5 Aufträge):
+Gesetz, Richtlinie und veröffentlichte Fallberichte liefern einzelne Werte oder Regeln;
+die vollständigen Eingaben werden ausdrücklich ergänzt. Das sind keine vollständig
+verifizierten öffentlichen Einzelbescheide. Die Zahlbeträge 1.542/1.023/1.153 EUR,
+Vermögenseinsatz und Endvermögen der Erfolgsfälle stehen als feste SQL-Erwartungen
+im Code. Die dokumentierten Rechenblöcke verwenden die Produktklasse; eine getrennte
+arithmetische Referenz prüft diese zusätzlich, ersetzt aber keine rechtliche Einzelfallprüfung.
 
-**Rechner-Fälle** (RECHNER, Fachschicht, 12 Aufträge): alle Konstellationen
-wurden am 27.10.2026 über den externen SGB-XII-Online-Rechner
-steuerschroeder.de (Rechtsstand 03.07.2026) gerechnet; der dort angezeigte
-Ergebnisbetrag ist als fester SQL-Erwartungswert übernommen (978,00 bis
-1.427,00 EUR; Single/Paar, Rente, Erwerbseinkommen mit 30-%-Freibetrag,
-Merkzeichen G). Betriebskosten bewusst 0,00 (der Rechner fragt sie nicht ab),
-zentrales Warmwasser, kein Vermögen. Der JUnit-Test `EchtRechnerFallTest`
-verankert alle zwölf externen Sollwerte — ändert jemand die Bedarfsberechnung,
-fällt er rot (Bruch des Erwartungswert-Zirkelschlusses).
+Die beiden großen Vermögensvarianten verwenden historische Summen von 44.500 bzw.
+31.000 EUR. Individuelle Vermögensprivilegierungen und der historische Übergangstatbestand
+sind nicht modelliert; insbesondere bildet die Kfz-Variante den heutigen Schutz nach
+§ 90 Abs. 2 Nr. 10 SGB XII nicht ab. 34.500/11.000 EUR sind deshalb Modellwerte,
+keine bestätigten heutigen Einsatzbeträge. Sie prüfen technische KEIN_ANSPRUCH-Abwehr
+mit unverändertem Fachbestand. ECHT 5 prüft einen gewählten **Gesamtdeckel von 590 EUR**;
+die kommunalen 90/110 EUR sind Nichtprüfungsgrenzen mit Einzelfallprüfung. Der
+Gesamtdeckel ist keine vollständige oder gleichwertige Umsetzung der Richtlinie.
+Eindeutige Quellenlinks und Ergänzungen: [Belegverzeichnis](../doc/belege/echt-und-rechner-faelle-2026-10-27.md).
+
+**Rechner-Vergleichsfälle** (RECHNER, Fachschicht, 12 Aufträge): feste,
+unabhängig handrechenbare Zahlbeträge **227,00 bis 1.427,00 EUR** für Single/Paar,
+Rente, Erwerbseinkommen und Merkzeichen G. Die ursprüngliche Behauptung einer
+vollständigen externen Zwölf-Fälle-Erhebung ist nicht vollständig belegt. Der alte
+als Ergebnisbeleg bezeichnete Screenshot zeigt kein Rechenergebnis. Eigene Browserbelege
+vom 27.10.2026 bestätigen die Fälle **1, 6 und 12** im
+[externen SGB-XII-Rechner](https://www.steuerschroeder.de/Steuerrechner/Grundsicherung.html)
+(Rechtsstand der Seite 03.07.2026); Eingaben und Ergebnisse sind im Belegverzeichnis verlinkt.
+Die übrigen neun sind handgerechnet, nicht durch diese neue Browserstichprobe bestätigt.
+
+Betriebskosten sind 0,00 EUR, Warmwasser zentral, Vermögen 0; kein § 82a-Freibetrag,
+keine zusätzliche Altersvorsorge nach § 82 Abs. 4 und keine Witwenrenten-Sonderregeln.
+Damit ist nur die dokumentierte Schnittmenge vergleichbar. `EchtRechnerFallTest`
+prüft sowohl Produkt-Rechenblöcke als auch die tatsächlich verwendeten SQL-Sollwerte
+gegen separate Konstanten. Er erkennt Ergebnisabweichungen dieser Fälle, nicht jede
+beliebige Änderung der Berechnung. Auch Einsatz/Endvermögen und Monatsparameter sind
+zusätzlich fest geprüft. Die arithmetische Übereinstimmung ist kein Bescheid-Ersatz.
+
+**Automatischer Nachweisumfang:** ECHT und RECHNER sind eigenständige Fachläufe und
+bewusst **nicht Teil der Zertifikatssuite oder GLM-Auswahl**. Die bestehende Suite
+umfasst sieben festgelegte Kombinationen und 1.392 Aufträge; GLM wählt POSITIV/NEGATIV.
+Ein grüner Gesamtlauf ist daher kein automatischer SQL-/GLM-Nachweis der 17 neuen Fälle.
 
 **Negativfälle** (Fachschicht, 9 Arten): NEG-KEINANSPRUCH (Rente über Bedarf,
 § 43 Abs. 1), NEG-BUDGET (Startbudget unter Zahlbetrag), NEG-DOPPELMONAT
@@ -441,7 +462,8 @@ der Start-Snapshot verhindert, dass geladene alte Klassen als neuer Build ausgeg
 
 Das Zertifikat verlangt aktuelle Belege beider JUnit-Module, die sieben Kombinationen
 Fachschicht POSITIV/NEGATIV/LAST/STRESS sowie WEB POSITIV/NEGATIV/LAST und die ausgewiesene
-GLM-Stichprobe. WEB/STRESS wird nicht angeboten. Jedes bekannte FAIL ergibt NICHT BESTANDEN;
+POSITIV-/NEGATIV-GLM-Stichprobe. ECHT/RECHNER werden dabei bewusst nicht ausgewählt;
+ihre SQL-/Fachnachweise bleiben getrennte eigenständige Läufe. WEB/STRESS wird nicht angeboten. Jedes bekannte FAIL ergibt NICHT BESTANDEN;
 fehlende oder unvollständige Nachweise ergeben UNVOLLSTÄNDIG. Manueller Text ersetzt keine
 grüne Prüfschicht. Die SHA-256-Kette belegt lokale Konsistenz von Dokumenten und
 Anfrage-/Antwortprotokollen; sie beweist keine interne Verarbeitung beim Anbieter und

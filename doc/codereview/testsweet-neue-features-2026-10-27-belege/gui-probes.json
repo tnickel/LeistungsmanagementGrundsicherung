@@ -1,0 +1,37 @@
+{
+  "lockResult": {
+    "suiteRunning": true,
+    "reportButtonDisabled": false,
+    "reportLinkDisplay": "inline-block"
+  },
+  "completionDuringSuite": {
+    "reportButtonDisabled": false,
+    "reportLinkDisplay": "inline-block"
+  },
+  "linkification": [
+    {
+      "input": "https://example.invalid/\"onmouseover=\"alert(1)",
+      "html": "<a href=\"https://example.invalid/&quot;onmouseover=&quot;alert(1)\" target=\"_blank\" rel=\"noopener\">https://example.invalid/&quot;onmouseover=&quot;alert(1)</a>"
+    },
+    {
+      "input": "https://example.invalid/'><img src=x onerror=alert(1)>",
+      "html": "<a href=\"https://example.invalid/&#39;&gt;&lt;img\" target=\"_blank\" rel=\"noopener\">https://example.invalid/&#39;&gt;&lt;img</a> src=x onerror=alert(1)&gt;"
+    },
+    {
+      "input": "https://example.invalid/&quot; onclick=alert(1)",
+      "html": "<a href=\"https://example.invalid/&amp;quot;\" target=\"_blank\" rel=\"noopener\">https://example.invalid/&amp;quot;</a> onclick=alert(1)"
+    },
+    {
+      "input": "https://example.invalid/) <script>alert(1)</script>",
+      "html": "<a href=\"https://example.invalid/)\" target=\"_blank\" rel=\"noopener\">https://example.invalid/)</a> &lt;script&gt;alert(1)&lt;/script&gt;"
+    },
+    {
+      "input": "https://example.invalid/a\n<img src=x onerror=alert(1)>",
+      "html": "<a href=\"https://example.invalid/a\" target=\"_blank\" rel=\"noopener\">https://example.invalid/a</a><br>&lt;img src=x onerror=alert(1)&gt;"
+    },
+    {
+      "input": "https://example.invalid/?x=1&y=2",
+      "html": "<a href=\"https://example.invalid/?x=1&amp;y=2\" target=\"_blank\" rel=\"noopener\">https://example.invalid/?x=1&amp;y=2</a>"
+    }
+  ]
+}

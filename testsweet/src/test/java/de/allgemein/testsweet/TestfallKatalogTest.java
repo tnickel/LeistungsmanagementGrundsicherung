@@ -6,6 +6,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
  * Der Testfall-Katalog muss für jede Kategorie und jeden Modus Einträge mit
@@ -81,5 +82,33 @@ class TestfallKatalogTest {
                 }
             }
         }
+    }
+
+    @Test
+    void neueKategorienBeschreibenNachweisumfangUndModellgrenzen() {
+        String echt = TestfallKatalog.fuer("ECHT", false).stream()
+                .map(TestfallKatalog.Eintrag::text).collect(java.util.stream.Collectors.joining("\n"));
+        String rechner = TestfallKatalog.fuer("RECHNER", false).stream()
+                .map(TestfallKatalog.Eintrag::text).collect(java.util.stream.Collectors.joining("\n"));
+        for (String text : List.of(echt, rechner)) {
+            assertTrue(text.contains("Produktberechnung"));
+            assertTrue(text.contains("Zertifikatssuite"));
+            assertTrue(text.contains("GLM"));
+        }
+        assertTrue(echt.contains("Nichtprüfungsgrenzen"));
+        assertTrue(echt.toLowerCase(java.util.Locale.ROOT).contains("keine vollständige richtlinienprüfung"));
+        assertTrue(echt.contains("Heutiger Kfz-Schutz"));
+        assertTrue(echt.contains("nicht modelliert"));
+        assertFalse(echt.contains("jede Änderung"));
+        assertFalse(echt.contains("nicht öffentlich"));
+        assertTrue(rechner.contains("nicht vollständig belegt"));
+        assertTrue(rechner.contains("1, 6 und 12"));
+        var values = new SzenarioBibliothek(42).erzeugeRechner(12, "SWEET-KATALOG-R-").stream()
+                .map(a -> a.erwartungen.stream()
+                        .filter(e -> e.sql().startsWith("SELECT AUSZAHLUNGSBETRAG ")).findFirst().orElseThrow())
+                .map(e -> new java.math.BigDecimal(e.erwartet())).sorted().toList();
+        assertEquals(new java.math.BigDecimal("227.00"), values.getFirst());
+        assertEquals(new java.math.BigDecimal("1427.00"), values.getLast());
+        assertTrue(rechner.contains("227,00 bis 1.427,00"));
     }
 }

@@ -1,0 +1,38 @@
+Quelle: https://www.steuerschroeder.de/Steuerrechner/Grundsicherung.html
+Eigene Browser-Gegenprobe: 27.10.2026; Seiten-Rechtsstand 03.07.2026
+Auszug: ausschließlich Rechnerformular bzw. Rechnerergebnis.
+
+				538 container gs-form
+					539 text Angemessene Mietkosten (kalt)
+					540 text field (settable) Angemessene Mietkosten (kalt), Value: 345,00, ID: gs-miete
+					541 text € / Monat
+					542 text Angemessene Heizkosten
+					543 text field (settable) Angemessene Heizkosten, Value: 70,00, ID: gs-heizung
+					544 text € / Monat
+					545 text Gesetzliche Rente (Zahlbetrag)
+					546 text field (settable) Gesetzliche Rente (Zahlbetrag), Value: 0,00, ID: gs-rente
+					547 text € / Monat Alters- oder Erwerbsminderungsrente nach Abzug der KV-/PV-Beiträge.
+					548 text Witwen-/Witwerrente (Zahlbetrag)
+					549 text field (settable) Witwen-/Witwerrente (Zahlbetrag), ID: gs-wrente
+					550 text € / Monat
+					551 text Zusätzliche Altersvorsorge
+					552 text field (settable) Zusätzliche Altersvorsorge, ID: gs-avorsorge
+					553 text € / Monat Riester-, Betriebs- oder Basisrente – teilweise anrechnungsfrei (§ 82 Abs. 4 SGB XII).
+					554 text Erwerbseinkommen (netto)
+					555 text field (settable) Erwerbseinkommen (netto), Value: 0,00, ID: gs-erwerb
+					556 text € / Monat 30 % bleiben anrechnungsfrei (§ 82 Abs. 3 SGB XII).
+					557 text Sonstige Einkünfte
+					558 text field (settable) Sonstige Einkünfte, ID: gs-sonstige
+					559 text € / Monat z. B. Kapitalerträge, Unterhalt – werden voll angerechnet.
+					560 checkbox (settable, integer) Value: 0, ID: gs-check1, Description: Partnerschaft im gemeinsamen Haushalt Ehe/eheähnliche Gemeinschaft – Regelbedarfsstufe 2 für zwei Personen. Bitte Einkommen beider Personen zusammen eintragen.
+					561 container
+						562 text Partnerschaft im gemeinsamen Haushalt
+						563 text Ehe/eheähnliche Gemeinschaft – Regelbedarfsstufe 2 für zwei Personen. Bitte Einkommen beider Personen zusammen eintragen.
+					564 checkbox (settable, integer) Value: 0, ID: gs-check2, Description: Merkzeichen „G“ im Schwerbehindertenausweis Mehrbedarf von 17 % (§ 30 Abs. 1 SGB XII) bei Altersrente oder voller Erwerbsminderung.
+					565 container
+						566 text Merkzeichen „G“ im Schwerbehindertenausweis
+						567 text Mehrbedarf von 17 % (§ 30 Abs. 1 SGB XII) bei Altersrente oder voller Erwerbsminderung.
+					568 checkbox (settable, integer) Value: 0, ID: gs-check3, Description: Mindestens 33 Jahre Grundrentenzeiten Rentenfreibetrag nach § 82a SGB XII (bis zu 281,50 € der gesetzlichen Rente bleiben anrechnungsfrei).
+					569 container
+						570 text Mindestens 33 Jahre Grundrentenzeiten
+						571 text Rentenfreibetrag nach § 82a SGB XII (bis zu 281,50 € der gesetzlichen Rente bleiben anrechnungsfrei).

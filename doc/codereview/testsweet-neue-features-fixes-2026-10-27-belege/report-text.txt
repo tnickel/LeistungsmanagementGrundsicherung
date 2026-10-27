@@ -1,0 +1,249 @@
+SDN.Leistung — Leistungsmanagement
+           Grundsicherung
+                        Testreport
+                             Softwareversion 0.5.8
+              Erstellt am 27.10.2026 · Report-Kennung D9F999A2
+
+
+Automatisch erzeugter Prüfbericht — bei jeder Erneuerung vollständig neu berechnet.
+
+
+
+
+                  SDN.Leistung Testreport · Report D9F999A2 · Seite 1
+Inhaltsverzeichnis
+Einleitung.........................................................................................................................................3
+1 Testarten im Projekt: Unit-Tests und Regressionstests.......................................................................4
+2 Zwei Prüfwege: Fachschicht und Weboberfläche (Selenium).............................................................5
+3 Herkunft der Testfälle und ihrer Sollwerte..........................................................................................6
+4 Echte Fälle aus dem Internet...............................................................................................................7
+5 Unabhängige Gegenrechnung mit externem Online-Rechner............................................................8
+6 Transaktionssteuerung unter parallelen Prozessen............................................................................9
+7 Ergebnisübersicht der Prüfläufe........................................................................................................10
+8 Fazit....................................................................................................................................................11
+Gesamtbewertung des Prüfumfangs...............................................................................................12
+
+
+
+
+                                             SDN.Leistung Testreport · Report D9F999A2 · Seite 2
+Einleitung
+Dieser Managementreport erläutert die Prüfverfahren der Fachsoftware SDN.Leistung —
+Leistungsmanagement Grundsicherung (LMG). Er zeigt den beim Export vorgefundenen und auf Aktualität
+geprüften Nachweisstand. Eine Methodenbeschreibung belegt allein noch keine erfolgreiche
+Durchführung.
+Der erklärte Umfang umfasst neun Simulator-Kombinationen: Fachschicht mit POSITIV, NEGATIV, ECHT,
+RECHNER, LAST und STRESS sowie Weboberfläche mit POSITIV, NEGATIV und LAST. Hinzu kommen die
+laufgebundenen JUnit-Prüfungen beider Module und die GLM-Stichprobe aus Positiv- und Negativfällen.
+Fehlende Ebenen bleiben ausdrücklich unvollständig.
+Die Software unterstützt Berechnung und Auszahlung von Grundsicherungsleistungen nach SGB XII mit
+Java und Oracle. Die folgenden Kapitel beschreiben, welche Kontrollen vorgesehen sind. Kapitel 7 und die
+Gesamtbewertung entscheiden anhand tatsächlicher Belege, welche davon für den aktuellen Stand
+nachgewiesen sind.
+Der Report ist eine datierte Momentaufnahme. Sein Abruf prüft PDF-Integrität und den unveränderten
+Eingabebestand. Der gesonderte formale Zertifikatsnachweis bleibt das Dokument SDN-Leistung-LMG-
+Testzertifikat.
+Stand dieses Reports: 27.10.2026. Alle Kapitel 7-Tabellen werden je Erneuerung aus den aktuellen Prüfläufen
+neu gebildet.
+
+
+
+
+                               SDN.Leistung Testreport · Report D9F999A2 · Seite 3
+1 Testarten im Projekt: Unit-Tests und Regressionstests
+Was sind Unit-Tests?
+Ein Unit-Test vergleicht einen Softwarebaustein mit festgelegten Erwartungen, etwa gültige und ungültige
+IBANs oder handgerechnete Beträge. Maven führt diese Prüfungen aus. Ein übersprungener, noch
+laufender oder veralteter Test ist kein bestandener aktueller Nachweis.
+
+Was sind Regressionstests?
+Regressionstests wiederholen festgelegte Abläufe, damit frühere Fehler nicht erneut auftreten. Zu den
+Verfahren gehören zehn dokumentierte Nutzer-Szenarien mit SQL-Prüfung persistierter Endzustände.
+Separate Goldwerttests vergleichen ausgewählte Rechnungen mit handgerechneten Konstanten; sie
+machen nicht jeden generierten Sollwert unabhängig.
+
+Wie ihr Stand bewertet wird
+Die Ergebnistabelle verwendet laufgebundene XML-Belege, Klassen- und Methodeninventar sowie
+Quellen- und Buildbindung. Alte lose XML-Dateien werden nicht als ein neuer Gesamtlauf addiert. Fehler
+erhalten Vorrang vor fehlender Vollständigkeit; übersprungene Pflichtprüfungen verhindern BESTANDEN.
+
+
+
+
+                             SDN.Leistung Testreport · Report D9F999A2 · Seite 4
+2 Zwei Prüfwege: Fachschicht und Weboberfläche (Selenium)
+Prüfweg Fachschicht
+Simulierte Sachbearbeiter rufen die Fachservices direkt auf und prüfen anschließend Datenbank-
+Endzustände. Kategorie, Anzahl und Grad der Parallelität werden für jeden Lauf festgelegt. Laufzeiten
+und Durchsatz sind Messwerte dieses Laufs und keine allgemeine Kapazitätszusage.
+
+Prüfweg Weboberfläche
+Selenium bedient die tatsächliche Weboberfläche im Chrome-Browser. Dazu gehören Anmeldung,
+Formulare, Auszahlungs- und Freigabeschritte mit getrennten Kennungen. SQL prüft die Ergebnisse.
+Screenshots ergänzen die Ablaufbelege; sie ersetzen keine eigenständige Prüfung der Bedienbarkeit.
+
+Aussage beider Wege
+Beide Wege prüfen unterschiedliche Zugänge zur Fachlogik. Ob die vorgesehenen Abläufe auf beiden
+Wegen aktuell erfolgreich waren, zeigt erst Kapitel 7. ECHT, RECHNER und STRESS sind ausschließlich für
+die Fachschicht vorgesehen.
+
+
+
+
+                             SDN.Leistung Testreport · Report D9F999A2 · Seite 5
+3 Herkunft der Testfälle und ihrer Sollwerte
+Wie die Testfälle entstehen
+Die Töpfe kombinieren kuratierte Abläufe, feste Grenzfälle und generierte Konstellationen. Eine Signatur-
+Menge verhindert Wiederholungen innerhalb des jeweiligen generierten Topfs. Wiederholte Läufe sind
+keine zusätzliche Zahl unterschiedlicher fachlich geprüfter Fälle.
+
+Wo Sollwerte herkommen
+Viele Rechenblöcke und technische Erwartungen stammen aus derselben Berechnungsklasse wie das
+Produkt. Sie prüfen vor allem Persistenz und Workflow. Separate Handkonstanten und externe
+Gegenproben begrenzen gemeinsame Rechenfehler für ausgewählte Ergebnisse. Bei ECHT und RECHNER
+sind feste Zahlbeträge hinterlegt; Vermögenseinsatz und Endvermögen sind teilweise weiter aus der
+Produktreferenz abgeleitet.
+
+Rolle des Sprachmodells
+GLM kann fertige Positiv- und Negativfälle mit Eingaben, Rechenwegen und Gesetzesunterlagen
+nachprüfen. Die Auswertung verlangt tatsächliche API-Belege, strukturierte Fallabdeckung und geprüfte
+Dokumenthashes. Kapitel 7 nennt den aktuellen Zustand. ECHT und RECHNER gehören nicht zu dieser GLM-
+Stichprobe. Ein fehlender oder veralteter GLM-Nachweis bestätigt keine Fachrechnung.
+Kurzantwort auf die häufige Frage „Hat ein KI-Modell die Sollwerte geliefert?“ — Nein. Die Software rechnet,
+das Sprachmodell rechnet zur Kontrolle ein zweites Mal nach; Abweichungen werden als Befund gemeldet.
+
+
+
+
+                               SDN.Leistung Testreport · Report D9F999A2 · Seite 6
+4 Echte Fälle aus dem Internet
+ECHT bezeichnet fünf quellenbasierte Modellkonstellationen. Bei der dokumentierten Recherche wurde
+kein geeigneter vollständiger öffentlicher Fallbestand gefunden. Daraus folgt weder die Nichtexistenz aller
+anonymisierten Fälle noch ein pauschales Veröffentlichungsverbot.
+Die Fälle verwenden Regelbedarfsstufen, einen historischen BSG-Vermögenswert von 44.500 EUR, einen
+historischen Kfz-Gesamtwert von 31.000 EUR, ein Verbandsbeispiel mit 800 EUR sowie örtliche
+Unterkunftswerte. Ergänzte Rente und Wohnkosten sind Modellannahmen. Die Fälle sind keine
+vollständige Nachprüfung damaliger Leistungsbescheide.
+Die Vermögensabwehr prüft die Produktformel und unveränderte Fachzustände. Zusätzliche heutige
+Privilegierungen einzelner Vermögensarten, insbesondere angemessener Kfz, werden dabei nicht
+vollständig abgebildet. Der KdU-Fall verwendet einen aus Einzelwerten abgeleiteten Gesamtdeckel von 590
+EUR; er belegt keine vollständige komponentenweise Anwendung der kommunalen Richtlinie. Betriebs-
+und Heizwerte sind dort Prüfschwellen mit Einzelfallprüfung.
+
+
+
+
+                              SDN.Leistung Testreport · Report D9F999A2 · Seite 7
+5 Unabhängige Gegenrechnung mit externem Online-Rechner
+Die Kategorie RECHNER enthält zwölf feste Zahlbetragserwartungen für eine begrenzte Schnittmenge zum
+SGB-XII-Rechner        unter      https://www.steuerschroeder.de/Steuerrechner/Grundsicherung.html.
+Betriebskosten sind null, Warmwasser zentral, Vermögen null; Sonderregeln wie Grundrentenfreibetrag
+und zusätzliche Altersvorsorge sind nicht Gegenstand des Vergleichs.
+Die ursprüngliche Behauptung zwölf externer Aufrufe ist nicht für jeden Fall durch Eingabe-/Ergebnisbelege
+gesichert. Die Review-Gegenprobe vom 27.10.2026 bestätigt die Fälle 1, 6 und 12 mit 978,00 EUR, 268,71
+EUR und 1.077,00 EUR. Diese neue Stichprobe ist von der früheren Erhebung getrennt dokumentiert.
+Alle zwölf festen Erwartungen reichen von 227,00 bis 1.427,00 EUR. JUnit prüft die Berechnung gegen diese
+Konstanten; ein gesondert gestarteter RECHNER-Simulatorlauf prüft die SQL-Ergebnisse. Die Kategorie
+läuft nicht automatisch bei jedem Simulatorlauf und ist nicht Teil der GLM-Stichprobe. Änderungen werden
+nur erkannt, soweit sie kontrollierte Ergebnisse oder Verträge betreffen.
+
+
+
+
+                              SDN.Leistung Testreport · Report D9F999A2 · Seite 8
+6 Transaktionssteuerung unter parallelen Prozessen
+Was geprüft werden soll
+Parallele Abläufe können verlorene Änderungen, doppelte Zahlungen, Sperrkonflikte oder Poolengpässe
+offenlegen. Oracle stellt die transaktionalen Datenbankmechanismen bereit. Ein unklarer Commit-Ausgang
+erfordert Statusklärung; eine Zeitüberschreitung beweist keinen bereits erfolgten Rollback.
+
+Lasttest
+Viele Mitarbeiter wiederholen eine schlanke Fachkette. SQL vergleicht Betrag und Budget mit den
+Szenarioerwartungen. Der aggregierte Bericht beschreibt diesen Lauf; daraus folgt keine allgemeine
+Kapazitätsgrenze.
+
+Stresstest
+Zwei Wellen bearbeiten dieselben Vorgänge mit einer Phasenbarriere dazwischen. Die zweite Welle findet
+die Daten wieder, ändert Miete und ordnet die Zahlung an. SQL kontrolliert Endzustand und Versionen.
+
+Deadlock und aktueller Nachweis
+Ein eigener Oracle-Test erzeugt gekreuzte Sperren und prüft die Wiederholung. Seine Existenz belegt keine
+aktuelle Ausführung: Er benötigt eine konfigurierte Datenbank. Ob die benötigten aktuellen JUnit- und
+Simulatorbelege vorliegen, entscheidet die folgende Übersicht.
+
+
+
+
+                              SDN.Leistung Testreport · Report D9F999A2 · Seite 9
+7 Ergebnisübersicht der Prüfläufe
+Der erklärte Umfang steht vollständig in der Tabelle, auch wenn ein Nachweis fehlt. Bekannte
+Fach-/SQL-/Testfehler heißen FEHLGESCHLAGEN. Abbruch, laufende Prüfung, fehlende Buildbindung und
+fehlende Evidenz sind eigenständige unvollständige Zustände.
+
+ Prüfebene              Datum                  Fälle                   verifiziert         Ergebnis
+ Fachschicht:           15.10.2026             500                     500                 UNVOLLSTÄNDIG
+ POSITIV
+ Fachschicht:           15.10.2026             500                     500                 UNVOLLSTÄNDIG
+ NEGATIV
+ Fachschicht: ECHT      27.10.2026             5                       5                   BESTANDEN
+ Fachschicht:           27.10.2026             12                      12                  BESTANDEN
+ RECHNER
+ Fachschicht: LAST      15.10.2026             120                     120                 UNVOLLSTÄNDIG
+ Fachschicht:           15.10.2026             42                      42                  UNVOLLSTÄNDIG
+ STRESS
+ WEB: POSITIV           15.10.2026             100                     100                 UNVOLLSTÄNDIG
+ WEB: NEGATIV           15.10.2026             100                     100                 UNVOLLSTÄNDIG
+ WEB: LAST              15.10.2026             30                      30                  UNVOLLSTÄNDIG
+ JUnit:                 27.10.2026             395                     294                 UNVOLLSTÄNDIG
+ Hauptprojekt
+ JUnit: testsweet       27.10.2026             346                     309                 UNVOLLSTÄNDIG
+ GLM:                   15.10.2026             200                     0                   UNVOLLSTÄNDIG
+ Positiv-/Negativstic
+ hprobe
+Fachschicht|POSITIV: Getesteter Build ist nicht aktuell gebunden
+Fachschicht|NEGATIV: Getesteter Build ist nicht aktuell gebunden
+Fachschicht|LAST: Getesteter Build ist nicht aktuell gebunden
+Fachschicht|STRESS: Getesteter Build ist nicht aktuell gebunden
+WEB|POSITIV: Getesteter Build ist nicht aktuell gebunden
+WEB|NEGATIV: Getesteter Build ist nicht aktuell gebunden
+WEB|LAST: Getesteter Build ist nicht aktuell gebunden
+JUnit: Hauptprojekt: 101 Tests übersprungen; erforderlicher Umfang nicht vollständig geprüft
+JUnit: testsweet: 37 Tests übersprungen; erforderlicher Umfang nicht vollständig geprüft
+GLM: Positiv-/Negativstichprobe: Getesteter Software-/Buildstand ist veraltet oder nicht gebunden
+GLM prüft eine Positiv-/Negativstichprobe; ECHT/RECHNER haben eigene SQL-Läufe. Dieser
+Managementreport ersetzt nicht das gesonderte formale Zertifikatsdokument.
+
+
+
+
+                                SDN.Leistung Testreport · Report D9F999A2 · Seite 10
+8 Fazit
+Gesamtbewertung: UNVOLLSTÄNDIG. Von 12 erklärten Prüfebenen sind 2 aktuell vollständig belegt.
+Eine vollständige positive Bestätigung ist mit diesem Nachweisstand nicht möglich. Die nicht bestandenen
+oder unvollständigen Ebenen und ihre Gründe stehen in Kapitel 7.
+Vor einer Freigabe sind bekannte Fehler zu klären und fehlende aktuelle Prüfungen nachzuholen. Eine
+erfolgreiche Wiederholung ersetzt ältere Ergebnisse nur bei eindeutig späterer Laufzeit und gültigen
+Belegen.
+
+
+
+
+                             SDN.Leistung Testreport · Report D9F999A2 · Seite 11
+Gesamtbewertung des Prüfumfangs
+Diese Seite fasst den erklärten Prüfumfang aus Kapitel 7 zum Erstellungsdatum 27.10.2026 zusammen. Sie
+bestätigt keine zusätzliche Prüfung und keine über die dort ausgewiesenen Belege hinausgehende
+Fachabdeckung.
+
+Gesamtbewertung: UNVOLLSTÄNDIG
+Report-Kennung D9F999A2. Nur vollständig aktuelle PASS-Ebenen tragen eine positive Gesamtbewertung;
+bekannte Fehler haben Vorrang vor Unvollständigkeit. Die Eingaben und PDF-Bytes sind beim Abruf erneut
+zu prüfen.
+Der formale, beleggebundene Zertifikatsnachweis ist ausschließlich das separate Dokument SDN-Leistung-
+LMG-Testzertifikat. Die Kategorien ECHT/RECHNER belegen quellenbasierte Modellfälle und feste
+Ergebnissperren; sie ersetzen keine vollständige Prüfung realer Bescheide.
+
+
+
+
+                              SDN.Leistung Testreport · Report D9F999A2 · Seite 12
+

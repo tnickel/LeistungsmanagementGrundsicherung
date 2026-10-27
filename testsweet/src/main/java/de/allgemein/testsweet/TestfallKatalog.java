@@ -48,109 +48,113 @@ final class TestfallKatalog {
     private static List<Eintrag> echt() {
         return List.of(
                 vorwort("""
-                        Wozu braucht man echte Fälle? Alle übrigen Testtöpfe haben wir selbst erfunden — Erwartungswert \
-                        und Software könnten sich denselben Fehler teilen (Zirkelschluss). Diese fünf Fälle stammen aus \
-                        benannten externen Quellen (Gesetz, Rechtsprechung, kommunale Richtlinie): Bildet unser Modell \
-                        die echte Welt falsch ab, fällt genau hier etwas auf.
-                        Wie werden die Fälle erzeugt? Von Hand belegt, nicht generiert: amtliche Regelbedarfsstufen \
-                        (Anlage zu § 28 SGB XII), ein BSG-Urteil vom 27.05.2026 (44.500 EUR Vermögen), ein LSG-Urteil \
-                        über zwei Kraftfahrzeuge (31.000 EUR), das Lebenshilfe-Beispiel „800 Euro auf dem Konto“ und die \
-                        KdU-Richtlinie des Landkreises Altenburger Land (Richtwerte und Obergrenzen ab 01.07.2026). \
-                        Was die Quelle nicht nennt (z. B. die Rente), ist ergänzt und je Fall dokumentiert.
-                        Wie wird geprüft? Handgerechnete bzw. fremd belegte Sollbeträge stehen fest im Code und werden \
-                        per SQL geprüft; die beiden großen Vermögensfälle müssen als KEIN_ANSPRUCH abgewehrt werden, \
-                        ohne dass sich der Fachbestand verändert (SHA-256-Vergleich). Ein JUnit-Test verankert alle \
-                        Sollwerte zusätzlich — jede Änderung an der Bedarfsberechnung färbt ihn rot."""),
+                        Wozu braucht man echte Fälle? Die Kategorie ECHT ergänzt synthetische Abläufe um
+                        quellenbasierte Modellfälle. Veröffentlicht sind einzelne Beträge oder Regeln,
+                        keine vollständigen geprüften Bescheide für die hier kombinierten Eingaben.
+                        Wie werden die Fälle erzeugt? Fünf feste Konstellationen verbinden amtliche
+                        Regelbedarfe, kommunale Richtwerte und Verbands-/Rechtsprechungsbelege mit
+                        ausdrücklich ergänzten Eingaben. Die Vermögensfälle prüfen pauschale Modellwerte;
+                        individuelle Privilegierungen und historische Übergangsregeln sind nicht modelliert.
+                        Wie wird geprüft? Zahlbetrag, Vermögenseinsatz und Endvermögen der Erfolgsfälle
+                        sind feste SQL-Sollwerte. Die dokumentierten Rechenblöcke verwenden dieselbe
+                        Produktberechnung; eine getrennte arithmetische Referenz prüft diese zusätzlich.
+                        Sie ersetzt keine Prüfung ausgelassener Fachregeln. Die Abwehrfälle
+                        müssen KEIN_ANSPRUCH liefern und den Fachbestand unverändert lassen. JUnit
+                        vergleicht die konkreten Ergebnisse und SQL-Sollwerte zusätzlich mit festen
+                        Konstanten; nur Änderungen mit Wirkung auf diese Verträge werden erkannt.
+                        ECHT gehört nicht zur automatischen Zertifikatssuite und nicht zur GLM-Auswahl."""),
                 new Eintrag("ECHT-ANLAGE-KDU — amtliche Stufen + kommunale Richtwerte", "Auftrag 1",
                         """
-                        Paar mit je Regelbedarfsstufe 2 (506 EUR) aus der amtlichen Anlage zu § 28 SGB XII \
-                        (gesetze-im-internet.de) und den KdU-Richtwerten für zwei Personen der KdU-Richtlinie \
-                        des Landkreises Altenburger Land (Beschluss 27.05.2026: Kaltmiete 320, Betriebskosten 100, \
-                        Heizkosten 110 EUR). Erwartung vollständig handgerechnet aus den zwei Quellen: \
-                        506 + 506 + 530 = 1.542,00 EUR je Monat, per SQL geprüft."""),
-                new Eintrag("ECHT-BSG-VERMOEGEN — Urteil B 8 SO 4/24 R", "Auftrag 2",
+                        Paar mit je RBS 2 = 506 EUR und KdU 320 + 100 + 110 EUR: handgerechnet
+                        506 + 506 + 530 = 1.542,00 EUR. Eingangswerte aus der amtlichen Anlage:
+                        https://www.gesetze-im-internet.de/sgb_12/anlage.html
+                        Kommunale Richtwerte aus der Altenburger Richtlinienanlage (Beschluss 27.05.2026):
+                        https://sessionnet.altenburgerland.de/bi/getfile.php?id=52833&type=do
+                        Der zusammengesetzte Modellfall ist kein öffentlich geprüfter Einzelbescheid."""),
+                new Eintrag("ECHT-BSG-VERMOEGEN — Modellvariante zu B 8 SO 4/24 R", "Auftrag 2",
                         """
-                        BSG, Urteil vom 27.05.2026: alleinstehende Frau mit 44.500 EUR Vermögen (Rentenversicherungs-\
-                        Rückkaufswert, Bankguthaben, Schmuck, Pkw). Rente und KdU ergänzt (dokumentiert, das Urteil \
-                        nennt sie nicht). Verwertbares Vermögen 34.500 EUR (44.500 − 10.000 Schonvermögen) deckt den \
-                        Restbedarf von 123,00 EUR weit über: Die Anordnung wird mit KEIN_ANSPRUCH abgewehrt, per SQL \
-                        bleiben keine Zahlung, Budget und Vermögen unverändert. Der Referenzblock dokumentiert den \
-                        negativen Zahlbetrag (1.023 − 900 − 34.500) als Abwehrgrund."""),
-                new Eintrag("ECHT-SCHONVERMOEGEN-800 — Verbandsbeispiel", "Auftrag 3",
+                        Der Sekundärbericht zum BSG-Verfahren nennt 44.500 EUR Gesamtvermögen:
+                        https://sozialrat.org/bsg-urteil-grundsicherung-alter-27-mai-2026-vermoegensuebergangsregel/
+                        Rente 900 EUR ist frei ergänzt; KdU 260/90/110 folgt Altenburger Richtwerten.
+                        Im pauschalen Modell: Bedarf 1.023 minus Rente 900 = 123 EUR Restbedarf;
+                        Vermögenseinsatz 44.500 minus 10.000 = 34.500 EUR → KEIN_ANSPRUCH.
+                        Keine Zahlung, Budget und Vermögen unverändert. Historischer Übergangstatbestand
+                        und individuelle Privilegierungen sind nicht modelliert; 34.500 EUR ist kein
+                        unabhängig bestätigter heutiger Verwertbarkeitswert. Amtlicher Volltext ungeprüft."""),
+                new Eintrag("ECHT-SCHONVERMOEGEN-800 — Verbandsbaustein", "Auftrag 3",
                         """
-                        Lebenshilfe-Beispiel „A hat 800 Euro auf dem Konto“: Barbeträge unter dem Schonvermögen \
-                        (§ 90 Abs. 2 Nr. 9 SGB XII i.V.m. BarbetragsVO, 10.000 EUR) bleiben unberührt. \
-                        Geprüft: kein Vermögenseinsatz, Vermögen bleibt 800,00 EUR, voller Bedarf \
-                        (1.023,00 EUR mit den 1-Personen-Richtwerten der Altenburger KdU-Richtlinie)."""),
-                new Eintrag("ECHT-LSG-KFZ-PAAR — zwei Kraftfahrzeuge, 31.000 EUR", "Auftrag 4",
+                        Der Lebenshilfe-Ratgeber nennt das Beispiel „A hat 800 Euro auf dem Konto“:
+                        https://www.lebenshilfe.de/informieren/arbeiten/grundsicherung-im-alter-und-bei-erwerbsminderung
+                        Das Vermögen liegt unter dem Geldfreibetrag von 10.000 EUR. Mit ergänzten KdU
+                        260 + 90 + 110 ergibt sich 563 + 460 = 1.023,00 EUR. Feste SQL-Sollwerte:
+                        Zahlbetrag 1.023,00, Vermögenseinsatz 0,00, Endvermögen 800,00 EUR.
+                        Der Ratgeber belegt den Vermögensbaustein, nicht den gesamten Modellbescheid."""),
+                new Eintrag("ECHT-LSG-KFZ-PAAR — historischer Gesamtwert als Modellvariante", "Auftrag 4",
                         """
-                        Über die Lebenshilfe dokumentiertes LSG-Urteil: Ehepaar mit zwei Pkw im Wert von 31.000 EUR \
-                        — kein Anspruch. Das Modell 2026 kommt über den Einsatz-Grundsatz zum selben Ergebnis: \
-                        Verwertbares Vermögen 31.000 − 2 × 10.000 Schonvermögen = 11.000 EUR deckt den monatlichen \
-                        Bedarf von 1.542,00 EUR weit über. Erwartet: KEIN_ANSPRUCH-Abwehr ohne Zahlung, Budget und \
-                        Vermögen unverändert; das Urteil lehnte nach der alten Vermögensgrenze ab — im Ergebnis \
-                        gleich, in der Begründung bewusst dokumentiert."""),
-                new Eintrag("ECHT-KDU-DECKEL — kommunale Obergrenze ab 01.07.2026", "Auftrag 5",
+                        LSG Hamburg, 03.04.2020, L 4 SO 46/18, über den Lebenshilfe-Ratgeber dokumentiert:
+                        https://www.lebenshilfe.de/informieren/arbeiten/grundsicherung-im-alter-und-bei-erwerbsminderung
+                        Historischer Kfz-Gesamtwert 31.000 EUR. Die synthetische Variante behandelt die
+                        Summe pauschal als Vermögen: 31.000 − 2 × 10.000 = 11.000 EUR gegenüber Bedarf
+                        1.542 EUR → technische KEIN_ANSPRUCH-Abwehr ohne Bestandsänderung.
+                        Heutiger Kfz-Schutz (§ 90 Abs. 2 Nr. 10), Einzelwerte und Angemessenheit sind
+                        nicht modelliert. Eine heutige rechtliche Abweisung ist dadurch nicht bewiesen."""),
+                new Eintrag("ECHT-KDU-DECKEL — gewählter Modell-Gesamtdeckel", "Auftrag 5",
                         """
-                        Die Altenburger KdU-Richtlinie deckelt die Nettokaltmiete ab dem 01.07.2026 auf das \
-                        1,5-fache des Richtwerts (1 Person: 390 EUR); mit den Grenzwerten für Betriebs- und \
-                        Heizkosten (90/110 EUR) ergibt sich die geprüfte BG-Grenze von 590 EUR. Tatsächliche \
-                        KdU 700 EUR (Miete 500/90/110) werden auf 590 EUR gekappt: erwarteter Zahlbetrag \
-                        563 + 590 = 1.153,00 EUR. Zahlungsmonat 2026-07 (Anwendungsmonat der Obergrenze)."""),
-                new Eintrag("Prinzip aller ECHT-Fälle: externe Belege statt eigene Erwartungen", "",
+                        Die Altenburger Richtlinie nennt ab 01.07.2026 für eine Person 390 EUR
+                        Nettokaltmietdeckel; 90/110 EUR für Betrieb/Heizung sind Nichtprüfungsgrenzen
+                        mit möglicher Einzelfallprüfung. Quelle:
+                        https://sessionnet.altenburgerland.de/bi/getfile.php?id=52833&type=do
+                        Hier wird daraus ein Modell-Gesamtdeckel 390 + 90 + 110 = 590 EUR gewählt:
+                        min(500 + 90 + 110, 590) + 563 = 1.153,00 EUR im Juli 2026.
+                        Keine vollständige Richtlinienprüfung: Der Gesamtdeckel ersetzt weder eine
+                        komponentenweise Entscheidung noch eine Einzelfallprüfung höherer Kosten."""),
+                new Eintrag("Prinzip aller ECHT-Fälle: feste Erwartungen und offene Modellgrenzen", "",
                         """
-                        Jeder ECHT-Fall beruht auf einer benannten externen Quelle (Gesetz, Gerichtsurteil, \
-                        kommunale Richtlinie, Verbandsbeispiel) mit Abrufdatum; Ergänzungen und die Herleitung \
-                        der Erwartungswerte sind im Laufbericht und in doc/belege/echt-und-rechner-faelle-2026-10-27.md \
-                        dokumentiert. Wo der Urteilsausgang altem Recht folgt, prüft der Fall das dokumentierte \
-                        Modellrecht 2026 und nennt die Abweichung ausdrücklich. Vollständige echte Fälle mit \
-                        Bescheid-Ergebnis sind wegen des Sozialdatenschutzes (§ 67 ff. SGB X) nicht öffentlich; \
-                        die fünf Fälle sind die belegbaren Konstellationen."""));
+                        Feste Gesamtergebnisse und Teilwert-Erwartungen der Erfolgsfälle sind von den
+                        produktberechneten Rechenblöcken getrennt. Quellen, freie Ergänzungen und Grenzen
+                        stehen in doc/belege/echt-und-rechner-faelle-2026-10-27.md. In den recherchierten
+                        Quellen wurde kein geeigneter vollständiger öffentlicher Fallbestand gefunden.
+                        Daraus folgt weder dessen generelle Nichtexistenz noch ein pauschales Verbot
+                        anonymisierter Veröffentlichungen. Diese fünf Modellfälle sind eigenständige
+                        Fachschicht-Läufe; automatische Zertifikatssuite und GLM wählen sie nicht aus."""));
     }
 
     // ------------------------------------------------------------------
-    // RECHNER — mit externem Online-Rechner abgeglichene Fälle
-    // (nur Fachschicht, 12 Fälle)
+    // RECHNER — zwölf feste Vergleichsfälle, externe Stichprobe 1/6/12 belegt
     // ------------------------------------------------------------------
 
     private static List<Eintrag> rechner() {
         return List.of(
                 vorwort("""
-                        Wozu braucht man Rechner-Fälle? Als zweite, unabhängige Instanz: Der externe Online-Rechner \
-                        wurde von anderen Programmierern mit eigener Codebasis geschrieben. Liefert unser System bei \
-                        denselben Eingaben andere Ergebnisse, ist eines von beiden falsch — genau dieser Abgleich \
-                        bricht den Zirkelschluss „selbst ausgedacht, selbst ausgerechnet“.
-                        Wie werden die Fälle erzeugt? Zwölf Konstellationen (Alleinstehende und Paare, Rente, \
-                        Erwerbseinkommen mit 30-%-Freibetrag, Merkzeichen G, echte Altenburger Mieten) wurden am \
-                        27.10.2026 interaktiv über den SGB-XII-Rechner steuerschroeder.de (Rechtsstand 03.07.2026) \
-                        gerechnet — verwendeter Online-Rechner: \
-                        https://www.steuerschroeder.de/Steuerrechner/Grundsicherung.html ; der dort angezeigte \
-                        Ergebnisbetrag ist als fester Sollwert übernommen \
-                        (Beleg-Screenshot in doc/belege/). Betriebskosten sind bewusst 0,00 EUR, weil der Rechner \
-                        sie nicht abfragt.
-                        Wie wird geprüft? Der externe Sollbetrag wird per SQL gegen den AUSZAHLUNGSBETRAG geprüft; \
-                        der JUnit-Test EchtRechnerFallTest hält alle zwölf Werte fest. Bei der Erhebung stimmten alle \
-                        zwölf Ergebnisse auf den Cent mit unserem System überein."""),
-                new Eintrag("RECHNER-Fälle 1–12 — externe Gegenrechnung", "alle Aufträge",
+                        Wozu braucht man Rechner-Fälle? Feste, handrechenbare Endbeträge ergänzen die
+                        Produktreferenz. Ein belegter externer Abgleich ist eine zusätzliche Gegenprobe;
+                        er bestätigt nur die tatsächlich dokumentierten Eingaben und Ergebnisse.
+                        Wie werden die Fälle erzeugt? Zwölf feste Single-/Paar-Konstellationen mit Rente,
+                        Erwerbseinkommen und Merkzeichen G. Die ursprüngliche Zwölf-Fälle-Erhebung ist
+                        nicht vollständig belegt. Eigene Browserbelege vom 27.10.2026 bestätigen Fälle
+                        1, 6 und 12. Der Rechner (Rechtsstand 03.07.2026) ist erreichbar unter:
+                        https://www.steuerschroeder.de/Steuerrechner/Grundsicherung.html
+                        Wie wird geprüft? Feste SQL-Zahlbeträge 227,00 bis 1.427,00 EUR sowie feste
+                        Vermögenswerte werden zusätzlich gegen separate JUnit-Konstanten geprüft.
+                        Rechenblöcke stammen aus der Produktberechnung. Kein vollständiger externer
+                        Zwölf-Fälle-Nachweis; RECHNER ist nicht Teil der Zertifikatssuite oder GLM-Auswahl."""),
+                new Eintrag("RECHNER-Fälle 1–12 — feste Vergleichswerte", "alle Aufträge",
                         """
-                        Alle zwölf Konstellationen wurden am 27.10.2026 über den SGB-XII-Rechner \
-                        steuerschroeder.de (Rechtsstand 03.07.2026) gerechnet — verwendeter Online-Rechner: \
-                        https://www.steuerschroeder.de/Steuerrechner/Grundsicherung.html \
-                        Acht Alleinstehenden- und vier Paar-Haushalte mit Miete/Heizung (u. a. KdU-Richtwerte und \
-                        -Obergrenzen des Landkreises Altenburger Land), Rente, Erwerbseinkommen (§ 82 Abs. 3, \
-                        30 % frei) und Merkzeichen G (§ 30 Abs. 1, 95,71 EUR). Der je Fall angezeigte \
-                        Rechner-Ergebnisbetrag (978,00 bis 1.427,00 EUR) ist als fester SQL-Erwartungswert übernommen — \
-                        das Produkt muss exakt dasselbe liefern. Beleg-Screenshot und Eingaben je Fall: \
-                        doc/belege/ (echt-und-rechner-faelle-2026-10-27.md)."""),
+                        Acht Alleinstehenden- und vier Paar-Konstellationen prüfen feste Endbeträge
+                        zwischen 227,00 und 1.427,00 EUR. Die unabhängige Handrechnung aller zwölf und
+                        die externe Browserstichprobe 1/6/12 stehen im Review vom 27.10.2026.
+                        Eingaben, Herkunft und Evidenzstatus je Fall:
+                        doc/belege/echt-und-rechner-faelle-2026-10-27.md
+                        Der alte als Fall-12-Ergebnis bezeichnete Screenshot zeigt kein Ergebnis und
+                        gilt nicht als Vergleichsnachweis. Der feste Datenbestand bleibt reproduzierbar."""),
                 new Eintrag("Bewusste Eingrenzungen", "",
                         """
-                        Betriebskosten je 0,00 EUR (der Rechner fragt sie nicht ab), zentrales Warmwasser \
-                        (kein dezentraler Mehrbedarf), keine Absetzbeträge nach § 82 Abs. 2, kein Vermögen. \
-                        Diese Vereinfachungen entsprechen dem Rechner-Umfang; Sonderregelungen des Produkts \
-                        (Schwangerschaft, Entbindungsmonat, Vermögensfortschreibung, KdU-Kappung) prüfen die \
-                        Kategorien POSITIV und ECHT. Der externe Rechner ist eine Überschlagsrechnung — \
-                        die Übereinstimmung aller zwölf Fälle ist ein Unabhängigkeitsnachweis, kein \
-                        Bescheid-Ersatz."""));
+                        Betriebskosten 0,00 EUR, zentrales Warmwasser, keine Absetzbeträge und kein
+                        Vermögen. Kein § 82a-Grundrentenfreibetrag, keine zusätzliche Altersvorsorge
+                        nach § 82 Abs. 4 und keine Witwenrenten-Sonderregeln. Die Übereinstimmung gilt
+                        für diese Schnittmenge, nicht für die vollständige Rechtsanwendung.
+                        Der externe Rechner ist eine Überschlagsrechnung und kein Bescheid-Ersatz.
+                        Schwangerschaft, Entbindungsmonat und KdU-Modellparameter haben andere Tests."""));
     }
 
     // ------------------------------------------------------------------
@@ -172,12 +176,13 @@ final class TestfallKatalog {
                         garantiert verschiedenen Konstellationen (Signatur-Menge gegen Wiederholungen: Haushaltsform, \
                         Merkmale, Einkommen, Vermögen, Ablauf). Der Seed macht alles reproduzierbar; jeder 50. Auftrag \
                         ist ein Kassenlauf.
-                        Wie wird geprüft? Auf drei Ebenen: Der Simulator spielt jeden Schritt wie ein Sachbearbeiter, \
-                        eine unabhängige Referenzrechnung (eigene Java-Berechnung, als Rechenblock mitgeschrieben) \
-                        rechnet jeden Betrag nach, und SQL prüft direkt auf den Oracle-Tabellen den Endzustand — \
+                        Wie wird geprüft? Der Simulator spielt die Schritte; die Produktberechnung liefert \
+                        die dokumentierten Rechenblöcke. Eine getrennte arithmetische Referenz prüft die Blöcke; \
+                        SQL prüft direkt auf den Oracle-Tabellen den Endzustand — \
                         Zahlbetrag, Status, Restbudget, Freigabevermerk, Journal. Am Laufende zusätzlich globale \
-                        Prüfungen, z. B. „keine Übergabe ohne Freigabe“. Jeder Rechenweg steht vollständig in der \
-                        PDF-/Markdown-Testdokumentation."""),
+                        Prüfungen, z. B. „keine Übergabe ohne Freigabe“. Unabhängige Goldwerttests und eine \
+                        gesonderte GLM-Stichprobe ergänzen die Prüfung. \
+                        Jeder Rechenweg steht in der PDF-/Markdown-Testdokumentation."""),
                 new Eintrag("Standardrente mit Vier-Augen-Kette", "Auftrag 1, sofern im Topf",
                         "Einzelfall mit gestreuter Regelbedarfsstufe 1–3 und Wohnkosten. Nach der Anordnung wird die Selbstfreigabe ausdrücklich abgewehrt; anschließend gibt der Kollege frei. SQL prüft Betrag, Restbudget, Stufe, Freigabevermerk und genau ein Freigabejournal."),
                 new Eintrag("Paar in gemeinsamer Wohnung", "Auftrag 2, sofern im Topf",

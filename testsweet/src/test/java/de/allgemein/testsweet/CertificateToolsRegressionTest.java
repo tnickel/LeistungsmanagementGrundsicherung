@@ -21,9 +21,9 @@ class CertificateToolsRegressionTest {
     void certificateEvidenceReferenceAndAnswerParityMustPassWithoutSkippedChecks() throws Exception {
         Path root = BuildEvidence.currentRoot();
         List<String> command = new ArrayList<>(List.of("node", "--test", "--test-reporter=tap"));
-        for (String name : List.of("certificate-evidence.test.js", "llm-reference.test.js",
-                "llm-answer-parity.test.js")) {
-            Path script = root.resolve("doc/testzertifikat-werkzeug").resolve(name);
+        for (String name : List.of("testzertifikat-werkzeug/certificate-evidence.test.js", "testzertifikat-werkzeug/llm-reference.test.js",
+                "testzertifikat-werkzeug/llm-answer-parity.test.js", "testreport-werkzeug/report-tools.test.js")) {
+            Path script = root.resolve("doc").resolve(name);
             assertTrue(Files.isRegularFile(script), "Verpflichtender Zertifikatsprüfer fehlt: " + name);
             command.add(script.toString());
         }

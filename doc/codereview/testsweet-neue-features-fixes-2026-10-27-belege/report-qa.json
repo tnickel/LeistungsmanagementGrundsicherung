@@ -1,0 +1,18 @@
+{
+  "reportId": "D9F999A2",
+  "pages": 12,
+  "pdfSha256": "04db0ae6c04b62f46fe56e4b773593feefe93226c26e0b7c1e886b36cd8d18fb",
+  "docxSha256": "4e777af0a4e6dab89a145217edf7514f3b61419b00e0849a3587cea5d4534aea",
+  "verify": "READY",
+  "verdict": "UNVOLLSTÄNDIG",
+  "visualReview": {
+    "renderedAllPages": true,
+    "contactSheet": "pdf-review/contact.png",
+    "individualPages": [
+      2,
+      10,
+      12
+    ],
+    "clippedOrOverlappingContentFound": false
+  }
+}

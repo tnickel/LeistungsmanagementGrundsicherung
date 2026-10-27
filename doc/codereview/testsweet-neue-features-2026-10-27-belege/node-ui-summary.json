@@ -1,0 +1,7 @@
+{
+  "command": "node --test testsweet/src/test/js/llm-ui.test.js testsweet/src/test/js/produkt-ui-review.test.js",
+  "tests": 41,
+  "passed": 41,
+  "failed": 0,
+  "exitCode": 0
+}
