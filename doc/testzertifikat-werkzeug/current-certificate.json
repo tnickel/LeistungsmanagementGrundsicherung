@@ -1,31 +1,55 @@
 {
   "schemaVersion": 2,
   "state": "READY",
-  "certificateId": "b805c5b6-20b0-4215-83a5-26900a2f31e4",
+  "certificateId": "e8b1a51a-ca7c-496b-bd17-ea6a50f30486",
   "verdict": "BESTANDEN",
-  "evidenceFingerprint": "5ee667ff6075790fd1b2b99f3db332207393b53524760181e42fd7325dae57ca",
-  "publishedAt": "2026-10-15T20:40:32.016Z",
-  "staging": "testsweet/logs/certificate-369b2271-f7e1-4d9f-92b2-0a3c59433b70",
+  "scope": {
+    "label": "Festgelegte Prüfmatrix (ohne ECHT/RECHNER)",
+    "simulatorCombinations": [
+      "FACH:POSITIV",
+      "FACH:NEGATIV",
+      "FACH:LAST",
+      "FACH:STRESS",
+      "WEB:POSITIV",
+      "WEB:NEGATIV",
+      "WEB:LAST"
+    ],
+    "automaticSuites": [
+      "main",
+      "testsweet"
+    ],
+    "glmCategories": [
+      "POSITIV",
+      "NEGATIV"
+    ],
+    "excludedCategories": [
+      "ECHT",
+      "RECHNER"
+    ]
+  },
+  "evidenceFingerprint": "69d858bba5dfc40060f8d2ca5f01d477799643d66c7aa75fc1d56882ff650f93",
+  "publishedAt": "2026-10-27T13:02:25.731Z",
+  "staging": "testsweet/logs/certificate-530dd8d8-70e2-49fa-abb7-53af7a4a8dc1",
   "files": [
     {
       "path": "doc/testzertifikat-werkzeug/testzertifikat.docx",
-      "sha256": "9641f0901318fcf46328487a5c760500f8c460cfaf377808d6062f9c0e35d859"
+      "sha256": "8828b014252f2c5c185b08e0cbf8a05446cd1e88606ae66323d81798ac8b46c8"
     },
     {
       "path": "doc/testzertifikat-werkzeug/testzertifikat.pdf",
-      "sha256": "020ccd8887c0edadb376f53037650a43813fb95726c374858a46a62c9c2c083d"
+      "sha256": "2511928c555a652ffd958933825bb73883d21b47ec5a9992a52188db7a76aea6"
     },
     {
       "path": "doc/SDN-Leistung-LMG-Testzertifikat.docx",
-      "sha256": "9641f0901318fcf46328487a5c760500f8c460cfaf377808d6062f9c0e35d859"
+      "sha256": "8828b014252f2c5c185b08e0cbf8a05446cd1e88606ae66323d81798ac8b46c8"
     },
     {
       "path": "doc/SDN-Leistung-LMG-Testzertifikat.pdf",
-      "sha256": "020ccd8887c0edadb376f53037650a43813fb95726c374858a46a62c9c2c083d"
+      "sha256": "2511928c555a652ffd958933825bb73883d21b47ec5a9992a52188db7a76aea6"
     },
     {
       "path": "doc/testzertifikat-werkzeug/stand.json",
-      "sha256": "dda922b50b69d0d6ac670ca4751b591dcc0c352299b84340975eca74fefde32b"
+      "sha256": "608dbdab2f3e32db372df928e7937e22e49d220227c1ebd22dcb5b42b36057d1"
     }
   ]
 }
