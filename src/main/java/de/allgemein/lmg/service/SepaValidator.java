@@ -4,6 +4,11 @@ import java.math.BigInteger;
 import java.util.regex.Pattern;
 
 /**
+ * Kurz gesagt: Das ist der IBAN-/BIC-Prüfer.
+ * Er säubert Bankverbindungen (Leerzeichen raus, Großbuchstaben) und prüft,
+ * ob eine IBAN oder ein BIC richtig aufgebaut ist — inklusive der
+ * Prüfziffer, damit Tippfehler auffallen, bevor Geld an die falsche Stelle geht.
+ *
  * Validierung und Formatierung von SEPA-Bankverbindungen (IBAN nach ISO 13616 / ISO 7064,
  * BIC nach ISO 9362).
  */

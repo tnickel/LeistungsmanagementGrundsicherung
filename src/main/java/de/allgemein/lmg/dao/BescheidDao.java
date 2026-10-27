@@ -16,6 +16,10 @@ import java.util.List;
 import java.util.Optional;
 
 /**
+ * Kurz gesagt: Das ist der einzige Weg zur Tabelle BESCHEID.
+ * Bescheide lesen, anlegen und aufheben — nur hier steht das SQL dafür.
+ * Wer einen Bescheid braucht, bekommt ein fertiges Bescheid-Objekt zurück.
+ *
  * Datenzugriff für BESCHEID.
  */
 public final class BescheidDao {

@@ -11,6 +11,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
+ * Kurz gesagt: Hier steht die eigentliche Rechenregel der Grundsicherung.
+ * Aus den Angaben einer Person (Miete, Einkommen, Vermögen, Kinder ...)
+ * wird der Zahlbetrag ausgerechnet — Schritt für Schritt nach SGB XII:
+ * erst der Bedarf, dann die Abzüge, am Ende der Betrag, der ausgezahlt wird.
+ * Dieselben Eingaben liefern immer dasselbe Ergebnis.
+ *
  * Deterministische Berechnung der Grundsicherung im Alter / bei Erwerbsminderung
  * (SGB XII) für das Referenzjahr 2026:
  *

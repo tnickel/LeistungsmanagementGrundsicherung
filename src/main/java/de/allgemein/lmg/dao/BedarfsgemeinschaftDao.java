@@ -15,6 +15,11 @@ import java.util.List;
 import java.util.Optional;
 
 /**
+ * Kurz gesagt: Das ist der einzige Weg zur Tabelle BEDARFSGEMEINSCHAFT.
+ * Nur diese Klasse kennt die SQL-Befehle dafür: Vorgänge lesen, anlegen, ändern,
+ * Budget und Vermögen buchen. Wer einen Vorgang braucht, fragt hier an und
+ * bekommt ein fertiges Objekt — und muss nie selbst SQL schreiben.
+ *
  * Datenzugriff für BEDARFSGEMEINSCHAFT. Alle Methoden laufen auf der Verbindung
  * der laufenden Transaktion ({@link TxContext}) — DAOs öffnen und schließen
  * bewusst keine eigenen Verbindungen, sonst brächen die Transaktionsgrenzen.

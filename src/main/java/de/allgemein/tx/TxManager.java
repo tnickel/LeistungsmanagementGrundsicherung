@@ -6,6 +6,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
+ * Das ist die Schaltstelle für eine Datenbankaktion.
+ * Sie leiht eine Verbindung, lässt die Facharbeit laufen und speichert am Ende alles
+ * oder nimmt alles zurück. Bei kurzen Sperrkonflikten versucht sie es noch einmal.
+ * Fehlt die Speicherbestätigung, wird nicht geraten und nicht wiederholt.
+ *
  * Kern der Transaktionssteuerung: führt eine Arbeitseinheit als Oracle-Transaktion aus.
  * Oracle selbst liefert ACID, Sperrverwaltung, Redo-Logging und Recovery — gesteuert
  * werden hier nur Begin/Commit/Rollback, das Zeitlimit und die Wiederholung bei

@@ -4,6 +4,11 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
+ * Kurz gesagt: Das ist der „Aktenschrumpfal" eines Vorgangs.
+ * Eine Bedarfsgemeinschaft ist eine Familie/Haushalt mit eindeutigem Aktenzeichen.
+ * Hier stehen nur die wichtigsten Daten drin: Name, Restbudget, Bankverbindung,
+ * Vermögen — das Objekt, das zwischen Bildschirm, Berechnung und Datenbank wandert.
+ *
  * Bedarfsgemeinschaft: der geführte Vorgang mit eindeutigem Aktenzeichen.
  * BUDGET_REST ist der verfügbare Restanspruch pro Monat und wird bei jeder
  * angeordneten Auszahlung gemindert; VERSION dient dem optimistischen Locking.

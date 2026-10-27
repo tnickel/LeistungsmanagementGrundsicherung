@@ -11,6 +11,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 /**
+ * Kurz gesagt: Hier werden die Geldsätze aus der Gesetzestabelle gelesen.
+ * Die Regelbedarfsstufen stehen in der Tabelle SATZSTAND — für jeden Monat
+ * gilt der Stand, der zuletzt gültig geworden war. Diese Klasse holt den
+ * passenden Stand zum Bezugsmonat.
+ *
  * Datenzugriff auf SATZSTAND — die je Jahr gepflegten Regelbedarfsstufen
  * (Anlage zu § 28 SGB XII). Für einen Bezugsmonat gilt der zuletzt wirksam
  * gewordenen Stand (größter GUELTIG_AB ≤ Monat): Neue Zeilen gelten ab ihrem

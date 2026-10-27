@@ -21,6 +21,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
+ * Kurz gesagt: Das ist der Werkstatt-Check des Systems.
+ * Der Adminbereich kann hier nachfragen: Läuft die Datenbank? Wie schnell
+ * antwortet sie? Wie viele Aufträge laufen? Sind Sagas steckengeblieben? —
+ * und die Klasse liefert die Antworten als Klartext-Übersicht.
+ *
  * Systemdiagnose für den Adminbereich: prüft die Datenbank (Erreichbarkeit,
  * Produktkennung, Antwortzeit, Bestandszahlen), liest die Statistik der
  * Task-Steuerung und stößt bei Bedarf den Wiederanlauf halbfertiger Sagas an.

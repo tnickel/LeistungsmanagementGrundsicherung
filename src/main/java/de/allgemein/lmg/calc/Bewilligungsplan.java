@@ -8,7 +8,14 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Monatsbezogene Bewilligung mit bekannten Satzwechseln und Bedarfsänderungen. */
+/**
+ * Kurz gesagt: Das ist der Bewilligungs-Zeitraum aufgeteilt in Monate.
+ * Eine Bewilligung kann mehrere Monate dauern — diese Klasse rechnet für jeden
+ * Monat einzeln: Wurden die Sätze erhöht? Ist der Schwangerschafts-Mehrbedarf
+ * ausgelaufen? So entsteht ein Plan mit einem Betrag pro Monat.
+ *
+ * Monatsbezogene Bewilligung mit bekannten Satzwechseln und Bedarfsänderungen.
+ */
 public final class Bewilligungsplan {
     private Bewilligungsplan() { }
 

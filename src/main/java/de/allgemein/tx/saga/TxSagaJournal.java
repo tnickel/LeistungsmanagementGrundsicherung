@@ -5,7 +5,11 @@ import java.sql.SQLException;
 import java.util.List;
 
 /**
- * Journal-Zugriff der {@link SagaEngine}: hält den Lebenszyklus eines
+ * Kurz gesagt: Der Rahmen (Schnittstelle), wie das Saga-Journal auszusehen hat.
+ * Die Saga-Engine ruft nur diese Methoden — welche Umsetzung dahinter läuft
+ * (echte Datenbanktabellen oder eine Test-Variante im Speicher), ist austauschbar.
+ *
+ * <p>Journal-Zugriff der {@link SagaEngine}: hält den Lebenszyklus eines
  * Geschäftsvorgangs (Saga) dauerhaft fest. Die Engine hängt nur an diesem
  * Interface — im Test kann das Journal dadurch durch eine In-Memory-Umsetzung
  * ersetzt werden.

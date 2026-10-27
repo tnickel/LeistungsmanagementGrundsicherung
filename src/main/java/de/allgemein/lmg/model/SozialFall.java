@@ -3,7 +3,12 @@ package de.allgemein.lmg.model;
 import java.math.BigDecimal;
 
 /**
- * SozialFall: ein Leistungsberechtigter innerhalb einer Bedarfsgemeinschaft.
+ * Kurz gesagt: Das ist eine Person in einem Vorgang mit allen ihren Angaben.
+ * Was für die Berechnung über sie bekannt sein muss: Merkzeichen, Schwangerschaft,
+ * Kinder, Miete, Einkommen, Absetzbeträge. Gilt die Angabe noch oder ist sie
+ * veraltet? Darüber wacht die Versionsnummer.
+ *
+ * <p>SozialFall: ein Leistungsberechtigter innerhalb einer Bedarfsgemeinschaft.
  * Trägt alle Parameter der Bedarfs- und Einkommensermittlung (§§ 27a, 30, 82 SGB XII).
  * Die VERSION-Spalte schützt Maskenbearbeitung gegen "Lost Updates" mehrerer
  * Sachbearbeiter (optimistisches Locking).

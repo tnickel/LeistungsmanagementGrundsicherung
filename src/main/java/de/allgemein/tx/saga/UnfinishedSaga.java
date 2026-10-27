@@ -5,6 +5,11 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
+ * Kurz gesagt: Das ist der Aktenbericht einer steckengebliebenen Saga.
+ * Er sagt: Wie heißt sie, was war der Auftrag, und wie weit ist sie gekommen —
+ * pro Schritt ein Zustand. Genau diese Informationen braucht der Wiederanlauf,
+ * um zu entscheiden, was noch rückgängig gemacht werden muss.
+ *
  * Unvollendete Saga aus dem Journal — Grundlage für den Wiederanlauf (Recovery).
  * Ein Schritt im Zustand IN_FLIGHT gilt als „möglicherweise committet" und wird
  * beim Wiederanlauf konservativ mit kompensiert (idempotente Kompensationen

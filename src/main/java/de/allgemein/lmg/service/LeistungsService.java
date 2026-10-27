@@ -11,9 +11,25 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Fachdienste der Leistungsverarbeitung — die Schnittstelle zwischen
- * Webschicht und Transaktionssteuerung. Jede Methode ist eine abgeschlossene
- * Arbeitseinheit (kurze Oracle-Transaktion, siehe {@link SozialLeistungsService}).
+ * Kurz gesagt: Das ist der „Dienstleistungsvertrag" der Fachschicht.
+ * Er steht wie ein Inhaltsverzeichnis am Anfang: Das muss die Fachlogik
+ * können — Vorgänge anzeigen, Personen ändern, Bescheide erteilen, Zahlungen
+ * buchen. Die Weboberfläche kennt nur dieses Inhaltsverzeichnis.
+ *
+ * Das ist keine fertige Klasse, sondern eine Schnittstelle.
+ * Sie listet keine Klassen auf, sondern Methoden. Sie sagt, was die Fachschicht
+ * können muss: Vorgänge anzeigen, Sozialfälle speichern, Bescheide erteilen
+ * und Zahlungen anordnen. Nicht, welche Klasse das erledigt.
+ *
+ * Die Weboberfläche ruft nur diese Methoden auf. Die eigentliche Arbeit
+ * steht in {@link SozialLeistungsService}. Jede Methode ist eine abgeschlossene
+ * Arbeitseinheit, also eine kurze Oracle-Transaktion.
+ *
+ * Bei einer anderen Datenbank bleibt diese Schnittstelle normalerweise gleich.
+ * Dann schreibt man eine neue Klasse mit denselben Methoden. Die Oberfläche
+ * merkt davon nichts, weil sie weiter nur LeistungsService kennt.
+ * Die Schnittstelle ändert man nur, wenn eine neue Aufgabe dazukommt,
+ * zum Beispiel „Fall löschen“.
  */
 public interface LeistungsService {
 

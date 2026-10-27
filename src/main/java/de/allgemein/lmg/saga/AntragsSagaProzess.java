@@ -25,6 +25,12 @@ import java.util.Map;
 import java.util.logging.Logger;
 
 /**
+ * Kurz gesagt: Das ist die vollständige Antragssaga als Rezept.
+ * Sie beschreibt den Weg von der Antragstellung bis zur Erstauszahlung in
+ * vier Schritten: Vorgang erfassen, Bedarf prüfen, Bescheid erteilen,
+ * Erstauszahlung anweisen. Jeder Schritt weiß, wie er rückgängig gemacht wird —
+ * das ist alles, was die Saga-Engine zur Ausführung braucht.
+ *
  * Vollständige fachliche End-to-End-Saga für das Leistungsmanagement Grundsicherung:
  * Kette von 4 unteilbaren Datenbanktransaktionen mit automatischer Rückwärts-Kompensation:
  *

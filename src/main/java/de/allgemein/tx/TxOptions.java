@@ -5,6 +5,10 @@ import java.time.Duration;
 import java.util.Objects;
 
 /**
+ * Das sind die Einstellungen für eine Datenbankaktion.
+ * Hier steht, wie streng gelesen wird, wie lange ein Versuch dauern darf
+ * und wie oft bei einem Sperrkonflikt neu versucht wird.
+ *
  * Optionen einer Transaktion: Isolationsebene, Zeitlimit und Anzahl der Versuche.
  *
  * <p><b>Zeitlimit-Semantik (CR-047):</b> {@code timeout} ist das Budget der

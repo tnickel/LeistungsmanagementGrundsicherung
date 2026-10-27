@@ -5,6 +5,11 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 /**
+ * Kurz gesagt: Das ist der fertige Bescheid als Objekt.
+ * Er hält fest: Für wen, für welchen Zeitraum, welcher Betrag, wann erteilt —
+ * plus die damalige Berechnung als eingefrorener Beleg, damit man ihn später
+ * identisch wieder ausdrucken kann.
+ *
  * Bewilligungsbescheid nach § 44 SGB XII für Grundsicherungsleistungen nach SGB XII.
  * Trägt Bewilligungszeitraum, Zahlbetrag des ersten Monats und Status (ERTEILT / AUFGEHOBEN).
  * BERECHNUNG hält den versionierten JSON-Snapshot des Berechnungsergebnisses aus dem

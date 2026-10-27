@@ -7,7 +7,13 @@ import de.allgemein.lmg.model.Bescheid;
 import java.time.Instant;
 import java.time.LocalDate;
 
-/** Erteilungsdokument und Berechnung werden gemeinsam in derselben Fachtx gespeichert. */
+/**
+ * Kurz gesagt: Das packt den Bescheid und seine Berechnung in ein Paket.
+ * Es erzeugt das Druckdokument und friert es zusammen mit den Rechenwerten
+ * als Speicher-Snapshot ein — damit Nachdruck und Beleg immer zusammenpassen.
+ *
+ * Erteilungsdokument und Berechnung werden gemeinsam in derselben Fachtx gespeichert.
+ */
 public final class BescheidDokument {
     private BescheidDokument() { }
 

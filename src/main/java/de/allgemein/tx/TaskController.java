@@ -17,6 +17,11 @@ import java.util.concurrent.atomic.LongAdder;
 import java.util.logging.Logger;
 
 /**
+ * Diese Klasse nimmt Aufträge an und lässt nur eine begrenzte Zahl gleichzeitig laufen.
+ * Zu viele Aufträge warten in einer Schlange oder werden abgelehnt.
+ * Läuft ein Auftrag zu lange, wird er abgebrochen.
+ * Sie zählt außerdem, wie viele Aufträge liefen, fertig wurden oder fehlschlugen.
+ *
  * Task-Steuerung im Stil eines Transaktionsmonitors: Jede Arbeit wird als Task
  * eingereicht, die Anzahl paralleler Tasks ist begrenzt, ein Wachhund bricht Tasks
  * nach Ablauf des Zeitlimits per Interrupt ab,

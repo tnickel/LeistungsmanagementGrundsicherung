@@ -12,6 +12,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
+ * Kurz gesagt: Das ist der Anmeldehelfer für die Überwachung.
+ * Er meldet Pool und Task-Steuerung an die JVM-Verwaltungsstelle (JMX) an,
+ * damit man im Betrieb von außen — etwa mit JConsole — nachsehen kann,
+ * wie viele Aufträge laufen und wie es um den Verbindungspool steht.
+ *
  * Zentrale Registrierung und Verwaltung von JMX-MBeans für die Transaktionssteuerung:
  * <ul>
  *   <li>TaskController: Überwachung von Parallelität, Durchlauf, Fehlern, Timeouts</li>

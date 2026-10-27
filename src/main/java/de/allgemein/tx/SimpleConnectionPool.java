@@ -16,6 +16,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 /**
+ * Das ist der einfache Verbindungspool für Demo und Übergang.
+ * Er hält eine kleine Menge fertiger Datenbankverbindungen und verleiht sie.
+ * Nach der Arbeit kommt die Verbindung zurück in den Pool.
+ * Für den echten Betrieb ist der Oracle-Pool besser geeignet.
+ *
  * Minimaler Verbindungspool für Demo und Übergangsphase. Für die Produktion besser
  * HikariCP oder Oracle UCP einsetzen — die Steuerung hängt nur an dieser schmalen
  * Schnittstelle (getConnection/release) und kann den Pool daher leicht tauschen.

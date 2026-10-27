@@ -5,6 +5,11 @@ import java.util.List;
 import java.util.Objects;
 
 /**
+ * Kurz gesagt: Das ist der Bauplan einer Saga.
+ * Er hält fest, wie der Vorgang heißt und welche Schritte es gibt — jeder
+ * Schritt mit seinem Namen, seiner Aktion und der Gegen-Aktion zum Rückgängigmachen.
+ * Der Ablaufleiter (SagaEngine) arbeitet später genau diesen Bauplan ab.
+ *
  * Feste Abfolge von Schritten eines Geschäftsvorgangs. Schrittnamen sind stabile
  * Recovery-Schlüssel und müssen innerhalb des Typs eindeutig bleiben. Ändert sich
  * die Bedeutung einer Wirkung/Kompensation inkompatibel, braucht sie einen neuen

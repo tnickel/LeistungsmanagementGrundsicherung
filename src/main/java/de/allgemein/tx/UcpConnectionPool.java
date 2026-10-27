@@ -9,6 +9,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
+ * Das ist der Verbindungspool für den echten Betrieb mit Oracle.
+ * Er hält Verbindungen bereit, prüft sie beim Verleihen und wartet nicht endlos,
+ * wenn gerade keine frei ist. Die Fachschicht merkt den Unterschied zum Demo-Pool nicht.
+ *
  * Produktions-Verbindungspool auf Basis des Oracle Universal Connection Pool (UCP):
  * Validierung beim Entleihen, begrenztes Warten auf freie Verbindungen und
  * JDBC-Connect-/Read-Timeouts gegen hängende Aufrufe. Fast Connection Failover (FCF)

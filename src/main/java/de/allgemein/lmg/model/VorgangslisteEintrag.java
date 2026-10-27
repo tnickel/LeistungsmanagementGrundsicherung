@@ -4,6 +4,10 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
+ * Kurz gesagt: Das ist eine Zeile in der Fallübersichts-Liste.
+ * Alles, was die Übersicht über einen Vorgang anzeigen soll: Aktenzeichen,
+ * Name, Restbudget und eine Vorschau des berechneten Zahlbetrags.
+ *
  * Zeile der Fallübersicht: Bedarfsgemeinschaft plus Vorschau des Zahlbetrags
  * (berechnet über alle SozialFälle; null, wenn die Berechnung nicht möglich ist).
  */

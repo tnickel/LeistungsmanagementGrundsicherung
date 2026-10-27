@@ -6,6 +6,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
+ * Kurz gesagt: Das ist der JSON-Übersetzer.
+ * JSON ist das Textformat, in dem der Browser mit dem Server redet.
+ * Diese Klasse kann JSON erzeugen (Objekt → Text) und lesen (Text → Objekt) —
+ * selbst gebaut statt Fremdbibliothek, absichtlich klein gehalten.
+ *
  * Minimale JSON-Unterstützung für die Webschicht — bewusst ohne zusätzliche
  * Bibliothek (Projektregel: keine Frameworks, schmale Abhängigkeiten).
  * Schreiben: Maps/Listen/String/BigDecimal/Boolean/null. Lesen: vollständiger

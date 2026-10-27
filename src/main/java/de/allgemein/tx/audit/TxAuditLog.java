@@ -18,6 +18,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
+ * Kurz gesagt: Das ist das zentrale Technik-Logbuch der Transaktionssteuerung.
+ * Es schreibt für jede Datenbankaktion mit, was technisch passiert ist — und zwar
+ * ohne Sozialdaten. Es sammelt die letzten 1.000 Einträge im Speicher (für die
+ * Diagnose) und schreibt sie optional in eine Datei, die bei 10 MB rotiert.
+ *
  * Revisionssicheres Audit-Log für Transaktions- und Saga-Ereignisse (Commit, Rollback,
  * Retry, Timeout, Saga-Schritte und Kompensationen).
  *

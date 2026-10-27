@@ -3,6 +3,10 @@ package de.allgemein.tx.audit;
 import java.time.Instant;
 
 /**
+ * Kurz gesagt: Das ist ein Eintrag im Technik-Logbuch.
+ * Er hält fest, was bei einer Transaktion oder Saga passiert ist:
+ * Speichern, Zurücknehmen, Wiederholung, Abbruch — mit Uhrzeit und Kennung.
+ *
  * Revisionssicheres Transaktions- und Saga-Ereignis.
  */
 public record TxAuditEvent(

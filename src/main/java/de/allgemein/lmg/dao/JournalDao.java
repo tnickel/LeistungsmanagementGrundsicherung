@@ -12,6 +12,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
+ * Kurz gesagt: Das ist das Gedächtnis der Anwendung.
+ * Jede wichtige Aktion wird hier in ein Buchungsjournal geschrieben —
+ * wer hat wann was angeordnet? Nur diese Klasse schreibt und liest das Journal.
+ *
  * Datenzugriff für das Buchungsjournal (JOURNAL). Jede fachlich relevante Aktion
  * schreibt hier einen revisionsicheren Eintrag — in derselben Transaktion wie
  * die Änderung selbst (atomar, siehe Zahlungs-Workflow).

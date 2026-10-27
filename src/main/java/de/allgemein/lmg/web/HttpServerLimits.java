@@ -4,6 +4,11 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
+ * Kurz gesagt: Das sind die Verkehrsregeln für den eingebauten Webserver.
+ * Wie lange darf eine Anfrage dauern? Wie viele Verbindungen sind erlaubt?
+ * Diese Grenzen werden einmal beim Start gesetzt und schützen den Server
+ * vor Überlastung.
+ *
  * Begrenzte JDK-HttpServer-Zeiten. JVM-weit vor dem ERSTEN HttpServer.create aufrufen.
  * OpenJDK 21 ServerImpl wandelt maxReqTime/maxRspTime (Sekunden) intern in Millisekunden um.
  * Die Werte werden vom JDK einmalig gelesen; Änderungen erfordern einen JVM-Neustart.

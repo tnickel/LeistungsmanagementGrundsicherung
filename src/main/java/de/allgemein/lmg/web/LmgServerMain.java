@@ -16,8 +16,10 @@ import java.time.Instant;
 import java.util.concurrent.CountDownLatch;
 
 /**
- * Startpunkt des Leistungsmanagements (SDN.Leistung LMG): baut Pool,
- * Transaktionssteuerung und Fachdienste auf und startet die Weboberfläche.
+ * Kurz gesagt: Das ist der Startknopf der Anwendung.
+ * Diese Klasse wird gestartet (main-Methode) und baut alles zusammen:
+ * Konfiguration lesen, Verbindungspool aufbauen, Fachdienste erzeugen,
+ * Weboberfläche starten. Danach läuft der Server und wartet auf Anfragen.
  *
  * <p>Verbindung über die Umgebungsvariablen TX_URL, TX_USER, TX_PASS (wie beim
  * DemoMain); Port optional über LMG_PORT (Standard 8080), Bind-Adresse über

@@ -3,6 +3,11 @@ package de.allgemein.tx.saga;
 import java.sql.SQLException;
 
 /**
+ * Kurz gesagt: Das ist der Platzkarten-Anspruch auf eine Saga.
+ * Nur wer die Platzkarte hält, darf an dieser Saga arbeiten — ein zweiter
+ * Server bekommt die Meldung „besetzt" und macht weiter mit der nächsten.
+ * Am Ende gibt man die Platzkarte mit dem Ergebnis zurück (fertig/abgebrochen).
+ *
  * Exklusiver Anspruch auf eine unvollendete Saga während der Ausführung oder des Wiederanlaufs
  * ({@link TxSagaJournal#claimUnfinished}): Die Kopfzeile in TX_SAGA ist
  * mit {@code SELECT … FOR UPDATE SKIP LOCKED} gesperrt — ein paralleler

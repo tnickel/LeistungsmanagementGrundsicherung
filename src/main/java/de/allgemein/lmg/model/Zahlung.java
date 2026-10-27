@@ -4,10 +4,10 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
- * Angeordnete Auszahlung. Die VORGANGS_NR (UUID aus dem Frontend) macht den
- * Buchungsvorgang idempotent: derselbe Request kann nie doppelt buchen.
- * Status: ANGELEGT / BEREIT / UEBERGEBEN / STORNIERT.
- * Trägt Erfasser, Freigebenden (Vier-Augen-Prinzip) und SEPA-Zahlungsempfängerdaten.
+ * Kurz gesagt: Das ist eine angeordnete Auszahlung als Objekt.
+ * Sie hält fest: Wer bekommt wie viel für welchen Monat, wer hat sie angeordnet,
+ * wer hat sie freigegeben — und in welchem Stand sie gerade ist (angelegt, bereit,
+ * übergeben, storniert).
  *
  * <p>{@code vermoegenseinsatz} dokumentiert den bei der Anordnung verbrauchten
  * verwertbaren Vermögensanteil (§ 90 SGB XII, Verbrauchsfortschreibung): Das

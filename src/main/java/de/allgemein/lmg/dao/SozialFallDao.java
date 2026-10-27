@@ -12,6 +12,10 @@ import java.util.List;
 import java.util.Optional;
 
 /**
+ * Kurz gesagt: Das ist der einzige Weg zur Tabelle SOZIAL_FALL.
+ * Hier werden die Personen eines Vorgangs gelesen und geändert — mit all den
+ * Angaben, die die Berechnung braucht (Merkzeichen, Kinder, Miete, Einkommen).
+ *
  * Datenzugriff für SOZIAL_FALL — die Parameter der Bedarfs- und Einkommensermittlung
  * (§§ 27a, 30, 82 SGB XII). Maskenänderungen laufen über {@link #aktualisiere} mit
  * VERSION-Prüfung (optimistisches Locking); der Buchungsweg liest im Bann der BG-Sperre.

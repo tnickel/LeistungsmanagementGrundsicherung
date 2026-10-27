@@ -4,7 +4,13 @@ import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/** Laufzeitinformation zu einem eingereichten Task (Vorbild: CICS-Task im Monitoring). */
+/**
+ * Das ist die interne Karteikarte eines laufenden Auftrags.
+ * Sie merkt sich Nummer, Namen, Startzeit und ob das Zeitlimit überschritten wurde.
+ * Die Steuerung braucht das, damit jeder Auftrag nur einmal abgerechnet wird.
+ *
+ * Laufzeitinformation zu einem eingereichten Task (Vorbild: CICS-Task im Monitoring).
+ */
 final class TaskInfo {
 
     final UUID id;

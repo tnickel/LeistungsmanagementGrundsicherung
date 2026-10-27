@@ -21,6 +21,11 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
+ * Kurz gesagt: Das ist die kleine Demonstrations-Anwendung.
+ * Sie zeigt anhand einfacher Demo-Tabellen, wie die Saga läuft: Antrag anlegen,
+ * Bescheid erstellen, Auszahlung buchen — und was passiert, wenn ein Schritt
+ * fehlschlägt (dann wird alles rückwärts kompensiert). Zum Lernen und Ausprobieren.
+ *
  * Beispiel aus der Sozialleistungsverarbeitung: Antrag → Bescheid → Auszahlung als Saga,
  * dazu parallele Tasks über die Task-Steuerung. Verbindung über die Umgebungsvariablen
  * TX_URL, TX_USER, TX_PASS konfigurierbar; Schema siehe ddl/oracle_schema.sql.

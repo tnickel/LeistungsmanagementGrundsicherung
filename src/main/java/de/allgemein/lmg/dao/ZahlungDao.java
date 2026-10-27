@@ -13,6 +13,11 @@ import java.util.List;
 import java.util.Optional;
 
 /**
+ * Kurz gesagt: Das ist der einzige Weg zur Tabelle ZAHLUNG.
+ * Hier werden Auszahlungen angelegt, gelesen, freigegeben, an die Kasse
+ * übergeben und storniert. Gegen Doppelbuchungen schützt die einmalige
+ * Vorgangsnummer, die nur hier geprüft wird.
+ *
  * Datenzugriff für ZAHLUNG. Die VORGANGS_NR ist unique — sie ist der
  * Idempotenz-Anker gegen Doppelbuchungen bei wiederholten Requests.
  */

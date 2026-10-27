@@ -4,6 +4,11 @@ import java.math.BigDecimal;
 import java.util.Objects;
 
 /**
+ * Kurz gesagt: Das ist der aktuelle Satz-Speichel: Wie viel Geld gibt es pro
+ * Regelbedarfsstufe? Diese sechs Beträge (RBS 1–6) stehen hier als Zahlenpaar
+ * mit Gültigkeitsbeginn drin — das Programm liest sie daraus, nicht aus
+ * fest einkodierten Werten im Code.
+ *
  * Regelbedarfsstufen eines Gültigkeitszeitraums (Anlage zu § 28 SGB XII). Die Sätze
  * werden jährlich zum 1. Januar per Verordnung fortgeschrieben — deshalb liegen sie
  * in der Datenbanktabelle SATZSTAND (eine Zeile je Gültigkeitsmonat), nicht als

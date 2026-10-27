@@ -1,6 +1,10 @@
 package de.allgemein.lmg.service;
 
 /**
+ * Kurz gesagt: Das ist der Zustandsbericht des Gesamtsystems als Objekt.
+ * Alle Messwerte auf einen Blick: Datenbank erreichbar? Wie viele Vorgänge,
+ * Zahlungen, offene Sagas? Wie arbeitet die Auftragssteuerung?
+ *
  * Momentaufnahme des Systemzustands für den Adminbereich: Erreichbarkeit der
  * Datenbank samt Kennung und Antwortzeit, Bestandszahlen (inkl. Sagastände für
  * den Wiederanlauf), Statistik der Task-Steuerung und Laufzeitumgebung.

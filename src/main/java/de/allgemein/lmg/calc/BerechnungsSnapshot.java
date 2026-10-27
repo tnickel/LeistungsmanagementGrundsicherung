@@ -10,11 +10,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Serialisiert das Berechnungsergebnis einer Bescheiderteilung als versioniertes
- * JSON ("Snapshot") und liest es verlustfrei zurück. Der Snapshot wird mit dem
- * Bescheid in BESCHEID.BERECHNUNG gespeichert, damit der Nachdruck unabhängig von
- * späteren Falländerungen stets den Zustand des Erteilungszeitpunkts zeigt
- * (revisionssicherer Nachdruck).
+ * Kurz gesagt: Das ist das Speichern und Laden einer Berechnung als Beleg.
+ * Wenn ein Bescheid erteilt wird, wird das Berechnungsergebnis wie ein Foto
+ * als Text (JSON) mit in den Bescheid gepackt. Später kann man das Foto wieder
+ * laden und weiß genau, wie damals gerechnet wurde — auch wenn sich die
+ * Falldaten längst geändert haben.
  *
  * <p>Beträge werden als Zeichenketten mit fester Skala geführt, damit die
  * BigDecimal-Skalierung (zwei Nachkommastellen) den Roundtrip exakt überlebt.

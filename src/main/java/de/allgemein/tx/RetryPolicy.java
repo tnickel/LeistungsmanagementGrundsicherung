@@ -8,6 +8,11 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
+ * Diese Klasse sagt, wann eine ganze Datenbankaktion noch einmal versucht werden darf.
+ * Nur wenn zwei Zugriffe sich kurz in die Quere kommen, lohnt ein neuer Versuch.
+ * Fachliche Fehler werden nicht wiederholt.
+ * Zwischen den Versuchen wartet sie immer etwas länger, damit die Datenbank Luft bekommt.
+ *
  * Entscheidet, welche Datenbankfehler einen Wiederholversuch der ganzen Transaktion
  * rechtfertigen, und federt zwischen den Versuchen zurück (exponentieller Backoff).
  * Wiederholbar sind ausschließlich die folgenden Oracle-Sperrenkonflikte:

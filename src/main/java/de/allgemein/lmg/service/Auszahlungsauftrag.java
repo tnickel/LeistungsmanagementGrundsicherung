@@ -1,6 +1,10 @@
 package de.allgemein.lmg.service;
 
 /**
+ * Kurz gesagt: Das ist der Zettel mit allen Angaben für eine Auszahlung.
+ * Wer soll wie viel in welchem Monat bekommen, zu welcher Bankverbindung,
+ * und wer hat es angeordnet? — genau das steht auf diesem „Auftragszettel".
+ *
  * Anordnung einer Auszahlung durch den Sachbearbeiter ("Auszahlung anordnen"-Button).
  * Die Vorgangsnummer wird im Frontend erzeugt (UUID) und macht den Vorgang idempotent.
  */

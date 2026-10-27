@@ -13,10 +13,10 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Anmeldeverwaltung: Benutzerkonten aus der Konfigurationskaskade
- * (System-Property {@code lmg.benutzer} &gt; Umgebungsvariable {@code LMG_BENUTZER}
- * &gt; {@code lmg.properties}; Format {@code kennung:passwort:rolle;kennung:passwort:rolle},
- * Rollen "admin" und "sachbearbeiter"), Standardkonten für die Demo ohne Angabe.
+ * Kurz gesagt: Das ist die Türsteher- und Schlüsselverwaltung.
+ * Wer darf sich anmelden (mit welchem Kennwort, in welcher Rolle), wer darf
+ * was sehen und tun? Nach der Anmeldung bekommt man ein Zufalls-Ticket
+ * (Token), das bei jeder Anfrage mitgebracht werden muss.
  *
  * <p>Anmeldung liefert ein Zufalls-Token; die Webschicht prüft damit jede Anfrage.
  * Sitzungen liegen im Speicher und laufen nach einem Idle-Timeout ab (konfigurierbar

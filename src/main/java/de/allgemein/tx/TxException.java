@@ -3,6 +3,10 @@ package de.allgemein.tx;
 import java.sql.SQLException;
 
 /**
+ * Das ist der gemeinsame Fehler der Transaktionssteuerung.
+ * Er sagt, ob ein neuer Versuch sinnvoll ist oder ob der Fehler fachlich endgültig ist.
+ * Die Webschicht kann daraus eine klare Meldung machen.
+ *
  * Fehler der Transaktionssteuerung. {@code retryable} sagt, ob ein erneuter Versuch
  * der ganzen Transaktion sinnvoll sein kann (z. B. Deadlock), oder nicht (z. B.
  * Verletzung einer Prüfbedingung).

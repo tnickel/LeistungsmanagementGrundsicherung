@@ -8,7 +8,13 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-/** Handle auf einen eingereichten Task: Ergebnis abholen, abbrechen, Status prüfen. */
+/**
+ * Das ist der Griff zu einem bereits gestarteten Auftrag.
+ * Damit holt man das Ergebnis ab, prüft den Stand oder bricht den Auftrag ab.
+ * Die eigentliche Arbeit läuft woanders, hier liegt nur die Fernbedienung.
+ *
+ * Handle auf einen eingereichten Task: Ergebnis abholen, abbrechen, Status prüfen.
+ */
 public final class TaskHandle<T> {
 
     private final UUID id;

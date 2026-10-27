@@ -3,9 +3,10 @@ package de.allgemein.lmg.service;
 import de.allgemein.tx.TxException;
 
 /**
- * Fachlicher Fehler der Leistungsverarbeitung (kein Datenbankproblem, also
- * bewusst nicht wiederholbar): z. B. kein Anspruch, Restbudget erschöpft,
- * gleichzeitige Maskenänderung durch zwei Sachbearbeiter.
+ * Kurz gesagt: Das ist der „klar benannte Fehler" der Fachlichkeit.
+ * Beispiel: kein Anspruch, Budget erschöpft, zwei Bearbeiter im Konflikt.
+ * Diese Fehler sind endgültig — erneutes Versuchen hilft nicht. Er trägt einen
+ * Code, mit dem die Oberfläche eine verständliche Meldung zeigen kann.
  *
  * <p>Erbt von {@link TxException}, damit der TxManager die Ausnahme uningeschraubt
  * durchreicht (rollback, kein Retry) und Webschicht/Tests den Typ und {@code code}

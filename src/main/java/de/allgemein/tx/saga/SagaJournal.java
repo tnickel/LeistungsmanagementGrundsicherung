@@ -12,7 +12,12 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Journal für lange Geschäftsvorgänge (Saga-Muster) auf Oracle-Tabellen
+ * Kurz gesagt: Das ist das Begleitbuch für Sagas.
+ * Für jeden langen Vorgang wird hier Schritt für Schritt notiert:
+ * Gestartet? Begonnen? Fertig? Rückgängig gemacht? Schlägt der Server mitten
+ * in einer Saga ab, kann man hier nachlesen, wie weit sie gekommen ist.
+ *
+ * <p>Journal für lange Geschäftsvorgänge (Saga-Muster) auf Oracle-Tabellen
  * (TX_SAGA/TX_SAGA_STEP). Funktional entspricht das dem CICS-Journal: Es sichert
  * die Unit of Work über mehrere einzelne Datenbanktransaktionen hinweg.
  *

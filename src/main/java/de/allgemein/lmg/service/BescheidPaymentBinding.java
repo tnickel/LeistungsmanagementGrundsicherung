@@ -9,7 +9,11 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.YearMonth;
 
-/** Bindet aktuelle Zahlungen an den tatsächlich bewilligten Betrag des Zielmonats. */
+/**
+ * Nur eine Kontrollklasse.
+ * Sie rechnet nichts neu. Vor der Zahlung prüft sie nur,
+ * ob der Betrag zum erteilten Bescheid dieses Monats passt.
+ */
 public final class BescheidPaymentBinding {
     private static final BescheidDao DAO = new BescheidDao();
 

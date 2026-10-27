@@ -11,7 +11,15 @@ import java.sql.*;
 import java.time.Instant;
 import java.util.*;
 
-/** Offline-Betriebswerkzeug. PENDING ist bei Altjournalen kein Beweis fehlender Fachwirkung. */
+/**
+ * Kurz gesagt: Das ist das Reparatur-Werkzeug für das Saga-Journal.
+ * Es wird von Hand auf dem Server ausgeführt, wenn ein alter Journaleintrag
+ * unklar ist. Es schaut nach (inspect) oder löst einen hängenden Eintrag
+ * (resolve-pending) — aber nur mit doppelter Bestätigung und vollständiger
+ * Dokumentation, damit nichts unkontrolliert geändert wird.
+ *
+ * Offline-Betriebswerkzeug. PENDING ist bei Altjournalen kein Beweis fehlender Fachwirkung.
+ */
 public final class SagaJournalRepairMain {
     private SagaJournalRepairMain() { }
 

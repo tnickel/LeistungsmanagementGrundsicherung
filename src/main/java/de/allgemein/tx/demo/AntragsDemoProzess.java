@@ -8,9 +8,10 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 /**
- * Die Saga der Demo (Antrag → Bescheid → Auszahlung) samt Schritten auf den
- * Demo-Tabellen TX_DEMO_ANTRAG/TX_DEMO_ZAHLUNG. Ausgelagert aus DemoMain, damit
- * auch der Adminbereich (Wiederanlauf-Aktion) dieselbe Definition nutzen kann.
+ * Kurz gesagt: Das ist die Mini-Ausgabe der Antragssaga für die Demo.
+ * Antrag anlegen → Bescheid erstellen → Auszahlung buchen, auf zwei simplen
+ * Demo-Tabellen. Jeder Schritt hat seine Gegen-Aktion fürs Rückgängigmachen.
+ * Ideal, um das Saga-Muster im Kleinen zu sehen.
  *
  * <p>Alle Schritte und Kompensationen korrelieren über die in TX_DEMO_ANTRAG
  * mitgespeicherte SAGA_ID — nicht über den Namen: Parallele Demo-Sagas mit

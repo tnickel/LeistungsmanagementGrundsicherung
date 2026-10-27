@@ -13,6 +13,11 @@ import java.util.List;
 import java.util.Locale;
 
 /**
+ * Kurz gesagt: Das ist der „Bescheid-Schreiber".
+ * Er baut aus den Berechnungsergebnissen einen vollständigen Bescheid als
+ * HTML-Text: Verfügungs-Satz, Aufschlüsselung der Beträge, Begründung und die
+ * vorgeschriebene Belehrung, was man dagegen machen kann (Widerspruch/Klage).
+ *
  * Erzeugung von Bewilligungsbescheiden (§ 44 SGB XII) für das Vierte Kapitel des
  * SGB XII (Grundsicherung im Alter und bei Erwerbsminderung). Enthält Verfügungssatz,
  * fallbezogene Bedarfsaufschlüsselung, Zahlungsverbindung, Begründung mit

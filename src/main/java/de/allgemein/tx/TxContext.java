@@ -8,6 +8,15 @@ import java.util.Objects;
 import java.util.function.LongSupplier;
 
 /**
+ * Kurz gesagt: Das ist der Rahmen um genau eine laufende Datenbankaktion.
+ * Die Verbindung zur Datenbank steckt darin. Aber der Kontext selbst ist die Aktion:
+ * Sie beginnt, sie läuft, und am Ende wird sie gespeichert oder zurückgenommen.
+ *
+ * Das ist die laufende Datenbankaktion selbst.
+ * Sie hält die geliehene Verbindung und weiß, ob die Aktion noch offen,
+ * gespeichert oder zurückgenommen wurde.
+ * Die Facharbeit bekommt genau diesen Zusammenhang und arbeitet darin.
+ *
  * Steuert genau eine laufende Oracle-Transaktion (Vorbild: CICS-Task mit SYNCPOINT).
  * Die Verbindung gehört zu diesem Zeitpunkt dem Aufrufer; der Pool holt sie
  * nach Abschluss über {@code release()} zurück.

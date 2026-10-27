@@ -32,9 +32,26 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Fachschicht der Grundsicherungs-Leistungsverarbeitung. Alle Aktionen laufen als
- * kurze Oracle-Transaktionen über {@link TxManager} — damit Commit/Rollback und
- * Wiederholung bei Sperren-Konflikten zentral von der Transaktionssteuerung kommen.
+ * Kurz gesagt: Das ist die „Sachbearbeiter-Stube" in Form einer Klasse.
+ * Alles, was ein Sachbearbeiter im Programm tut — Vorgänge anschauen, Personen
+ * ändern, Bescheide erteilen, Zahlungen anordnen, freigeben, stornieren, die
+ * Kasse füttern — geht über diese Klasse. Sie kennt die fachlichen Regeln und
+ * nutzt die DAO-Klassen für den Datenbankteil.
+ *
+ * Das ist die eigentliche Fachklasse. Sie setzt das Interface LeistungsService um.
+ * Die Weboberfläche ruft diese Klasse auf, wenn ein Sachbearbeiter etwas tun will.
+ *
+ * Sie liest Vorgänge, speichert Sozialfälle, erteilt Bescheide und ordnet Zahlungen an.
+ * Die Regeln prüft sie selbst. Das SQL schreibt sie nicht selbst.
+ * Dafür ruft sie den TxManager und die DAO-Klassen auf.
+ * Jede Aktion läuft als kurze Oracle-Transaktion: entweder alles wird gespeichert
+ * oder bei einem Fehler nichts.
+ *
+ * Sie ist keine Startklasse. Der Server startet über LmgServerMain
+ * und übergibt diese Klasse dann an die Webschicht.
+ *
+ * <p>Alle Aktionen laufen über {@link TxManager}, damit Commit, Rollback und
+ * Wiederholung bei Sperren-Konflikten zentral von der Transaktionssteuerung kommen.</p>
  *
  * <p>Der kritische Buchungsweg ({@link #ordneAuszahlungAn}) folgt dem Blueprint:
  * Idempotenz über die Vorgangsnummer, pessimistische Zeilensperre auf die

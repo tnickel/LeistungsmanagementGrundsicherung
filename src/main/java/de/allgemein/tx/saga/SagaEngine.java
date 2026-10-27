@@ -12,10 +12,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Führt lange Geschäftsvorgänge als Kette kurzer Datenbanktransaktionen aus (Saga-Muster):
- * Jeder Schritt committet für sich und wird im Journal festgehalten. Scheitert ein Schritt,
- * werden alle bisherigen Schritte rückwärts kompensiert. Nach einem Absturz beendet
- * {@link #recover(SagaDefinition)} halbfertige Vorgänge sauber.
+ * Kurz gesagt: Das ist der Ablaufleiter der Sagas.
+ * Er geht die Schritte einer Saga der Reihe nach durch und bucht jeden Schritt
+ * ins Journal. Läuft einer schief, lässt er rückwärts alle bisherigen Schritte
+ * wieder rückgängig machen (kompensieren). Nach einem Absturz räumt er beim
+ * Wiederanlauf die halbfertigen Vorgänge auf.
  *
  * <p>Ablauf eines Schritts (Write-Ahead-Prinzip, Fund K1):</p>
  * <ol>

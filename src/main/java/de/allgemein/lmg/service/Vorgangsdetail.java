@@ -8,6 +8,11 @@ import de.allgemein.lmg.model.Zahlung;
 import java.util.List;
 
 /**
+ * Kurz gesagt: Das ist das komplette Dossier eines Vorgangs für die Maske.
+ * Alles, was der Bildschirm „Vorgang" anzeigt, in einem Objekt: die Stammdaten,
+ * alle Personen mit ihrer Berechnung, alle Zahlungen, das Journal und der
+ * letzte Bescheid.
+ *
  * Vollständiger Lesezuschnitt für die Vorgangsmaske: Kopfdaten, alle SozialFälle
  * samt berechneter Bedarfsermittlung, Zahlungshistorie und Journaleinträge.
  * {@code berechnung} kann null sein, wenn die Berechnung nicht möglich ist

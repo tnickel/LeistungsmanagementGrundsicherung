@@ -11,6 +11,11 @@ import java.util.Properties;
 import java.util.logging.Logger;
 
 /**
+ * Kurz gesagt: Hier liest das Programm seine Einstellungen.
+ * Datenbank-Adresse, Port, Poolgröße und so weiter stehen nicht im Code,
+ * sondern kommen von außen: erst Kommandozeile, dann Umgebungsvariablen,
+ * dann die Datei lmg.properties, dann die eingebauten Standardwerte.
+ *
  * Externalisierte Konfiguration für das Leistungsmanagement (SDN.Leistung LMG):
  * Lädt Einstellungen mit Prioritätskaskade (12-Factor-Prinzip):
  * <ol>

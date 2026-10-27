@@ -42,6 +42,12 @@ import java.util.Set;
 import java.util.concurrent.Executors;
 
 /**
+ * Kurz gesagt: Das ist die Weboberfläche samt Schnittstelle.
+ * Hier läuft der Webserver: Der Browser zeigt die Masken (Übersicht, Vorgang,
+ * Adminbereich), und alle Klicks enden als Anfragen an diese Klasse. Sie nimmt
+ * die Anfragen an, prüft, wer da ist, ruft die Fachklasse auf und liefert
+ * die Antwort als JSON oder HTML zurück.
+ *
  * Webschicht des Leistungsmanagements: stellt die JSON-API und die Oberfläche
  * (SDN.Leistung-Stil) bereit. Jede API-Anfrage läuft als Task über die
  * {@link TaskController}-Steuerung — begrenzte Parallelität, Wachhund und

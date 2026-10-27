@@ -1,6 +1,10 @@
 package de.allgemein.lmg.web;
 
 /**
+ * Kurz gesagt: Das ist der Ausweis eines angemeldeten Benutzers.
+ * Nur zwei Angaben: Wer ist es (Kennung) und was darf er (Rolle admin oder
+ * sachbearbeiter). Diese Angaben allein bestimmen, was ins Journal geschrieben wird.
+ *
  * Angemeldeter Benutzer mit seiner Rolle ("admin" oder "sachbearbeiter").
  * Die Kennung stammt aus der Anmeldung und ist die einzige Quelle für den
  * Sachbearbeiter-Eintrag im Journal — Client-Angaben werden ignoriert.
