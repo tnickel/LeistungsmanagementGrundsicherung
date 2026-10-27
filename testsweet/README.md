@@ -185,13 +185,38 @@ das Aktenzeichen-Präfix unterscheidet die Datenmengen in der Datenbank:
 |-----------|----------------------|-------------------------|--------|
 | **POSITIV** (Standard) | `SWEET-<Laufkennung>-` — die 10 Szenario-Arten oben | `SWEET-<Laufkennung>-W-` | `testdokumentation.pdf` / `.md` je Fall |
 | **NEGATIV** | `SWEET-<Laufkennung>-N-` | `SWEET-<Laufkennung>-NW-` | `testdokumentation.pdf` / `.md` je Fall |
+| **ECHT** | `SWEET-<Laufkennung>-E-` — 5 belegte echte Fälle | — (bewusst nur Fachschicht) | `testdokumentation.pdf` / `.md` je Fall |
+| **RECHNER** | `SWEET-<Laufkennung>-R-` — 12 extern abgeglichene Fälle | — (bewusst nur Fachschicht) | `testdokumentation.pdf` / `.md` je Fall |
 | **LAST** | `SWEET-<Laufkennung>-L-` | `SWEET-<Laufkennung>-LW-` | **gekürzter** `lastreport.pdf` / `lastreport.md` (nur Aggregate) |
 | **STRESS** | `SWEET-<Laufkennung>-S-` | — (bewusst nur Fachschicht) | **gekürzter** `lastreport.pdf` / `lastreport.md` |
 
 **Auftrags-Obergrenzen je Kategorie** (Feld „Aufträge", 1–Limit; GUI begrenzt das
 Eingabefeld, Simulator und CLI weisen Überschreitungen mit Klartext-Meldung ab):
 **500** Positiv- und **500** Negativ-Kombinationen (unser vereinbarter Testfallbestand),
+**5** echte Fälle, **12** Rechner-Fälle (fester belegter Bestand),
 **1200** Lastdurchläufe, **3000** Stress-User (je User zwei Wellen).
+
+**Echte Fälle** (ECHT, Fachschicht, 5 Aufträge): belegte Konstellationen aus
+externen Quellen statt eigener Erwartungswerte — Anlage zu § 28 SGB XII
+(amtliche Regelbedarfsstufen 2026), BSG, Urteil v. 27.05.2026, B 8 SO 4/24 R
+(44.500 EUR Vermögen), ein LSG-Urteil über zwei Kraftfahrzeuge (31.000 EUR,
+via Lebenshilfe dokumentiert), das Lebenshilfe-Beispiel „800 Euro auf dem
+Konto" (Schonvermögen) und die KdU-Richtlinie des Landkreises Altenburger Land
+v. 27.05.2026 (Richtwerte, Betriebs-/Heizkostengrenzen, Nettokaltmiete-
+Obergrenze ab 01.07.2026). Die beiden großen Vermögensfälle enden erwartbar in
+KEIN_ANSPRUCH-Abwehr (verwertbares Vermögen deckt den Bedarf; per SQL bleibt
+der Fachbestand unverändert). Quellen mit Abrufdatum je Fall:
+`doc/belege/echt-und-rechner-faelle-2026-10-27.md`.
+
+**Rechner-Fälle** (RECHNER, Fachschicht, 12 Aufträge): alle Konstellationen
+wurden am 27.10.2026 über den externen SGB-XII-Online-Rechner
+steuerschroeder.de (Rechtsstand 03.07.2026) gerechnet; der dort angezeigte
+Ergebnisbetrag ist als fester SQL-Erwartungswert übernommen (978,00 bis
+1.427,00 EUR; Single/Paar, Rente, Erwerbseinkommen mit 30-%-Freibetrag,
+Merkzeichen G). Betriebskosten bewusst 0,00 (der Rechner fragt sie nicht ab),
+zentrales Warmwasser, kein Vermögen. Der JUnit-Test `EchtRechnerFallTest`
+verankert alle zwölf externen Sollwerte — ändert jemand die Bedarfsberechnung,
+fällt er rot (Bruch des Erwartungswert-Zirkelschlusses).
 
 **Negativfälle** (Fachschicht, 9 Arten): NEG-KEINANSPRUCH (Rente über Bedarf,
 § 43 Abs. 1), NEG-BUDGET (Startbudget unter Zahlbetrag), NEG-DOPPELMONAT
