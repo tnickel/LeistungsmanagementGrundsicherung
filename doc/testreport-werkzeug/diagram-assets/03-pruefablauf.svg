@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="770" viewBox="0 0 1600 770" role="img" aria-labelledby="title desc">
+<title id="title">So wird ein Testfall geprüft</title>
+<desc id="desc">Ein Fall besitzt Eingaben und Erwartungen. Er läuft entweder direkt über die Fachschicht oder im echten Browser. Danach werden gespeicherte Daten mit den Erwartungen verglichen und berichtet.</desc>
+<rect width="100%" height="100%" fill="white"/>
+<text x="60" y="55.00" font-family="Arial, sans-serif" font-size="43" font-weight="700" fill="#101820" text-anchor="start" dominant-baseline="central">So wird ein Testfall geprüft</text>
+<text x="60" y="112.00" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="start" dominant-baseline="central">Erwartung festlegen, den Fall ausführen und den gespeicherten Zustand vergleichen.</text>
+<rect x="60" y="300" width="280" height="210" rx="16" fill="#F5F7F8" stroke="#C7D7DC" stroke-width="2"/>
+<text x="200" y="346.00" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#101820" text-anchor="middle" dominant-baseline="central">Eingaben und</text>
+<text x="200" y="386.00" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#101820" text-anchor="middle" dominant-baseline="central">Erwartungen</text>
+<text x="200" y="440.00" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">Haushalt, Werte,</text>
+<text x="200" y="478.40" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">Arbeitsschritte</text>
+<rect x="430" y="175" width="360" height="180" rx="16" fill="#EDF5F5" stroke="#17656B" stroke-width="2"/>
+<text x="610" y="219.00" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#101820" text-anchor="middle" dominant-baseline="central">Direkter Fachweg</text>
+<text x="610" y="278.00" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">Simulator ruft</text>
+<text x="610" y="319.60" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">die Fachservices auf.</text>
+<rect x="430" y="460" width="360" height="180" rx="16" fill="#EDF5F5" stroke="#17656B" stroke-width="2"/>
+<text x="610" y="505.00" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#101820" text-anchor="middle" dominant-baseline="central">Echter Browser</text>
+<text x="610" y="564.00" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">Chrome bedient</text>
+<text x="610" y="605.60" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">die Oberfläche.</text>
+<polyline points="340,402 380,402 380,259 410,259" fill="none" stroke="#17656B" stroke-width="4" stroke-linejoin="round"/>
+<polygon points="410.00,259.00 395.00,251.00 395.00,267.00" fill="#17656B"/>
+<polyline points="340,402 380,402 380,545 410,545" fill="none" stroke="#17656B" stroke-width="4" stroke-linejoin="round"/>
+<polygon points="410.00,545.00 395.00,537.00 395.00,553.00" fill="#17656B"/>
+<rect x="890" y="300" width="300" height="210" rx="16" fill="#FBF5E8" stroke="#A77823" stroke-width="2"/>
+<text x="1040" y="346.00" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#101820" text-anchor="middle" dominant-baseline="central">SQL Kontrolle</text>
+<text x="1040" y="412.00" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#101820" text-anchor="middle" dominant-baseline="central">Datenbank</text>
+<text x="1040" y="453.60" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#101820" text-anchor="middle" dominant-baseline="central">direkt nachprüfen</text>
+<polyline points="790,259 840,259 840,402 870,402" fill="none" stroke="#17656B" stroke-width="4" stroke-linejoin="round"/>
+<polygon points="870.00,402.00 855.00,394.00 855.00,410.00" fill="#17656B"/>
+<polyline points="790,545 840,545 840,402 870,402" fill="none" stroke="#17656B" stroke-width="4" stroke-linejoin="round"/>
+<polygon points="870.00,402.00 855.00,394.00 855.00,410.00" fill="#17656B"/>
+<rect x="1280" y="300" width="260" height="210" rx="16" fill="#F5F7F8" stroke="#C7D7DC" stroke-width="2"/>
+<text x="1410" y="346.00" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#101820" text-anchor="middle" dominant-baseline="central">Testbericht</text>
+<text x="1410" y="402.00" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">Bestanden,</text>
+<text x="1410" y="440.40" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">Fehler oder</text>
+<text x="1410" y="478.80" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">unvollständig</text>
+<polyline points="1190,402 1260,402" fill="none" stroke="#17656B" stroke-width="4" stroke-linejoin="round"/>
+<polygon points="1260.00,402.00 1245.00,394.00 1245.00,410.00" fill="#17656B"/>
+<text x="60" y="709.00" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="start" dominant-baseline="central">Der Test vergleicht Beträge, Status und weitere gespeicherte Werte mit der Erwartung.</text>
+</svg>

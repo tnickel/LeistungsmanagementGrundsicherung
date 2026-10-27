@@ -1,9 +1,9 @@
 {
   "schemaVersion": 2,
-  "reportId": "D9F999A2",
-  "erzeugtAm": "2026-10-27T09:17:23.281Z",
+  "reportId": "FB71866E",
+  "erzeugtAm": "2026-10-27T09:54:47.463Z",
   "verdict": "UNVOLLSTÄNDIG",
-  "inputFingerprint": "25da8febcf1d3c65e074d73f95d49d93192d3836293a4a7868158db9eb8fc92e",
+  "inputFingerprint": "ed78ec8e84413c2b5319cd593da8a94e0a8bf6aa368b2ee0a03737f872458e17",
   "inputInventory": [
     {
       "path": "@artifact:product:134bf69134e1f3f469adc1aa9ce7645e458a22c1bb6a6672bee44c37a4835616",
@@ -130,16 +130,68 @@
       "sha256": "aed423a1b07d38167cc36c7bb0d1a7e7307ce1fce79d686ac472e567ceecac50"
     },
     {
+      "path": "doc/testreport-werkzeug/build-diagrams.py",
+      "sha256": "c8432f6b854aaf007c7ecc289c2cf59e3b41c688be39dc789669e672619676f2"
+    },
+    {
+      "path": "doc/testreport-werkzeug/diagram-assets/01-pruefebenen.png",
+      "sha256": "508cf52f6d600f4e74b732c6f4a46e00d0e21f0de6f4072e572d9df24ecc82c6"
+    },
+    {
+      "path": "doc/testreport-werkzeug/diagram-assets/01-pruefebenen.svg",
+      "sha256": "a3abc417c4237cdb1ef60ad5aff933146dfb28af5c9c342a42a1544fa3729792"
+    },
+    {
+      "path": "doc/testreport-werkzeug/diagram-assets/02-fallentstehung.png",
+      "sha256": "8557e10e27a0501e3884ae98b5cdc1cff7885f5aaaafae78ef6a4121071d68a2"
+    },
+    {
+      "path": "doc/testreport-werkzeug/diagram-assets/02-fallentstehung.svg",
+      "sha256": "35f3ef1eb7beecdea49fed55a79e9aa0b94bb4660d924c89bfad584ac33b937f"
+    },
+    {
+      "path": "doc/testreport-werkzeug/diagram-assets/03-pruefablauf.png",
+      "sha256": "db7d77350216dc4af2b0910db53d2bc4d364bc194ad4bc7fc4bc25134b8a2a35"
+    },
+    {
+      "path": "doc/testreport-werkzeug/diagram-assets/03-pruefablauf.svg",
+      "sha256": "619753286d012c740d6f907db1a1bcebd791a613f45239f85a6c1df6d1296f0f"
+    },
+    {
+      "path": "doc/testreport-werkzeug/diagram-assets/04-stress-zwei-wellen.png",
+      "sha256": "79722c896618577989f65fe5c3923999c7df04867605955360af3e8ad3c12358"
+    },
+    {
+      "path": "doc/testreport-werkzeug/diagram-assets/04-stress-zwei-wellen.svg",
+      "sha256": "51ade6aa31f8f4d48afca9ea4da7f8e8af3e189c9100ebd261a48f2f39ac18a6"
+    },
+    {
       "path": "doc/testreport-werkzeug/publish-report.js",
-      "sha256": "9be56ae508fabd787f7e50b1caa3b848864202c74df2467a66a620195b8c5289"
+      "sha256": "5c749cf6fe306dd2e3024ca64d81080f26fbb1f2c4ecf14cb86c60d3d189068c"
     },
     {
       "path": "doc/testreport-werkzeug/README.md",
-      "sha256": "028c66e50dc4d12c070b0a17e180ab8e4acdc7e67646b855149d995299cc274c"
+      "sha256": "bb429cff6a3ac5eaa2229c92644918c4f14948b24bc7ba6712cab49f913d31a5"
+    },
+    {
+      "path": "doc/testreport-werkzeug/report-content.js",
+      "sha256": "61a9cf63f160d4c2dcb52117769fb61e187ed7bb5c4ae356c4bd08a567a65f2e"
+    },
+    {
+      "path": "doc/testreport-werkzeug/report-layout.js",
+      "sha256": "c6f67280985167e6009b28be32c68d1a1e2e6b83299dd52114406da18d5445e7"
+    },
+    {
+      "path": "doc/testreport-werkzeug/report-library.js",
+      "sha256": "35e0ecc07fa6b2986970d795c742831fa628318b97a7426c3f8f89ff454505a3"
+    },
+    {
+      "path": "doc/testreport-werkzeug/report-summary.js",
+      "sha256": "076a0839e0060c879f392d4420f41ccce6676cf2072fe2e257570b5415f65146"
     },
     {
       "path": "doc/testreport-werkzeug/report-tools.test.js",
-      "sha256": "aada3485deafd873cb6cd50f42a48f42e576c19a5671b378e238cebf1cd4fda1"
+      "sha256": "ae4712bb4f13dbb634c598b84ac2b7337bf46818a8683e02ddcb5eae3850cf1f"
     },
     {
       "path": "doc/testreport-werkzeug/runs.js",
@@ -14602,6 +14654,6 @@
       "sha256": "ab2436d68057176c691806b96633d3b00f7cba8cef0a556e9e36e0a2b31467a3"
     }
   ],
-  "docxSha256": "4e777af0a4e6dab89a145217edf7514f3b61419b00e0849a3587cea5d4534aea",
-  "pdfSha256": "04db0ae6c04b62f46fe56e4b773593feefe93226c26e0b7c1e886b36cd8d18fb"
+  "docxSha256": "bc90afa3a6b6ea659f724b0c75d8bc67f1fde7f36e933b84a0e138dfcc66cbbd",
+  "pdfSha256": "09d85f7455c34d6c85e4ef2fa828e51c7df424d13073cd26cc641f848563a787"
 }

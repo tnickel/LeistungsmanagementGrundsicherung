@@ -5,6 +5,15 @@ Der Report erläutert Prüfverfahren und zeigt ausschließlich den tatsächlich 
 Die Schlussseite ist eine **Gesamtbewertung des erklärten Prüfumfangs**, kein zweites formales Testzertifikat.
 Seitenzahl und Inhaltsverzeichnis entstehen aus dem tatsächlichen Satz; es gibt keine feste 12-Seiten-Zusage.
 
+Die Lesefassung erklärt Testzweck und Verfahren mit zusammenhängenden Beispielen für Leser ohne
+Programmierkenntnisse. `report-content.js` enthält die redaktionellen Texte, `report-layout.js` setzt
+Titel, fließende Kapitel, Vergleichstabellen und vier beschriftete Diagramme. Einleitung,
+erstes Methodenkapitel und Ergebnisteil erhalten klare Seitenanfänge; kurze Tabellen bleiben
+möglichst zusammen. Die Titelübersicht ersetzt das frühere dekorative Bild. `build-diagrams.py`
+erzeugt die SVG-/PNG-Dateien in `diagram-assets` aus derselben Geometrie; die PNGs werden proportional
+und mit Alternativtext in das Dokument eingebettet. Quellenlinks und Begriffsdefinitionen ergänzen
+die Erläuterungen. Änderungen an Text, Diagrammen oder Gestaltung gelten auch für spätere GUI-Exporte.
+
 ## Aufruf und Aktualität
 
 - GUI: **„Testreport (PDF) erstellen“**, `POST /api/testreport`; Abruf über `GET /api/testreport/pdf`.
@@ -36,6 +45,16 @@ abgewiesen; eine lebende, nur langsame Exportprozess wird nicht als verwaist beh
 **UNVOLLSTÄNDIG**. JUnit verwendet dieselbe strikte Auswertung wie das gesonderte Zertifikatwerkzeug:
 laufgebundene XML-Dateien, Testinventar und Buildbindung; übersprungene Pflichtprüfungen sind kein PASS.
 
+Daneben zeigt `report-summary.js` die Zähler genau eines vollständig archivierten JUnit-Laufs pro
+Modul, auch wenn dessen Programmstand inzwischen veraltet ist. Dafür müssen alle erwarteten
+Klassen genau einmal mit unveränderten, konsistenten XML-Belegen vorliegen. Erfasste, ausgeführte,
+erfolgreiche und ausgelassene Prüffälle werden getrennt gezählt. Diese historische Laufzählung
+ändert weder den aktuellen Ebenenstatus noch das Gesamturteil; sie ist ausdrücklich keine reine
+Unit-Test-Zahl. Ohne vollständige archivierte Belege wird kein gemeinsamer Gesamtzähler behauptet.
+Gleichartige Nachweislücken werden verständlich gebündelt. Fehlende Methodenzuordnungen erscheinen
+mit ihrer Anzahl und Bedeutung statt als seitenlange Java-Namenslisten; die strengen Rohbefunde und
+das Ergebnisurteil bleiben unverändert. Nicht belegte KI-Fallzahlen werden nicht als null ausgegeben.
+
 Der jüngste Simulatorlauf wird aus eindeutigen Zeitstempeln mit Offset bestimmt, nicht aus dem zufälligen
 Verzeichnissuffix. Bei zeitlicher Mehrdeutigkeit bleibt ein bekannter Fehler sichtbar; ein mehrdeutiger PASS
 ist nicht vollständig bestätigt. Fach-/SQL-Fehler mit null erfolgreichen Verifikationen bleiben Fehler.
@@ -55,9 +74,12 @@ ersetzt es nicht. Die Kapiteltexte beschreiben Verfahren; sie bescheinigen keine
 
 ## Abhängigkeiten und Regressionen
 
-- `docx`, `xml-js` und `jszip` aus `../handbuch-werkzeug/node_modules`.
+- `docx`, `xml-js` und `jszip` aus `../handbuch-werkzeug/node_modules`. Für die Dokumenterstellung
+  mit einem vorgegebenen Laufzeitpaket kann `LMG_REPORT_NODE_MODULES` das Verzeichnis für `docx`
+  angeben; der normale GUI-Aufruf verwendet weiterhin die Projektabhängigkeit.
 - LibreOffice (`soffice.com` oder `soffice`) für DOCX → PDF.
 - `pdftotext` für die Kapitelstartseiten. Alle Anker müssen eindeutig und geordnet vorhanden sein;
-  der zweite Satz muss dieselben Kapitelstartseiten liefern, sonst wird nicht veröffentlicht.
+  mehrere Kapitel dürfen auf derselben Seite beginnen, ihre Textreihenfolge bleibt verbindlich.
+  Der zweite Satz muss dieselben Kapitelstartseiten liefern, sonst wird nicht veröffentlicht.
 - `node --test doc/testreport-werkzeug/report-tools.test.js` aus dem Repository-Stamm prüft
   Ergebnisurteil, Chronologie, Lifecycle, JUnit-Bindung, Input-/PDF-Integrität, TOC- und Prozessfehlerpfade.

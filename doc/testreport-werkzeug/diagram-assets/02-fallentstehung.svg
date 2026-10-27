@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="850" viewBox="0 0 1600 850" role="img" aria-labelledby="title desc">
+<title id="title">Woher die Testfälle kommen</title>
+<desc id="desc">Vier Arten von Eingaben führen zu ausführbaren Szenarien: mit Startwert erzeugte Kombinationen, feste Grenzfälle, quellenbasierte Modellfälle und feste Vergleichswerte eines externen Rechners.</desc>
+<rect width="100%" height="100%" fill="white"/>
+<text x="60" y="55.00" font-family="Arial, sans-serif" font-size="43" font-weight="700" fill="#101820" text-anchor="start" dominant-baseline="central">Woher die Testfälle kommen</text>
+<text x="60" y="113.00" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="start" dominant-baseline="central">Vier Herkunftsarten liefern unterschiedliche Prüfanlässe.</text>
+<rect x="60" y="170" width="310" height="315" rx="16" fill="#EDF5F5" stroke="#17656B" stroke-width="2"/>
+<text x="215" y="220.00" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#101820" text-anchor="middle" dominant-baseline="central">Erzeugte</text>
+<text x="215" y="258.40" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#101820" text-anchor="middle" dominant-baseline="central">Kombinationen</text>
+<text x="215" y="330.00" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">Zufallsauswahl</text>
+<text x="215" y="371.60" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">mit Startwert</text>
+<text x="215" y="413.20" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">wiederholbar</text>
+<polyline points="215,485 215,515" fill="none" stroke="#17656B" stroke-width="4" stroke-linejoin="round"/>
+<polygon points="215.00,515.00 223.00,500.00 207.00,500.00" fill="#17656B"/>
+<rect x="450" y="170" width="310" height="315" rx="16" fill="#EDF5F5" stroke="#17656B" stroke-width="2"/>
+<text x="605" y="220.00" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#101820" text-anchor="middle" dominant-baseline="central">Feste</text>
+<text x="605" y="258.40" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#101820" text-anchor="middle" dominant-baseline="central">Grenzfälle</text>
+<text x="605" y="330.00" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">Gewählte Grenzen</text>
+<text x="605" y="371.60" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">und berechnete</text>
+<text x="605" y="413.20" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">Handwerte</text>
+<polyline points="605,485 605,515" fill="none" stroke="#17656B" stroke-width="4" stroke-linejoin="round"/>
+<polygon points="605.00,515.00 613.00,500.00 597.00,500.00" fill="#17656B"/>
+<rect x="840" y="170" width="310" height="315" rx="16" fill="#FBF5E8" stroke="#A77823" stroke-width="2"/>
+<text x="995" y="220.00" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#101820" text-anchor="middle" dominant-baseline="central">Quellenbasierte</text>
+<text x="995" y="258.40" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#101820" text-anchor="middle" dominant-baseline="central">Modellfälle</text>
+<text x="995" y="330.00" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">Öffentliche Werte</text>
+<text x="995" y="371.60" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">und offengelegte</text>
+<text x="995" y="413.20" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">Ergänzungen</text>
+<polyline points="995,485 995,515" fill="none" stroke="#17656B" stroke-width="4" stroke-linejoin="round"/>
+<polygon points="995.00,515.00 1003.00,500.00 987.00,500.00" fill="#17656B"/>
+<rect x="1230" y="170" width="310" height="315" rx="16" fill="#FBF5E8" stroke="#A77823" stroke-width="2"/>
+<text x="1385" y="220.00" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#101820" text-anchor="middle" dominant-baseline="central">Externe</text>
+<text x="1385" y="258.40" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#101820" text-anchor="middle" dominant-baseline="central">Vergleichswerte</text>
+<text x="1385" y="330.00" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">Feste Ergebnisse</text>
+<text x="1385" y="371.60" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">aus einem</text>
+<text x="1385" y="413.20" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">Internetrechner</text>
+<polyline points="1385,485 1385,515" fill="none" stroke="#17656B" stroke-width="4" stroke-linejoin="round"/>
+<polygon points="1385.00,515.00 1393.00,500.00 1377.00,500.00" fill="#17656B"/>
+<polyline points="215,515 1385,515" fill="none" stroke="#17656B" stroke-width="4" stroke-linejoin="round"/>
+<polyline points="280,515 280,584" fill="none" stroke="#17656B" stroke-width="4" stroke-linejoin="round"/>
+<polygon points="280.00,584.00 288.00,569.00 272.00,569.00" fill="#17656B"/>
+<rect x="60" y="590" width="380" height="150" rx="16" fill="#F5F7F8" stroke="#C7D7DC" stroke-width="2"/>
+<text x="250" y="628.00" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#101820" text-anchor="middle" dominant-baseline="central">Fall ausführen</text>
+<text x="250" y="670.00" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">Eingaben und</text>
+<text x="250" y="710.00" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">Arbeitsschritte</text>
+<rect x="610" y="590" width="380" height="150" rx="16" fill="#F5F7F8" stroke="#C7D7DC" stroke-width="2"/>
+<text x="800" y="628.00" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#101820" text-anchor="middle" dominant-baseline="central">Datenbank auslesen</text>
+<text x="800" y="670.00" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">Gespeichertes</text>
+<text x="800" y="710.00" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">Ergebnis</text>
+<rect x="1160" y="590" width="380" height="150" rx="16" fill="#F5F7F8" stroke="#C7D7DC" stroke-width="2"/>
+<text x="1350" y="628.00" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#101820" text-anchor="middle" dominant-baseline="central">Erwartung prüfen</text>
+<text x="1350" y="670.00" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">Soll und Ist</text>
+<text x="1350" y="710.00" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="middle" dominant-baseline="central">vergleichen</text>
+<polyline points="440,657 590,657" fill="none" stroke="#17656B" stroke-width="4" stroke-linejoin="round"/>
+<polygon points="590.00,657.00 575.00,649.00 575.00,665.00" fill="#17656B"/>
+<polyline points="990,657 1140,657" fill="none" stroke="#17656B" stroke-width="4" stroke-linejoin="round"/>
+<polygon points="1140.00,657.00 1125.00,649.00 1125.00,665.00" fill="#17656B"/>
+<text x="60" y="800.00" font-family="Arial, sans-serif" font-size="32" font-weight="400" fill="#40515D" text-anchor="start" dominant-baseline="central">Modellfälle nutzen öffentliche Quellen und offengelegte Ergänzungen.</text>
+</svg>

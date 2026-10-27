@@ -1,7 +1,8 @@
 "use strict";
 const {test}=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),os=require("node:os");
 const runs=require("./runs"),report=require("./publish-report"),evidence=require("../testzertifikat-werkzeug/certificate-evidence");
-const {Packer}=require("../handbuch-werkzeug/node_modules/docx"),JSZip=require("../handbuch-werkzeug/node_modules/jszip");
+const {Packer}=require("./report-library").docx,JSZip=require("../handbuch-werkzeug/node_modules/jszip");
+const {recordedJUnit,reportMetrics}=require("./report-summary");
 function write(repo,name,value){const file=path.join(repo,name);fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,typeof value==="string"?value:JSON.stringify(value));return file;}
 function fixture(t){
   const root=fs.mkdtempSync(path.join(os.tmpdir(),"lmg-report-regression-"));
@@ -120,9 +121,15 @@ test("eigenes Werkzeug und Fachbelege sind gebunden, Ausgaben nicht",t=>{
 test("Exportguard erkennt Eingabeänderung während des Exports",t=>{
   const repo=fixture(t),before=runs.inputFingerprint(repo);write(repo,"testsweet/logs/run-new/run-state.json",{});assert.throws(()=>report.assertInputs(repo,before),/während des Exports/);
 });
-const headings=["Einleitung","1 Testarten","2 Zwei","3 Herkunft","4 Echte","5 Unabhängige","6 Transaktionssteuerung","7 Ergebnisübersicht","8 Fazit","Gesamtbewertung des Prüfumfangs"];
+const headings=["Einleitung","1 Testarten","2 Zwei","3 Herkunft","4 Quellenbasierte","5 Unabhängige","6 Transaktionssteuerung","7 Ergebnisübersicht","8 Fazit","Gesamtbewertung des Prüfumfangs"];
 test("TOC akzeptiert eingerückte und verschobene Kapitel",()=>{
   const raw="title\fcontents\fextra\f"+headings.map(x=>"  "+x).join("\f");assert.deepEqual(report.chapterPages(raw),[4,5,6,7,8,9,10,11,12,13]);
+});
+test("TOC erlaubt fließende Kapitel auf derselben Seite und prüft ihre Textreihenfolge",()=>{
+  assert.deepEqual(report.chapterPages("title\fcontents\f"+headings.join("\n")),headings.map(()=>3));
+  const swapped=[...headings];[swapped[3],swapped[4]]=[swapped[4],swapped[3]];
+  assert.throws(()=>report.chapterPages("title\fcontents\f"+swapped.join("\n")),/reihenfolge/i);
+  assert.throws(()=>report.chapterPages("title\fcontents\f"+headings.concat(headings[0]).join("\n")),/mehrdeutig/);
 });
 test("TOC verweigert fehlende, doppelte oder vertauschte Anker",()=>{
   assert.throws(()=>report.chapterPages("title\fcontents\fno headings"),/Kapitelanker/);
@@ -135,6 +142,47 @@ test("DOCX stellt bekannte Fehler und fehlende Ebenen ohne positive Pauschalbest
   const zip=await JSZip.loadAsync(await Packer.toBuffer(doc)),xml=await zip.file("word/document.xml").async("string");
   assert.match(xml,/Gesamtbewertung: NICHT BESTANDEN/);assert.match(xml,/UNVOLLSTÄNDIG/);assert.match(xml,/FEHLGESCHLAGEN/);
   assert.doesNotMatch(xml,/Hiermit wird bestätigt|Über alle Ebenen hinweg ergibt sich ein konsistentes Bild|Zehntausende/);
+  assert.equal((xml.match(/<w:drawing>/g)||[]).length,4);
+  assert.match(xml,/Zufallsgenerator/);assert.match(xml,/keine vollständige Prüfung/);
+});
+
+test("archivierte Laufzahlen bleiben nach Quellenänderung lesbar ohne aktuellen PASS",t=>{
+  const repo=fixture(t);junit(repo,"main");junit(repo,"testsweet","SKIPPED");
+  write(repo,"src/test/java/example/GoldTest.java","package example; class GoldTest { @Test void changed() {} }");
+  const stand=runs.reportStand(repo),metrics=reportMetrics(repo,stand);
+  assert.equal(stand.verdict,"UNVOLLSTÄNDIG");assert.equal(metrics.complete,true);
+  assert.deepEqual(metrics.totals,{tests:2,executed:1,passed:1,failures:0,errors:0,skipped:1});
+  assert(metrics.modules.every(x=>x.recorded.current===false));
+});
+test("archivierte Zähler verlangen vollständige unveränderte XML-Belege",t=>{
+  const repo=fixture(t),marker=junit(repo),item={marker,state:"UNVERIFIED"};
+  assert.equal(recordedJUnit(repo,item).tests,1);
+  marker.reports.push({...marker.reports[0]});assert.equal(recordedJUnit(repo,item),null);marker.reports.pop();
+  write(repo,marker.reports[0].path,"<testsuite/>");assert.equal(recordedJUnit(repo,item),null);
+  assert.equal(recordedJUnit(repo,{marker:{...marker,state:"RUNNING"}}),null);
+  assert.equal(recordedJUnit(repo,{}),null);
+});
+test("fehlender Modulbeleg wird in der Einleitung nicht als vollständiger Gesamtumfang ausgegeben",async t=>{
+  const repo=fixture(t);junit(repo,"main");
+  const zip=await JSZip.loadAsync(await Packer.toBuffer(report.baueDokument(repo,"27.10.2026","CONTROLLED",null)));
+  const xml=await zip.file("word/document.xml").async("string");
+  assert.match(xml,/Für einen vollständigen gemeinsamen Zähler fehlen archivierte Laufbelege/);
+  assert.doesNotMatch(xml,/insgesamt 1 registrierte Prüffälle/);
+  assert.doesNotMatch(xml,/JUnit-Testmethode fehlt:/);
+  assert.match(xml,/erwartete Methoden fehlt ein aktuell gültiger Einzelbeleg/);
+});
+test("GLM-Fallzahl bleibt bei fachlichem FAIL sichtbar und ist ohne Beleg keine Null",async t=>{
+  const repo=fixture(t),{Document}=require("./report-library").docx;
+  async function tableText(evidence){
+    const stand={junit:{},layers:[{id:"GLM: Stichprobe",state:"FAIL",reasons:[],evidence}]};
+    const zip=await JSZip.loadAsync(await Packer.toBuffer(new Document({sections:[{children:report.ergebnisTabelle(repo,stand)}]})));
+    const xml=await zip.file("word/document.xml").async("string");
+    return [...xml.matchAll(/<w:t(?:\s[^>]*)?>(.*?)<\/w:t>/g)].map(x=>x[1]);
+  }
+  const verified=await tableText({valid:false,evidenceVerified:true,meta:{pruefumfang:"2/2 vollständige Fälle (Stichprobe)"}});
+  assert.equal(verified.filter(x=>x==="2").length,2);assert(verified.includes("FEHLGESCHLAGEN"));
+  const missing=await tableText({valid:false,evidenceVerified:false,cases:[{},{}]});
+  assert.equal(missing.filter(x=>x==="nicht belegt").length,2);assert(!missing.includes("0"));
 });
 
 // Prozessfehler und Publisher-Transaktion mit deterministischem externen Satz.
