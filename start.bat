@@ -57,10 +57,13 @@ echo Starte Entwickler-DB ^(Container lmg-oracle^) ...
 docker start lmg-oracle >nul
 
 :db_warten
-docker inspect --format "{{.State.Health.Status}}" lmg-oracle 2>nul | findstr /x "healthy" >nul && goto db_bereit
+rem Der Container lmg-oracle hat keinen Docker-Healthcheck; Bereitschaft
+rem daher echt pruefen: sqlplus-Login gilt erst, wenn Listener UND PDB offen sind.
+docker exec lmg-oracle bash -c "echo 'select 1 from dual;' | sqlplus -S -L %TX_USER%/%TX_PASS%@localhost:1521/FREEPDB1" >nul 2>nul
+if not errorlevel 1 goto db_bereit
 set /a warte+=5
-if %warte% geq 120 (
-    echo [Warnung] DB nach 120s nicht gesund - Start wird trotzdem fortgesetzt.
+if %warte% geq 300 (
+    echo [Warnung] DB nach 300s nicht bereit - Start wird trotzdem fortgesetzt.
     goto db_ok
 )
 echo Warte auf Datenbank ... %warte%s
