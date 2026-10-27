@@ -45,6 +45,8 @@
                 <a id="mdknopf" class="btn btn-sekundaer" href="/api/md" target="_blank">{ } Markdown für KI-Review</a>
                 <button type="button" id="zertifikatknopf" class="btn btn-sekundaer">🏅 Testzertifikat erstellen</button>
                 <a id="zertifikatlink" class="btn btn-sekundaer" href="/api/zertifikat/pdf" target="_blank" style="display:none">🏅 Zertifikat öffnen (PDF)</a>
+                <button type="button" id="testreportknopf" class="btn btn-sekundaer" title="Management-Bericht als PDF: Kapitel, Ergebnistabellen, Zertifikatsseite — bei jedem Klick frisch erzeugt">📊 Testreport (PDF) erstellen</button>
+                <a id="testreportlink" class="btn btn-sekundaer" href="/api/testreport/pdf" target="_blank" style="display:none">📊 Testreport öffnen (PDF)</a>
             </div>
         </div>
     </div>
@@ -100,6 +102,12 @@
             </button>
             <button type="button" class="d-tab" id="kategorie-negativ" data-kategorie="NEGATIV">
                 Negativfälle
+            </button>
+            <button type="button" class="d-tab" id="kategorie-echt" data-kategorie="ECHT">
+                Echte Fälle (5 belegte Quellen)
+            </button>
+            <button type="button" class="d-tab" id="kategorie-rechner" data-kategorie="RECHNER">
+                Rechner-Fälle (extern abgeglichen)
             </button>
             <button type="button" class="d-tab" id="kategorie-last" data-kategorie="LAST">
                 Lasttest (schlanke Massendurchläufe)

@@ -71,9 +71,12 @@ public final class SweetMain {
             int ma = config.mitarbeiter(), auf = config.auftraege();
             long seed = config.seed();
             Simulator.Kategorie kategorie = config.kategorie();
-            if (kategorie == Simulator.Kategorie.STRESS) {
-                System.err.println("Der Stresstest (User anlegen + nachbearbeiten) ist nur im "
-                        + "Fachschicht-Modus möglich — bitte Kommando 'run' verwenden");
+            if (kategorie == Simulator.Kategorie.STRESS
+                    || kategorie == Simulator.Kategorie.ECHT
+                    || kategorie == Simulator.Kategorie.RECHNER) {
+                System.err.println("Diese Kategorie (Stresstest, echte Fälle, externe "
+                        + "Rechner-Fälle) ist nur im Fachschicht-Modus möglich — bitte "
+                        + "Kommando 'run' verwenden");
                 System.exit(2);
             }
             try {
@@ -131,8 +134,8 @@ public final class SweetMain {
                 true, liesKategorie(args));
     }
 
-    /** Optionaler 6. CLI-Parameter: Testfallkategorie (POSITIV/NEGATIV/LAST/STRESS;
-     *  STRESS nur im Fachschicht-Modus 'run'). */
+    /** Optionaler 6. CLI-Parameter: Testfallkategorie (POSITIV/NEGATIV/ECHT/
+     *  RECHNER/LAST/STRESS; ECHT, RECHNER und STRESS nur im Fachschicht-Modus 'run'). */
     private static Simulator.Kategorie liesKategorie(String[] args) {
         if (args.length <= 5) {
             return Simulator.Kategorie.POSITIV;
@@ -141,7 +144,7 @@ public final class SweetMain {
             return Simulator.Kategorie.valueOf(args[5].toUpperCase(java.util.Locale.ROOT));
         } catch (IllegalArgumentException e) {
             System.err.println("Unbekannte Testfallkategorie '" + args[5]
-                    + "' — zulaessig: POSITIV, NEGATIV, LAST, STRESS (nur Fachschicht)");
+                    + "' — zulaessig: POSITIV, NEGATIV, ECHT, RECHNER, LAST, STRESS (ECHT/RECHNER/STRESS nur Fachschicht)");
             System.exit(2);
             return Simulator.Kategorie.POSITIV; // nicht erreichbar
         }

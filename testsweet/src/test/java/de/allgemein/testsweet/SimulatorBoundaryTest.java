@@ -50,7 +50,7 @@ class SimulatorBoundaryTest {
     }
     @Test void cliRejectsInvalidConfigurationWithExitTwoWithoutCreatingRunEvidence() throws Exception {
         String cp=System.getProperty("surefire.test.class.path",System.getProperty("java.class.path"));
-        for (List<String> args : List.of(List.of("run","0","1"),List.of("run","1","501"),List.of("run","abc"),List.of("run","1","1","42","0","INVALID"),List.of("web","1","1","42","0","STRESS"))) {
+        for (List<String> args : List.of(List.of("run","0","1"),List.of("run","1","501"),List.of("run","abc"),List.of("run","1","1","42","0","INVALID"),List.of("run","1","6","42","0","ECHT"),List.of("run","1","13","42","0","RECHNER"),List.of("web","1","1","42","0","STRESS"),List.of("web","1","1","42","0","ECHT"))) {
             var command=new java.util.ArrayList<>(List.of(Path.of(System.getProperty("java.home"),"bin","java").toString(),
                     "-Dfile.encoding=UTF-8","-Dstdout.encoding=UTF-8","-Dstderr.encoding=UTF-8","-cp",cp,SweetMain.class.getName()));command.addAll(args);
             Path output=temp.resolve("cli.log");Process process=new ProcessBuilder(command).directory(temp.toFile()).redirectErrorStream(true).redirectOutput(output.toFile()).start();

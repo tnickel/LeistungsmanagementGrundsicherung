@@ -40,6 +40,7 @@ final class SweetServer implements AutoCloseable {
     private final java.nio.file.Path repository;
     private final CertificateSuiteService certificateSuite;
     private final java.util.concurrent.atomic.AtomicBoolean certificateBusy = new java.util.concurrent.atomic.AtomicBoolean();
+    private final java.util.concurrent.atomic.AtomicBoolean reportBusy = new java.util.concurrent.atomic.AtomicBoolean();
 
     SweetServer(Simulator simulator, int port) throws IOException {
         this(simulator, port, repositoryRoot());
@@ -170,6 +171,14 @@ final class SweetServer implements AutoCloseable {
                         sendeFehler(exchange, 405, "nur POST");
                     }
                 }
+                case "/api/testreport" -> {
+                    if ("POST".equals(exchange.getRequestMethod())) {
+                        erzeugeTestreport(exchange);
+                    } else {
+                        sendeFehler(exchange, 405, "nur POST");
+                    }
+                }
+                case "/api/testreport/pdf" -> liefereTestreportPdf(exchange);
                 case "/api/zertifikat/pdf" -> liefereZertifikatPdf(exchange);
                 case "/api/auftraege" -> sendeJson(exchange, Map.of("auftraege", auftragsliste()));
                 case "/api/testfaelle" -> sendeJson(exchange, testfallKatalog(exchange));
@@ -260,9 +269,11 @@ final class SweetServer implements AutoCloseable {
             sendeFehler(exchange, 400, "Unbekannte Kategorie: " + text(wunsch, "kategorie", ""));
             return;
         }
-        if ("WEB".equals(modus) && kategorie == Simulator.Kategorie.STRESS) {
-            sendeFehler(exchange, 400, "Der Stresstest (User anlegen + nachbearbeiten) ist für "
-                    + "den Fachschicht-Modus vorgesehen — bitte Modus 1 wählen");
+        if ("WEB".equals(modus) && (kategorie == Simulator.Kategorie.STRESS
+                || kategorie == Simulator.Kategorie.ECHT
+                || kategorie == Simulator.Kategorie.RECHNER)) {
+            sendeFehler(exchange, 400, "Diese Kategorie (Stresstest, echte Fälle, externe "
+                    + "Rechner-Fälle) ist für den Fachschicht-Modus vorgesehen — bitte Modus 1 wählen");
             return;
         }
         Simulator.LaufKonfiguration konfig = laufKonfiguration(wunsch, kategorie);
@@ -805,6 +816,61 @@ final class SweetServer implements AutoCloseable {
             sendeJson(exchange,response);
         } catch (Exception error) {
             sendeFehler(exchange,500,"Zertifikat konnte nicht veröffentlicht werden: " + error.getMessage());
+        }
+    }
+
+    /** Management-Testreport (PDF) je Klick frisch erzeugen: fixe Erklärtkapitel
+     *  plus dynamische Ergebniszahlen aus den Prüfläufen; letzte Seite Zertifikat. */
+    private void erzeugeTestreport(HttpExchange exchange) throws IOException {
+        synchronized (operationLock) {
+            requireNoCertificateSuite();
+            if (simulator.laufAktiv()) { sendeFehler(exchange, 409, "Lauf zuerst abschließen"); return; }
+            if (!reportBusy.compareAndSet(false, true)) { sendeFehler(exchange, 409, "Ein Testreport wird bereits erzeugt"); return; }
+        }
+        try {
+            java.nio.file.Path werkzeug = repository.resolve("doc/testreport-werkzeug");
+            if (!java.nio.file.Files.isDirectory(werkzeug)) { sendeFehler(exchange, 404, "Testreport-Werkzeug fehlt"); return; }
+            String output = runProcess(new ProcessBuilder("node", "publish-report.js", "--publish", repository.toString())
+                    .directory(werkzeug.toFile()), 300);
+            Object parsed = Json.parse(output.trim());
+            if (!(parsed instanceof Map<?,?> marker) || !"READY".equals(marker.get("state")))
+                throw new IOException("Report wurde nicht vollständig veröffentlicht");
+            Map<String,Object> response = new LinkedHashMap<>();
+            response.put("ok", true);
+            response.put("pdf", repository.resolve("doc/SDN-Leistung-LMG-Testreport.pdf").toString());
+            response.put("reportId", marker.get("reportId"));
+            response.put("laeufe", marker.get("laeufe"));
+            response.put("davonErfolgreich", marker.get("davonErfolgreich"));
+            sendeJson(exchange, response);
+        } catch (Exception error) {
+            sendeFehler(exchange, 500, "Testreport konnte nicht erstellt werden: " + error.getMessage());
+        } finally {
+            reportBusy.set(false);
+        }
+    }
+
+    /** Liefert das zuletzt erzeugte Report-PDF aus — veraltet Fassungen werden abgewiesen. */
+    private void liefereTestreportPdf(HttpExchange exchange) throws IOException {
+        java.nio.file.Path datei = repository.resolve("doc/SDN-Leistung-LMG-Testreport.pdf");
+        if (!java.nio.file.Files.exists(datei)) {
+            sendeFehler(exchange, 404, "Noch kein Testreport vorhanden — zuerst „Testreport erstellen“ klicken");
+            return;
+        }
+        if (reportBusy.get()) { sendeFehler(exchange, 409, "Testreport wird gerade neu erstellt"); return; }
+        try {
+            runProcess(new ProcessBuilder("node", "publish-report.js", "--verify", repository.toString())
+                    .directory(repository.resolve("doc/testreport-werkzeug").toFile()), 30);
+        } catch (Exception error) {
+            sendeFehler(exchange, 409, "Testreport ist veraltet. Neu erstellen. " + error.getMessage());
+            return;
+        }
+        byte[] bytes = java.nio.file.Files.readAllBytes(datei);
+        exchange.getResponseHeaders().set("Content-Type", "application/pdf");
+        exchange.getResponseHeaders().set("Cache-Control", "no-store");
+        exchange.getResponseHeaders().set("Content-Disposition", "inline; filename=\"testreport.pdf\"");
+        exchange.sendResponseHeaders(200, bytes.length);
+        try (OutputStream out = exchange.getResponseBody()) {
+            out.write(bytes);
         }
     }
 

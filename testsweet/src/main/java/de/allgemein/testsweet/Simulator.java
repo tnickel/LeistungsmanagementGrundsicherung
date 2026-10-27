@@ -57,16 +57,21 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class Simulator {
 
     /** Testfallkategorie des Laufs: positive Standardszenarien, abgewehrte
-     *  Fachfehler (NEGATIV) oder schlanker Massenbetrieb für den Lasttest. */
-    public enum Kategorie { POSITIV, NEGATIV, LAST, STRESS }
+     *  Fachfehler (NEGATIV), belegte echte Fälle (ECHT), mit einem externen
+     *  Online-Rechner abgeglichene Fälle (RECHNER) oder schlanker Massenbetrieb
+     *  für den Lasttest. */
+    public enum Kategorie { POSITIV, NEGATIV, ECHT, RECHNER, LAST, STRESS }
 
     /** Zulässige Auftrags-Obergrenze je Kategorie: Der Testfallbestand ist bewusst
      *  begrenzt — 500 Positiv- und 500 Negativ-Kombinationen (kuratierte Arten +
-     *  Kombinationsgenerator), 1200 schlanke Lastdurchläufe und 3000 Stress-User
-     *  (je User zwei Wellen = 6000 Transaktionsblöcke). */
+     *  Kombinationsgenerator), die 5 belegten echten Fälle, die 12 extern
+     *  abgeglichenen Rechner-Fälle, 1200 schlanke Lastdurchläufe und 3000
+     *  Stress-User (je User zwei Wellen = 6000 Transaktionsblöcke). */
     public static int auftraegeLimit(Kategorie kategorie) {
         return switch (kategorie) {
             case POSITIV, NEGATIV -> 500;
+            case ECHT -> 5;
+            case RECHNER -> 12;
             case LAST -> 1200;
             case STRESS -> 3000;
         };
@@ -437,7 +442,12 @@ public final class Simulator {
         ExecutorService executor = laufExecutor;
         if (executor != null) executor.shutdownNow();
         webMitarbeiter.forEach(WebMitarbeiter::schliesse);
-        WebMitarbeiter.raeumeVerwaisteFensterAuf();
+        // Browserfenster-Aufräumen nur nach Web-Läufen: Fachschicht-Läufe haben
+        // nie eigene Chrome-Profile, und das Aufräumskript kostet mit offenen
+        // Chrome-Prozessen des Nutzers mehrere Sekunden — ein Worker-Absturz
+        // (STRESS-Abbruch, Stop-Knopf) darf daran nicht hängen. Der bewusste
+        // Cleanup-Knopf (/api/cleanup-prozesse) räumt weiterhin immer.
+        if (!webMitarbeiter.isEmpty()) WebMitarbeiter.raeumeVerwaisteFensterAuf();
     }
 
     // ------------------------------------------------------------------
@@ -507,11 +517,12 @@ public final class Simulator {
             throw new IllegalStateException("Es läuft bereits ein Simulator-Lauf (Phase "
                     + phase + ") — bitte das Ende abwarten");
         }
-        // STRESS gibt es nur im Fachschicht-Modus — VOR dem Anlegen von Log/Server/
-        // Treiber-Fenster abweisen (siehe auch Guard am Anfang von laufWebAusfuehren)
-        if (konfig.kategorie() == Kategorie.STRESS) {
+        // STRESS/ECHT/RECHNER gibt es nur im Fachschicht-Modus — VOR dem Anlegen
+        // von Log/Server/Treiber-Fenster abweisen (siehe auch Guard am Anfang
+        // von laufWebAusfuehren)
+        if (webUnzulaessig(konfig.kategorie())) {
             laufAktiv.set(false);
-            throw new IllegalStateException(webStressMeldung());
+            throw new IllegalStateException(webNurFachschichtMeldung());
         }
         this.konfiguration = konfig;
         setzeLaufZurueck();
@@ -528,16 +539,21 @@ public final class Simulator {
         laufThread.start();
     }
 
-    private static String webStressMeldung() {
-        return "Der Stresstest (User anlegen + nachbearbeiten) ist für den Fachschicht-Modus "
-                + "vorgesehen — für die Weboberfläche die Kategorie LAST nutzen";
+    private static boolean webUnzulaessig(Kategorie kategorie) {
+        return kategorie == Kategorie.STRESS || kategorie == Kategorie.ECHT
+                || kategorie == Kategorie.RECHNER;
+    }
+
+    private static String webNurFachschichtMeldung() {
+        return "Stresstest, echte Fälle und Rechner-Fälle sind für den Fachschicht-Modus "
+                + "vorgesehen — für die Weboberfläche die Kategorien POSITIV, NEGATIV oder LAST nutzen";
     }
 
     private void laufWebAusfuehren(LaufKonfiguration konfig) throws Exception {
-        // STRESS+WEB-Guard als ALLERERSTE Anweisung — bevor irgendetwas angefasst
-        // (SweetLog, eingebetteter Server, WebDriverManager, Fenster) wird.
-        if (konfig.kategorie() == Kategorie.STRESS) {
-            throw new IllegalStateException(webStressMeldung());
+        // STRESS/ECHT/RECHNER+WEB-Guard als ALLERERSTE Anweisung — bevor irgendetwas
+        // angefasst wird (SweetLog, eingebetteter Server, WebDriverManager, Fenster).
+        if (webUnzulaessig(konfig.kategorie())) {
+            throw new IllegalStateException(webNurFachschichtMeldung());
         }
         phase = Phase.BEREIT;
         auftraege = List.of();
@@ -821,6 +837,8 @@ public final class Simulator {
         String praefix = laufDaten.prefix() + switch (konfig.kategorie()) {
             case POSITIV -> web ? "W-" : "";
             case NEGATIV -> web ? "NW-" : "N-";
+            case ECHT -> "E-"; // nur Fachschicht (Guard in SweetServer/starteWeb)
+            case RECHNER -> "R-"; // nur Fachschicht (Guard in SweetServer/starteWeb)
             case LAST -> web ? "LW-" : "L-";
             case STRESS -> "S-"; // nur Fachschicht (Guard in laufWebAusfuehren/starteWeb)
         };
@@ -831,6 +849,8 @@ public final class Simulator {
             case NEGATIV -> !web
                     ? new SzenarioBibliothek(seed).erzeugeNegativ(konfig.auftraege(), praefix)
                     : new WebSzenarioBibliothek(seed).erzeugeNegativ(konfig.auftraege(), praefix);
+            case ECHT -> new SzenarioBibliothek(seed).erzeugeEcht(konfig.auftraege(), praefix);
+            case RECHNER -> new SzenarioBibliothek(seed).erzeugeRechner(konfig.auftraege(), praefix);
             case LAST -> !web
                     ? new SzenarioBibliothek(seed).erzeugeLast(konfig.auftraege(), praefix)
                     : new WebSzenarioBibliothek(seed).erzeugeLast(konfig.auftraege(), praefix);

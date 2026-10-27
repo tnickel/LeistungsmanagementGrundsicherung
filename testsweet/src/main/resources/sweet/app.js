@@ -99,6 +99,40 @@ window.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    // Management-Testreport: Knopf erzeugt bei jedem Klick einen frischen
+    // PDF-Bericht (fixe Erklärtkapitel + dynamische Laufzahlen, Zertifikat am Ende).
+    const reportKnopf = $("testreportknopf");
+    if (reportKnopf) {
+        reportKnopf.addEventListener("click", async () => {
+            if (zertifikatSuiteGesperrt()) return;
+            entwerteSuiteNachManuellerAktion();
+            reportKnopf.disabled = true;
+            reportKnopf.textContent = "📊 Testreport wird erstellt …";
+            try {
+                const antwort = await fetch("/api/testreport", { method: "POST" });
+                const ergebnis = await antwort.json();
+                if (ergebnis.fehler) {
+                    alert("Testreport konnte nicht erstellt werden: " + ergebnis.fehler);
+                } else {
+                    const link = $("testreportlink");
+                    if (link) link.style.display = "inline-block";
+                    let meldung = "Testreport erstellt und nach doc/ kopiert:\n" + ergebnis.pdf;
+                    if (ergebnis.reportId) meldung += "\n\nReport-Kennung: " + ergebnis.reportId;
+                    if (Number.isFinite(Number(ergebnis.laeufe))) {
+                        meldung += "\nAusgewertete Prüfläufe: " + ergebnis.laeufe
+                            + " (davon " + ergebnis.davonErfolgreich + " vollständig bestanden)";
+                    }
+                    alert(meldung);
+                }
+            } catch (e) {
+                alert("Serverfehler beim Erstellen: " + e.message);
+            } finally {
+                reportKnopf.disabled = false;
+                reportKnopf.textContent = "📊 Testreport (PDF) erstellen";
+            }
+        });
+    }
+
     initialisiereLlm();
     initialisiereZertifikatSuite();
 
@@ -121,11 +155,13 @@ window.addEventListener("DOMContentLoaded", () => {
         const overlayFenster = $("testfall-overlay");
         const liste = $("testfall-liste");
         const modusWert = gewaehlterModus === "WEB" ? "2" : "1";
-        $("testfall-titel").textContent = "Testfälle im Detail — "
-            + (gewaehlteKategorie === "POSITIV" ? "Positivfälle"
-                : gewaehlteKategorie === "NEGATIV" ? "Negativfälle"
-                : gewaehlteKategorie === "LAST" ? "Lasttest" : "Stresstest")
-            + (modusWert === "2" ? " (Weboberfläche)" : " (Fachschicht)");
+            $("testfall-titel").textContent = "Testfälle im Detail — "
+                + (gewaehlteKategorie === "POSITIV" ? "Positivfälle"
+                    : gewaehlteKategorie === "NEGATIV" ? "Negativfälle"
+                    : gewaehlteKategorie === "ECHT" ? "Echte Fälle"
+                    : gewaehlteKategorie === "RECHNER" ? "Rechner-Fälle"
+                    : gewaehlteKategorie === "LAST" ? "Lasttest" : "Stresstest")
+                + (modusWert === "2" ? " (Weboberfläche)" : " (Fachschicht)");
         liste.innerHTML = '<p class="leise">Lade Katalog …</p>';
         overlayFenster.classList.add("offen");
         try {
@@ -136,7 +172,10 @@ window.addEventListener("DOMContentLoaded", () => {
                 + '<div class="testfall-name">' + esc(e.name)
                 + (e.anteil ? ' <span class="testfall-anteil">' + esc(e.anteil) + '</span>' : '')
                 + '</div>'
-                + '<div class="testfall-text">' + esc(e.text) + '</div>'
+                + '<div class="testfall-text">'
+                + esc(e.text).replaceAll("\n", "<br>")
+                    .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>')
+                + '</div>'
                 + '</div>').join("");
         } catch (fehler) {
             liste.innerHTML = '<p class="leise">Katalog konnte nicht geladen werden: '
@@ -220,6 +259,8 @@ let gewaehlteKategorie = "POSITIV";
 const KATEGORIE_HINWEISE = {
     POSITIV: "Positivfälle: Erfolgswege mit vollständiger Prüfung",
     NEGATIV: "Negativfälle: abgewehrte Fachfehler mit unverändertem Datenbank-Endzustand",
+    ECHT: "Echte Fälle: 5 belegte Konstellationen aus Gesetz, Rechtsprechung und kommunaler Richtlinie — nur Fachschicht",
+    RECHNER: "Rechner-Fälle: 12 Fälle, deren Sollwerte ein externer Online-Rechner (SGB XII, Rechtsstand 2026) geliefert hat — nur Fachschicht",
     LAST: "Lasttest: begrenzter Paralleltest — kein Kapazitäts- oder Dauerlastnachweis, Gesamtreport",
     STRESS: "Stresstest: Aufträge = User-Zahl; je User 2 Tests — begrenzter Paralleltest, kein Kapazitätsnachweis; nur Fachschicht"
 };
@@ -234,6 +275,16 @@ const KATEGORIE_PRESETS = {
         klein: { label: "Schnell (5 MA / 15 Fälle)", ma: 5, auf: 15, seed: 42, denkzeit: 20 },
         standard: { label: "Standard (10 MA / 100 Fälle)", ma: 10, auf: 100, seed: 42, denkzeit: 20 },
         gross: { label: "Breite 500 (20 MA / 500 Kombinationen)", ma: 20, auf: 500, seed: 42, denkzeit: 5 }
+    },
+    ECHT: {
+        klein: { label: "Echt schnell (2 MA / 2 Fälle)", ma: 2, auf: 2, seed: 42, denkzeit: 20 },
+        standard: { label: "Echt komplett (3 MA / 5 Fälle)", ma: 3, auf: 5, seed: 42, denkzeit: 20 },
+        gross: { label: "Echt komplett (5 MA / 5 Fälle)", ma: 5, auf: 5, seed: 42, denkzeit: 5 }
+    },
+    RECHNER: {
+        klein: { label: "Rechner schnell (3 MA / 4 Fälle)", ma: 3, auf: 4, seed: 42, denkzeit: 20 },
+        standard: { label: "Rechner komplett (4 MA / 12 Fälle)", ma: 4, auf: 12, seed: 42, denkzeit: 20 },
+        gross: { label: "Rechner komplett (6 MA / 12 Fälle)", ma: 6, auf: 12, seed: 42, denkzeit: 5 }
     },
     LAST: {
         klein: { label: "Lasttest klein (10 MA / 120 Fälle)", ma: 10, auf: 120, seed: 42, denkzeit: 0 },
@@ -258,6 +309,8 @@ function wendePresetAn(name) {
 const KATEGORIE_LIMITEN = {
     POSITIV: 500,
     NEGATIV: 500,
+    ECHT: 5,
+    RECHNER: 12,
     LAST: 1200,
     STRESS: 3000
 };
@@ -298,9 +351,10 @@ function setzePreset(ma, auf, seed, denkzeit) {
 
 async function starteSimulation() {
     if (zertifikatSuiteGesperrt()) return;
-    if (gewaehlteKategorie === "STRESS" && gewaehlterModus === "WEB") {
-        alert("Der Stresstest (User anlegen + nachbearbeiten) ist für den Fachschicht-Modus "
-            + "vorgesehen — bitte Modus 1 (Fachschicht) wählen.");
+    if ((gewaehlteKategorie === "STRESS" || gewaehlteKategorie === "ECHT"
+        || gewaehlteKategorie === "RECHNER") && gewaehlterModus === "WEB") {
+        alert("Diese Kategorie (Stresstest, echte Fälle, Rechner-Fälle) ist für den "
+            + "Fachschicht-Modus vorgesehen — bitte Modus 1 (Fachschicht) wählen.");
         return;
     }
     const limit = KATEGORIE_LIMITEN[gewaehlteKategorie] || 500;

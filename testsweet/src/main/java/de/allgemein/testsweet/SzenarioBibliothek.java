@@ -130,6 +130,74 @@ public final class SzenarioBibliothek {
         return auftraege;
     }
 
+    // ------------------------------------------------------------------
+    // ECHT — belegte echte Fälle (nur Fachschicht). Jeder Auftrag beruht auf
+    // einer benannten externen Quelle (Gesetz, Gerichtsurteil, kommunale
+    // Richtlinie, Verbandsbeispiel); Ergänzungen und Herleitung der
+    // Erwartungswerte sind je Fall dokumentiert. Vollständiges
+    // Quellenverzeichnis mit Abrufdatum: doc/belege/echt-und-rechner-faelle-2026-10-27.md
+    // ------------------------------------------------------------------
+
+    /** Erzeugt den ECHT-Topf: genau die fünf belegten Fälle in fester
+     *  Reihenfolge; {@code anzahl} begrenzt für schnelle Läufe (1–5). */
+    public List<Auftrag> erzeugeEcht(int anzahl, String praefix) {
+        this.praefix = praefix;
+        List<Auftrag> auftraege = new ArrayList<>(List.of(
+                echtAnlageKdu(1),
+                echtBsgVermoegen(2),
+                echtSchonvermoegen800(3),
+                echtKfzPaar(4),
+                echtKduDeckel(5)));
+        return auftraege.subList(0, Math.min(anzahl, auftraege.size()));
+    }
+
+    // ------------------------------------------------------------------
+    // RECHNER — mit externem Online-Rechner abgeglichene Fälle (nur
+    // Fachschicht). Alle zwölf Konstellationen wurden am 2026-10-27 über den
+    // SGB-XII-Rechner steuerschroeder.de (Rechtsstand 03.07.2026) gerechnet;
+    // der dort angezeigte Ergebnisbetrag ist als fester Erwartungswert
+    // übernommen und im Laufbeleg dokumentiert. Betriebskosten sind bewusst
+    // 0,00 (der Rechner fragt nur Kaltmiete und Heizkosten ab); Warmwasser
+    // zentral (kein dezentraler Mehrbedarf).
+    // ------------------------------------------------------------------
+
+    /** Erzeugt den RECHNER-Topf: genau die zwölf abgeglichenen Fälle in
+     *  fester Reihenfolge; {@code anzahl} begrenzt für schnelle Läufe (1–12). */
+    public List<Auftrag> erzeugeRechner(int anzahl, String praefix) {
+        this.praefix = praefix;
+        List<Auftrag> auftraege = new ArrayList<>();
+        int nr = 1;
+        // Alleinstehend, keine Merkmale (RBS 1 = 563 EUR)
+        auftraege.add(rechnerFall(nr++, false, false, "345", "70", "0", "0", "978.00",
+                "Regelbedarf 563 + KdU 415 − Einkommen 0"));
+        auftraege.add(rechnerFall(nr++, false, false, "345", "70", "500", "0", "478.00",
+                "978 − Rente 500"));
+        auftraege.add(rechnerFall(nr++, false, false, "260", "110", "350", "0", "583.00",
+                "563 + 370 (KdU-Richtwerte Altenburg 260/110) − Rente 350"));
+        auftraege.add(rechnerFall(nr++, false, false, "390", "110", "0", "0", "1063.00",
+                "563 + 500 (KdU-Obergrenzen Altenburg 390/110)"));
+        // Alleinstehend mit Merkzeichen G (Mehrbedarf 17 % = 95,71 EUR)
+        auftraege.add(rechnerFall(nr++, true, false, "345", "70", "0", "0", "1073.71",
+                "563 + 95,71 (Merkzeichen G) + 415"));
+        auftraege.add(rechnerFall(nr++, true, false, "320", "90", "800", "0", "268.71",
+                "563 + 95,71 + 410 − Rente 800"));
+        // Alleinstehend mit Erwerbseinkommen (30 % frei, § 82 Abs. 3)
+        auftraege.add(rechnerFall(nr++, false, false, "345", "70", "0", "600", "558.00",
+                "978 − anrechenbarer Erwerb 420 (600 − 30 % = 180 frei)"));
+        auftraege.add(rechnerFall(nr++, false, false, "345", "70", "0", "300", "768.00",
+                "978 − anrechenbarer Erwerb 210 (300 − 30 % = 90 frei)"));
+        // Paar in gemeinsamer Wohnung (2 × RBS 2 = 1.012 EUR)
+        auftraege.add(rechnerFall(nr++, false, true, "345", "70", "0", "0", "1427.00",
+                "Regelbedarf 1.012 + KdU 415"));
+        auftraege.add(rechnerFall(nr++, false, true, "345", "70", "700", "0", "727.00",
+                "1.427 − Rente 700"));
+        auftraege.add(rechnerFall(nr++, false, true, "345", "70", "1200", "0", "227.00",
+                "1.427 − Rente 1.200"));
+        auftraege.add(rechnerFall(nr, false, true, "345", "70", "0", "500", "1077.00",
+                "1.427 − anrechenbarer Erwerb 350 (500 − 30 % = 150 frei)"));
+        return auftraege.subList(0, Math.min(anzahl, auftraege.size()));
+    }
+
     /**
      * Erzeugt den STRESS-Topf als ZWEI Wellen über dieselben User: Die ersten
      * {@code anzahl} Aufträge (STRESS-ANLEGEN) legen je einen User an (Vorgang +
@@ -2810,5 +2878,274 @@ public final class SzenarioBibliothek {
 
     private String abgekuerzt(String uuid) {
         return uuid.length() <= 12 ? uuid : uuid.substring(0, 12) + "…";
+    }
+
+    // ------------------------------------------------------------------
+    // ECHT-/RECHNER-Fälle: feste belegte Konstellationen
+    // ------------------------------------------------------------------
+
+    /** ECHT 1 — amtliche Regelbedarfsstufen + kommunale KdU-Richtwerte:
+     *  Paar mit je RBS 2 (506 EUR, Anlage zu § 28 SGB XII, gesetze-im-internet.de)
+     *  und den Richtwerten für zwei Personen der KdU-Richtlinie des Landkreises
+     *  Altenburger Land (Beschluss 27.05.2026): Nettokaltmiete 320, kalte
+     *  Betriebskosten 100, Heizkosten 110 EUR. Erwartung handgerechnet aus
+     *  beiden Quellen: 506 + 506 + 530 = 1.542,00 EUR. */
+    private Auftrag echtAnlageKdu(int nr) {
+        List<SozialFall> personen = new ArrayList<>();
+        personen.add(person(2, false, "320", "100", "110", "0", "0"));
+        personen.add(person(2, false, "0", "0", "0", "0", "0"));
+        return belegterFall(nr, "ECHT-ANLAGE-KDU", "Echt, Anlage+KdU",
+                "Paar mit amtlichen Regelbedarfsstufen und kommunalen KdU-Richtwerten",
+                personen, List.of("2026-10"), Leistungsberechnung.KduParameter.AUS,
+                BigDecimal.ZERO, List.of("1542.00"),
+                "Anlage zu § 28 SGB XII (RBS 2 = 506 EUR, abgerufen 27.10.2026) und "
+                        + "KdU-Richtlinie Landkreis Altenburger Land v. 27.05.2026 "
+                        + "(Abschn. 3.3.2/3.3.4/3.3.5, 2 Personen: 320/100/110 EUR).",
+                "Handrechnung: 506 + 506 (Regelbedarf) + 320 + 100 + 110 (KdU) = 1.542,00 EUR; "
+                        + "kein Einkommen, kein Vermögen.");
+    }
+
+    /** ECHT 2 — BSG, Urteil vom 27.05.2026, B 8 SO 4/24 R: alleinstehende Frau
+     *  mit 44.500 EUR Vermögen (Rückkaufswert einer Rentenversicherung, Bank-
+     *  guthaben, Schmuck, Pkw). Das Urteil nennt keine Rente und keine KdU —
+     *  ergänzt (dokumentiert): Rente 900 EUR, KdU-Richtwerte 1 Person der
+     *  Altenburger Richtlinie (260/90/110). Verwertbares Vermögen 34.500 EUR
+     *  übersteigt den Restbedarf (1.023 − 900 = 123 EUR): Die Anordnung wird
+     *  mit KEIN_ANSPRUCH abgewehrt, Vermögen und Budget bleiben unverändert. */
+    private Auftrag echtBsgVermoegen(int nr) {
+        return echtAbwehrFall(nr, "ECHT-BSG-VERMOEGEN", "Echt, BSG 44.500 EUR",
+                "BSG-Fall: verwertbares Vermögen deckt den Bedarf",
+                List.of(person(1, false, "260", "90", "110", "900", "0")),
+                new BigDecimal("44500.00"),
+                "BSG, Urteil v. 27.05.2026, B 8 SO 4/24 R (Vermögen rund 44.500 EUR; betroffene "
+                        + "Bescheide 2022/2023); Rente/KdU ergänzt aus der KdU-Richtlinie "
+                        + "Altenburger Land (1 Person).",
+                "Handrechnung: Bedarf 1.023,00 − Rente 900 = 123,00 Restbedarf; verwertbares "
+                        + "Vermögen 44.500 − 10.000 Schonvermögen = 34.500 deckt diesen weit "
+                        + "über — KEIN_ANSPRUCH (§§ 43, 90), Vermögen bleibt 44.500.");
+    }
+
+    /** ECHT 3 — Verbandsbeispiel (Lebenshilfe): „A hat 800 Euro auf dem
+     *  Konto" — Barbeträge unter dem Schonvermögen (§ 90 Abs. 2 Nr. 9 SGB XII
+     *  i.V.m. BarbetragsVO, 10.000 EUR) bleiben unberührt. Erwartung: kein
+     *  Vermögenseinsatz, Vermögen bleibt 800,00 EUR. */
+    private Auftrag echtSchonvermoegen800(int nr) {
+        List<SozialFall> personen = new ArrayList<>();
+        personen.add(person(1, false, "260", "90", "110", "0", "0"));
+        return belegterFall(nr, "ECHT-SCHONVERMOEGEN-800", "Echt, 800 EUR",
+                "Verbandsbeispiel: Vermögen unter dem Schonvermögen",
+                personen, List.of("2026-10"), Leistungsberechnung.KduParameter.AUS,
+                new BigDecimal("800.00"), List.of("1023.00"),
+                "Lebenshilfe-Beispiel „A hat 800 Euro auf dem Konto“ (unter dem Schonvermögen "
+                        + "unschädlich); KdU-Richtwerte Altenburger Land (1 Person).",
+                "Handrechnung: 563 + 460 = 1.023,00; Vermögenseinsatz 0,00 (800 < 10.000 "
+                        + "Schonvermögen), Vermögen bleibt 800,00.");
+    }
+
+    /** ECHT 4 — über die Lebenshilfe dokumentiertes LSG-Urteil: Ehepaar mit
+     *  zwei Kraftfahrzeugen im Wert von 31.000 EUR, kein Anspruch. Das Modell
+     *  2026 kommt zum selben Ergebnis über den Einsatz-Grundsatz: Schonvermögen
+     *  2 × 10.000 = 20.000 EUR, verwertbar 11.000 EUR übersteigt den monatlichen
+     *  Bedarf 1.542 EUR — KEIN_ANSPRUCH, Vermögen und Budget unverändert. */
+    private Auftrag echtKfzPaar(int nr) {
+        return echtAbwehrFall(nr, "ECHT-LSG-KFZ-PAAR", "Echt, Kfz-Paar 31.000",
+                "LSG-Fall: zwei Pkw decken den Bedarf",
+                List.of(person(2, false, "320", "100", "110", "0", "0"),
+                        person(2, false, "0", "0", "0", "0", "0")),
+                new BigDecimal("31000.00"),
+                "LSG-Urteil (via Lebenshilfe dokumentiert): Ehepaar, zwei Kfz im Wert von "
+                        + "31.000 EUR, kein Anspruch nach der damals geltenden Vermögensgrenze; "
+                        + "KdU-Richtwerte Altenburger Land (2 Personen).",
+                "Handrechnung: Bedarf 1.542,00 (506 + 506 + 530) ohne Einkommen; verwertbares "
+                        + "Vermögen 31.000 − 20.000 (2 × 10.000 Schonvermögen) = 11.000 deckt "
+                        + "diesen weit über — KEIN_ANSPRUCH; das Urteil lehnte nach der alten "
+                        + "Vermögensgrenze ab, der Ausgang ist im Ergebnis gleich.");
+    }
+
+    /** ECHT-Abwehrfall: Verwertbares Vermögen übersteigt den Restbedarf — die
+     *  Anordnung wird mit KEIN_ANSPRUCH abgewehrt; Vermögen und Budget bleiben
+     *  unverändert. Der Referenzblock dokumentiert den negativen Zahlbetrag
+     *  (Bedarf − Einkommen − verwertbares Vermögen) als Abwehrgrund. */
+    private Auftrag echtAbwehrFall(int nr, String typ, String name, String kurz,
+            List<SozialFall> personen, BigDecimal vermoegen, String quelle, String herleitung) {
+        var ergebnis = Leistungsberechnung.berechne(0, personen,
+                Leistungsberechnung.KduParameter.AUS, vermoegen);
+        BigDecimal budget = new BigDecimal("1000.00");
+        List<Rechenblock> bloecke = List.of(new Rechenblock(typ + " — Abwehr 2026-10",
+                "2026-10", personen, vermoegen, budget, ergebnis, List.of(quelle, herleitung),
+                budget, Leistungsberechnung.KduParameter.AUS));
+        String az = aktenzeichen(nr);
+        List<SzenarioAktion> aktionen = List.of(
+                SzenarioAktion.schritt("Vorgang mit belegtem Vermögen anlegen", (s, ich, kollege, ctx) -> {
+                    var bg = s.legeBedarfsgemeinschaftAn(az, name, budget, null,
+                            "DE89370400440532013000", "MARKDEF1100", name, vermoegen, ich);
+                    ctx.put("bgId", bg.id());
+                    return "Vorgang " + bg.id();
+                }),
+                SzenarioAktion.schritt("Belegte Personendaten erfassen", (s, ich, kollege, ctx) -> {
+                    for (var person : personen) s.legeSozialFallAn((Long) ctx.get("bgId"), person, ich);
+                    return personen.size() + " Personen";
+                }),
+                SzenarioAktion.schrittMitErwartetemFehler(
+                        "Auszahlung anordnen — KEIN_ANSPRUCH erwartet (§§ 43, 90)",
+                        FachlicheException.KEIN_ANSPRUCH,
+                        List.of("Einkommen/Vermögen übersteigen den Gesamtbedarf"), (s, ich, kollege, ctx) -> {
+                            s.ordneAuszahlungAn(new Auszahlungsauftrag((Long) ctx.get("bgId"),
+                                    UUID.randomUUID().toString(), "2026-10", ich));
+                            return "unerwartet erfolgreich — hätte KEIN_ANSPRUCH werfen müssen";
+                        }));
+        List<Erwartung> erwartungen = List.of(
+                Erwartung.ganzeZahl("keine Zahlung trotz Anordnung (Vermögen deckt den Bedarf)",
+                        "SELECT COUNT(*) FROM ZAHLUNG WHERE BG_ID = ?",
+                        ctx -> List.of(ctx.get("bgId")), 0),
+                Erwartung.betrag("Budget unverändert",
+                        "SELECT BUDGET_REST FROM BEDARFSGEMEINSCHAFT WHERE ID = ?",
+                        ctx -> List.of(ctx.get("bgId")), budget.toPlainString()),
+                Erwartung.betrag("Vermögen unverändert (kein Verbrauch ohne Auszahlung)",
+                        "SELECT VERMOEGEN FROM BEDARFSGEMEINSCHAFT WHERE ID = ?",
+                        ctx -> List.of(ctx.get("bgId")), vermoegen.toPlainString()));
+        return new Auftrag(nr, typ, az, name, kurz, aktionen, erwartungen)
+                .dokumentiere(kurz + ". Quelle: " + quelle + " Herleitung: " + herleitung, bloecke);
+    }
+
+    /** ECHT 5 — kommunale KdU-Deckelung: Die Altenburger Richtlinie setzt die
+     *  Obergrenze der Nettokaltmiete ab 01.07.2026 auf das 1,5-fache des
+     *  Richtwerts (1 Person: 390 EUR); mit den Grenzwerten für Betriebs- und
+     *  Heizkosten (90/110 EUR) ergibt sich die geprüfte BG-Grenze von 590 EUR.
+     *  Tatsächliche KdU 700 EUR (Miete 500) werden auf 590 EUR gekappt. */
+    private Auftrag echtKduDeckel(int nr) {
+        List<SozialFall> personen = new ArrayList<>();
+        personen.add(person(1, false, "500", "90", "110", "0", "0"));
+        return belegterFall(nr, "ECHT-KDU-DECKEL", "Echt, KdU-Deckel",
+                "Kommunale Obergrenze: KdU wird auf 590 EUR gekappt",
+                personen, List.of("2026-07"), new Leistungsberechnung.KduParameter(
+                        BigDecimal.ZERO, new BigDecimal("590.00")),
+                BigDecimal.ZERO, List.of("1153.00"),
+                "KdU-Richtlinie Landkreis Altenburger Land v. 27.05.2026, Abschn. 3.3.3 "
+                        + "(Obergrenze Nettokaltmiete ab 01.07.2026 = 1,5-facher Richtwert, "
+                        + "1 Person 390 EUR), 3.3.4/3.3.5 (90/110 EUR).",
+                "Handrechnung: KdU 500 + 90 + 110 = 700 über der Summe der Richtlinien-"
+                        + "Obergrenzen 590 → gekappt; 563 + 590 = 1.153,00 EUR.");
+    }
+
+    /** RECHNER-Fall: Konstellation des externen Online-Rechners steuerschroeder.de
+     *  (SGB XII, Rechtsstand 03.07.2026, abgerufen 27.10.2026) als fester
+     *  Auftrag; der dort angezeigte Ergebnisbetrag ist der erwartete Zahlbetrag. */
+    private Auftrag rechnerFall(int nr, boolean merkzeichenG, boolean paar, String miete,
+            String heizung, String rente, String erwerb, String erwartet, String rechenweg) {
+        List<SozialFall> personen = new ArrayList<>();
+        personen.add(person(paar ? 2 : 1, merkzeichenG, miete, "0", heizung, rente, erwerb));
+        if (paar) personen.add(person(2, false, "0", "0", "0", "0", "0"));
+        String konstellation = (paar ? "Paar (2 × RBS 2)" : "Alleinstehend (RBS 1)")
+                + (merkzeichenG ? ", Merkzeichen G" : "")
+                + ", Miete " + miete + " / Heizung " + heizung + " EUR"
+                + (rente.equals("0") ? "" : ", Rente " + rente + " EUR")
+                + (erwerb.equals("0") ? "" : ", Erwerb netto " + erwerb + " EUR");
+        return belegterFall(nr, "RECHNER-" + nr, "Rechner-Fall " + nr,
+                "Extern abgeglichen: " + konstellation,
+                personen, List.of("2026-10"), Leistungsberechnung.KduParameter.AUS,
+                BigDecimal.ZERO, List.of(erwartet),
+                "Extern: Online-Rechner https://www.steuerschroeder.de/Steuerrechner/Grundsicherung.html "
+                        + "(SGB XII, Rechtsstand 03.07.2026), am 27.10.2026 je Fall eingegeben; "
+                        + "angezeigtes Rechner-Ergebnis als Erwartungswert übernommen.",
+                "Rechner-Rechenweg: " + rechenweg
+                        + " — Betriebskosten bewusst 0,00 (Rechner fragt sie nicht ab).");
+    }
+
+    /** Personen-Entwurf für ECHT-/RECHNER-Fälle: keine Kinder, zentrales
+     *  Warmwasser, keine Absetzbeträge, kein Entbindungsmonat. */
+    private static SozialFall person(int rbs, boolean merkzeichenG, String miete,
+            String betrieb, String heizung, String rente, String erwerb) {
+        return new SozialFall(0, 0, rbs, merkzeichenG, false, 0, 0, 0, false,
+                new BigDecimal(miete), new BigDecimal(betrieb), new BigDecimal(heizung),
+                new BigDecimal(rente), new BigDecimal(erwerb),
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, null, 0);
+    }
+
+    /** Baut einen festen ECHT-/RECHNER-Auftrag: Vorgang anlegen, Personen
+     *  erfassen, bei zwei Monaten Bescheid erteilen, je Monat eine Anordnung.
+     *  Die erwarteten Zahlbeträge stehen als fest dokumentierte Werte im Code
+     *  (externer Beleg), Vermögenseinsatz und Endvermögen aus der Referenz-
+     *  rechnung mit derselben Fortschreibung wie das Produkt. */
+    private Auftrag belegterFall(int nr, String typ, String name, String kurz,
+            List<SozialFall> personen, List<String> monate,
+            Leistungsberechnung.KduParameter kduParameter, BigDecimal vermoegen,
+            List<String> erwarteteZahlbetraege, String quelle, String herleitung) {
+        List<Leistungsberechnung.Berechnungsergebnis> results = new ArrayList<>();
+        List<BigDecimal> assets = new ArrayList<>();
+        BigDecimal aktuell = vermoegen, total = BigDecimal.ZERO;
+        for (String monat : monate) {
+            assets.add(aktuell);
+            var result = Leistungsberechnung.berechne(0,
+                    Bewilligungsplan.faelleFuerMonat(personen, monat), kduParameter, aktuell);
+            results.add(result);
+            total = total.add(result.zahlbetrag());
+            aktuell = aktuell.subtract(result.verwertbaresVermoegen());
+        }
+        BigDecimal budget = total.add(new BigDecimal("100.00"));
+        BigDecimal endVermoegen = aktuell;
+        List<Rechenblock> bloecke = new ArrayList<>();
+        BigDecimal rest = budget;
+        for (int i = 0; i < monate.size(); i++) {
+            var result = results.get(i);
+            bloecke.add(new Rechenblock(typ + " — " + monate.get(i), monate.get(i), personen,
+                    assets.get(i), rest, result, List.of(quelle, herleitung),
+                    rest.subtract(result.zahlbetrag()), kduParameter));
+            rest = rest.subtract(result.zahlbetrag());
+        }
+        String az = aktenzeichen(nr);
+        List<SzenarioAktion> aktionen = new ArrayList<>();
+        aktionen.add(SzenarioAktion.schritt("Vorgang mit belegtem Fall anlegen", (s, ich, kollege, ctx) -> {
+            var bg = s.legeBedarfsgemeinschaftAn(az, name, budget, null,
+                    "DE89370400440532013000", "MARKDEF1100", name, vermoegen, ich);
+            ctx.put("bgId", bg.id());
+            return "Vorgang " + bg.id();
+        }));
+        aktionen.add(SzenarioAktion.schritt("Belegte Personendaten erfassen", (s, ich, kollege, ctx) -> {
+            for (var person : personen) s.legeSozialFallAn((Long) ctx.get("bgId"), person, ich);
+            return personen.size() + " Personen";
+        }));
+        if (monate.size() == 2) aktionen.add(SzenarioAktion.schritt("Bescheid über beide Monate erteilen", (s, ich, kollege, ctx) -> {
+            var bescheid = s.erteileBescheid((Long) ctx.get("bgId"), monate.get(0), monate.get(1), ich);
+            return bescheid.bescheidNr();
+        }));
+        for (String monat : monate) aktionen.add(SzenarioAktion.schritt("Auszahlung " + monat + " anordnen", (s, ich, kollege, ctx) -> {
+            var erg = s.ordneAuszahlungAn(new Auszahlungsauftrag(
+                    (Long) ctx.get("bgId"), UUID.randomUUID().toString(), monat, ich));
+            ctx.put("zahlungId", erg.zahlung().id());
+            return erg.zahlung().auszahlungsbetrag().toPlainString() + " EUR";
+        }));
+        List<Erwartung> erwartungen = new ArrayList<>();
+        erwartungen.add(Erwartung.ganzeZahl("Exakte Zahl der Monatszahlungen",
+                "SELECT COUNT(*) FROM ZAHLUNG WHERE BG_ID = ?",
+                ctx -> List.of(ctx.get("bgId")), monate.size()));
+        erwartungen.add(Erwartung.ganzeZahl("Vollständiger Haushalt persistiert",
+                "SELECT COUNT(*) FROM SOZIAL_FALL WHERE BG_ID = ?",
+                ctx -> List.of(ctx.get("bgId")), personen.size()));
+        for (int i = 0; i < monate.size(); i++) {
+            String monat = monate.get(i);
+            erwartungen.add(Erwartung.betrag("Zahlbetrag " + monat + " (extern belegt)",
+                    "SELECT AUSZAHLUNGSBETRAG FROM ZAHLUNG WHERE BG_ID = ? AND ZAHLUNGSMONAT = ?",
+                    ctx -> List.of(ctx.get("bgId"), monat), erwarteteZahlbetraege.get(i)));
+            erwartungen.add(Erwartung.betrag("Vermögenseinsatz " + monat,
+                    "SELECT VERMOEGENSEINSATZ FROM ZAHLUNG WHERE BG_ID = ? AND ZAHLUNGSMONAT = ?",
+                    ctx -> List.of(ctx.get("bgId"), monat),
+                    results.get(i).verwertbaresVermoegen().toPlainString()));
+            erwartungen.add(Erwartung.text("Vier-Augen-Warteschlange " + monat,
+                    "SELECT ZAHLUNGSSTATUS FROM ZAHLUNG WHERE BG_ID = ? AND ZAHLUNGSMONAT = ?",
+                    ctx -> List.of(ctx.get("bgId"), monat), "ANGELEGT"));
+        }
+        erwartungen.add(Erwartung.betrag("Endbudget nach allen Monaten",
+                "SELECT BUDGET_REST FROM BEDARFSGEMEINSCHAFT WHERE ID = ?",
+                ctx -> List.of(ctx.get("bgId")), "100.00"));
+        erwartungen.add(Erwartung.betrag("Vermögen nach Fortschreibung",
+                "SELECT VERMOEGEN FROM BEDARFSGEMEINSCHAFT WHERE ID = ?",
+                ctx -> List.of(ctx.get("bgId")), endVermoegen.toPlainString()));
+        if (monate.size() == 2) erwartungen.add(Erwartung.ganzeZahl(
+                "Genau ein Bescheid deckt beide Monate",
+                "SELECT COUNT(*) FROM BESCHEID WHERE BG_ID = ? AND BEWILLIGUNG_VON = ? AND BEWILLIGUNG_BIS = ?",
+                ctx -> List.of(ctx.get("bgId"), monate.get(0), monate.get(1)), 1));
+        return new Auftrag(nr, typ, az, name, kurz, aktionen, erwartungen)
+                .dokumentiere(kurz + ". Quelle: " + quelle + " Herleitung: " + herleitung, bloecke);
     }
 }
