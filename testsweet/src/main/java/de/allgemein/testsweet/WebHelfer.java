@@ -80,7 +80,9 @@ public final class WebHelfer {
                 BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, 1);
     }
 
-    /** Berechnet den erwarteten Zahlbetrag vorab für die Testdokumentation. */
+    /** Erstellt einen Produkt-Rechenvorschlag und den vollständig prüfbaren Block.
+     * SQL-Übereinstimmung allein bestätigt ihn nicht: Der abschließende Verifikator
+     * verlangt zusätzlich die unabhängige arithmetische Nachrechnung. */
     public static BigDecimal berechne(List<Rechenblock> rechnungen, String titel,
             List<SozialFall> faelle, BigDecimal vermoegen) {
         var ergebnis = Leistungsberechnung.berechne(0, faelle,

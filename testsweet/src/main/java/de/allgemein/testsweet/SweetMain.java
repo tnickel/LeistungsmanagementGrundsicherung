@@ -19,13 +19,31 @@ import java.net.URI;
 public final class SweetMain {
 
     public static void main(String[] args) throws Exception {
-        BuildEvidence.initialize();
-        registriereShutdownHook();
-        try { run(args); }
+        try {
+            validateCommand(args);
+            BuildEvidence.initialize();
+            registriereShutdownHook();
+            run(args);
+        }
         catch (IllegalArgumentException error) {
             System.err.println("Ungültige Konfiguration: " + error.getMessage());
             System.exit(2);
         }
+    }
+
+    /** Unbekannte Aufrufe dürfen weder einen Server noch den Browser-Cleanup starten. */
+    static void validateCommand(String[] args) {
+        if (args.length == 0) return;
+        String command = args[0].toLowerCase(java.util.Locale.ROOT);
+        if (command.equals("certificate-worker")) {
+            if (args.length != 2) throw new IllegalArgumentException("Zertifikatsworker benötigt genau ein Laufverzeichnis");
+            return;
+        }
+        String usage = "Aufruf: testsweet run|web|run-web [Mitarbeiter Aufträge Seed Pause Kategorie]; "
+                + "ohne Argumente startet die lokale Oberfläche.";
+        if (!java.util.Set.of("run", "web", "run-web").contains(command))
+            throw new IllegalArgumentException("Unbekanntes Kommando '" + args[0] + "'. " + usage);
+        if (args.length > 6) throw new IllegalArgumentException("Zu viele CLI-Argumente. " + usage);
     }
 
     private static void registriereShutdownHook() {
@@ -42,7 +60,7 @@ public final class SweetMain {
     }
 
     private static void run(String[] args) throws Exception {
-        if(args.length>0&&"certificate-worker".equals(args[0])) {
+        if(args.length>0&&"certificate-worker".equalsIgnoreCase(args[0])) {
             if(args.length!=2)throw new IllegalArgumentException("Zertifikatsworker benötigt genau ein Laufverzeichnis");
             CertificateSuiteWorker.run(java.nio.file.Path.of(args[1]));return;
         }

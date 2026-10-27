@@ -113,6 +113,8 @@ public final class Simulator {
     private volatile Phase phase = Phase.BEREIT;
     private volatile List<Auftrag> auftraege = List.of();
     private volatile List<Mitarbeiter> mitarbeiter = List.of();
+    /** Fachschicht-Identitäten sind Testdaten, keine angemeldeten Benutzerkonten. */
+    private volatile List<String> fachFreigabeKennungen = List.of();
     private volatile LaufKonfiguration konfiguration;
     private volatile SweetLog log;
     private volatile List<Auftrag.Pruefung> globalePruefungen = List.of();
@@ -491,16 +493,33 @@ public final class Simulator {
 
     /** Zufälliger ANDERER Kollege für die Vier-Augen-Freigabe über die Oberfläche. */
     public String zufallsWebKollege(String ausser) {
-        if (webKonten.size() <= 1) {
-            return "sb-02"; // Einzelgänger: fester Ersatzkollege
-        }
-        String kollege;
-        do {
-            kollege = webKonten.keySet().stream()
-                    .skip(ThreadLocalRandom.current().nextInt(webKonten.size())).findFirst()
-                    .orElse("sb-02");
-        } while (kollege.equals(ausser));
-        return kollege;
+        return andererFreigeber(List.copyOf(webKonten.keySet()), ausser);
+    }
+
+    /** Unterscheidet die geprüfte Identitätstrennung von der Anmeldung am Webserver. */
+    public String vierAugenPruefumfang() {
+        return "WEB".equals(modusLetzter)
+                ? "Getrennte am Webserver angemeldete Konten; automatisierter Kontowechsel, kein Nachweis zweier natürlicher Personen"
+                : "Fachschicht: verschiedene vorbereitete simulierte Bearbeiterkennungen; keine Anmeldung oder Rollenprüfung und kein Nachweis zweier natürlicher Personen";
+    }
+
+    public List<String> fachFreigabeKennungen() { return fachFreigabeKennungen; }
+
+    /** Ein Worker kann beide Rollen nacheinander ausführen; die Workerzahl bleibt unverändert. */
+    void initialisiereFachKennungen(int anzahlMitarbeiter) {
+        if (anzahlMitarbeiter < 1 || anzahlMitarbeiter > 50)
+            throw new IllegalArgumentException("Fachschicht benötigt 1 bis 50 Mitarbeiter");
+        fachFreigabeKennungen = java.util.stream.IntStream.rangeClosed(1, Math.max(2, anzahlMitarbeiter))
+                .mapToObj(i -> "sb-sim-" + String.format("%02d", i)).toList();
+    }
+
+    private static String andererFreigeber(List<String> kennungen, String ausser) {
+        if (ausser == null || !kennungen.contains(ausser))
+            throw new IllegalStateException("Bearbeiter gehört nicht zu den vorbereiteten Laufidentitäten: " + ausser);
+        var andere = kennungen.stream().filter(kennung -> !kennung.equals(ausser)).toList();
+        if (andere.isEmpty())
+            throw new IllegalStateException("Vier-Augen-Prüfung benötigt eine zweite vorbereitete Kennung");
+        return andere.get(ThreadLocalRandom.current().nextInt(andere.size()));
     }
 
     /** Startet einen Weboberflächen-Lauf synchron im aufrufenden Thread (für CLI). */
@@ -794,10 +813,13 @@ public final class Simulator {
         fachServices.clear();
         service = new SozialLeistungsService(fachTxManager);
 
+        initialisiereFachKennungen(konfig.mitarbeiter());
         mitarbeiter = new ArrayList<>();
         for (int i = 1; i <= konfig.mitarbeiter(); i++) {
-            mitarbeiter.add(new Mitarbeiter(this, "sb-sim-" + String.format("%02d", i), konfig.denkzeitMs()));
+            mitarbeiter.add(new Mitarbeiter(this, fachFreigabeKennungen.get(i - 1), konfig.denkzeitMs()));
         }
+        log.ereignis("SIMULATOR", "", "Freigabeidentitäten " + fachFreigabeKennungen
+                + "; " + vierAugenPruefumfang());
 
         phase = Phase.LAUF;
         ExecutorService executor = Executors.newFixedThreadPool(konfig.mitarbeiter());
@@ -910,6 +932,7 @@ public final class Simulator {
         reportsComplete = false;
         nachweisFehler.clear();
         buildEvidence = Map.of();
+        fachFreigabeKennungen = List.of();
         letzterZwischenstandNano = 0;
         laufStartInstant = Instant.now();
         laufStart = LocalDateTime.ofInstant(laufStartInstant, java.time.ZoneId.systemDefault());
@@ -1016,6 +1039,9 @@ public final class Simulator {
         status.put("state", state);
         status.put("mode", modusLetzter);
         status.put("category", kategorieLetzter.name());
+        status.put("fourEyesScope", vierAugenPruefumfang());
+        status.put("approvalIdentities", "WEB".equals(modusLetzter)
+                ? webKonten.keySet().stream().sorted().toList() : fachFreigabeKennungen);
         status.put("dataNamespace", laufDaten.prefix());
         status.put("durationMs", laufdauerMillis());
         if (kategorieLetzter == Kategorie.LAST || kategorieLetzter == Kategorie.STRESS) {
@@ -1255,6 +1281,9 @@ public final class Simulator {
         sb.append("Kategorie       : ").append(kategorieLetzter).append('\n');
         sb.append("Mitarbeiter     : ").append("WEB".equals(modusLetzter)
                 ? webMitarbeiter.size() : mitarbeiter.size()).append('\n');
+        sb.append("Vier-Augen-Scope: ").append(vierAugenPruefumfang()).append('\n');
+        if (!"WEB".equals(modusLetzter))
+            sb.append("Freigabeidentitäten: ").append(fachFreigabeKennungen).append('\n');
         sb.append("Aufträge        : ").append(auftraege.size()).append('\n');
         sb.append("fehlgeschlagen  : ").append(fehler).append('\n');
         sb.append("verifiziert     : ").append(verifiziert).append('\n');
@@ -1365,15 +1394,7 @@ public final class Simulator {
     }
 
     String zufallsKollege(String ausser) {
-        List<Mitarbeiter> liste = mitarbeiter;
-        if (liste.size() <= 1) {
-            return "sb-sim-ersatz"; // Einzelgänger: fester Ersatzkollege für Vier-Augen
-        }
-        String kollege;
-        do {
-            kollege = liste.get(ThreadLocalRandom.current().nextInt(liste.size())).kuerzel;
-        } while (kollege.equals(ausser));
-        return kollege;
+        return andererFreigeber(fachFreigabeKennungen, ausser);
     }
 
     /** Logbasis: immer testsweet/logs — egal ob vom Projektroot oder aus testsweet gestartet. */

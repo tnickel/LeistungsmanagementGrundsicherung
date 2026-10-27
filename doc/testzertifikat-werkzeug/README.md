@@ -27,6 +27,13 @@ bleibt UNVOLLSTÄNDIG. Solche Hinweise sind keine bestätigten Softwarefehler.
 | Web-STRESS | Nicht unterstützt; ausdrücklich NICHT ANWENDBAR |
 | GLM | Aktuelle strukturierte, quellengebundene Fallstichprobe mit vollständiger API-/Zahlen-/Prüfpunktabdeckung |
 
+**Begrenzter Prüfumfang ohne ECHT/RECHNER:** Das Deckblatt nennt die vier Fach- und drei
+Browserkombinationen ausdrücklich. Die fünf quellenbasierten Modellfälle und zwölf festen
+Rechnerfälle gehören nicht zum Zertifikatsurteil. Die maschinenlesbare Erhebung und neu
+veröffentlichte Exportmarker führen denselben Umfang im Feld `scope`; der Umfang ist Teil
+des Belegfingerprints. Separate Fachläufe und der umfassendere Management-Testreport
+erweitern dieses Zertifikat nicht automatisch.
+
 Je Modus/Kategorie zählt der neueste **begonnene** Simulatorlauf. Ein späterer Fachlauf
 verdeckt keinen Webfehler. Ein neu gestarteter RUNNING-/Fehlerlauf verdrängt ältere
 Erfolge. Nicht zuordenbare neuere Laufverzeichnisse verhindern eine vollständige

@@ -19,6 +19,8 @@ import java.util.Map;
  * Lokale Weboberfläche des Simulators (nur für den localhost bestimmt, keine
  * Anmeldung — reines Entwicklungswerkzeug). Liefert die statische Seite aus
  * den Ressourcen und eine kleine JSON-API:
+ * Host/Origin begrenzen Browserherkunft, authentifizieren aber keine lokalen
+ * Benutzer oder Prozesse. Origin-lose lokale API-Clients sind bewusst erlaubt.
  *
  * <pre>
  *   GET  /api/status          Phase, Konfiguration, Kennzahlen, Mitarbeiter, Logticker

@@ -187,12 +187,25 @@ test("Alter grüner PDF-Bestand wird bei LibreOffice-Fehler nicht erneut veröff
 test("Neue negative Ausgabe darf veröffentlicht werden; neue Belege entwerten Abruf",t=>{
   const repo=fixture(t);let calls=0;
   const marker=publish(repo,{run(_command,args){if(++calls===1){const docx=args[1];write(repo,path.relative(repo,docx),"PK fake docx");write(repo,path.relative(repo,path.join(path.dirname(docx),"stand.json")),{...collect(repo),docxSha256:hash("PK fake docx"),certificateId:"negative"});}else {const directory=args[args.indexOf("--outdir")+1];write(repo,path.relative(repo,path.join(directory,"testzertifikat.pdf")),"%PDF-1.7\n"+"x".repeat(200));}}});
-  assert.equal(marker.verdict,"UNVOLLSTÄNDIG");assert.equal(current(repo).state,"READY");simulator(repo,"20261013-140000","FACH:POSITIV","FAIL");assert.throws(()=>current(repo),/älteren|veränderten/);
+  assert.equal(marker.verdict,"UNVOLLSTÄNDIG");assert.equal(current(repo).state,"READY");
+  assert.deepEqual(marker.scope.excludedCategories,["ECHT","RECHNER"]);
+  const markerPath="doc/testzertifikat-werkzeug/current-certificate.json";
+  write(repo,markerPath,{...marker,scope:{...marker.scope,excludedCategories:[]}});
+  assert.throws(()=>current(repo),/Zertifikatsumfang/);
+  const missingScope={...marker};delete missingScope.scope;write(repo,markerPath,missingScope);
+  assert.throws(()=>current(repo),/Zertifikatsumfang/);
+  write(repo,markerPath,{...marker,verdict:"BESTANDEN"});assert.throws(()=>current(repo),/Zertifikatsurteil/);
+  write(repo,markerPath,marker);
+  simulator(repo,"20261013-140000","FACH:POSITIV","FAIL");assert.throws(()=>current(repo),/älteren|veränderten/);
 });
 test("Nur vollständige aktuelle Belege aller Schichten ergeben BESTANDEN",t=>{
   const repo=fixture(t);for (const [index,key] of MATRIX.entries()) if (!["FACH:POSITIV","FACH:NEGATIV"].includes(key)) simulator(repo,"20261013-10000"+index,key);
   glm(repo);junitRun(repo,"main","main");junitRun(repo,"testsweet","own");const evidence=collect(repo);
   assert.equal(evidence.verdict,"BESTANDEN",evidence.warnungen.join("\n"));
+  assert.deepEqual(evidence.scope.simulatorCombinations,MATRIX);
+  assert.deepEqual(evidence.scope.excludedCategories,["ECHT","RECHNER"]);
+  assert.deepEqual(evidence.scope.glmCategories,["POSITIV","NEGATIV"]);
+  assert.match(evidence.scope.label,/ohne ECHT\/RECHNER/);
   const subset=path.join(repo,"testsweet/target/test-evidence-history/own/TEST-example.SimulatorTest.xml");fs.writeFileSync(subset,"<broken>");assert.notEqual(collect(repo).verdict,"BESTANDEN");
 });
 test("Fehlende einzelne Testmethode verhindert Freigabe auch bei vorhandenem Klassentest",t=>{

@@ -92,6 +92,7 @@ class StornoZwischenstandTest {
 
     private Simulator simulator(Database database) throws Exception {
         Simulator simulator = new Simulator();
+        WorkerIdentityFixture.prepare(simulator, "sb-test");
         // Der gemeinsame Prüfpfad akzeptiert das ConnectionPool-Interface über webPool.
         set(simulator,"webPool",new ConnectionPool() {
             public Connection getConnection() { database.borrows++; return database.connection; }

@@ -13,6 +13,35 @@ import static org.junit.jupiter.api.Assertions.*;
 class SweetServerLlmHttpTest {
     @TempDir Path root;
 
+    @Test void localClientsRemainAllowedButForeignHostsAndOriginsAreRejected() throws Exception {
+        try (SweetServer server = new SweetServer(new Simulator(), 0, root);
+             HttpClient client = HttpClient.newHttpClient()) {
+            server.start();
+            String base = "http://127.0.0.1:" + server.port();
+            // Absichtlich keine Nutzeranmeldung: lokale CLI-Clients sind Teil des Vertrags.
+            assertEquals(200, client.send(HttpRequest.newBuilder(URI.create(base + "/api/status")).GET().build(),
+                    HttpResponse.BodyHandlers.ofString()).statusCode());
+            for (String origin : new String[]{"null", "https://foreign.invalid", "http://localhost:" + server.port(), base + "/extra"}) {
+                var response = client.send(HttpRequest.newBuilder(URI.create(base + "/api/llm/config"))
+                        .header("Origin", origin).POST(HttpRequest.BodyPublishers.ofString("{\"cases\":6}")).build(),
+                        HttpResponse.BodyHandlers.ofString());
+                assertEquals(403, response.statusCode(), origin);
+            }
+            var sameOrigin = client.send(HttpRequest.newBuilder(URI.create(base + "/api/llm/config"))
+                    .header("Origin", base).POST(HttpRequest.BodyPublishers.ofString("{\"cases\":6}")).build(),
+                    HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, sameOrigin.statusCode());
+            try (var socket = new java.net.Socket("127.0.0.1", server.port())) {
+                socket.setSoTimeout(5_000);
+                socket.getOutputStream().write(("GET /api/status HTTP/1.1\r\nHost: foreign.invalid:" + server.port()
+                        + "\r\nConnection: close\r\n\r\n").getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+                String status = new java.io.BufferedReader(new java.io.InputStreamReader(socket.getInputStream(),
+                        java.nio.charset.StandardCharsets.UTF_8)).readLine();
+                assertNotNull(status);assertTrue(status.contains(" 403 "), status);
+            }
+        }
+    }
+
     @Test void credentialsRemainServerSideAndForeignOriginCannotChangeThem() throws Exception {
         try (SweetServer server = new SweetServer(new Simulator(), 0, root);
              HttpClient client = HttpClient.newHttpClient()) {

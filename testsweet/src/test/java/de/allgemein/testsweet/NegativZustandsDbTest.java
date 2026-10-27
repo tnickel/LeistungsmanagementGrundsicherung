@@ -27,6 +27,7 @@ class NegativZustandsDbTest {
         String prefix = "SWEET-STATE-" + UUID.randomUUID().toString().substring(0, 8) + "-";
         String employee = "sb-state-" + UUID.randomUUID().toString().substring(0, 8);
         Simulator simulator = new Simulator();
+        WorkerIdentityFixture.prepare(simulator, employee);
         var orders = new java.util.ArrayList<>(new SzenarioBibliothek(42).erzeuge(60, prefix + "P-"));
         orders.addAll(new SzenarioBibliothek(20261013).erzeugeNegativ(500, prefix + "N-"));
         try (var pool = new SimpleConnectionPool(url, user, pass, 3); var log = new SweetLog(temp)) {

@@ -469,6 +469,17 @@ grüne Prüfschicht. Die SHA-256-Kette belegt lokale Konsistenz von Dokumenten u
 Anfrage-/Antwortprotokollen; sie beweist keine interne Verarbeitung beim Anbieter und
 ist keine digitale Signatur gegen einen Angreifer, der sämtliche lokalen Belege ersetzen kann.
 
+GUI, Deckblatt und maschinenlesbarer Export nennen diesen Umfang ausdrücklich als
+**festgelegte Prüfmatrix ohne ECHT/RECHNER**. Ein BESTANDEN ist kein Nachweis für sämtliche
+verfügbaren Kategorien und kein vollständiges Fachrechtsgutachten.
+
+Im Fachschichtmodus sind Worker und Freigabeidentitäten getrennte Größen: Auch bei einem
+Worker werden mindestens zwei ausdrücklich vorbereitete simulierte Kennungen verwendet.
+Nur registrierte, voneinander verschiedene Kennungen dürfen anlegen und freigeben. Dieser
+Modus prüft die fachliche Identitätstrennung, keine Anmeldung echter Personen. Der Webmodus
+verwendet getrennte angemeldete Testkonten. Der jeweilige Vier-Augen-Prüfumfang steht im
+Laufstatus sowie in PDF-/Markdown-Berichten; zusätzliche Kennungen erhöhen nicht die Workerzahl.
+
 ## Grafik- und Diagramm-Generierung
 
 Die Testdokumentation und Weboberfläche nutzen ein automatisiertes Grafiksystem:
@@ -497,6 +508,13 @@ unter „Datenbesitz und Aufräumen“.
 Die Oberfläche lauscht nur auf 127.0.0.1, hat keine Anmeldung und erlaubt
 Löschungen (Aufräumen) — ausschließlich als lokales Entwicklungswerkzeug
 betreiben.
+
+Host-/Origin-Prüfungen begrenzen fremde Browserherkunft; sie sind keine
+Authentifizierung lokaler Benutzer oder Prozesse. Lokale API-Clients ohne Origin-Header
+sind zugelassen und können auch Läufe, Abbruch, Konfiguration und Exporte auslösen.
+Deshalb setzt der Betrieb einen vertrauenswürdigen lokalen Rechner und vertrauenswürdige
+lokale Benutzer voraus. Loopback allein bietet keine Trennung mehrerer Benutzer dieses
+Rechners; Weiterleitung oder öffentliche Bereitstellung liegt außerhalb dieser Betriebsgrenze.
 
 ### Wiederaufnahme und globale Prüfergebnisse
 

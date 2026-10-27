@@ -150,6 +150,7 @@ class SzenarioAbdeckungTest {
     @Test void allgemeinerRendererTimeoutIstKeinSessiontodUndWirdNichtWiederholt() throws Exception {
         try (var log = new SweetLog(temp)) {
             Simulator simulator = new Simulator(); set(simulator, "log", log);
+            WorkerIdentityFixture.prepare(simulator, "sb-test");
             AtomicInteger restarts = new AtomicInteger();
             Auftrag order = new Auftrag(1, "WEB", "SWEET-TEST", "", "", List.of(), List.of())
                     .mitWebAktionen(List.of(WebAktion.wiederholbar("Navigation", (d, c) -> {
@@ -165,6 +166,7 @@ class SzenarioAbdeckungTest {
     @Test void workerErrorBrichtStressSofortAbUndLoestDieWellenbarriere() throws Exception {
         try (var log = new SweetLog(temp)) {
             Simulator simulator = new Simulator();
+            WorkerIdentityFixture.prepare(simulator, "sb-test");
             Auftrag first = new Auftrag(1, "STRESS-ANLEGEN", "SWEET-TEST", "", "", List.of(
                     SzenarioAktion.schritt("Fataler Fehler", (s, i, k, c) -> { throw new AssertionError("CONTROLLED_WORKER_CRASH"); })), List.of());
             Auftrag second = new Auftrag(2, "STRESS-BEARBEITEN", "SWEET-TEST", "", "", List.of(), List.of());

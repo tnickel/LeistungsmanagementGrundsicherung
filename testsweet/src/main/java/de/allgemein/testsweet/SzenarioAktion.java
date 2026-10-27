@@ -41,6 +41,9 @@ public record SzenarioAktion(String name, String erwarteterFehler, Aktion funkti
             throw new IllegalArgumentException("Zwischenstandsprüfung ist kein erwarteter Fachfehler");
     }
 
+    /** Bewusster Fragmentvergleich für variable IDs/Beträge und ergänzende Meldungsteile.
+     * Der Code muss exakt passen. Aufrufer müssen einen konkreten Abwehrgrund vorgeben;
+     * generische Wörter wie „Fehler“ oder „VALIDATION“ bestätigen keinen fachlichen Grund. */
     public boolean akzeptiert(FachlicheException fehler) {
         return erwarteterFehler != null && erwarteterFehler.equals(fehler.code())
                 && (erwarteteFehlergruende.isEmpty() || fehler.getMessage() != null

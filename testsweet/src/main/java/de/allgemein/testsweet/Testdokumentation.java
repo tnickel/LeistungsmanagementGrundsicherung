@@ -119,6 +119,7 @@ final class Testdokumentation {
                 + " (" + simulator.laufdauerSekunden() + " s)");
         pdf.paar("Modus", (istWeb ? "Weboberfläche (Selenium, Modus 2)" : "Fachschicht (Modus 1)")
                 + " — Testfallkategorie " + simulator.letzteKategorie());
+        pdf.paar("Vier-Augen-Prüfumfang", simulator.vierAugenPruefumfang());
         pdf.paar("Datenbank", simulator.dbUrl + " (Benutzer: " + simulator.dbUser + ")");
         if (simulator.konfiguration() != null) {
             pdf.paar("Konfiguration", simulator.konfiguration().mitarbeiter() + " simulierte "

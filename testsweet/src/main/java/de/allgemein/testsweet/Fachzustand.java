@@ -13,6 +13,10 @@ import java.util.Map;
  * erlaubt; vorhandene Journalzeilen, Fachbuchungen und sämtliche Fachspalten sind unveränderlich.
  * Sequences, Sitzungen und das technische Transaktions-Audit gehören nicht zum Fachbestand. */
 final class Fachzustand {
+    private static final java.util.Set<String> READ_AUDIT_COLUMNS = java.util.Set.of(
+            "ID", "BG_ID", "AKTION_TEXT", "SACHBEARBEITER_ID", "ERSTELLT_AM");
+    private static final List<String> READ_AUDIT_TYPES = List.of("Vorgangsdaten (Detail)",
+            "Bescheiddaten", "Bescheid-Druckansicht", "Auszahlungsdaten (Wiederholung)");
     private final Map<String, List<Map<String, String>>> tabellen;
 
     Fachzustand(Map<String, List<Map<String, String>>> tabellen) {
@@ -79,7 +83,7 @@ final class Fachzustand {
                 var old = existing.remove(row.get("ID"));
                 if (old != null) {
                     if (!old.equals(row)) differences.add("JOURNAL: vorhandene Zeile verändert");
-                } else if (row.get("AKTION_TEXT") == null || !row.get("AKTION_TEXT").startsWith("Einsicht: ")) {
+                } else if (!isAllowedReadAudit(row)) {
                     differences.add("JOURNAL: unerlaubte neue Fachbuchung");
                 }
             }
@@ -94,6 +98,21 @@ final class Fachzustand {
                 "Abgewehrter Fehlversuch hat den Fachbestand verändert: " + String.join("; ", differences));
     }
 
+    /** Ohne eigenen Journaltyp wird nur der vollständige bekannte Produktvertrag freigestellt.
+     * Neue Texte, zusätzliche Spalten und fremde BGs sind ausdrücklich keine Einsichts-Ausnahme. */
+    private boolean isAllowedReadAudit(Map<String, String> row) {
+        if (!row.keySet().equals(READ_AUDIT_COLUMNS) || row.get("ID") == null
+                || !row.get("ID").matches("[1-9][0-9]*") || row.get("ERSTELLT_AM") == null
+                || row.get("ERSTELLT_AM").isBlank()) return false;
+        String actor = row.get("SACHBEARBEITER_ID"), bg = row.get("BG_ID");
+        if (actor == null || actor.isBlank() || !actor.equals(actor.trim()) || actor.length() > 50
+                || actor.indexOf('\n') >= 0 || actor.indexOf('\r') >= 0 || bg == null
+                || tabellen.getOrDefault("BEDARFSGEMEINSCHAFT", List.of()).stream()
+                    .noneMatch(value -> bg.equals(value.get("ID")))) return false;
+        return READ_AUDIT_TYPES.stream().anyMatch(type -> ("Einsicht: " + type + " durch " + actor
+                + " (Zugriffsprotokoll § 35 SGB I / Art. 32 DSGVO)").equals(row.get("AKTION_TEXT")));
+    }
+
     /**
      * Fachliche Prüfsumme (SHA-256, auf 16 Hex-Zeichen gekürzt) über alle Tabellen
      * ohne die erlaubten Einsichts-Audits im Journal. Gleiche Prüfsumme zweier
@@ -106,8 +125,7 @@ final class Fachzustand {
             for (var tabelle : tabellen.entrySet()) {
                 digest.update((tabelle.getKey() + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 for (var zeile : tabelle.getValue()) {
-                    if (tabelle.getKey().equals("JOURNAL") && zeile.get("AKTION_TEXT") != null
-                            && zeile.get("AKTION_TEXT").startsWith("Einsicht: ")) continue;
+                    if (tabelle.getKey().equals("JOURNAL") && isAllowedReadAudit(zeile)) continue;
                     digest.update((new java.util.TreeMap<>(zeile) + "\n")
                             .getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 }

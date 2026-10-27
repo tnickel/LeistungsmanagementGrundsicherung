@@ -21,12 +21,15 @@ import java.util.UUID;
 
 /**
  * Erzeugt den Auftragstopf: Anwenderszenarien mit gestreuten Parametern und der
- * vollständigen Erwartungshaltung an den Datenbank-Endzustand. Die erwarteten
- * Zahlbeträge werden vorab mit derselben puren Berechnung
+ * vollständigen Erwartungshaltung an den Datenbank-Endzustand. Ein erster
+ * Rechenvorschlag stammt aus derselben puren Berechnung
  * ({@link Leistungsberechnung}, KdU-Prüfung aus wie im Service-Standard)
- * ermittelt, mit der später die Fachschicht rechnet — Abweichungen in der
- * Datenbank werden zusätzlich durch eine unabhängige BigDecimal-Nachrechnung
- * sämtlicher dokumentierter Rechenblöcke im Verifikator abgesichert.
+ * wie die spätere Fachschicht. SQL-Übereinstimmung mit diesem Vorschlag allein
+ * genügt ausdrücklich nicht: Der Verifikator rechnet sämtliche dokumentierten
+ * Blöcke mit der unabhängigen 2026-Referenz nach. Jede dabei erkannte Abweichung
+ * verhindert den Status VERIFIZIERT, auch wenn Datenbank und Vorschlag denselben
+ * Fehler enthalten. Die Referenz sichert die abgebildete Arithmetik, nicht die
+ * Vollständigkeit der rechtlichen Einzelprüfung.
  *
  * <p>Mit festem Seed ist jeder Lauf reproduzierbar (gleiche Szenarien in gleicher
  * Reihenfolge); ohne Seed (0) wird ein zufälliger gewählt und protokolliert.</p>

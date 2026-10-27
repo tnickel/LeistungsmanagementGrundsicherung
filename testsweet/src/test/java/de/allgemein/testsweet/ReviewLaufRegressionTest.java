@@ -113,6 +113,7 @@ class ReviewLaufRegressionTest {
 
     @Test void webDenkzeitWirdZwischenDenAktionenAngewendet() throws Exception {
         Simulator simulator = new Simulator();
+        WorkerIdentityFixture.prepare(simulator, "sb-01");
         try (SweetLog log = new SweetLog(temp.resolve("logs"))) {
             set(simulator, "log", log);
             AtomicInteger pauses = new AtomicInteger();

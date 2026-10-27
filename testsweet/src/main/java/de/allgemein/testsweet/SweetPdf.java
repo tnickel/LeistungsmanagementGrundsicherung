@@ -176,7 +176,8 @@ final class SweetPdf {
 
     /**
      * Fügt ein Bild oder Diagramm zentriert ein.
-     * Erkennt Ressourcen im Classpath (/sweet/assets/...) oder Dateipfade.
+     * Erkennt Ressourcen im Classpath (/sweet/assets/...) oder Dateien aus den
+     * freigegebenen Assetverzeichnissen des Projekts.
      * Ist die Renderhöhe <= 0, wird sie proportional aus den Pixelmaßen berechnet.
      */
     void bildZentriert(String pfadOderRessource, float renderBreite, float renderHoehe, String titel) {
@@ -212,44 +213,42 @@ final class SweetPdf {
     }
 
     private static BildDaten ladeBildDaten(String pfadOderRessource) {
-        if (pfadOderRessource == null || pfadOderRessource.isBlank()) {
-            return null;
-        }
-        return BILD_CACHE.computeIfAbsent(pfadOderRessource, key -> {
-            // 1. Classpath-Ressource versuchen
-            String[] resourcePfade = {
-                    key.startsWith("/") ? key : "/" + key,
-                    "/sweet/assets/" + key,
-                    "/sweet/" + key,
-                    "/assets/" + key
-            };
-            for (String rPfad : resourcePfade) {
-                try (InputStream in = SweetPdf.class.getResourceAsStream(rPfad)) {
-                    if (in != null) {
-                        return leseBildStream(in);
-                    }
-                } catch (Exception ignored) {
-                }
-            }
-
-            // 2. Dateisystem versuchen
-            String[] dateiPfade = {
-                    key,
-                    "testsweet/src/main/resources/sweet/assets/" + key,
-                    "testsweet/assets/" + key,
-                    "doc/manual-bilder/" + key
-            };
-            for (String dPfad : dateiPfade) {
-                Path p = Path.of(dPfad);
-                if (Files.exists(p)) {
-                    try (InputStream in = Files.newInputStream(p)) {
-                        return leseBildStream(in);
-                    } catch (Exception ignored) {
-                    }
-                }
-            }
-            return null;
+        String assetName = imageAssetName(pfadOderRessource);
+        if (assetName == null) return null;
+        return BILD_CACHE.computeIfAbsent(assetName, key -> {
+            try (InputStream in = SweetPdf.class.getResourceAsStream("/sweet/assets/" + key)) {
+                if (in != null) return leseBildStream(in);
+            } catch (IOException ignored) { }
+            return loadAssetFile(BuildEvidence.currentRoot(), key);
         });
+    }
+
+    /** Nur Bildnamen oder die bisherigen expliziten Asset-Präfixe, keine freien Pfade. */
+    static String imageAssetName(String value) {
+        if (value == null) return null;
+        String name = value.replace('\\', '/');
+        for (String prefix : List.of("/sweet/assets/", "sweet/assets/",
+                "testsweet/src/main/resources/sweet/assets/", "testsweet/assets/", "doc/manual-bilder/")) {
+            if (name.startsWith(prefix)) { name = name.substring(prefix.length()); break; }
+        }
+        return !name.contains("..") && name.matches("(?i)[a-z0-9][a-z0-9._-]*\\.(?:jpg|jpeg|png)") ? name : null;
+    }
+
+    static BildDaten loadAssetFile(Path repository, String name) {
+        if (name == null || !name.equals(imageAssetName(name))) return null;
+        try {
+            Path root = repository.toRealPath();
+            for (String relative : List.of("testsweet/src/main/resources/sweet/assets", "testsweet/assets", "doc/manual-bilder")) {
+                try {
+                    Path base = root.resolve(relative).toRealPath();
+                    if (!base.startsWith(root) || !Files.isDirectory(base)) continue;
+                    Path file = base.resolve(name).toRealPath();
+                    if (!file.startsWith(base) || !Files.isRegularFile(file)) continue;
+                    try (InputStream in = Files.newInputStream(file)) { return leseBildStream(in); }
+                } catch (IOException ignored) { }
+            }
+        } catch (IOException ignored) { }
+        return null;
     }
 
     private static BildDaten leseBildStream(InputStream in) throws IOException {

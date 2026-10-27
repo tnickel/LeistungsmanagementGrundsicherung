@@ -63,6 +63,7 @@ final class Mitarbeiter implements Runnable {
         String kollege = simulator.zufallsKollege(kuerzel);
         kontext.put("mitarbeiter", kuerzel);
         kontext.put("kollege", kollege);
+        kontext.put("vierAugenPruefumfang", simulator.vierAugenPruefumfang());
 
         simulator.log().mitarbeiterEreignis(kuerzel,
                 "nimmt Auftrag " + auftrag.id + " (" + auftrag.szenarioTyp

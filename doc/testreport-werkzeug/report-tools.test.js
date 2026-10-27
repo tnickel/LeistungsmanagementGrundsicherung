@@ -154,6 +154,39 @@ test("archivierte Laufzahlen bleiben nach Quellenänderung lesbar ohne aktuellen
   assert.deepEqual(metrics.totals,{tests:2,executed:1,passed:1,failures:0,errors:0,skipped:1});
   assert(metrics.modules.every(x=>x.recorded.current===false));
 });
+test("aktueller JUnit-Prüfstand zählt Voll- und Nachholbelege ohne Doppelzählung",t=>{
+  const repo=fixture(t);
+  write(repo,"src/test/java/example/ConfigTest.java","package example; class ConfigTest { @Test void configured() {} }");
+  junit(repo,"testsweet");
+  const classes=["example.GoldTest","example.ConfigTest"];
+  function archive(id,startedAt,suites){
+    const reports=suites.map(([name,method,skipped])=>{
+      const raw=`<testsuite name="${name}" tests="1" failures="0" errors="0" skipped="${skipped?1:0}"><testcase classname="${name}" name="${method}">${skipped?"<skipped/>":""}</testcase></testsuite>`;
+      const file=`target/test-evidence-history/${id}/TEST-${name}.xml`;
+      write(repo,file,raw);return {path:file,sha256:evidence.hash(raw)};
+    });
+    const marker={schemaVersion:1,kind:"JUNIT_RUN",module:"main",runId:id,state:"COMPLETED",startedAt,
+      completedAt:startedAt.replace(":00Z",":01Z"),expectedClasses:classes,buildEvidence:build(repo,"main"),reports};
+    write(repo,`target/test-evidence-history/${id}.json`,marker);
+    write(repo,"target/test-evidence.json",marker);return marker;
+  }
+  archive("full","2026-10-26T12:00:00Z",[[classes[0],"one",false],[classes[1],"configured",true]]);
+  const focused=archive("configuration-followup","2026-10-27T12:00:00Z",[[classes[1],"configured",false]]);
+  const strict=evidence.junit(repo,"main");
+  assert.equal(strict.state,"PASS");assert.equal(strict.tests,2);assert.equal(strict.skipped,0);
+  assert.equal(strict.marker.reports.length,1,"Der letzte Teillauf allein enthält nicht das Gesamtinventar");
+  const recorded=recordedJUnit(repo,strict);
+  assert.equal(recorded.tests,2);assert.equal(recorded.executed,2);assert.equal(recorded.passed,2);
+  assert.equal(recorded.evidenceKind,"CURRENT_INVENTORY");assert.equal(recorded.current,true);
+  assert.equal(recorded.date,focused.startedAt);assert.equal(recorded.dateKind,"LATEST_RUN_START");
+  assert.equal(recorded.runId,null,"Der zusammengesetzte Umfang darf keine einzelne Lauf-ID vortäuschen");
+  assert.equal(recorded.latestRunId,focused.runId);
+  const metrics=reportMetrics(repo,runs.reportStand(repo));
+  assert.equal(metrics.complete,true);assert.equal(metrics.totals.tests,3);assert.equal(metrics.totals.executed,3);
+  write(repo,focused.reports[0].path,"<testsuite/>");
+  const broken=evidence.junit(repo,"main");
+  assert.notEqual(broken.state,"PASS");assert.equal(recordedJUnit(repo,broken),null);
+});
 test("archivierte Zähler verlangen vollständige unveränderte XML-Belege",t=>{
   const repo=fixture(t),marker=junit(repo),item={marker,state:"UNVERIFIED"};
   assert.equal(recordedJUnit(repo,item).tests,1);

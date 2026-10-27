@@ -1,4 +1,5 @@
-// Lesbare Kennzahlen aus genau einem archivierten Prüflauf je Modul.
+// Lesbare Kennzahlen des vollständig geprüften aktuellen JUnit-Inventars;
+// ohne aktuellen PASS bleibt ausschließlich ein vollständiger archivierter Einzellauf zulässig.
 // Historische Zähler ändern niemals das strenge aktuelle Gesamturteil.
 const evidence = require("../testzertifikat-werkzeug/certificate-evidence");
 
@@ -9,6 +10,19 @@ function recordedJUnit(repo, item) {
       || !marker.reports.length || !Array.isArray(marker.expectedClasses) || !marker.expectedClasses.length
       || marker.expectedClasses.some(name=>typeof name!=="string" || !name.trim())
       || new Set(marker.expectedClasses).size!==marker.expectedClasses.length) return null;
+  if (item.state === "PASS") {
+    // certificate-evidence.junit hat Quellen, Build, XMLs, Methodenabdeckung und
+    // Nachholungen bereits geprüft und Einzeltests laufübergreifend dedupliziert.
+    // Der letzte Marker kann nur einen nachgeholten Teilumfang enthalten.
+    const totals = Object.fromEntries(["tests","failures","errors","skipped"].map(key=>[key,item[key]]));
+    if (Object.values(totals).some(value=>!Number.isInteger(value) || value<0)
+        || totals.tests<=0 || totals.failures+totals.errors+totals.skipped!==0
+        || !Array.isArray(item.suites) || !item.suites.length) return null;
+    return {...totals,executed:totals.tests,passed:totals.tests,current:true,
+      evidenceKind:"CURRENT_INVENTORY",date:marker.startedAt,dateKind:"LATEST_RUN_START",
+      runId:null,latestRunId:marker.runId,
+      sourceSha256:marker.sourceSha256 || marker.buildEvidence?.sourceSha256};
+  }
   try {
     const totals = {tests:0,failures:0,errors:0,skipped:0};
     const names = new Set();

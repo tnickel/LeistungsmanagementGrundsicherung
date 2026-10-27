@@ -179,15 +179,15 @@ class PruefpaketDokumentationTest {
                 "BEDARFSGEMEINSCHAFT", List.of(java.util.Map.of("ID", "1", "AKTENZEICHEN", "SWEET-1")),
                 "JOURNAL", List.of(
                         java.util.Map.of("ID", "10", "AKTION_TEXT", "Vorgang angelegt"),
-                        java.util.Map.of("ID", "11", "AKTION_TEXT", "Einsicht: Detail durch sb-sim-01")));
+                        readAudit("11", "sb-sim-01")));
         var basis = new Fachzustand(new java.util.LinkedHashMap<>(tabellen));
         // Gleiche Fachsubstanz + zusätzliche Einsichts-Audit-Zeile: Prüfsumme unverändert.
         var mitEinsicht = new Fachzustand(new java.util.LinkedHashMap<>(Map.of(
                 "BEDARFSGEMEINSCHAFT", List.of(java.util.Map.of("ID", "1", "AKTENZEICHEN", "SWEET-1")),
                 "JOURNAL", List.of(
                         java.util.Map.of("ID", "10", "AKTION_TEXT", "Vorgang angelegt"),
-                        java.util.Map.of("ID", "11", "AKTION_TEXT", "Einsicht: Detail durch sb-sim-01"),
-                        java.util.Map.of("ID", "12", "AKTION_TEXT", "Einsicht: Detail durch sb-sim-02")))));
+                        readAudit("11", "sb-sim-01"),
+                        readAudit("12", "sb-sim-02")))));
         assertEquals(basis.pruefsumme(), mitEinsicht.pruefsumme());
         // Fachbestand verändert: Prüfsumme weicht ab.
         var veraendert = new Fachzustand(new java.util.LinkedHashMap<>(Map.of(
@@ -195,6 +195,12 @@ class PruefpaketDokumentationTest {
                 "JOURNAL", List.of(java.util.Map.of("ID", "10", "AKTION_TEXT", "Vorgang angelegt")))));
         assertNotEquals(basis.pruefsumme(), veraendert.pruefsumme());
         assertEquals(16, basis.pruefsumme().length());
+    }
+
+    private static Map<String, String> readAudit(String id, String actor) {
+        return Map.of("ID", id, "BG_ID", "1", "SACHBEARBEITER_ID", actor,
+                "ERSTELLT_AM", "2026-10-27 12:00:00.0", "AKTION_TEXT", "Einsicht: Vorgangsdaten (Detail) durch "
+                        + actor + " (Zugriffsprotokoll § 35 SGB I / Art. 32 DSGVO)");
     }
 
     @Test void einkommenStehtImErgebnistextDesErfassungsschritts() {

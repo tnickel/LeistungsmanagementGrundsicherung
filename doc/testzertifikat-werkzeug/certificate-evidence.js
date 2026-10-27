@@ -5,6 +5,9 @@ const crypto = require("crypto");
 const xml = require("../handbuch-werkzeug/node_modules/xml-js");
 const hash = value => crypto.createHash("sha256").update(value).digest("hex");
 const MATRIX = ["FACH:POSITIV", "FACH:NEGATIV", "FACH:LAST", "FACH:STRESS", "WEB:POSITIV", "WEB:NEGATIV", "WEB:LAST"];
+const SCOPE = Object.freeze({label:"Festgelegte Prüfmatrix (ohne ECHT/RECHNER)",
+  simulatorCombinations:Object.freeze([...MATRIX]),automaticSuites:Object.freeze(["main","testsweet"]),
+  glmCategories:Object.freeze(["POSITIV","NEGATIV"]),excludedCategories:Object.freeze(["ECHT","RECHNER"])});
 const array = value => value === undefined ? [] : Array.isArray(value) ? value : [value];
 function inside(repo, relative) {
   if (typeof relative !== "string" || !relative || path.isAbsolute(relative)) throw Error("Ungültiger Nachweispfad");
@@ -351,8 +354,8 @@ function collect(repo) {
     if (fs.existsSync(absolute)) inventory.push({path:path.relative(repo,absolute).replace(/\\/g,"/"),sha256:hash(fs.readFileSync(absolute))});
   }
   inventory.sort((a,b)=>a.path.localeCompare(b.path));
-  const fingerprint = hash(JSON.stringify({inventory,sourceInventory,suiteEvidence:suites.inventory,verdict,states:layers.map(layer=>({id:layer.id,state:layer.state,reasons:layer.reasons}))}));
-  return {schemaVersion:2,verdict,layers,laeufe:runs.selected,llm,automatic,notApplicable:["WEB:STRESS"],
+  const fingerprint = hash(JSON.stringify({inventory,sourceInventory,suiteEvidence:suites.inventory,scope:SCOPE,verdict,states:layers.map(layer=>({id:layer.id,state:layer.state,reasons:layer.reasons}))}));
+  return {schemaVersion:2,scope:SCOPE,verdict,layers,laeufe:runs.selected,llm,automatic,notApplicable:["WEB:STRESS"],
     warnungen:layers.filter(layer=>layer.state !== "PASS").flatMap(layer=>[`${layer.id}: ${layer.state}`,...layer.reasons]),
     evidenceFingerprint:fingerprint,evidenceFiles:inventory,sourceInventory,suiteEvidence:suites.inventory};
 }

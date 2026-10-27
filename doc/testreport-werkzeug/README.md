@@ -45,8 +45,11 @@ abgewiesen; eine lebende, nur langsame Exportprozess wird nicht als verwaist beh
 **UNVOLLSTÄNDIG**. JUnit verwendet dieselbe strikte Auswertung wie das gesonderte Zertifikatwerkzeug:
 laufgebundene XML-Dateien, Testinventar und Buildbindung; übersprungene Pflichtprüfungen sind kein PASS.
 
-Daneben zeigt `report-summary.js` die Zähler genau eines vollständig archivierten JUnit-Laufs pro
-Modul, auch wenn dessen Programmstand inzwischen veraltet ist. Dafür müssen alle erwarteten
+Bei einem strengen aktuellen JUnit-PASS zeigt `report-summary.js` den bereits kanonisch geprüften
+Gesamtumfang; nachgeholte Teilprüfungen desselben Quellen-/Buildstands zählen ohne Duplikate mit.
+Das Datum bezeichnet den letzten Teillauf. Andernfalls bleiben die Zähler eines vollständig
+archivierten JUnit-Laufs pro Modul sichtbar, auch wenn dessen Programmstand inzwischen veraltet ist.
+Für diesen historischen Rückfall müssen alle erwarteten
 Klassen genau einmal mit unveränderten, konsistenten XML-Belegen vorliegen. Erfasste, ausgeführte,
 erfolgreiche und ausgelassene Prüffälle werden getrennt gezählt. Diese historische Laufzählung
 ändert weder den aktuellen Ebenenstatus noch das Gesamturteil; sie ist ausdrücklich keine reine

@@ -1180,7 +1180,7 @@ function renderZertifikatSuite(data) {
     const accepted = data.state === "SUCCESS" && data.verdict === "BESTANDEN" && data.certificateCurrent === true && !zertifikatSuiteManuellErsetzt;
     const bad = ["FAILED", "CANCELLED"].includes(data.state) || data.state === "SUCCESS" && !accepted;
     const labels = {IDLE:"Bereit. Ein Klick führt alle Zertifikatsprüfungen aus.", RUNNING:"Zertifikatstests laufen",
-        SUCCESS: accepted ? "Alle Zertifikatstests bestanden. Das Zertifikat ist erstellt." : "Zertifikat nicht aktuell bestätigt.",
+        SUCCESS: accepted ? "Alle Zertifikatstests bestanden. Das Zertifikat ist erstellt (ohne ECHT/RECHNER)." : "Zertifikat nicht aktuell bestätigt.",
         FAILED:"Zertifikatstests fehlgeschlagen. Kein Erfolgszertifikat.", CANCELLED:"Ablauf abgebrochen. Die Prüfung ist unvollständig."};
     const target = $("zertifikat-tests-status");
     target.textContent = zertifikatSuiteManuellErsetzt ? "Letzter Gesamtlauf durch manuelle Aktion ergänzt. Aktuelle Gültigkeit des Zertifikats muss neu geprüft werden." : labels[data.state] + (data.message ? " " + data.message : "");

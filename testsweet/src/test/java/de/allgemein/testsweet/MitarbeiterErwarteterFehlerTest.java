@@ -13,6 +13,7 @@ class MitarbeiterErwarteterFehlerTest {
     @Test void runnerAkzeptiertNurDenTatsaechlichGeworfenenErwartetenCode() throws Exception {
         for (String verhalten : List.of("keinFehler", "falscherCode", "falscherGrund", "richtigerCode")) {
             var simulator = new Simulator(auftrag -> new Fachzustand(java.util.Map.of()));
+            WorkerIdentityFixture.prepare(simulator, "sb-test");
             try (var log = new SweetLog(temp.resolve(verhalten))) {
                 var logFeld = Simulator.class.getDeclaredField("log");
                 logFeld.setAccessible(true);

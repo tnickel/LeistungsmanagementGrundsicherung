@@ -6,6 +6,7 @@ const crypto = require("crypto");
 const os = require("os");
 const {spawnSync} = require("child_process");
 const {pathToFileURL} = require("url");
+const {isDeepStrictEqual} = require("util");
 const {collect,hash,inside} = require("./certificate-evidence");
 function atomicJson(file,value) {
   fs.mkdirSync(path.dirname(file),{recursive:true});
@@ -17,7 +18,10 @@ function current(repo) {
   const file = path.join(repo,"doc/testzertifikat-werkzeug/current-certificate.json");
   const marker = JSON.parse(fs.readFileSync(file,"utf8"));
   if (marker.state !== "READY" || marker.schemaVersion !== 2) throw Error("Kein aktuell erfolgreich veröffentlichtes Zertifikat vorhanden");
-  if (marker.evidenceFingerprint !== collect(repo).evidenceFingerprint) throw Error("Zertifikat gehört zu älteren oder veränderten Prüfbelegen; neu erstellen");
+  const evidence = collect(repo);
+  if (marker.evidenceFingerprint !== evidence.evidenceFingerprint) throw Error("Zertifikat gehört zu älteren oder veränderten Prüfbelegen; neu erstellen");
+  if (!isDeepStrictEqual(marker.scope,evidence.scope)) throw Error("Zertifikatsumfang fehlt oder wurde verändert; neu erstellen");
+  if (marker.verdict !== evidence.verdict) throw Error("Zertifikatsurteil widerspricht den aktuellen Prüfbelegen; neu erstellen");
   for (const output of marker.files) if (hash(inside(repo,output.path)) !== output.sha256) throw Error("Zertifikatsdatei fehlt oder wurde verändert");
   return marker;
 }
@@ -68,7 +72,10 @@ function publish(repo,options={}) {
         "--headless","--convert-to","pdf","--outdir",staging,docx]);
     } catch (error) { officeTimedOut=error.exportProcessTimedOut===true;throw error; }
     if (!fs.statSync(pdf).isFile() || fs.statSync(pdf).size < 100 || fs.readFileSync(pdf).subarray(0,5).toString("ascii") !== "%PDF-") throw Error("Neue gültige PDF fehlt");
-    if (stand.evidenceFingerprint !== collect(repo).evidenceFingerprint) throw Error("Prüfbelege haben sich während der Zertifikatserstellung geändert");
+    const latest = collect(repo);
+    if (stand.evidenceFingerprint !== latest.evidenceFingerprint) throw Error("Prüfbelege haben sich während der Zertifikatserstellung geändert");
+    if (!isDeepStrictEqual(stand.scope,latest.scope) || stand.verdict !== latest.verdict)
+      throw Error("Zertifikatsumfang oder Urteil widerspricht den aktuellen Prüfbelegen");
     const outputs = [
       [docx,path.join(tool,"testzertifikat.docx")], [pdf,path.join(tool,"testzertifikat.pdf")],
       [docx,path.join(repo,"doc/SDN-Leistung-LMG-Testzertifikat.docx")], [pdf,path.join(repo,"doc/SDN-Leistung-LMG-Testzertifikat.pdf")],
@@ -83,7 +90,7 @@ function publish(repo,options={}) {
       fs.renameSync(temp,target);
       files.push({path:path.relative(repo,target).replace(/\\/g,"/"),sha256:hash(fs.readFileSync(target))});
     }
-    const marker = {schemaVersion:2,state:"READY",certificateId:stand.certificateId,verdict:stand.verdict,
+    const marker = {schemaVersion:2,state:"READY",certificateId:stand.certificateId,verdict:stand.verdict,scope:stand.scope,
       evidenceFingerprint:stand.evidenceFingerprint,publishedAt:new Date().toISOString(),
       staging:path.relative(repo,staging).replace(/\\/g,"/"),files};
     atomicJson(markerFile,marker);

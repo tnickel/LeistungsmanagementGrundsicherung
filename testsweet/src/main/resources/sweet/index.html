@@ -43,7 +43,7 @@
             <div class="banner-aktionen">
                 <a id="pdfknopf" class="btn btn-primaer" href="/api/pdf" target="_blank">📄 PDF-Testdokumentation öffnen</a>
                 <a id="mdknopf" class="btn btn-sekundaer" href="/api/md" target="_blank">{ } Markdown für KI-Review</a>
-                <button type="button" id="zertifikatknopf" class="btn btn-sekundaer">🏅 Testzertifikat erstellen</button>
+                <button type="button" id="zertifikatknopf" class="btn btn-sekundaer" title="Festgelegte Prüfmatrix: ohne ECHT und RECHNER">🏅 Testzertifikat erstellen (ohne ECHT/RECHNER)</button>
                 <a id="zertifikatlink" class="btn btn-sekundaer" href="/api/zertifikat/pdf" target="_blank" style="display:none">🏅 Zertifikat öffnen (PDF)</a>
                 <button type="button" id="testreportknopf" class="btn btn-sekundaer" title="Management-Bericht als PDF: Kapitel, Ergebnistabellen und belegabhängige Gesamtbewertung">📊 Testreport (PDF) erstellen</button>
                 <a id="testreportlink" class="btn btn-sekundaer" href="/api/testreport/pdf" target="_blank" style="display:none">📊 Testreport öffnen (PDF)</a>
@@ -258,7 +258,8 @@
     <!-- LLM-Nachrechnung & Testzertifikat -->
     <section class="abschnitt" id="llm-abschnitt">
         <div id="zertifikat-tests" class="zertifikat-tests">
-            <h2>Alle Tests bis zum Zertifikat</h2>
+            <h2>Zertifikat für die festgelegte Prüfmatrix</h2>
+            <p><strong>Begrenzter Prüfumfang: ohne ECHT und RECHNER.</strong> Ein bestandenes Zertifikat bestätigt ausschließlich die nachfolgend genannten Prüfungen.</p>
             <p>Automatische Tests, die sieben Simulatorläufe der Zertifikatsmatrix, danach GLM für Positiv-/Negativfälle und zum Schluss das Zertifikat. ECHT und RECHNER sind separate Fachläufe und gehören nicht zu diesem Gesamtlauf. Fehler brechen den Ablauf ab.</p>
             <div class="aktions-knöpfe">
                 <button type="button" id="zertifikat-tests-start" class="btn btn-primaer" disabled>Mache alle Zertifikatstests</button>
@@ -289,7 +290,7 @@
                 </details>
             </div>
             <details><summary>Was wird ausgeführt?</summary>
-                <p>Hauptprogramm- und testsweet-Tests mit Testdatenbank, Fachschicht: Positiv, Negativ, Last und Stress; Weboberfläche: Positiv, Negativ und Last. GLM prüft anschließend die unten gewählte Fallzahl (Stichprobe). Erst mit gültigen Nachweisen wird das Zertifikat erzeugt.</p>
+                <p>Hauptprogramm- und testsweet-Tests mit Testdatenbank, Fachschicht: Positiv, Negativ, Last und Stress; Weboberfläche: Positiv, Negativ und Last. GLM prüft anschließend die unten gewählte Fallzahl (Stichprobe). ECHT und RECHNER bleiben außerhalb dieses Zertifikats. Erst mit gültigen Nachweisen wird das Zertifikat erzeugt.</p>
                 <p>Währenddessen sind Einzelstarts und Konfigurationsänderungen gesperrt. Sie können diese Seite schließen und später wieder öffnen. Die Laufzeit hängt von Datenbank, Browsern und GLM ab; der Balken zeigt abgeschlossene Phasen, keine geschätzte Restzeit.</p>
             </details>
         </div>

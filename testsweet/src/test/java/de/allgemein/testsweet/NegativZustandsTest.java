@@ -25,15 +25,41 @@ class NegativZustandsTest {
     }
 
     @Test void neueEinsichtIstErlaubtAberAenderungAlterAuditsOderFachbuchungNicht() {
-        var original = Map.of("ID", "1", "AKTION_TEXT", "Einsicht: Vorgang durch sb-01");
+        var original = readAudit("1", "1", "sb-01", "Vorgangsdaten (Detail)");
         Fachzustand before = state("JOURNAL", original);
-        assertDoesNotThrow(() -> before.verlangeUnveraendert(new Fachzustand(Map.of("JOURNAL", List.of(original,
-                Map.of("ID", "2", "AKTION_TEXT", "Einsicht: Vorgang durch sb-02"))))));
+        assertDoesNotThrow(() -> before.verlangeUnveraendert(journalState(List.of(original,
+                readAudit("2", "1", "sb-02", "Vorgangsdaten (Detail)")))));
         assertThrows(IllegalStateException.class, () -> before.verlangeUnveraendert(state("JOURNAL",
                 Map.of("ID", "1", "AKTION_TEXT", "Einsicht: manipuliert"))));
-        assertThrows(IllegalStateException.class, () -> before.verlangeUnveraendert(new Fachzustand(Map.of("JOURNAL", List.of(original,
-                Map.of("ID", "2", "AKTION_TEXT", "Auszahlung angeordnet"))))));
-        assertThrows(IllegalStateException.class, () -> before.verlangeUnveraendert(new Fachzustand(Map.of("JOURNAL", List.of()))));
+        assertThrows(IllegalStateException.class, () -> before.verlangeUnveraendert(journalState(List.of(original,
+                Map.of("ID", "2", "AKTION_TEXT", "Auszahlung angeordnet")))));
+        assertThrows(IllegalStateException.class, () -> before.verlangeUnveraendert(journalState(List.of())));
+    }
+
+    @Test void einsichtPraefixVerbirgtKeineFremdenJournalwirkungen() {
+        Fachzustand before = journalState(List.of());
+        var valid = readAudit("2", "1", "sb-02", "Vorgangsdaten (Detail)");
+        var wrongActor = new java.util.LinkedHashMap<>(valid);
+        wrongActor.put("SACHBEARBEITER_ID", "sb-03");
+        var extraColumn = new java.util.LinkedHashMap<>(valid);
+        extraColumn.put("BETRAG", "500.00");
+        var missingActor = new java.util.LinkedHashMap<>(valid);
+        missingActor.remove("SACHBEARBEITER_ID");
+        var fakeText = new java.util.LinkedHashMap<>(valid);
+        fakeText.put("AKTION_TEXT", "Einsicht: Auszahlung angeordnet");
+        for (var row : List.of(wrongActor, extraColumn, missingActor, fakeText,
+                readAudit("2", "1", "sb-02", "Andere Fachbuchung"),
+                readAudit("2", "999", "sb-02", "Vorgangsdaten (Detail)"))) {
+            var after = journalState(List.of(row));
+            assertThrows(IllegalStateException.class, () -> before.verlangeUnveraendert(after));
+            assertNotEquals(before.pruefsumme(), after.pruefsumme(), "Unerlaubte Zeile darf nicht aus Prüfsumme verschwinden");
+        }
+        for (String type : List.of("Vorgangsdaten (Detail)", "Bescheiddaten", "Bescheid-Druckansicht",
+                "Auszahlungsdaten (Wiederholung)")) {
+            var after = journalState(List.of(readAudit("2", "1", "sb-02", type)));
+            assertDoesNotThrow(() -> before.verlangeUnveraendert(after));
+            assertEquals(before.pruefsumme(), after.pruefsumme());
+        }
     }
 
     @Test void passenderFachfehlerMitVorherigerMutationWirdVomMitarbeiterAbgelehnt() throws Exception {
@@ -79,12 +105,22 @@ class NegativZustandsTest {
         }
     }
 
-    private Simulator mutierenderSimulator(AtomicInteger reads) {
-        return new Simulator(order -> state("BEDARFSGEMEINSCHAFT", Map.of("ID", "1", "BUDGET_REST",
+    private Simulator mutierenderSimulator(AtomicInteger reads) throws Exception {
+        var simulator = new Simulator(order -> state("BEDARFSGEMEINSCHAFT", Map.of("ID", "1", "BUDGET_REST",
                 reads.getAndIncrement() == 0 ? "1200" : "1100")));
+        WorkerIdentityFixture.prepare(simulator, "sb-test");
+        return simulator;
     }
     private static Fachzustand state(String table, Map<String, String> row) {
+        if (table.equals("JOURNAL")) return journalState(List.of(row));
         return new Fachzustand(Map.of(table, List.of(row)));
+    }
+    private static Fachzustand journalState(List<Map<String, String>> rows) {
+        return new Fachzustand(Map.of("BEDARFSGEMEINSCHAFT", List.of(Map.of("ID", "1")), "JOURNAL", rows));
+    }
+    private static Map<String, String> readAudit(String id, String bg, String actor, String type) {
+        return Map.of("ID", id, "BG_ID", bg, "SACHBEARBEITER_ID", actor, "ERSTELLT_AM", "2026-10-27 12:00:00.0",
+                "AKTION_TEXT", "Einsicht: " + type + " durch " + actor + " (Zugriffsprotokoll § 35 SGB I / Art. 32 DSGVO)");
     }
     private static void setLog(Simulator simulator, SweetLog log) throws Exception {
         var field = Simulator.class.getDeclaredField("log"); field.setAccessible(true); field.set(simulator, log);

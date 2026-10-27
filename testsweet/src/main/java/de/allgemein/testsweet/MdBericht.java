@@ -66,6 +66,7 @@ final class MdBericht {
         boolean istWeb = "WEB".equalsIgnoreCase(simulator.letzterModus());
         kv(md, "modus", istWeb ? "2-web (Weboberfläche/Selenium)" : "1-fachschicht (SozialLeistungsService direkt)");
         kv(md, "kategorie", String.valueOf(simulator.letzteKategorie()));
+        kv(md, "vier_augen_pruefumfang", simulator.vierAugenPruefumfang());
         kv(md, "start", String.valueOf(simulator.laufStart()));
         kv(md, "ende", String.valueOf(simulator.laufEnde()));
         kv(md, "dauer_s", String.valueOf(simulator.laufdauerSekunden()));

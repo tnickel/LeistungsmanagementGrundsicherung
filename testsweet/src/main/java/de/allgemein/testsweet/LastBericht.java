@@ -261,6 +261,7 @@ final class LastBericht {
         }
         inhalt.paar("Modus", "WEB".equalsIgnoreCase(simulator.letzterModus())
                 ? "Weboberfläche (Selenium)" : "Fachschicht (Transaktionstest)");
+        inhalt.paar("Vier-Augen-Prüfumfang", simulator.vierAugenPruefumfang());
         double durchsatz = RunMetrics.perMinute(agg.abgeschlossen(), simulator.laufdauerMillis());
         inhalt.paar("Durchsatz des Gesamtlaufs", String.format("%.1f abgeschlossene Aufträge je Minute", durchsatz));
         inhalt.text("Messfenster: Laufstart bis Ende der SQL-Verifikation, einschließlich Vorbereitung; "
@@ -326,6 +327,7 @@ final class LastBericht {
         simulator.globalePruefungen().forEach(p -> kv(md, "globale_pruefung", p.toString()));
         kv(md, "kategorie", String.valueOf(simulator.letzteKategorie()));
         kv(md, "modus", "WEB".equalsIgnoreCase(simulator.letzterModus()) ? "WEB" : "FACHSCHICHT");
+        kv(md, "vier_augen_pruefumfang", simulator.vierAugenPruefumfang());
         kv(md, "lauf_start", String.valueOf(simulator.laufStart()));
         kv(md, "lauf_ende", String.valueOf(simulator.laufEnde()));
         kv(md, "dauer_s", String.valueOf(simulator.laufdauerSekunden()));

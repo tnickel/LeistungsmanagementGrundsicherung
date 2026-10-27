@@ -13,6 +13,7 @@ class WebWiederaufnahmeTest {
 
     private Simulator simulator(SweetLog log) throws Exception {
         Simulator simulator = new Simulator();
+        WorkerIdentityFixture.prepare(simulator, "sb-01");
         var field = Simulator.class.getDeclaredField("log");
         field.setAccessible(true);
         field.set(simulator, log);
